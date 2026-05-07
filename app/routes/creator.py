@@ -12,7 +12,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from app.core.security import SessionPayload
 from app.core.templating import templates
 from app.deps import require_role
-from app.services import brands, dms, intel, network, notifications, profiles
+from app.services import brands, dms, intel, jobs, network, notifications, profiles, views
 
 router = APIRouter(tags=["creator"])
 
@@ -147,13 +147,24 @@ async def dm_list(
     request: Request, session: SessionPayload = Depends(require_role("creator"))
 ) -> Response:
     threads = dms.list_threads_for_user(session["user_id"])
-    # The creator only DMs verified brands in this step, so peer profiles
-    # come from the brands service.
-    peers = {t["peer_id"]: brands.get_by_user_id(t["peer_id"]) for t in threads}
+    # Peer can be a verified brand OR a connected creator. Try brand first,
+    # fall back to creator profile.
+    peers: dict[str, dict | None] = {}
+    peer_kinds: dict[str, str] = {}
+    for t in threads:
+        pid = t["peer_id"]
+        b = brands.get_by_user_id(pid)
+        if b is not None:
+            peers[pid] = b
+            peer_kinds[pid] = "brand"
+            continue
+        c = profiles.get_creator_profile(pid)
+        peers[pid] = c
+        peer_kinds[pid] = "creator" if c else "unknown"
     return templates.TemplateResponse(
         request,
         "creator/dm_list.html",
-        {"threads": threads, "peers": peers},
+        {"threads": threads, "peers": peers, "peer_kinds": peer_kinds},
     )
 
 
@@ -163,8 +174,10 @@ async def dm_thread(
     request: Request,
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
-    peer = brands.get_by_user_id(peer_user_id)
-    if peer is None or not peer.get("is_verified"):
+    peer, peer_kind = _resolve_creator_dm_peer(
+        me_id=session["user_id"], peer_user_id=peer_user_id
+    )
+    if peer is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
     thread = dms.get_or_create_thread(session["user_id"], peer_user_id)
@@ -180,6 +193,7 @@ async def dm_thread(
             "messages": messages,
             "peer": peer,
             "peer_id": peer_user_id,
+            "peer_kind": peer_kind,
             "me_id": session["user_id"],
         },
     )
@@ -191,8 +205,10 @@ async def dm_send(
     body: str = Form(...),
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
-    peer = brands.get_by_user_id(peer_user_id)
-    if peer is None or not peer.get("is_verified"):
+    peer, peer_kind = _resolve_creator_dm_peer(
+        me_id=session["user_id"], peer_user_id=peer_user_id
+    )
+    if peer is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
     body = (body or "").strip()
@@ -214,14 +230,49 @@ async def dm_send(
             or creator_profile.get("instagram_handle")
             or "a creator"
         )
+        # Notification target depends on peer's role: brand reads at
+        # /brand/dm/{me}, creator reads at /creator/dm/{me}.
+        target = (
+            f"/brand/dm/{session['user_id']}" if peer_kind == "brand"
+            else f"/creator/dm/{session['user_id']}"
+        )
         notifications.create(
             user_id=peer_user_id,
             kind="new_dm",
             title=f"New message from {sender_label}",
             body=body[:160],
-            link_path=f"/brand/dm/{session['user_id']}",
+            link_path=target,
         )
     return RedirectResponse(f"/creator/dm/{peer_user_id}", status_code=303)
+
+
+def _resolve_creator_dm_peer(
+    *, me_id: str, peer_user_id: str
+) -> tuple[dict | None, str]:
+    """Look up the DM peer for a creator-side route.
+
+    A creator may DM:
+      * any verified brand (always)
+      * another creator only if there's an `accepted` connection between
+        them (creator-creator DMs are gated to deter cold messaging)
+
+    Returns (peer_profile, peer_kind) or (None, "") if the peer isn't
+    reachable from this creator. peer_kind is "brand" or "creator".
+    """
+    brand = brands.get_by_user_id(peer_user_id)
+    if brand is not None and brand.get("is_verified"):
+        return brand, "brand"
+
+    if peer_user_id == me_id:
+        return None, ""
+    creator = profiles.get_creator_profile(peer_user_id)
+    if creator is None or not creator.get("onboarding_completed_at"):
+        return None, ""
+
+    conn = network.get_connection_between(me_id, peer_user_id)
+    if conn is None or conn.get("status") != "accepted":
+        return None, ""
+    return creator, "creator"
 
 
 # -----------------------------------------------------------------------------
@@ -259,6 +310,9 @@ async def network_profile(
     connection = network.get_connection_between(session["user_id"], peer_user_id)
     if connection is not None and connection.get("status") == "blocked":
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    # Record the view (best-effort; don't block render).
+    views.record_view(viewer_id=session["user_id"], viewed_id=peer_user_id)
 
     return templates.TemplateResponse(
         request,
@@ -355,3 +409,281 @@ def _connection_state(connection, *, me_id: str) -> str:
             else "incoming_pending"
         )
     return "none"
+
+
+# -----------------------------------------------------------------------------
+# Profile views (incoming, tier-gated)
+# -----------------------------------------------------------------------------
+
+
+@router.get("/creator/views", response_class=HTMLResponse)
+async def views_list(
+    request: Request,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    profile = profiles.get_creator_profile(session["user_id"]) or {}
+    if not profile.get("onboarding_completed_at"):
+        return RedirectResponse("/onboarding/creator", status_code=302)
+
+    tier = profile.get("tier") or "basic"
+    count = views.count_distinct_viewers(session["user_id"]) if tier in ("pro", "vip") else 0
+    viewers: list[dict] = []
+    viewer_profiles: dict[str, dict | None] = {}
+    if tier == "vip":
+        rows = views.list_recent_viewers(session["user_id"])
+        viewers = rows
+        viewer_profiles = {
+            str(r["viewer_id"]): profiles.get_creator_profile(str(r["viewer_id"]))
+            for r in rows
+        }
+    return templates.TemplateResponse(
+        request,
+        "creator/views.html",
+        {
+            "tier": tier,
+            "count": count,
+            "viewers": viewers,
+            "viewer_profiles": viewer_profiles,
+        },
+    )
+
+
+# -----------------------------------------------------------------------------
+# Job listings (creator-side)
+# -----------------------------------------------------------------------------
+
+
+JOB_TYPES = list(jobs.LISTING_TYPES)
+
+
+@router.get("/creator/jobs", response_class=HTMLResponse)
+async def jobs_board(
+    request: Request,
+    niche: str | None = Query(None),
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    listings = jobs.list_active(niche=niche)
+    poster_ids = {str(lst["poster_user_id"]) for lst in listings}
+    poster_profiles = {pid: profiles.get_creator_profile(pid) for pid in poster_ids}
+    return templates.TemplateResponse(
+        request,
+        "creator/jobs_list.html",
+        {
+            "listings": listings,
+            "poster_profiles": poster_profiles,
+            "active_niche": niche,
+        },
+    )
+
+
+@router.get("/creator/jobs/mine", response_class=HTMLResponse)
+async def jobs_mine(
+    request: Request,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    listings = jobs.list_by_poster(session["user_id"])
+    return templates.TemplateResponse(
+        request, "creator/jobs_mine.html", {"listings": listings}
+    )
+
+
+@router.get("/creator/jobs/new", response_class=HTMLResponse)
+async def jobs_new_form(
+    request: Request,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    return templates.TemplateResponse(
+        request,
+        "creator/jobs_form.html",
+        {
+            "listing": {"is_active": True, "listing_type": "collab"},
+            "is_new": True,
+            "listing_id": None,
+            "error": None,
+            "vocab": _jobs_vocab(),
+        },
+    )
+
+
+@router.post("/creator/jobs")
+async def jobs_create(
+    request: Request,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    form = await request.form()
+    payload, error = _validate_listing(form)
+    if error:
+        return _jobs_form_error(request, form, error, is_new=True, listing_id=None)
+    new_id = jobs.create(poster_id=session["user_id"], payload=payload)
+    if not new_id:
+        return _jobs_form_error(
+            request, form, "Couldn't save the listing. Try again.",
+            is_new=True, listing_id=None,
+        )
+    return RedirectResponse(f"/creator/jobs/{new_id}", status_code=303)
+
+
+@router.get("/creator/jobs/{listing_id}", response_class=HTMLResponse)
+async def jobs_detail(
+    listing_id: str,
+    request: Request,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    listing = jobs.get(listing_id)
+    if listing is None or listing.get("is_taken_down"):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    poster = profiles.get_creator_profile(str(listing["poster_user_id"]))
+    is_mine = str(listing["poster_user_id"]) == session["user_id"]
+
+    # "Apply" CTA logic — for creators, must be connected to the poster.
+    can_dm = False
+    if not is_mine:
+        conn = network.get_connection_between(
+            session["user_id"], str(listing["poster_user_id"])
+        )
+        can_dm = conn is not None and conn.get("status") == "accepted"
+
+    return templates.TemplateResponse(
+        request,
+        "creator/jobs_detail.html",
+        {
+            "listing": listing,
+            "poster": poster,
+            "is_mine": is_mine,
+            "can_dm": can_dm,
+            "viewer_role": "creator",
+        },
+    )
+
+
+@router.get("/creator/jobs/{listing_id}/edit", response_class=HTMLResponse)
+async def jobs_edit_form(
+    listing_id: str,
+    request: Request,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    listing = jobs.get(listing_id)
+    if listing is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    if str(listing["poster_user_id"]) != session["user_id"]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+    return templates.TemplateResponse(
+        request,
+        "creator/jobs_form.html",
+        {
+            "listing": listing,
+            "is_new": False,
+            "listing_id": listing_id,
+            "error": None,
+            "vocab": _jobs_vocab(),
+        },
+    )
+
+
+@router.post("/creator/jobs/{listing_id}")
+async def jobs_update(
+    listing_id: str,
+    request: Request,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    listing = jobs.get(listing_id)
+    if listing is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    if str(listing["poster_user_id"]) != session["user_id"]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+
+    form = await request.form()
+    payload, error = _validate_listing(form)
+    if error:
+        return _jobs_form_error(
+            request, form, error, is_new=False, listing_id=listing_id
+        )
+    if not jobs.update(listing_id, payload):
+        return _jobs_form_error(
+            request, form, "Couldn't save the listing. Try again.",
+            is_new=False, listing_id=listing_id,
+        )
+    return RedirectResponse(f"/creator/jobs/{listing_id}", status_code=303)
+
+
+@router.post("/creator/jobs/{listing_id}/close")
+async def jobs_close(
+    listing_id: str,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    jobs.deactivate(listing_id, poster_id=session["user_id"])
+    return RedirectResponse("/creator/jobs/mine", status_code=303)
+
+
+# -----------------------------------------------------------------------------
+# Job listings: validation + helpers
+# -----------------------------------------------------------------------------
+
+
+def _validate_listing(form):
+    title = (form.get("title") or "").strip()[:140]
+    description = (form.get("description") or "").strip()[:4000]
+    listing_type = (form.get("listing_type") or "").strip()
+    compensation = (form.get("compensation_text") or "").strip()[:240]
+    deadline = (form.get("deadline") or "").strip()[:64]
+    is_active = (form.get("is_active") or "").strip() != "off"
+
+    if not title:
+        return {}, "Please enter a title."
+    if not description:
+        return {}, "Please enter a description."
+    if listing_type not in jobs.LISTING_TYPES:
+        return {}, "Pick a listing type."
+
+    target_niches: list[str] = []
+    seen: set[str] = set()
+    from app.routes.onboarding import CREATOR_NICHES
+    allowed = set(CREATOR_NICHES)
+    for v in form.getlist("target_niches"):
+        s = str(v).strip()
+        if s in allowed and s not in seen:
+            seen.add(s)
+            target_niches.append(s)
+
+    payload = {
+        "title": title,
+        "description": description,
+        "listing_type": listing_type,
+        "compensation_text": compensation or None,
+        "target_niches": target_niches,
+        "deadline": deadline or None,
+        "is_active": is_active,
+    }
+    return payload, None
+
+
+def _jobs_form_error(request, form, message, *, is_new, listing_id):
+    listing = {
+        "title": form.get("title", ""),
+        "description": form.get("description", ""),
+        "listing_type": form.get("listing_type", "collab"),
+        "compensation_text": form.get("compensation_text", ""),
+        "target_niches": list(form.getlist("target_niches")),
+        "deadline": form.get("deadline", ""),
+        "is_active": (form.get("is_active") or "").strip() != "off",
+    }
+    return templates.TemplateResponse(
+        request,
+        "creator/jobs_form.html",
+        {
+            "listing": listing,
+            "is_new": is_new,
+            "listing_id": listing_id,
+            "error": message,
+            "vocab": _jobs_vocab(),
+        },
+        status_code=400,
+    )
+
+
+def _jobs_vocab():
+    from app.routes.onboarding import CREATOR_NICHES
+    return {
+        "listing_types": JOB_TYPES,
+        "niches": CREATOR_NICHES,
+    }

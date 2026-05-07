@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}Profile views · babyg{% endblock %}
+
+{% block content %}
+<section class="feed">
+  <a class="back-link" href="/creator">← dashboard</a>
+
+  <header class="feed-header">
+    <div class="feed-eyebrow">Profile views</div>
+    <h1 class="feed-title">Who's checking you out</h1>
+    {% if tier == "basic" %}
+    <p class="feed-sub">
+      Profile-view insights are available on Pro and VIP. Upgrade in your
+      profile settings to see your numbers.
+    </p>
+    {% elif tier == "pro" %}
+    <p class="feed-sub">
+      <strong>{{ count }}</strong> distinct creator{{ "s" if count != 1 else "" }}
+      viewed your profile in the last 30 days.
+    </p>
+    <p class="feed-sub" style="margin-top:6px;">
+      Upgrade to VIP to see who.
+    </p>
+    {% else %}
+    <p class="feed-sub">
+      <strong>{{ count }}</strong> distinct creator{{ "s" if count != 1 else "" }}
+      viewed your profile in the last 30 days.
+    </p>
+    {% endif %}
+  </header>
+
+  {% if tier == "vip" and viewers %}
+  <ul class="dm-thread-list">
+    {% for v in viewers %}
+      {% set p = viewer_profiles.get(v.viewer_id) %}
+      <li class="dm-thread-row">
+        <a class="dm-thread-link" href="/creator/network/{{ v.viewer_id }}">
+          <div class="dm-thread-name">
+            {{ p.full_name if p else "Creator" }}
+            {% if p and p.instagram_handle %}<span class="dm-thread-handle">@{{ p.instagram_handle }}</span>{% endif %}
+          </div>
+          <div class="dm-thread-meta">
+            Viewed {{ v.viewed_at[:10] if v.viewed_at else "" }}
+          </div>
+        </a>
+      </li>
+    {% endfor %}
+  </ul>
+  {% elif tier == "vip" %}
+  <div class="feed-empty">
+    <h2>No views yet.</h2>
+    <p>You'll see who viewed your profile here.</p>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

@@ -15,7 +15,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from app.core.security import SessionPayload
 from app.core.templating import templates
 from app.deps import require_role
-from app.services import brands, creators, dms, notifications
+from app.services import brands, creators, dms, jobs, notifications, profiles
 
 logger = logging.getLogger(__name__)
 
@@ -283,4 +283,54 @@ def _outreach_error(
             "existing_thread": bool(existing_thread),
         },
         status_code=400,
+    )
+
+
+# -----------------------------------------------------------------------------
+# Job listings (brand-side: read-only browse)
+# -----------------------------------------------------------------------------
+
+
+@router.get("/jobs", response_class=HTMLResponse)
+async def jobs_board(
+    request: Request, session: SessionPayload = Depends(require_role("brand"))
+) -> Response:
+    profile = _verified_brand_or_redirect(session["user_id"])
+    if isinstance(profile, RedirectResponse):
+        return profile
+    listings = jobs.list_active()
+    poster_ids = {str(lst["poster_user_id"]) for lst in listings}
+    poster_profiles = {pid: profiles.get_creator_profile(pid) for pid in poster_ids}
+    return templates.TemplateResponse(
+        request,
+        "brand/jobs_list.html",
+        {
+            "profile": profile,
+            "listings": listings,
+            "poster_profiles": poster_profiles,
+        },
+    )
+
+
+@router.get("/jobs/{listing_id}", response_class=HTMLResponse)
+async def jobs_detail(
+    listing_id: str,
+    request: Request,
+    session: SessionPayload = Depends(require_role("brand")),
+) -> Response:
+    profile = _verified_brand_or_redirect(session["user_id"])
+    if isinstance(profile, RedirectResponse):
+        return profile
+    listing = jobs.get(listing_id)
+    if listing is None or listing.get("is_taken_down") or not listing.get("is_active"):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    poster = profiles.get_creator_profile(str(listing["poster_user_id"]))
+    return templates.TemplateResponse(
+        request,
+        "brand/jobs_detail.html",
+        {
+            "profile": profile,
+            "listing": listing,
+            "poster": poster,
+        },
     )

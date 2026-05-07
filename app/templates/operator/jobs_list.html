@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+
+{% block title %}Jobs · operator console{% endblock %}
+
+{% block content %}
+<section class="op">
+  <a class="back-link" href="/operator">← console</a>
+
+  <header class="op-header">
+    <div class="auth-tag">Jobs</div>
+    <h1 class="op-title">Listings</h1>
+    <p class="op-sub">Active board + the takedown archive.</p>
+  </header>
+
+  <nav class="feed-filters" aria-label="Filter jobs by status">
+    <a class="chip {% if active_tab == 'active' %}chip-active{% endif %}"
+       href="/operator/jobs?tab=active">Active</a>
+    <a class="chip {% if active_tab == 'taken_down' %}chip-active{% endif %}"
+       href="/operator/jobs?tab=taken_down">Taken down</a>
+  </nav>
+
+  {% if listings %}
+  <table class="op-table">
+    <thead>
+      <tr>
+        <th>Title</th>
+        <th>Type</th>
+        <th>Poster</th>
+        <th>Status</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for l in listings %}
+      <tr>
+        <td><a class="op-table-title" href="/operator/jobs/{{ l.id }}">{{ l.title }}</a></td>
+        <td class="op-table-meta">{{ l.listing_type|replace("_", " ") }}</td>
+        <td class="op-table-meta">
+          {% set p = poster_profiles.get(l.poster_user_id) %}
+          {{ p.full_name if p else l.poster_user_id }}
+        </td>
+        <td>
+          {% if l.is_taken_down %}<span class="status-pill status-archived">taken down</span>
+          {% elif l.is_active %}<span class="status-pill status-active">active</span>
+          {% else %}<span class="status-pill status-archived">closed</span>
+          {% endif %}
+        </td>
+        <td class="op-table-actions">
+          <a class="link-btn" href="/operator/jobs/{{ l.id }}">Review →</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="feed-empty">
+    <h2>Nothing here.</h2>
+    <p>No listings in this tab.</p>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

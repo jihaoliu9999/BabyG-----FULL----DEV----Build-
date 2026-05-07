@@ -63,8 +63,7 @@
       </div>
     {% elif state == "connected" %}
       <p class="field-hint">You're connected.</p>
-      {# DM link arrives in the next step when creator-creator DMs land. #}
-      <span class="status-pill status-active">connected</span>
+      <a class="btn btn-primary" href="/creator/dm/{{ peer_id }}">Message →</a>
     {% elif state == "declined" %}
       <p class="field-hint">A previous request between you was declined.</p>
     {% endif %}

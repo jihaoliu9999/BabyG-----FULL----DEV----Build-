@@ -17,7 +17,7 @@ from app.core.security import SessionPayload
 from app.core.templating import templates
 from app.deps import require_role
 from app.routes.onboarding import CREATOR_NICHES  # reuse vocabulary
-from app.services import abuse, brands, dms, intel, notifications, profiles
+from app.services import abuse, brands, dms, intel, jobs, notifications, profiles
 
 router = APIRouter(prefix="/operator", tags=["operator"])
 
@@ -539,3 +539,98 @@ def _reporter_role_hint(report: dict[str, Any]) -> str:
     if rid and brands.get_by_user_id(rid) is not None:
         return "brand"
     return "creator"
+
+
+# -----------------------------------------------------------------------------
+# Job listings (operator: list + take down)
+# -----------------------------------------------------------------------------
+
+
+@router.get("/jobs", response_class=HTMLResponse)
+async def operator_jobs_list(
+    request: Request,
+    tab: str = Query("active"),
+    session: SessionPayload = Depends(require_role("operator")),
+) -> Response:
+    if tab == "taken_down":
+        listings = jobs.list_for_operator(taken_down=True)
+    else:
+        tab = "active"
+        listings = jobs.list_for_operator(taken_down=False)
+    poster_ids = {str(lst["poster_user_id"]) for lst in listings}
+    poster_profiles = {pid: profiles.get_creator_profile(pid) for pid in poster_ids}
+    return templates.TemplateResponse(
+        request,
+        "operator/jobs_list.html",
+        {
+            "listings": listings,
+            "poster_profiles": poster_profiles,
+            "active_tab": tab,
+        },
+    )
+
+
+@router.get("/jobs/{listing_id}", response_class=HTMLResponse)
+async def operator_jobs_detail(
+    listing_id: str,
+    request: Request,
+    session: SessionPayload = Depends(require_role("operator")),
+) -> Response:
+    listing = jobs.get(listing_id)
+    if listing is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    poster = profiles.get_creator_profile(str(listing["poster_user_id"]))
+    return templates.TemplateResponse(
+        request,
+        "operator/jobs_detail.html",
+        {"listing": listing, "poster": poster, "error": None},
+    )
+
+
+@router.post("/jobs/{listing_id}/takedown")
+async def operator_jobs_takedown(
+    listing_id: str,
+    request: Request,
+    session: SessionPayload = Depends(require_role("operator")),
+) -> Response:
+    form = await request.form()
+    reason = (form.get("reason") or "").strip()
+    if not reason:
+        listing = jobs.get(listing_id)
+        return templates.TemplateResponse(
+            request,
+            "operator/jobs_detail.html",
+            {
+                "listing": listing or {"id": listing_id},
+                "poster": (
+                    profiles.get_creator_profile(str(listing["poster_user_id"]))
+                    if listing else None
+                ),
+                "error": "Reason is required for takedown.",
+            },
+            status_code=400,
+        )
+    if not jobs.take_down(
+        listing_id=listing_id, operator_id=session["user_id"], reason=reason
+    ):
+        listing = jobs.get(listing_id)
+        return templates.TemplateResponse(
+            request,
+            "operator/jobs_detail.html",
+            {
+                "listing": listing or {"id": listing_id},
+                "poster": None,
+                "error": "Couldn't take down the listing. Try again.",
+            },
+            status_code=400,
+        )
+    listing = jobs.get(listing_id)
+    if listing:
+        notifications.create(
+            user_id=str(listing["poster_user_id"]),
+            kind="flag_update",
+            title="A listing of yours was taken down.",
+            body=reason,
+            link_path="/creator/jobs/mine",
+        )
+    return RedirectResponse("/operator/jobs", status_code=303)

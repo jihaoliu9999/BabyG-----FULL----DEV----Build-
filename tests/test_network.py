@@ -29,6 +29,7 @@ from app.services import intel as intel_module
 from app.services import network as network_module
 from app.services import notifications as notifications_module
 from app.services import profiles as profiles_module
+from app.services import views as views_module
 
 
 class FakeWorld:
@@ -183,6 +184,13 @@ def world(monkeypatch) -> FakeWorld:
     monkeypatch.setattr(intel_module, "feedback_for_user", lambda uid, ids: {})
     monkeypatch.setattr(brands_module, "list_pending", lambda: [])
     monkeypatch.setattr(abuse_module, "count_pending", lambda: 0)
+
+    # Step 10: profile views recorded on every network/{peer} GET.
+    monkeypatch.setattr(
+        views_module, "record_view", lambda *, viewer_id, viewed_id: True
+    )
+    monkeypatch.setattr(views_module, "count_distinct_viewers", lambda uid: 0)
+    monkeypatch.setattr(views_module, "list_recent_viewers", lambda uid: [])
     return w
 
 

@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block title %}My listings · babyg{% endblock %}
+
+{% block content %}
+<section class="op">
+  <a class="back-link" href="/creator/jobs">← jobs</a>
+
+  <header class="op-header op-header-row">
+    <div>
+      <div class="auth-tag">My listings</div>
+      <h1 class="op-title">Listings you posted</h1>
+    </div>
+    <a class="btn btn-primary" href="/creator/jobs/new">+ New</a>
+  </header>
+
+  {% if listings %}
+  <table class="op-table">
+    <thead>
+      <tr>
+        <th>Title</th>
+        <th>Type</th>
+        <th>Status</th>
+        <th>Posted</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for l in listings %}
+      <tr>
+        <td>
+          <a class="op-table-title" href="/creator/jobs/{{ l.id }}">{{ l.title }}</a>
+        </td>
+        <td class="op-table-meta">{{ l.listing_type|replace("_", " ") }}</td>
+        <td>
+          {% if l.is_taken_down %}
+            <span class="status-pill status-archived">taken down</span>
+          {% elif l.is_active %}
+            <span class="status-pill status-active">active</span>
+          {% else %}
+            <span class="status-pill status-archived">closed</span>
+          {% endif %}
+        </td>
+        <td class="op-table-meta">{{ l.created_at[:10] if l.created_at else "—" }}</td>
+        <td class="op-table-actions">
+          <a class="link-btn" href="/creator/jobs/{{ l.id }}/edit">Edit</a>
+          {% if l.is_active and not l.is_taken_down %}
+          <form method="post" action="/creator/jobs/{{ l.id }}/close" class="inline-form">
+            <button type="submit" class="link-btn">Close</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="feed-empty">
+    <h2>No listings yet.</h2>
+    <p>Post your first one — collab idea, UGC, or someone you're hiring.</p>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

@@ -10,7 +10,8 @@
     <div class="feed-eyebrow">Direct messages</div>
     <h1 class="feed-title">Conversations</h1>
     <p class="feed-sub">
-      Brand outreach lands here. Reply directly — the brand will be notified.
+      Brand outreach and connected creators. Reply directly — the other side
+      will be notified.
     </p>
   </header>
 
@@ -18,10 +19,18 @@
   <ul class="dm-thread-list">
     {% for t in threads %}
       {% set peer = peers.get(t.peer_id) %}
+      {% set kind = peer_kinds.get(t.peer_id, "unknown") %}
       <li class="dm-thread-row">
         <a class="dm-thread-link" href="/creator/dm/{{ t.peer_id }}">
           <div class="dm-thread-name">
-            {{ peer.company_name if peer else "Conversation" }}
+            {% if kind == "brand" %}
+              {{ peer.company_name if peer else "Brand" }}
+            {% elif kind == "creator" %}
+              {{ peer.full_name if peer else "Creator" }}
+              {% if peer and peer.instagram_handle %}<span class="dm-thread-handle">@{{ peer.instagram_handle }}</span>{% endif %}
+            {% else %}
+              Conversation
+            {% endif %}
           </div>
           <div class="dm-thread-meta">
             {% if t.last_message_at %}

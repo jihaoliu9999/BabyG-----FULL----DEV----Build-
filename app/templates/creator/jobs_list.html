@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+
+{% block title %}Jobs · babyg{% endblock %}
+
+{% block content %}
+<section class="op">
+  <a class="back-link" href="/creator">← dashboard</a>
+
+  <header class="op-header op-header-row">
+    <div>
+      <div class="auth-tag">Jobs</div>
+      <h1 class="op-title">Collabs, gigs &amp; hiring</h1>
+      <p class="op-sub">
+        Listings posted by other creators. Reach out if you fit — connect first
+        if you haven't already.
+      </p>
+    </div>
+    <div style="display:flex; gap:8px;">
+      <a class="btn btn-ghost" href="/creator/jobs/mine">My listings</a>
+      <a class="btn btn-primary" href="/creator/jobs/new">+ New</a>
+    </div>
+  </header>
+
+  {% if listings %}
+  <div class="creator-grid">
+    {% for listing in listings %}
+      {% set poster = poster_profiles.get(listing.poster_user_id) %}
+      {% set view_path = "/creator/jobs" %}
+      {% include "_partials/job_card.html" %}
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="feed-empty">
+    <h2>No active listings.</h2>
+    <p>Post the first one — collabs, UGC asks, or someone you're hiring.</p>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

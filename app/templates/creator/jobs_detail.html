@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}{{ listing.title }} · jobs · babyg{% endblock %}
+
+{% block content %}
+<section class="onb">
+  <a class="back-link" href="/creator/jobs">← jobs</a>
+
+  <header class="onb-header">
+    <div class="auth-tag">
+      {{ listing.listing_type|replace("_", " ") }}
+      {% if not listing.is_active %} · <span class="status-pill status-archived">closed</span>{% endif %}
+    </div>
+    <h1 class="onb-title">{{ listing.title }}</h1>
+    {% if poster %}
+    <p class="onb-sub">
+      Posted by
+      <a href="/creator/network/{{ listing.poster_user_id }}">{{ poster.full_name or "Creator" }}</a>
+      {% if poster.instagram_handle %} · @{{ poster.instagram_handle }}{% endif %}
+    </p>
+    {% endif %}
+  </header>
+
+  <section class="onb-section">
+    <h2 class="onb-section-title">Description</h2>
+    <p class="kv-prose" style="white-space:pre-wrap;">{{ listing.description }}</p>
+    <dl class="kv">
+      {% if listing.compensation_text %}<dt>Comp</dt><dd>{{ listing.compensation_text }}</dd>{% endif %}
+      {% if listing.deadline %}<dt>Deadline</dt><dd>{{ listing.deadline[:16]|replace("T", " ") }}</dd>{% endif %}
+    </dl>
+    <div class="tag-row">
+      <span class="tag-row-label">Niches:</span>
+      {% for n in listing.target_niches or [] %}<span class="tag">{{ n }}</span>{% else %}<span class="tag-empty">— any —</span>{% endfor %}
+    </div>
+  </section>
+
+  {% if is_mine %}
+    <div class="onb-actions">
+      <a class="btn btn-ghost" href="/creator/jobs/{{ listing.id }}/edit">Edit listing</a>
+    </div>
+  {% else %}
+    <section class="onb-section">
+      <h2 class="onb-section-title">Reach out</h2>
+      {% if can_dm %}
+        <p class="field-hint">You're connected — send a DM directly.</p>
+        <a class="btn btn-primary" href="/creator/dm/{{ listing.poster_user_id }}">Open DM →</a>
+      {% else %}
+        <p class="field-hint">Connect first to message this creator.</p>
+        <a class="btn btn-primary" href="/creator/network/{{ listing.poster_user_id }}">Open profile →</a>
+      {% endif %}
+    </section>
+
+    {% set target_type = "listing" %}
+    {% set target_id = listing.id %}
+    {% set return_to = "/creator/jobs/" ~ listing.id %}
+    {% set label = "this listing" %}
+    {% include "_partials/report_form.html" %}
+  {% endif %}
+</section>
+{% endblock %}

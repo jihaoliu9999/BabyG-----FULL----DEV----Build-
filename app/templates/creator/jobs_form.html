@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% import "onboarding/_macros.html" as f %}
+
+{% block title %}{{ "New" if is_new else "Edit" }} listing · babyg{% endblock %}
+
+{% block content %}
+<section class="onb">
+  <a class="back-link" href="/creator/jobs/mine">← my listings</a>
+
+  <header class="onb-header">
+    <div class="auth-tag">{% if is_new %}New listing{% else %}Edit listing{% endif %}</div>
+    <h1 class="onb-title">
+      {% if is_new %}Post a listing{% else %}{{ listing.title }}{% endif %}
+    </h1>
+    <p class="onb-sub">
+      Tell other creators (and brands browsing the board) what you're looking for.
+    </p>
+  </header>
+
+  {% if error %}<div class="auth-error">{{ error }}</div>{% endif %}
+
+  <form class="onb-form" method="post"
+        action="{% if is_new %}/creator/jobs{% else %}/creator/jobs/{{ listing_id }}{% endif %}">
+
+    <section class="onb-section">
+      <h2 class="onb-section-title">Basics</h2>
+      {{ f.field("Title", "title", listing.get("title", ""), required=True) }}
+
+      <div class="field">
+        <label for="f-description" class="field-label">Description <span class="req">*</span></label>
+        <textarea id="f-description" name="description" rows="6"
+                  placeholder="What's the ask, format, timeline, comp.">{{ listing.get("description", "") }}</textarea>
+      </div>
+
+      <div class="field">
+        <label class="field-label">Listing type <span class="req">*</span></label>
+        {{ f.radio_group("listing_type", vocab.listing_types, listing.get("listing_type")) }}
+      </div>
+
+      {{ f.field("Compensation", "compensation_text",
+                  listing.get("compensation_text", ""),
+                  placeholder="$X / Y product / TFP / negotiable") }}
+
+      {{ f.field("Deadline (optional)", "deadline",
+                  listing.get("deadline", ""), type="datetime-local") }}
+    </section>
+
+    <section class="onb-section">
+      <h2 class="onb-section-title">Targeting</h2>
+      <div class="field">
+        <label class="field-label">Niches</label>
+        <div class="field-hint">Pick everything that applies.</div>
+        {{ f.chip_group("target_niches", vocab.niches, listing.get("target_niches", [])) }}
+      </div>
+    </section>
+
+    <section class="onb-section">
+      <h2 class="onb-section-title">Visibility</h2>
+      <label style="display:flex; gap:10px; align-items:center; font-size:14px;">
+        <input type="checkbox" name="is_active" value="on"
+               {% if listing.get("is_active", True) %}checked{% endif %} />
+        <span>Active — show on the jobs board</span>
+      </label>
+    </section>
+
+    <div class="onb-actions">
+      <button type="submit" class="btn btn-primary btn-wide">
+        {% if is_new %}Post listing{% else %}Save changes{% endif %}
+      </button>
+    </div>
+  </form>
+</section>
+{% endblock %}
