@@ -20,7 +20,9 @@ from app.services import (
     jobs,
     network,
     notifications,
+    performance,
     profiles,
+    receipts,
     views,
 )
 
@@ -885,3 +887,224 @@ def _booking_form_error(request, form, message, *, is_new, booking_id):
         },
         status_code=400,
     )
+
+
+# -----------------------------------------------------------------------------
+# Content receipts
+# -----------------------------------------------------------------------------
+
+
+@router.get("/creator/receipts", response_class=HTMLResponse)
+async def receipts_list(
+    request: Request,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    rows = receipts.list_for_user(session["user_id"])
+    return templates.TemplateResponse(
+        request, "creator/receipts_list.html", {"receipts": rows}
+    )
+
+
+@router.get("/creator/receipts/new", response_class=HTMLResponse)
+async def receipts_new_form(
+    request: Request,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    return templates.TemplateResponse(
+        request,
+        "creator/receipts_form.html",
+        {
+            "receipt": {"post_type": "reel"},
+            "error": None,
+            "vocab": {"post_types": list(receipts.POST_TYPES)},
+        },
+    )
+
+
+@router.post("/creator/receipts")
+async def receipts_create(
+    request: Request,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    form = await request.form()
+    payload, error = _validate_receipt(form)
+    if error:
+        return templates.TemplateResponse(
+            request,
+            "creator/receipts_form.html",
+            {
+                "receipt": {
+                    "post_url": form.get("post_url", ""),
+                    "post_type": form.get("post_type", "reel"),
+                    "caption_excerpt": form.get("caption_excerpt", ""),
+                    "likes_count": form.get("likes_count", ""),
+                    "comments_count": form.get("comments_count", ""),
+                    "posted_at": form.get("posted_at", ""),
+                },
+                "error": error,
+                "vocab": {"post_types": list(receipts.POST_TYPES)},
+            },
+            status_code=400,
+        )
+    if not receipts.create(user_id=session["user_id"], payload=payload):
+        return templates.TemplateResponse(
+            request,
+            "creator/receipts_form.html",
+            {
+                "receipt": payload,
+                "error": "Couldn't save the receipt. Try again.",
+                "vocab": {"post_types": list(receipts.POST_TYPES)},
+            },
+            status_code=400,
+        )
+    return RedirectResponse("/creator/receipts", status_code=303)
+
+
+# -----------------------------------------------------------------------------
+# Weekly performance logs
+# -----------------------------------------------------------------------------
+
+
+@router.get("/creator/performance", response_class=HTMLResponse)
+async def performance_list(
+    request: Request,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    rows = performance.list_for_user(session["user_id"])
+    return templates.TemplateResponse(
+        request, "creator/performance_list.html", {"logs": rows}
+    )
+
+
+@router.get("/creator/performance/new", response_class=HTMLResponse)
+async def performance_new_form(
+    request: Request,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    return templates.TemplateResponse(
+        request,
+        "creator/performance_form.html",
+        {
+            "log": {"week_start_date": performance.last_monday_iso()},
+            "error": None,
+        },
+    )
+
+
+@router.post("/creator/performance")
+async def performance_save(
+    request: Request,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    form = await request.form()
+    payload, error = _validate_performance(form)
+    if error:
+        return templates.TemplateResponse(
+            request,
+            "creator/performance_form.html",
+            {
+                "log": {
+                    "week_start_date": form.get("week_start_date", ""),
+                    "engagement_rate": form.get("engagement_rate", ""),
+                    "follower_delta": form.get("follower_delta", ""),
+                    "active_brand_deals_count": form.get("active_brand_deals_count", ""),
+                    "active_brand_deals_value": form.get("active_brand_deals_value", ""),
+                    "notes": form.get("notes", ""),
+                },
+                "error": error,
+            },
+            status_code=400,
+        )
+    if not performance.upsert(
+        user_id=session["user_id"], entered_by=session["user_id"], payload=payload
+    ):
+        return templates.TemplateResponse(
+            request,
+            "creator/performance_form.html",
+            {"log": payload, "error": "Couldn't save. Try again."},
+            status_code=400,
+        )
+    return RedirectResponse("/creator/performance", status_code=303)
+
+
+# -----------------------------------------------------------------------------
+# Validation helpers for receipts + performance
+# -----------------------------------------------------------------------------
+
+
+def _validate_receipt(form):
+    post_url = (form.get("post_url") or "").strip()[:500]
+    post_type = (form.get("post_type") or "").strip()
+    caption = (form.get("caption_excerpt") or "").strip()[:500]
+    posted_at = (form.get("posted_at") or "").strip()[:64]
+    likes_raw = (form.get("likes_count") or "").strip()
+    comments_raw = (form.get("comments_count") or "").strip()
+
+    if not post_url:
+        return {}, "Please paste the post URL."
+    if post_type not in receipts.POST_TYPES:
+        return {}, "Pick a post type."
+    likes = _maybe_int(likes_raw)
+    comments = _maybe_int(comments_raw)
+    if likes_raw and likes is None:
+        return {}, "Likes must be a whole number."
+    if comments_raw and comments is None:
+        return {}, "Comments must be a whole number."
+
+    payload = {
+        "post_url": post_url,
+        "post_type": post_type,
+        "caption_excerpt": caption or None,
+        "likes_count": likes,
+        "comments_count": comments,
+        "posted_at": posted_at or None,
+    }
+    return payload, None
+
+
+def _validate_performance(form):
+    week_start = (form.get("week_start_date") or "").strip()[:10]
+    if not week_start:
+        return {}, "Pick the week start date (the Monday)."
+    eng_raw = (form.get("engagement_rate") or "").strip()
+    delta_raw = (form.get("follower_delta") or "").strip()
+    deals_count_raw = (form.get("active_brand_deals_count") or "").strip()
+    deals_value_raw = (form.get("active_brand_deals_value") or "").strip()
+    notes = (form.get("notes") or "").strip()[:2000]
+
+    eng = _maybe_float(eng_raw)
+    if eng_raw and eng is None:
+        return {}, "Engagement rate must be a number (e.g. 4.2)."
+    delta = _maybe_int(delta_raw)
+    if delta_raw and delta is None:
+        return {}, "Follower delta must be a whole number (positive or negative)."
+    deals_count = _maybe_int(deals_count_raw) or 0
+    deals_value = _maybe_float(deals_value_raw) or 0
+
+    payload = {
+        "week_start_date": week_start,
+        "engagement_rate": eng,
+        "follower_delta": delta,
+        "active_brand_deals_count": deals_count,
+        "active_brand_deals_value": deals_value,
+        "notes": notes or None,
+    }
+    return payload, None
+
+
+def _maybe_int(s: str):
+    if not s:
+        return None
+    try:
+        return int(s)
+    except ValueError:
+        return None
+
+
+def _maybe_float(s: str):
+    if not s:
+        return None
+    try:
+        return float(s)
+    except ValueError:
+        return None

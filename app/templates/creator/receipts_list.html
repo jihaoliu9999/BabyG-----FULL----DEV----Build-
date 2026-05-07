@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Content receipts · babyg{% endblock %}
+
+{% block content %}
+<section class="op">
+  <a class="back-link" href="/creator">← dashboard</a>
+
+  <header class="op-header op-header-row">
+    <div>
+      <div class="auth-tag">Receipts</div>
+      <h1 class="op-title">What you shipped</h1>
+      <p class="op-sub">
+        Log posts so we can match them back to intel and brand asks. Likes
+        and comments help babyg learn what's working.
+      </p>
+    </div>
+    <a class="btn btn-primary" href="/creator/receipts/new">+ Log a post</a>
+  </header>
+
+  {% if receipts %}
+  <table class="op-table">
+    <thead>
+      <tr>
+        <th>Posted</th>
+        <th>Type</th>
+        <th>Caption</th>
+        <th>Likes</th>
+        <th>Comments</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in receipts %}
+      <tr>
+        <td class="op-table-meta">{{ r.posted_at[:10] if r.posted_at else "—" }}</td>
+        <td class="op-table-meta">{{ r.post_type or "—" }}</td>
+        <td class="op-table-meta">
+          {% if r.caption_excerpt %}{{ r.caption_excerpt[:60] }}{% if r.caption_excerpt|length > 60 %}…{% endif %}{% else %}—{% endif %}
+        </td>
+        <td class="op-table-meta">{{ r.likes_count if r.likes_count is not none else "—" }}</td>
+        <td class="op-table-meta">{{ r.comments_count if r.comments_count is not none else "—" }}</td>
+        <td class="op-table-actions">
+          {% if r.post_url %}
+          <a class="link-btn" href="{{ r.post_url }}" target="_blank" rel="noopener noreferrer">Open ↗</a>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="feed-empty">
+    <h2>No receipts yet.</h2>
+    <p>Log a post to start building your record.</p>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

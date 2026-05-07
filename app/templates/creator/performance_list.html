@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}Weekly performance · babyg{% endblock %}
+
+{% block content %}
+<section class="op">
+  <a class="back-link" href="/creator">← dashboard</a>
+
+  <header class="op-header op-header-row">
+    <div>
+      <div class="auth-tag">Performance</div>
+      <h1 class="op-title">Weekly numbers</h1>
+      <p class="op-sub">
+        One row per week. Submit again for the same week to overwrite.
+      </p>
+    </div>
+    <a class="btn btn-primary" href="/creator/performance/new">+ Log a week</a>
+  </header>
+
+  {% if logs %}
+  <table class="op-table">
+    <thead>
+      <tr>
+        <th>Week of</th>
+        <th>Engagement</th>
+        <th>Follower Δ</th>
+        <th>Active deals</th>
+        <th>Deal value</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for log in logs %}
+      <tr>
+        <td>{{ log.week_start_date }}</td>
+        <td class="op-table-meta">{{ log.engagement_rate if log.engagement_rate is not none else "—" }}{% if log.engagement_rate is not none %}%{% endif %}</td>
+        <td class="op-table-meta">{{ log.follower_delta if log.follower_delta is not none else "—" }}</td>
+        <td class="op-table-meta">{{ log.active_brand_deals_count or 0 }}</td>
+        <td class="op-table-meta">${{ log.active_brand_deals_value or 0 }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="feed-empty">
+    <h2>No weeks logged yet.</h2>
+    <p>Submit your first week to start a record.</p>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}
