@@ -1,8 +1,9 @@
--- babyg :: 0003 :: row-level security
+-- babyg :: 0004 :: row-level security
 -- Enables RLS on every public table and writes the policies described in
 -- the product manual §10.2. Operators bypass via public.is_operator().
 -- The Supabase service_role key bypasses RLS entirely and is used only by
 -- the Celery worker and trusted server paths.
+-- Requires 0003_role_helpers to have been applied first.
 
 -- =============================================================================
 -- USERS / PROFILES

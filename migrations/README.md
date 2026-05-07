@@ -6,9 +6,11 @@ Files are applied in numeric order. Each migration is plain SQL — run via the 
 
 | File | Purpose |
 | --- | --- |
-| `0001_extensions_and_helpers.sql` | `pgcrypto`, `citext`, role helper functions (`is_operator`, `is_creator`, `is_brand`), shared `set_updated_at` trigger |
+| `0001_extensions_and_helpers.sql` | `pgcrypto`, `citext`, shared `set_updated_at` trigger |
 | `0002_schema.sql` | All 22 tables: identity, intel, bot/receipts, calendar, network, safety, notifications |
-| `0003_rls_policies.sql` | Enables RLS on every table and writes policies per product manual §10.2 |
+| `0003_role_helpers.sql` | Role helper functions (`current_user_role`, `is_operator`, `is_creator`, `is_brand`) — must run after schema since their bodies reference `public.users` |
+| `0004_rls_policies.sql` | Enables RLS on every table and writes policies per product manual §10.2 |
+| `0005_security_hardening.sql` | Pins `set_updated_at` search_path; revokes EXECUTE on RLS helper fns from anon/authenticated so they cannot be called via `/rest/v1/rpc/`; narrows `dm_messages` UPDATE policy so participants can only flip read state |
 
 ## Conventions
 
