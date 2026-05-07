@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Calendar · babyg{% endblock %}
+
+{% block content %}
+<section class="op">
+  <a class="back-link" href="/creator">← dashboard</a>
+
+  <header class="op-header op-header-row">
+    <div>
+      <div class="auth-tag">Calendar</div>
+      <h1 class="op-title">Bookings</h1>
+      <p class="op-sub">
+        Restaurants, events, collab shoots, brand meetings. Google Calendar
+        sync ships with the chat surface.
+      </p>
+    </div>
+    <a class="btn btn-primary" href="/creator/calendar/new">+ New booking</a>
+  </header>
+
+  <nav class="feed-filters" aria-label="Filter by horizon">
+    <a class="chip {% if horizon == 'upcoming' %}chip-active{% endif %}"
+       href="/creator/calendar?horizon=upcoming">Upcoming</a>
+    <a class="chip {% if horizon == 'past' %}chip-active{% endif %}"
+       href="/creator/calendar?horizon=past">Past</a>
+    <a class="chip {% if horizon == 'all' %}chip-active{% endif %}"
+       href="/creator/calendar?horizon=all">All</a>
+  </nav>
+
+  {% if bookings %}
+  <table class="op-table">
+    <thead>
+      <tr>
+        <th>When</th>
+        <th>Title</th>
+        <th>Type</th>
+        <th>Where</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for b in bookings %}
+      <tr>
+        <td class="op-table-meta">{{ b.starts_at[:16]|replace("T", " ") }}</td>
+        <td><a class="op-table-title" href="/creator/calendar/{{ b.id }}">{{ b.title }}</a></td>
+        <td class="op-table-meta">{{ b.type }}</td>
+        <td class="op-table-meta">{{ b.venue_name or "—" }}</td>
+        <td class="op-table-actions">
+          <a class="link-btn" href="/creator/calendar/{{ b.id }}/edit">Edit</a>
+          <form method="post" action="/creator/calendar/{{ b.id }}/cancel" class="inline-form">
+            <button type="submit" class="link-btn">Cancel</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="feed-empty">
+    <h2>Nothing on the calendar.</h2>
+    <p>Add a dinner, an event, or a brand meeting and we'll keep track.</p>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

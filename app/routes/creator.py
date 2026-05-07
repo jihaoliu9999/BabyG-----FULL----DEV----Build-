@@ -12,7 +12,17 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from app.core.security import SessionPayload
 from app.core.templating import templates
 from app.deps import require_role
-from app.services import brands, dms, intel, jobs, network, notifications, profiles, views
+from app.services import (
+    bookings,
+    brands,
+    dms,
+    intel,
+    jobs,
+    network,
+    notifications,
+    profiles,
+    views,
+)
 
 router = APIRouter(tags=["creator"])
 
@@ -687,3 +697,191 @@ def _jobs_vocab():
         "listing_types": JOB_TYPES,
         "niches": CREATOR_NICHES,
     }
+
+
+# -----------------------------------------------------------------------------
+# Calendar / bookings
+# -----------------------------------------------------------------------------
+
+
+@router.get("/creator/calendar", response_class=HTMLResponse)
+async def calendar_list(
+    request: Request,
+    horizon: str = Query("upcoming"),
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    if horizon not in ("upcoming", "past", "all"):
+        horizon = "upcoming"
+    rows = bookings.list_for_user(session["user_id"], horizon=horizon)
+    return templates.TemplateResponse(
+        request,
+        "creator/calendar_list.html",
+        {"bookings": rows, "horizon": horizon},
+    )
+
+
+@router.get("/creator/calendar/new", response_class=HTMLResponse)
+async def calendar_new_form(
+    request: Request,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    return templates.TemplateResponse(
+        request,
+        "creator/calendar_form.html",
+        {
+            "booking": {"type": "event", "status": "confirmed"},
+            "is_new": True,
+            "booking_id": None,
+            "error": None,
+            "vocab": {"types": list(bookings.TYPES)},
+        },
+    )
+
+
+@router.post("/creator/calendar")
+async def calendar_create(
+    request: Request,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    form = await request.form()
+    payload, error = _validate_booking(form)
+    if error:
+        return _booking_form_error(
+            request, form, error, is_new=True, booking_id=None
+        )
+    new_id = bookings.create(user_id=session["user_id"], payload=payload)
+    if not new_id:
+        return _booking_form_error(
+            request, form, "Couldn't save the booking. Try again.",
+            is_new=True, booking_id=None,
+        )
+    return RedirectResponse(f"/creator/calendar/{new_id}", status_code=303)
+
+
+@router.get("/creator/calendar/{booking_id}", response_class=HTMLResponse)
+async def calendar_detail(
+    booking_id: str,
+    request: Request,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    booking = bookings.get(booking_id)
+    if booking is None or str(booking["user_id"]) != session["user_id"]:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    return templates.TemplateResponse(
+        request, "creator/calendar_detail.html", {"booking": booking}
+    )
+
+
+@router.get("/creator/calendar/{booking_id}/edit", response_class=HTMLResponse)
+async def calendar_edit_form(
+    booking_id: str,
+    request: Request,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    booking = bookings.get(booking_id)
+    if booking is None or str(booking["user_id"]) != session["user_id"]:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    return templates.TemplateResponse(
+        request,
+        "creator/calendar_form.html",
+        {
+            "booking": booking,
+            "is_new": False,
+            "booking_id": booking_id,
+            "error": None,
+            "vocab": {"types": list(bookings.TYPES)},
+        },
+    )
+
+
+@router.post("/creator/calendar/{booking_id}")
+async def calendar_update(
+    booking_id: str,
+    request: Request,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    booking = bookings.get(booking_id)
+    if booking is None or str(booking["user_id"]) != session["user_id"]:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    form = await request.form()
+    payload, error = _validate_booking(form)
+    if error:
+        return _booking_form_error(
+            request, form, error, is_new=False, booking_id=booking_id
+        )
+    if not bookings.update(
+        booking_id, user_id=session["user_id"], payload=payload
+    ):
+        return _booking_form_error(
+            request, form, "Couldn't save the booking. Try again.",
+            is_new=False, booking_id=booking_id,
+        )
+    return RedirectResponse(f"/creator/calendar/{booking_id}", status_code=303)
+
+
+@router.post("/creator/calendar/{booking_id}/cancel")
+async def calendar_cancel(
+    booking_id: str,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    bookings.cancel(booking_id, user_id=session["user_id"])
+    return RedirectResponse("/creator/calendar", status_code=303)
+
+
+# -----------------------------------------------------------------------------
+# Booking validation
+# -----------------------------------------------------------------------------
+
+
+def _validate_booking(form):
+    title = (form.get("title") or "").strip()[:140]
+    starts_at = (form.get("starts_at") or "").strip()[:64]
+    ends_at = (form.get("ends_at") or "").strip()[:64]
+    btype = (form.get("type") or "").strip()
+    notes = (form.get("notes") or "").strip()[:2000]
+    venue_name = (form.get("venue_name") or "").strip()[:160]
+    bstatus = (form.get("status") or "confirmed").strip()
+
+    if not title:
+        return {}, "Please enter a title."
+    if not starts_at:
+        return {}, "Please set a start time."
+    if btype not in bookings.TYPES:
+        return {}, "Pick a type."
+    if bstatus not in bookings.STATUSES:
+        bstatus = "confirmed"
+
+    payload = {
+        "title": title,
+        "type": btype,
+        "starts_at": starts_at,
+        "ends_at": ends_at or None,
+        "notes": notes or None,
+        "venue_name": venue_name or None,
+        "status": bstatus,
+    }
+    return payload, None
+
+
+def _booking_form_error(request, form, message, *, is_new, booking_id):
+    booking = {
+        "title": form.get("title", ""),
+        "type": form.get("type", "event"),
+        "starts_at": form.get("starts_at", ""),
+        "ends_at": form.get("ends_at", ""),
+        "notes": form.get("notes", ""),
+        "venue_name": form.get("venue_name", ""),
+        "status": form.get("status", "confirmed"),
+    }
+    return templates.TemplateResponse(
+        request,
+        "creator/calendar_form.html",
+        {
+            "booking": booking,
+            "is_new": is_new,
+            "booking_id": booking_id,
+            "error": message,
+            "vocab": {"types": list(bookings.TYPES)},
+        },
+        status_code=400,
+    )

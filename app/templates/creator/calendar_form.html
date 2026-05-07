@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% import "onboarding/_macros.html" as f %}
+
+{% block title %}{{ "New" if is_new else "Edit" }} booking · babyg{% endblock %}
+
+{% block content %}
+<section class="onb">
+  <a class="back-link" href="/creator/calendar">← calendar</a>
+
+  <header class="onb-header">
+    <div class="auth-tag">{% if is_new %}New booking{% else %}Edit booking{% endif %}</div>
+    <h1 class="onb-title">{% if is_new %}Add to calendar{% else %}{{ booking.title }}{% endif %}</h1>
+  </header>
+
+  {% if error %}<div class="auth-error">{{ error }}</div>{% endif %}
+
+  <form class="onb-form" method="post"
+        action="{% if is_new %}/creator/calendar{% else %}/creator/calendar/{{ booking_id }}{% endif %}">
+
+    <section class="onb-section">
+      <h2 class="onb-section-title">Basics</h2>
+      {{ f.field("Title", "title", booking.get("title", ""), required=True) }}
+      <div class="field">
+        <label class="field-label">Type <span class="req">*</span></label>
+        {{ f.radio_group("type", vocab.types, booking.get("type", "event")) }}
+      </div>
+      <div class="onb-row">
+        {{ f.field("Starts", "starts_at", booking.get("starts_at", ""),
+                    type="datetime-local", required=True) }}
+        {{ f.field("Ends (optional)", "ends_at", booking.get("ends_at", ""),
+                    type="datetime-local") }}
+      </div>
+      {{ f.field("Venue", "venue_name", booking.get("venue_name", ""),
+                  placeholder="Where?") }}
+    </section>
+
+    <section class="onb-section">
+      <h2 class="onb-section-title">Notes</h2>
+      <div class="field">
+        <textarea name="notes" rows="4"
+                  placeholder="Anything you want to remember.">{{ booking.get("notes", "") }}</textarea>
+      </div>
+    </section>
+
+    <div class="onb-actions">
+      <button type="submit" class="btn btn-primary btn-wide">
+        {% if is_new %}Save booking{% else %}Save changes{% endif %}
+      </button>
+    </div>
+  </form>
+</section>
+{% endblock %}
