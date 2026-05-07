@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}Network · babyg{% endblock %}
+
+{% block content %}
+<section class="op">
+  <a class="back-link" href="/creator">← dashboard</a>
+
+  <header class="op-header op-header-row">
+    <div>
+      <div class="auth-tag">Network</div>
+      <h1 class="op-title">Miami creators</h1>
+      <p class="op-sub">
+        Other working creators on babyg. Connect to unlock direct messaging
+        and collab matching with people you trust.
+      </p>
+    </div>
+    <a class="btn btn-ghost" href="/creator/connections">
+      Connections{% if pending_in %} <span class="badge badge-alert">{{ pending_in }}</span>{% endif %}
+    </a>
+  </header>
+
+  {% if creators %}
+  <div class="creator-grid">
+    {% for creator in creators %}
+      {% include "creator/_creator_card.html" %}
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="feed-empty">
+    <h2>No creators yet.</h2>
+    <p>The directory fills as more creators complete onboarding.</p>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

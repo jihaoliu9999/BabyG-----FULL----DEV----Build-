@@ -12,7 +12,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from app.core.security import SessionPayload
 from app.core.templating import templates
 from app.deps import require_role
-from app.services import brands, dms, intel, notifications, profiles
+from app.services import brands, dms, intel, network, notifications, profiles
 
 router = APIRouter(tags=["creator"])
 
@@ -222,3 +222,136 @@ async def dm_send(
             link_path=f"/brand/dm/{session['user_id']}",
         )
     return RedirectResponse(f"/creator/dm/{peer_user_id}", status_code=303)
+
+
+# -----------------------------------------------------------------------------
+# Network: directory + peer profile + connections
+# -----------------------------------------------------------------------------
+
+
+@router.get("/creator/network", response_class=HTMLResponse)
+async def network_directory(
+    request: Request,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    creators = network.list_directory_for_creator(session["user_id"])
+    pending_in = len(network.list_incoming_pending(session["user_id"]))
+    return templates.TemplateResponse(
+        request,
+        "creator/network_list.html",
+        {"creators": creators, "pending_in": pending_in},
+    )
+
+
+@router.get("/creator/network/{peer_user_id}", response_class=HTMLResponse)
+async def network_profile(
+    peer_user_id: str,
+    request: Request,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    if peer_user_id == session["user_id"]:
+        return RedirectResponse("/creator/network", status_code=302)
+
+    peer = profiles.get_creator_profile(peer_user_id)
+    if peer is None or not peer.get("onboarding_completed_at"):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    connection = network.get_connection_between(session["user_id"], peer_user_id)
+    if connection is not None and connection.get("status") == "blocked":
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    return templates.TemplateResponse(
+        request,
+        "creator/network_profile.html",
+        {
+            "peer": peer,
+            "peer_id": peer_user_id,
+            "connection": connection,
+            "state": _connection_state(connection, me_id=session["user_id"]),
+        },
+    )
+
+
+@router.post("/creator/connections/request")
+async def connection_request(
+    peer_user_id: str = Form(...),
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    if peer_user_id == session["user_id"]:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
+    peer = profiles.get_creator_profile(peer_user_id)
+    if peer is None or not peer.get("onboarding_completed_at"):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    if network.request_connection(
+        requester_id=session["user_id"], addressee_id=peer_user_id
+    ):
+        notifications.create(
+            user_id=peer_user_id,
+            kind="connection_request",
+            title="Someone wants to connect.",
+            body=None,
+            link_path="/creator/connections",
+        )
+    return RedirectResponse(f"/creator/network/{peer_user_id}", status_code=303)
+
+
+@router.get("/creator/connections", response_class=HTMLResponse)
+async def connections_list(
+    request: Request,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    accepted = network.list_accepted_for_user(session["user_id"])
+    incoming = network.list_incoming_pending(session["user_id"])
+    outgoing = network.list_outgoing_pending(session["user_id"])
+
+    peer_ids = {row["peer_id"] for row in accepted + incoming + outgoing}
+    peers = {pid: profiles.get_creator_profile(pid) for pid in peer_ids}
+    return templates.TemplateResponse(
+        request,
+        "creator/connections_list.html",
+        {
+            "accepted": accepted,
+            "incoming": incoming,
+            "outgoing": outgoing,
+            "peers": peers,
+        },
+    )
+
+
+@router.post("/creator/connections/{connection_id}/{action}")
+async def connection_respond(
+    connection_id: str,
+    action: str,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    if action not in network.RESPOND_ACTIONS:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
+    network.respond_to_connection(
+        connection_id=connection_id,
+        responder_id=session["user_id"],
+        action=action,
+    )
+    return RedirectResponse("/creator/connections", status_code=303)
+
+
+def _connection_state(connection, *, me_id: str) -> str:
+    """Returns one of: none | outgoing_pending | incoming_pending |
+    connected | declined | blocked. The template uses this to render
+    the right CTA on the network profile page."""
+    if connection is None:
+        return "none"
+    s = connection.get("status")
+    if s == "accepted":
+        return "connected"
+    if s == "declined":
+        return "declined"
+    if s == "blocked":
+        return "blocked"
+    if s == "pending":
+        return (
+            "outgoing_pending"
+            if connection.get("requester_id") == me_id
+            else "incoming_pending"
+        )
+    return "none"

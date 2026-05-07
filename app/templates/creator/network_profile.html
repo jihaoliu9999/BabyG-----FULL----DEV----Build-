@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block title %}{{ peer.full_name or "Creator" }} · network · babyg{% endblock %}
+
+{% block content %}
+<section class="onb">
+  <a class="back-link" href="/creator/network">← network</a>
+
+  <header class="onb-header">
+    <div class="auth-tag">Creator</div>
+    <h1 class="onb-title">{{ peer.full_name or "Creator" }}</h1>
+    {% if peer.instagram_handle %}
+    <p class="onb-sub">
+      @{{ peer.instagram_handle }}
+      {% if peer.primary_platform %} · {{ peer.primary_platform }}{% endif %}
+    </p>
+    {% endif %}
+  </header>
+
+  <section class="onb-section">
+    <h2 class="onb-section-title">Profile</h2>
+    <dl class="kv">
+      <dt>Neighborhood</dt><dd>{{ peer.neighborhood or "—" }}</dd>
+      <dt>Followers</dt><dd>{{ peer.follower_range or "—" }}</dd>
+      <dt>Engagement</dt><dd>{{ peer.engagement_range or "—" }}</dd>
+      <dt>Tenure</dt><dd>{{ peer.creator_tenure or "—" }}</dd>
+    </dl>
+    <div class="tag-row">
+      <span class="tag-row-label">Niches:</span>
+      {% for n in peer.niches or [] %}<span class="tag">{{ n }}</span>{% endfor %}
+    </div>
+    <div class="tag-row">
+      <span class="tag-row-label">Formats:</span>
+      {% for c in peer.content_formats or [] %}<span class="tag">{{ c }}</span>{% endfor %}
+    </div>
+    {% if peer.bio %}
+    <div class="kv-prose">
+      <h3>Bio</h3>
+      <p>{{ peer.bio }}</p>
+    </div>
+    {% endif %}
+  </section>
+
+  <section class="onb-section">
+    <h2 class="onb-section-title">Connection</h2>
+    {% if state == "none" %}
+      <form method="post" action="/creator/connections/request">
+        <input type="hidden" name="peer_user_id" value="{{ peer_id }}" />
+        <button type="submit" class="btn btn-primary">Send connect request</button>
+      </form>
+    {% elif state == "outgoing_pending" %}
+      <p class="field-hint">Your request is waiting on a response.</p>
+      <button class="btn btn-ghost" disabled>Request sent</button>
+    {% elif state == "incoming_pending" %}
+      <p class="field-hint">This creator wants to connect with you.</p>
+      <div class="decision-form" style="flex-direction:row; gap:8px;">
+        <form method="post" action="/creator/connections/{{ connection.id }}/accept">
+          <button type="submit" class="btn btn-primary">Accept</button>
+        </form>
+        <form method="post" action="/creator/connections/{{ connection.id }}/decline">
+          <button type="submit" class="btn btn-ghost">Decline</button>
+        </form>
+      </div>
+    {% elif state == "connected" %}
+      <p class="field-hint">You're connected.</p>
+      {# DM link arrives in the next step when creator-creator DMs land. #}
+      <span class="status-pill status-active">connected</span>
+    {% elif state == "declined" %}
+      <p class="field-hint">A previous request between you was declined.</p>
+    {% endif %}
+  </section>
+
+  {% if state in ("connected", "outgoing_pending", "incoming_pending", "none") %}
+  {% set target_type = "profile" %}
+  {% set target_id = peer_id %}
+  {% set return_to = "/creator/network/" ~ peer_id %}
+  {% set label = "this profile" %}
+  {% include "_partials/report_form.html" %}
+  {% endif %}
+</section>
+{% endblock %}

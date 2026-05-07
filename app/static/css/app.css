@@ -1144,3 +1144,16 @@ a.chip.chip-active {
   background: var(--bg-card-hi);
 }
 .report-form .btn { align-self: flex-start; }
+
+/* ---------- Connection row (incoming-request layout) ---------- */
+.connection-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.connection-actions {
+  display: flex;
+  gap: 4px;
+  padding: 0 14px;
+  flex-shrink: 0;
+}
