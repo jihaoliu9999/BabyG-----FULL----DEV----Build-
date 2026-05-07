@@ -8,7 +8,11 @@ select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "RUF"]
 ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["B011"]
+"tests/*" = ["B011", "N814"]
+# FastAPI Depends/Form/Query/Body factories are designed to live in argument
+# defaults; B008 is a known false positive for that pattern.
+"app/main.py" = ["B008"]
+"app/routes/*" = ["B008"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

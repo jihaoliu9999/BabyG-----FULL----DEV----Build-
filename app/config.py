@@ -7,7 +7,6 @@ field to the client. The Settings instance is a singleton via `get_settings()`.
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 

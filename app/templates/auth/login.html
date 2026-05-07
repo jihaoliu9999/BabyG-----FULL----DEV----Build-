@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}Sign in · babyg{% endblock %}
+
+{% block content %}
+<section class="auth-pane">
+  <a class="back-link" href="/get-started">← back</a>
+  <div class="auth-tag">{{ role|capitalize }} sign-in</div>
+  <h1 class="auth-title">Enter your email.</h1>
+  <p class="auth-sub">
+    We'll send you a one-time link. No passwords, ever.
+    {% if role == "operator" %}
+    <br/><span class="auth-warn">Operator access is invite-only.</span>
+    {% endif %}
+  </p>
+
+  {% if error %}
+  <div class="auth-error">{{ error }}</div>
+  {% endif %}
+
+  <form class="auth-form" method="post" action="/auth/magic-link">
+    <input type="hidden" name="role" value="{{ role }}" />
+    <label for="email" class="sr-only">Email</label>
+    <input
+      type="email"
+      id="email"
+      name="email"
+      autocomplete="email"
+      placeholder="you@domain.com"
+      required
+      autofocus
+      value="{{ email or '' }}"
+    />
+    <button type="submit" class="btn btn-primary btn-wide">Send my link</button>
+  </form>
+</section>
+{% endblock %}

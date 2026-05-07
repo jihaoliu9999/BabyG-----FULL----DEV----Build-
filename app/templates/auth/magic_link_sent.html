@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block title %}Check your email · babyg{% endblock %}
+
+{% block content %}
+<section class="auth-pane">
+  <div class="auth-tag">{{ role|capitalize }} sign-in</div>
+  <h1 class="auth-title">Check your email.</h1>
+  <p class="auth-sub">
+    We sent a one-time link to <strong>{{ email }}</strong>.
+    Open it on this device to finish signing in. The link expires in 60 minutes.
+  </p>
+  <p class="auth-foot">
+    Didn't get it? <a href="/auth/login?role={{ role }}">Try again</a>.
+  </p>
+</section>
+{% endblock %}

@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+
+{% block title %}Sign-in failed · babyg{% endblock %}
+
+{% block content %}
+<section class="auth-pane">
+  <div class="auth-tag">Sign-in</div>
+  <h1 class="auth-title">That didn't work.</h1>
+  <p class="auth-sub">{{ message }}</p>
+  <a class="btn btn-primary" href="/get-started">Try again</a>
+</section>
+{% endblock %}
