@@ -1081,3 +1081,66 @@ a.chip.chip-active {
   background: var(--bg-card-hi);
 }
 .dm-composer .btn { align-self: flex-end; }
+
+/* ---------- Status pills (extended) ---------- */
+.status-pending   { color: var(--text-mute); }
+.status-dismissed { color: var(--text-dim); opacity: 0.7; }
+.status-actioned  { color: #6ee7a8; border-color: rgba(110, 231, 168, 0.30); background: rgba(110, 231, 168, 0.08); }
+.status-escalated { color: var(--warn); border-color: rgba(245, 165, 36, 0.30); background: rgba(245, 165, 36, 0.06); }
+
+/* ---------- Report form (collapsible) ---------- */
+.report-block {
+  margin-top: 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+  padding: 0;
+}
+.report-summary {
+  list-style: none;
+  cursor: pointer;
+  padding: 14px 18px;
+  font-size: 13px;
+  color: var(--text-mute);
+  letter-spacing: 0.005em;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.report-summary::-webkit-details-marker { display: none; }
+.report-summary::before {
+  content: "⚐";
+  color: var(--text-dim);
+  font-size: 14px;
+}
+.report-summary:hover { color: var(--text); }
+.report-block[open] .report-summary {
+  border-bottom: 1px solid var(--line);
+  color: var(--text);
+}
+.report-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 18px 16px;
+}
+.report-form textarea {
+  width: 100%;
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+  padding: 10px 12px;
+  outline: none;
+  resize: vertical;
+  min-height: 70px;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.report-form textarea:focus {
+  border-color: #4d4d59;
+  background: var(--bg-card-hi);
+}
+.report-form .btn { align-self: flex-start; }

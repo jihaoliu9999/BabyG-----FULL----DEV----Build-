@@ -144,6 +144,9 @@ def store(monkeypatch) -> FakeIntelStore:
     # Step 7+: creator dashboard reads DM unread count too.
     from app.services import dms as dms_module_local
     monkeypatch.setattr(dms_module_local, "unread_count_for_user", lambda uid: 0)
+    # Step 8+: operator console reads abuse pending count.
+    from app.services import abuse as abuse_module_local
+    monkeypatch.setattr(abuse_module_local, "count_pending", lambda: 0)
     return s
 
 

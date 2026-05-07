@@ -54,5 +54,17 @@
       {% if existing_thread %}Open thread →{% else %}Reply to {{ brand.company_name }} →{% endif %}
     </a>
   </div>
+
+  {% if request.query_params.get("reported") == "1" %}
+  <div class="auth-success">Thanks — an operator will review.</div>
+  {% elif request.query_params.get("reported") == "fail" %}
+  <div class="auth-error">Couldn't submit your report. Try again.</div>
+  {% endif %}
+
+  {% set target_type = "profile" %}
+  {% set target_id = brand.user_id %}
+  {% set return_to = "/creator/brands/" ~ brand.user_id %}
+  {% set label = "this profile" %}
+  {% include "_partials/report_form.html" %}
 </section>
 {% endblock %}

@@ -30,5 +30,17 @@
               placeholder="Reply…"></textarea>
     <button type="submit" class="btn btn-primary">Send</button>
   </form>
+
+  {% if request.query_params.get("reported") == "1" %}
+  <div class="auth-success">Thanks — an operator will review.</div>
+  {% elif request.query_params.get("reported") == "fail" %}
+  <div class="auth-error">Couldn't submit your report. Try again.</div>
+  {% endif %}
+
+  {% set target_type = "dm_thread" %}
+  {% set target_id = thread.id %}
+  {% set return_to = "/creator/dm/" ~ peer_id %}
+  {% set label = "this conversation" %}
+  {% include "_partials/report_form.html" %}
 </section>
 {% endblock %}

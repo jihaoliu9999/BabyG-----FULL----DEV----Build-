@@ -72,5 +72,17 @@
     </form>
   </section>
   {% endif %}
+
+  {% if request.query_params.get("reported") == "1" %}
+  <div class="auth-success">Thanks — an operator will review.</div>
+  {% elif request.query_params.get("reported") == "fail" %}
+  <div class="auth-error">Couldn't submit your report. Try again.</div>
+  {% endif %}
+
+  {% set target_type = "profile" %}
+  {% set target_id = creator.user_id %}
+  {% set return_to = "/brand/creators/" ~ creator.user_id %}
+  {% set label = "this profile" %}
+  {% include "_partials/report_form.html" %}
 </section>
 {% endblock %}

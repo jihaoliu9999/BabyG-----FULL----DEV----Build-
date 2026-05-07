@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+
+{% block title %}Report · operator console{% endblock %}
+
+{% block content %}
+<section class="onb">
+  <a class="back-link" href="/operator/abuse">← reports</a>
+
+  <header class="onb-header">
+    <div class="auth-tag">
+      Report · {{ report.target_type|replace("_", " ") }}
+      · <span class="status-pill status-{{ report.status }}">{{ report.status }}</span>
+    </div>
+    <h1 class="onb-title">Submitted reason</h1>
+    <p class="onb-sub" style="white-space:pre-wrap;">{{ report.reason }}</p>
+  </header>
+
+  {% if error %}<div class="auth-error">{{ error }}</div>{% endif %}
+
+  <section class="onb-section">
+    <h2 class="onb-section-title">Metadata</h2>
+    <dl class="kv">
+      <dt>Reporter</dt><dd>{{ report.reporter_id }}</dd>
+      <dt>Target ID</dt><dd>{{ report.target_id }}</dd>
+      <dt>Submitted</dt><dd>{{ report.created_at }}</dd>
+      {% if report.reviewed_at %}
+      <dt>Reviewed</dt><dd>{{ report.reviewed_at }}</dd>
+      <dt>Reviewer</dt><dd>{{ report.reviewed_by }}</dd>
+      {% endif %}
+    </dl>
+    {% if report.action_notes %}
+    <div class="kv-prose">
+      <h3>Action notes</h3>
+      <p>{{ report.action_notes }}</p>
+    </div>
+    {% endif %}
+  </section>
+
+  <section class="onb-section">
+    <h2 class="onb-section-title">Target preview</h2>
+    {% if not context.available %}
+    <p class="field-hint">Target details unavailable for this report type.</p>
+    {% elif context.kind == "dm_thread" %}
+      <ol class="dm-messages" aria-label="Reported thread (recent 20)">
+        {% for m in context.messages %}
+        <li class="dm-message dm-message-theirs">
+          <div class="dm-message-body">{{ m.body }}</div>
+          <div class="dm-message-meta">
+            sender {{ m.sender_id }} · {{ m.created_at[:16]|replace("T", " ") }} UTC
+          </div>
+        </li>
+        {% endfor %}
+      </ol>
+    {% elif context.kind == "profile" and context.profile_kind == "brand" %}
+      <dl class="kv">
+        <dt>Type</dt><dd>Brand</dd>
+        <dt>Company</dt><dd>{{ context.profile.company_name }}</dd>
+        <dt>Industry</dt><dd>{{ context.profile.industry or "—" }}</dd>
+        <dt>Verified</dt><dd>{{ "yes" if context.profile.is_verified else "no" }}</dd>
+      </dl>
+    {% elif context.kind == "profile" and context.profile_kind == "creator" %}
+      <dl class="kv">
+        <dt>Type</dt><dd>Creator</dd>
+        <dt>Name</dt><dd>{{ context.profile.full_name or "—" }}</dd>
+        <dt>Handle</dt><dd>{% if context.profile.instagram_handle %}@{{ context.profile.instagram_handle }}{% else %}—{% endif %}</dd>
+      </dl>
+    {% endif %}
+  </section>
+
+  {% if report.status == "pending" %}
+  <section class="onb-section">
+    <h2 class="onb-section-title">Decision</h2>
+
+    <form method="post" action="/operator/abuse/{{ report.id }}/dismiss" class="decision-form">
+      <div class="field">
+        <label for="dismiss-notes" class="field-label">Dismiss notes (optional)</label>
+        <textarea id="dismiss-notes" name="notes" rows="2"
+                  placeholder="Anything worth recording for future operators."></textarea>
+      </div>
+      <button type="submit" class="btn btn-ghost">Dismiss</button>
+    </form>
+
+    <hr class="op-divider" />
+
+    <form method="post" action="/operator/abuse/{{ report.id }}/action" class="decision-form">
+      <div class="field">
+        <label for="action-notes" class="field-label">Action notes <span class="req">*</span></label>
+        <div class="field-hint">The reporter sees this verbatim.</div>
+        <textarea id="action-notes" name="notes" rows="3" required
+                  placeholder="What you did and why."></textarea>
+      </div>
+      <button type="submit" class="btn btn-primary">Action</button>
+    </form>
+
+    <hr class="op-divider" />
+
+    <form method="post" action="/operator/abuse/{{ report.id }}/escalate" class="decision-form">
+      <div class="field">
+        <label for="escalate-notes" class="field-label">Escalation notes <span class="req">*</span></label>
+        <div class="field-hint">The reporter sees this verbatim. Use for cases that need a human follow-up beyond babyg.</div>
+        <textarea id="escalate-notes" name="notes" rows="3" required
+                  placeholder="Why this needs escalation and who's looking at it."></textarea>
+      </div>
+      <button type="submit" class="btn btn-ghost">Escalate</button>
+    </form>
+  </section>
+  {% endif %}
+</section>
+{% endblock %}

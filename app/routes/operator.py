@@ -17,7 +17,7 @@ from app.core.security import SessionPayload
 from app.core.templating import templates
 from app.deps import require_role
 from app.routes.onboarding import CREATOR_NICHES  # reuse vocabulary
-from app.services import brands, intel, notifications
+from app.services import abuse, brands, dms, intel, notifications, profiles
 
 router = APIRouter(prefix="/operator", tags=["operator"])
 
@@ -34,10 +34,15 @@ async def console_home(
 ) -> Response:
     counts = _status_counts()
     pending_brands = len(brands.list_pending())
+    pending_abuse = abuse.count_pending()
     return templates.TemplateResponse(
         request,
         "operator/console.html",
-        {"counts": counts, "pending_brands": pending_brands},
+        {
+            "counts": counts,
+            "pending_brands": pending_brands,
+            "pending_abuse": pending_abuse,
+        },
     )
 
 
@@ -372,3 +377,165 @@ def _multi(values: list[Any], allowed: list[str]) -> list[str]:
         if s in allowed_set and s not in seen:
             seen.append(s)
     return seen
+
+
+# -----------------------------------------------------------------------------
+# Abuse / moderation queue
+# -----------------------------------------------------------------------------
+
+
+@router.get("/abuse", response_class=HTMLResponse)
+async def abuse_list(
+    request: Request,
+    tab: str = Query("pending"),
+    session: SessionPayload = Depends(require_role("operator")),
+) -> Response:
+    if tab not in abuse.STATUSES:
+        tab = "pending"
+    rows = abuse.list_by_status(tab)
+    return templates.TemplateResponse(
+        request,
+        "operator/abuse_list.html",
+        {"reports": rows, "active_tab": tab, "tabs": abuse.STATUSES},
+    )
+
+
+@router.get("/abuse/{report_id}", response_class=HTMLResponse)
+async def abuse_detail(
+    report_id: str,
+    request: Request,
+    session: SessionPayload = Depends(require_role("operator")),
+) -> Response:
+    report = abuse.get(report_id)
+    if report is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    context = _abuse_target_context(report)
+    return templates.TemplateResponse(
+        request,
+        "operator/abuse_detail.html",
+        {"report": report, "context": context, "error": None},
+    )
+
+
+@router.post("/abuse/{report_id}/{action}")
+async def abuse_resolve(
+    report_id: str,
+    action: str,
+    request: Request,
+    session: SessionPayload = Depends(require_role("operator")),
+) -> Response:
+    if action not in abuse.RESOLUTION_ACTIONS:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
+
+    form = await request.form()
+    notes = (form.get("notes") or "").strip()
+
+    report = abuse.get(report_id)
+    if report is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    if not abuse.resolve(
+        report_id=report_id,
+        reviewer_id=session["user_id"],
+        action=action,
+        notes=notes or None,
+    ):
+        return templates.TemplateResponse(
+            request,
+            "operator/abuse_detail.html",
+            {
+                "report": report,
+                "context": _abuse_target_context(report),
+                "error": (
+                    "Notes are required for action and escalate."
+                    if action != "dismiss"
+                    else "Couldn't update the report. Try again."
+                ),
+            },
+            status_code=400,
+        )
+
+    notifications.create(
+        user_id=report["reporter_id"],
+        kind="flag_update",
+        title=_resolve_title(action),
+        body=notes or None,
+        link_path="/creator/notifications"
+        if _reporter_role_hint(report) == "creator"
+        else "/brand",
+    )
+    return RedirectResponse("/operator/abuse", status_code=303)
+
+
+# -----------------------------------------------------------------------------
+# Helpers for the abuse queue
+# -----------------------------------------------------------------------------
+
+
+def _abuse_target_context(report: dict[str, Any]) -> dict[str, Any]:
+    """Resolve a small preview of the reported target so the operator
+    has enough to decide without leaving the page. None of these calls
+    raise — if a target is missing we just render an "unavailable" hint.
+    """
+    target_type = report.get("target_type")
+    target_id = report.get("target_id")
+    out: dict[str, Any] = {"kind": target_type, "available": False}
+
+    if not target_id:
+        return out
+
+    if target_type == "dm_thread":
+        try:
+            messages = dms.list_messages(str(target_id), limit=20)
+        except Exception:
+            messages = []
+        out["available"] = bool(messages)
+        out["messages"] = messages
+        return out
+
+    if target_type == "message":
+        # No direct lookup-by-message-id helper yet; we just mark it
+        # unavailable. Operators can navigate to the thread via the
+        # report's reason text in practice. Add a service helper if
+        # this becomes common.
+        out["available"] = False
+        return out
+
+    if target_type == "profile":
+        # The reported user_id is in target_id. Try brand first, then
+        # creator.
+        brand = brands.get_by_user_id(str(target_id))
+        if brand is not None:
+            out["available"] = True
+            out["profile_kind"] = "brand"
+            out["profile"] = brand
+            return out
+        creator = profiles.get_creator_profile(str(target_id))
+        if creator is not None:
+            out["available"] = True
+            out["profile_kind"] = "creator"
+            out["profile"] = creator
+        return out
+
+    # listing — deferred until the listings surface ships
+    return out
+
+
+def _resolve_title(action: str) -> str:
+    return {
+        "dismiss": "Your report was reviewed.",
+        "action": "Action taken on your report.",
+        "escalate": "Your report has been escalated.",
+    }[action]
+
+
+def _reporter_role_hint(report: dict[str, Any]) -> str:
+    """Best-effort: figure out whether the reporter is a creator or brand
+    so the notification's link_path lands them somewhere sensible. This
+    is a hint only; the notification renders the same either way.
+    """
+    rid = str(report.get("reporter_id") or "")
+    if rid and brands.get_by_user_id(rid) is not None:
+        return "brand"
+    return "creator"

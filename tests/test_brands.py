@@ -235,6 +235,10 @@ def world(monkeypatch) -> FakeWorld:
     # ----- operator console calls intel.list_for_operator for status counts -----
     monkeypatch.setattr(intel_module, "list_for_operator", lambda **kw: [])
 
+    # Step 8+: operator console reads abuse pending count.
+    from app.services import abuse as abuse_module_local
+    monkeypatch.setattr(abuse_module_local, "count_pending", lambda: 0)
+
     # ----- dms (Step 7+: outreach goes through threads/messages) -----
     # We stub these to no-ops; tests/test_dms.py covers the threading
     # contract. Here we just need outreach not to crash.
