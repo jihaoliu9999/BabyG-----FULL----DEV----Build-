@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}Matched creators · brand console{% endblock %}
+
+{% block content %}
+<section class="op">
+  <a class="back-link" href="/brand">← brand console</a>
+  <header class="op-header">
+    <div class="auth-tag">All matches</div>
+    <h1 class="op-title">{{ matches|length }} creator{{ "s" if matches|length != 1 else "" }} match your prefs</h1>
+  </header>
+
+  {% if matches %}
+  <div class="creator-grid">
+    {% for creator in matches %}
+      {% include "brand/_creator_card.html" %}
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="feed-empty">
+    <h2>No matches.</h2>
+    <p>Adjust your preferences in <a href="/onboarding/brand">brand setup</a>.</p>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}Brand verifications · operator console{% endblock %}
+
+{% block content %}
+<section class="op">
+  <a class="back-link" href="/operator">← console</a>
+
+  <header class="op-header">
+    <div class="auth-tag">Verifications</div>
+    <h1 class="op-title">Brand queue</h1>
+    <p class="op-sub">
+      Review submitted brands. Approving lets them reach creators.
+      Rejecting requires notes and notifies the brand.
+    </p>
+  </header>
+
+  <nav class="feed-filters" aria-label="Filter brands by status">
+    <a class="chip {% if active_tab == 'pending' %}chip-active{% endif %}"
+       href="/operator/brands?tab=pending">Pending</a>
+    <a class="chip {% if active_tab == 'verified' %}chip-active{% endif %}"
+       href="/operator/brands?tab=verified">Verified</a>
+    <a class="chip {% if active_tab == 'rejected' %}chip-active{% endif %}"
+       href="/operator/brands?tab=rejected">Rejected</a>
+  </nav>
+
+  {% if brands %}
+  <table class="op-table">
+    <thead>
+      <tr>
+        <th>Company</th>
+        <th>Industry</th>
+        <th>Submitted</th>
+        <th>Status</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for b in brands %}
+      <tr>
+        <td>
+          <a class="op-table-title" href="/operator/brands/{{ b.user_id }}">
+            {{ b.company_name or "Unnamed" }}
+          </a>
+        </td>
+        <td class="op-table-meta">{{ b.industry or "—" }}</td>
+        <td class="op-table-meta">
+          {{ b.onboarding_completed_at[:10] if b.onboarding_completed_at else "—" }}
+        </td>
+        <td>
+          {% if b.is_verified %}
+            <span class="status-pill status-active">verified</span>
+          {% elif b.verification_notes %}
+            <span class="status-pill status-archived">rejected</span>
+          {% else %}
+            <span class="status-pill status-scheduled">pending</span>
+          {% endif %}
+        </td>
+        <td class="op-table-actions">
+          <a class="link-btn" href="/operator/brands/{{ b.user_id }}">Review →</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="feed-empty">
+    <h2>No brands here.</h2>
+    <p>Nothing to review in this tab right now.</p>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

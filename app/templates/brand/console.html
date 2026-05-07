@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}{{ profile.company_name }} · brand console{% endblock %}
+
+{% block content %}
+<section class="op">
+  <header class="op-header">
+    <div class="auth-tag">{{ profile.company_name }} · Verified</div>
+    <h1 class="op-title">Discover creators</h1>
+    <p class="op-sub">
+      Matched on your niche preferences and creator-size preferences.
+      Open a profile to view full details and send outreach.
+    </p>
+  </header>
+
+  {% if matches %}
+  <div class="creator-grid">
+    {% for creator in matches %}
+      {% include "brand/_creator_card.html" %}
+    {% endfor %}
+  </div>
+
+  {% if matches|length >= 24 %}
+  <div class="op-foot-cta">
+    <a class="btn btn-ghost" href="/brand/creators">See all matches →</a>
+  </div>
+  {% endif %}
+
+  {% else %}
+  <div class="feed-empty">
+    <h2>No matches yet.</h2>
+    <p>
+      Tighten or broaden your niche and creator-size preferences in
+      <a href="/onboarding/brand">brand setup</a> to surface more.
+    </p>
+  </div>
+  {% endif %}
+
+  <footer class="feed-foot">
+    <form method="post" action="/auth/logout">
+      <button type="submit" class="btn btn-ghost">Sign out</button>
+    </form>
+  </footer>
+</section>
+{% endblock %}

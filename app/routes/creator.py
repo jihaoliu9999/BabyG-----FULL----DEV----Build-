@@ -1,8 +1,7 @@
-"""Creator dashboard — Daily Hot Drops feed.
+"""Creator dashboard, intel feedback, notifications, and brand view.
 
-Today this is one route (`/creator`) plus a feedback endpoint. As Phase 1
-fills in, we'll add booking, calendar, network, and the chat surface, all
-under this prefix.
+The chat surface arrives in Phase 1 Step 7. Until then, "outreach" from
+brands lands as a notification linking to the brand's read-only profile.
 """
 
 from __future__ import annotations
@@ -13,7 +12,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from app.core.security import SessionPayload
 from app.core.templating import templates
 from app.deps import require_role
-from app.services import intel, profiles
+from app.services import brands, intel, notifications, profiles
 
 router = APIRouter(tags=["creator"])
 
@@ -43,6 +42,8 @@ async def dashboard(
     )
     post_ids = [str(p["id"]) for p in posts]
     feedback_map = intel.feedback_for_user(session["user_id"], post_ids)
+    unread_notifs = notifications.list_unread(session["user_id"], limit=4)
+    unread_total = notifications.unread_count(session["user_id"])
 
     return templates.TemplateResponse(
         request,
@@ -53,6 +54,8 @@ async def dashboard(
             "feedback_map": feedback_map,
             "categories": list(CATEGORY_LABELS.items()),
             "active_category": category if category in intel.CATEGORIES else None,
+            "unread_notifs": unread_notifs,
+            "unread_total": unread_total,
         },
     )
 
@@ -68,3 +71,64 @@ async def submit_feedback(
     ):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
     return RedirectResponse("/creator", status_code=303)
+
+
+# -----------------------------------------------------------------------------
+# Notifications
+# -----------------------------------------------------------------------------
+
+
+@router.get("/creator/notifications", response_class=HTMLResponse)
+async def notifications_list(
+    request: Request,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    rows = notifications.list_for_user(session["user_id"], limit=100)
+    return templates.TemplateResponse(
+        request,
+        "creator/notifications.html",
+        {"rows": rows},
+    )
+
+
+@router.post("/creator/notifications/{notification_id}/read")
+async def notifications_mark_read(
+    notification_id: str,
+    session: SessionPayload = Depends(require_role("creator")),
+    target: str = Form("/creator/notifications"),
+) -> Response:
+    notifications.mark_read(
+        user_id=session["user_id"], notification_id=notification_id
+    )
+    return RedirectResponse(target or "/creator/notifications", status_code=303)
+
+
+@router.post("/creator/notifications/read-all")
+async def notifications_mark_all_read(
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    notifications.mark_all_read(session["user_id"])
+    return RedirectResponse("/creator/notifications", status_code=303)
+
+
+# -----------------------------------------------------------------------------
+# Read-only brand profile (entry point for collab_match notifications)
+# -----------------------------------------------------------------------------
+
+
+@router.get("/creator/brands/{brand_user_id}", response_class=HTMLResponse)
+async def brand_view(
+    brand_user_id: str,
+    request: Request,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    brand = brands.get_by_user_id(brand_user_id)
+    if brand is None or not brand.get("is_verified"):
+        # Unverified brands shouldn't be reachable as a profile page —
+        # if a creator follows a stale link, return 404.
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    return templates.TemplateResponse(
+        request,
+        "creator/brand_view.html",
+        {"brand": brand},
+    )

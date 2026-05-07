@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+
+{% block title %}Notifications · babyg{% endblock %}
+
+{% block content %}
+<section class="feed">
+  <a class="back-link" href="/creator">← dashboard</a>
+
+  <header class="feed-header">
+    <h1 class="feed-title">Notifications</h1>
+    {% if rows %}
+    <form method="post" action="/creator/notifications/read-all" class="inline-form">
+      <button type="submit" class="btn btn-ghost">Mark all read</button>
+    </form>
+    {% endif %}
+  </header>
+
+  {% if rows %}
+  <ul class="notif-list notif-list-full">
+    {% for n in rows %}
+    <li class="notif-item {% if not n.is_read %}notif-item-unread{% endif %}">
+      <form method="post" action="/creator/notifications/{{ n.id }}/read"
+            class="notif-item-form">
+        <input type="hidden" name="target" value="{{ n.link_path or '/creator/notifications' }}" />
+        <button type="submit" class="notif-item-btn" aria-label="Open notification">
+          <div class="notif-item-meta">{{ n.kind|replace("_", " ") }} · {{ n.created_at[:10] if n.created_at else "" }}</div>
+          <div class="notif-item-title">{{ n.title }}</div>
+          {% if n.body %}<div class="notif-item-body">{{ n.body }}</div>{% endif %}
+        </button>
+      </form>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <div class="feed-empty">
+    <h2>You're caught up.</h2>
+    <p>No notifications yet.</p>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

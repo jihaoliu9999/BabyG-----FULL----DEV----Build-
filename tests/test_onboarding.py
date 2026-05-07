@@ -22,6 +22,7 @@ from fastapi.testclient import TestClient
 
 from app.core.security import SESSION_COOKIE, write_session
 from app.main import app
+from app.services import brands as brands_module
 from app.services import profiles as profiles_module
 
 # -----------------------------------------------------------------------------
@@ -80,6 +81,9 @@ def store(monkeypatch) -> FakeProfileStore:
     monkeypatch.setattr(profiles_module, "is_brand_onboarded", _is_brand)
     monkeypatch.setattr(profiles_module, "complete_creator_onboarding", _complete_creator)
     monkeypatch.setattr(profiles_module, "complete_brand_onboarding", _complete_brand)
+    # Step 6+: /brand goes through the brand router which reads brand_profiles
+    # via the brands service. Reuse the same in-memory store.
+    monkeypatch.setattr(brands_module, "get_by_user_id", _get_brand)
     return s
 
 

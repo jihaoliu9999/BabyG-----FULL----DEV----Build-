@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block title %}{{ brand.company_name or "Brand" }} · operator console{% endblock %}
+
+{% block content %}
+<section class="onb">
+  <a class="back-link" href="/operator/brands">← brand queue</a>
+
+  <header class="onb-header">
+    <div class="auth-tag">
+      {% if brand.is_verified %}Verified
+      {% elif brand.verification_notes %}Rejected
+      {% else %}Pending review{% endif %}
+    </div>
+    <h1 class="onb-title">{{ brand.company_name or "Unnamed brand" }}</h1>
+    {% if brand.brand_website %}
+    <p class="onb-sub">
+      <a href="{{ brand.brand_website }}" target="_blank" rel="noopener noreferrer">
+        {{ brand.brand_website }} ↗
+      </a>
+    </p>
+    {% endif %}
+  </header>
+
+  {% if error %}<div class="auth-error">{{ error }}</div>{% endif %}
+
+  <section class="onb-section">
+    <h2 class="onb-section-title">Profile</h2>
+    <dl class="kv">
+      <dt>Industry</dt><dd>{{ brand.industry or "—" }}</dd>
+      <dt>Scale</dt><dd>{{ brand.scale_descriptor or "—" }}</dd>
+      <dt>Model</dt><dd>{{ brand.model_descriptor or "—" }}</dd>
+      <dt>Positioning</dt><dd>{{ brand.positioning_descriptor or "—" }}</dd>
+      <dt>Budget</dt><dd>{{ brand.budget_range or "—" }}</dd>
+      <dt>Contact</dt>
+      <dd>
+        {{ brand.contact_full_name or "—" }}{% if brand.contact_title %} · {{ brand.contact_title }}{% endif %}
+      </dd>
+    </dl>
+    {% if brand.product_description %}
+    <div class="kv-prose">
+      <h3>Product</h3>
+      <p>{{ brand.product_description }}</p>
+    </div>
+    {% endif %}
+  </section>
+
+  <section class="onb-section">
+    <h2 class="onb-section-title">Targeting</h2>
+    <div class="tag-row">
+      <span class="tag-row-label">Niches:</span>
+      {% for n in brand.niche_preferences or [] %}<span class="tag">{{ n }}</span>{% else %}<span class="tag-empty">— any —</span>{% endfor %}
+    </div>
+    <div class="tag-row">
+      <span class="tag-row-label">Creator sizes:</span>
+      {% for s in brand.creator_size_preferences or [] %}<span class="tag">{{ s }}</span>{% else %}<span class="tag-empty">— any —</span>{% endfor %}
+    </div>
+    <div class="tag-row">
+      <span class="tag-row-label">Campaign types:</span>
+      {% for c in brand.campaign_types or [] %}<span class="tag">{{ c }}</span>{% else %}<span class="tag-empty">—</span>{% endfor %}
+    </div>
+  </section>
+
+  {% if brand.verification_notes %}
+  <section class="onb-section">
+    <h2 class="onb-section-title">Last operator notes</h2>
+    <p class="kv-prose">{{ brand.verification_notes }}</p>
+  </section>
+  {% endif %}
+
+  {% if not brand.is_verified %}
+  <section class="onb-section">
+    <h2 class="onb-section-title">Decision</h2>
+    <form method="post" action="/operator/brands/{{ brand.user_id }}/verify" class="decision-form">
+      <div class="field">
+        <label for="verify-notes" class="field-label">Verify notes (optional)</label>
+        <textarea id="verify-notes" name="notes" rows="2"
+                  placeholder="Anything worth flagging for future operators."></textarea>
+      </div>
+      <button type="submit" class="btn btn-primary">Verify brand</button>
+    </form>
+
+    <hr class="op-divider" />
+
+    <form method="post" action="/operator/brands/{{ brand.user_id }}/reject" class="decision-form">
+      <div class="field">
+        <label for="reject-notes" class="field-label">
+          Rejection reason <span class="req">*</span>
+        </label>
+        <div class="field-hint">
+          The brand sees this verbatim. Be concrete and constructive.
+        </div>
+        <textarea id="reject-notes" name="notes" rows="3" required
+                  placeholder="e.g. Website 404s; resubmit once it's live."></textarea>
+      </div>
+      <button type="submit" class="btn btn-ghost">Reject</button>
+    </form>
+  </section>
+  {% endif %}
+</section>
+{% endblock %}

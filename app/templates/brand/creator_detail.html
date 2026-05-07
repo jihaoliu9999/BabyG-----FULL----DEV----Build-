@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}{{ creator.full_name or "Creator" }} · brand console{% endblock %}
+
+{% block content %}
+<section class="onb">
+  <a class="back-link" href="/brand">← matches</a>
+
+  <header class="onb-header">
+    <div class="auth-tag">Creator</div>
+    <h1 class="onb-title">{{ creator.full_name or "Creator" }}</h1>
+    {% if creator.instagram_handle %}
+    <p class="onb-sub">@{{ creator.instagram_handle }}{% if creator.primary_platform %} · {{ creator.primary_platform }}{% endif %}</p>
+    {% endif %}
+  </header>
+
+  {% if request.query_params.get("sent") %}
+  <div class="auth-success">Outreach sent. The creator will see it on their next visit.</div>
+  {% endif %}
+  {% if error %}<div class="auth-error">{{ error }}</div>{% endif %}
+
+  <section class="onb-section">
+    <h2 class="onb-section-title">Profile</h2>
+    <dl class="kv">
+      <dt>Neighborhood</dt><dd>{{ creator.neighborhood or "—" }}</dd>
+      <dt>Followers</dt><dd>{{ creator.follower_range or "—" }}</dd>
+      <dt>Engagement</dt><dd>{{ creator.engagement_range or "—" }}</dd>
+      <dt>Tenure</dt><dd>{{ creator.creator_tenure or "—" }}</dd>
+    </dl>
+    <div class="tag-row">
+      <span class="tag-row-label">Niches:</span>
+      {% for n in creator.niches or [] %}<span class="tag">{{ n }}</span>{% endfor %}
+    </div>
+    <div class="tag-row">
+      <span class="tag-row-label">Formats:</span>
+      {% for c in creator.content_formats or [] %}<span class="tag">{{ c }}</span>{% endfor %}
+    </div>
+    {% if creator.hard_limits %}
+    <div class="tag-row">
+      <span class="tag-row-label">Hard limits:</span>
+      {% for h in creator.hard_limits %}<span class="tag tag-warn">{{ h }}</span>{% endfor %}
+    </div>
+    {% endif %}
+    {% if creator.bio %}
+    <div class="kv-prose">
+      <h3>Bio</h3>
+      <p>{{ creator.bio }}</p>
+    </div>
+    {% endif %}
+  </section>
+
+  <section class="onb-section">
+    <h2 class="onb-section-title">Reach out</h2>
+    <p class="field-hint" style="margin-bottom:8px">
+      A short pitch is sent as a notification. The creator can view your
+      profile and reply once we ship the chat surface.
+    </p>
+    <form method="post" action="/brand/creators/{{ creator.user_id }}/outreach"
+          class="auth-form">
+      <textarea name="pitch" rows="5" required minlength="20" maxlength="500"
+                placeholder="Quick pitch — what the collab is, format, timeline, comp."
+                >{{ pitch or "" }}</textarea>
+      <button type="submit" class="btn btn-primary btn-wide">Send outreach</button>
+    </form>
+  </section>
+</section>
+{% endblock %}

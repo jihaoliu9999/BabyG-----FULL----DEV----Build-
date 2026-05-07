@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}{{ brand.company_name }} · babyg{% endblock %}
+
+{% block content %}
+<section class="onb">
+  <a class="back-link" href="/creator/notifications">← notifications</a>
+
+  <header class="onb-header">
+    <div class="auth-tag">Brand · Verified</div>
+    <h1 class="onb-title">{{ brand.company_name }}</h1>
+    {% if brand.brand_website %}
+    <p class="onb-sub">
+      <a href="{{ brand.brand_website }}" target="_blank" rel="noopener noreferrer">
+        {{ brand.brand_website }} ↗
+      </a>
+    </p>
+    {% endif %}
+  </header>
+
+  <section class="onb-section">
+    <h2 class="onb-section-title">About</h2>
+    <dl class="kv">
+      <dt>Industry</dt><dd>{{ brand.industry or "—" }}</dd>
+      <dt>Positioning</dt><dd>{{ brand.positioning_descriptor or "—" }}</dd>
+      <dt>Budget</dt><dd>{{ brand.budget_range or "—" }}</dd>
+    </dl>
+    {% if brand.product_description %}
+    <div class="kv-prose">
+      <h3>Product</h3>
+      <p>{{ brand.product_description }}</p>
+    </div>
+    {% endif %}
+  </section>
+
+  <section class="onb-section">
+    <h2 class="onb-section-title">What they look for</h2>
+    <div class="tag-row">
+      <span class="tag-row-label">Niches:</span>
+      {% for n in brand.niche_preferences or [] %}<span class="tag">{{ n }}</span>{% else %}<span class="tag-empty">— any —</span>{% endfor %}
+    </div>
+    <div class="tag-row">
+      <span class="tag-row-label">Creator sizes:</span>
+      {% for s in brand.creator_size_preferences or [] %}<span class="tag">{{ s }}</span>{% else %}<span class="tag-empty">— any —</span>{% endfor %}
+    </div>
+    <div class="tag-row">
+      <span class="tag-row-label">Campaigns:</span>
+      {% for c in brand.campaign_types or [] %}<span class="tag">{{ c }}</span>{% endfor %}
+    </div>
+  </section>
+
+  <p class="onb-foot">
+    Direct reply ships in the next step. For now, the operator team is
+    aware of every outreach via flagged messages.
+  </p>
+</section>
+{% endblock %}

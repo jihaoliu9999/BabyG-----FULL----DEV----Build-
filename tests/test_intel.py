@@ -21,7 +21,9 @@ from fastapi.testclient import TestClient
 
 from app.core.security import SESSION_COOKIE, write_session
 from app.main import app
+from app.services import brands as brands_module
 from app.services import intel as intel_module
+from app.services import notifications as notifications_module
 from app.services import profiles as profiles_module
 
 # -----------------------------------------------------------------------------
@@ -132,6 +134,13 @@ def store(monkeypatch) -> FakeIntelStore:
     monkeypatch.setattr(intel_module, "create_intel_post", _create_intel_post)
     monkeypatch.setattr(intel_module, "update_intel_post", _update_intel_post)
     monkeypatch.setattr(intel_module, "archive_intel_post", _archive_intel_post)
+
+    # Step 6+: creator dashboard reads notifications, operator console reads
+    # brand pending count. Stub both with empty results so the surfaces still
+    # render in this test file.
+    monkeypatch.setattr(notifications_module, "list_unread", lambda uid, *, limit=10: [])
+    monkeypatch.setattr(notifications_module, "unread_count", lambda uid: 0)
+    monkeypatch.setattr(brands_module, "list_pending", lambda: [])
     return s
 
 

@@ -21,6 +21,31 @@
     </nav>
   </header>
 
+  {% if unread_total %}
+  <aside class="notif-strip" aria-label="Unread notifications">
+    <div class="notif-strip-head">
+      <div class="notif-strip-eyebrow">
+        {{ unread_total }} new notification{{ "s" if unread_total != 1 else "" }}
+      </div>
+      <a class="notif-strip-link" href="/creator/notifications">View all →</a>
+    </div>
+    <ul class="notif-list">
+      {% for n in unread_notifs %}
+      <li class="notif-item">
+        <form method="post" action="/creator/notifications/{{ n.id }}/read"
+              class="notif-item-form">
+          <input type="hidden" name="target" value="{{ n.link_path or '/creator' }}" />
+          <button type="submit" class="notif-item-btn" aria-label="Open notification">
+            <div class="notif-item-title">{{ n.title }}</div>
+            {% if n.body %}<div class="notif-item-body">{{ n.body[:160] }}{% if n.body|length > 160 %}…{% endif %}</div>{% endif %}
+          </button>
+        </form>
+      </li>
+      {% endfor %}
+    </ul>
+  </aside>
+  {% endif %}
+
   {% if posts %}
     <div class="intel-list">
       {% for post in posts %}

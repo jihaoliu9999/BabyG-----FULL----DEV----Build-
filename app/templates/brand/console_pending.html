@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}Brand console · babyg{% endblock %}
+
+{% block content %}
+<section class="auth-pane">
+  <div class="auth-tag">{{ profile.company_name }}</div>
+  <h1 class="auth-title">Verification pending.</h1>
+  <p class="auth-sub">
+    Thanks for submitting. A babyg operator is reviewing your brand —
+    usually within one business day. You'll get an email once you're
+    approved and can reach creators.
+  </p>
+
+  {% if profile.verification_notes %}
+  <div class="auth-error">
+    <strong>Operator notes:</strong> {{ profile.verification_notes }}
+  </div>
+  <p class="auth-foot">
+    Update your profile at <a href="/onboarding/brand">brand setup</a> and resubmit.
+  </p>
+  {% endif %}
+
+  <form method="post" action="/auth/logout">
+    <button type="submit" class="btn btn-ghost">Sign out</button>
+  </form>
+</section>
+{% endblock %}
