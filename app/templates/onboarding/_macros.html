@@ -1,0 +1,60 @@
+{# Reusable form bits for onboarding wizards. #}
+
+{% macro chip_group(name, options, selected=None, layout="grid") %}
+  {% set selected = selected or [] %}
+  <div class="chips chips-{{ layout }}">
+    {% for opt in options %}
+    <label class="chip">
+      <input type="checkbox" name="{{ name }}" value="{{ opt }}"
+             {% if opt in selected %}checked{% endif %} />
+      <span>{{ opt }}</span>
+    </label>
+    {% endfor %}
+  </div>
+{% endmacro %}
+
+{% macro radio_group(name, options, selected=None) %}
+  <div class="chips chips-grid">
+    {% for opt in options %}
+    <label class="chip chip-radio">
+      <input type="radio" name="{{ name }}" value="{{ opt }}"
+             {% if opt == selected %}checked{% endif %} />
+      <span>{{ opt }}</span>
+    </label>
+    {% endfor %}
+  </div>
+{% endmacro %}
+
+{% macro field(label, name, value="", type="text", placeholder="", required=False, hint=None) %}
+  <div class="field">
+    <label for="f-{{ name }}" class="field-label">
+      {{ label }}{% if required %} <span class="req">*</span>{% endif %}
+    </label>
+    <input id="f-{{ name }}" name="{{ name }}" type="{{ type }}"
+           value="{{ value or '' }}" placeholder="{{ placeholder }}"
+           {% if required %}required{% endif %} />
+    {% if hint %}<div class="field-hint">{{ hint }}</div>{% endif %}
+  </div>
+{% endmacro %}
+
+{% macro textarea(label, name, value="", placeholder="", rows=4, hint=None) %}
+  <div class="field">
+    <label for="f-{{ name }}" class="field-label">{{ label }}</label>
+    <textarea id="f-{{ name }}" name="{{ name }}" rows="{{ rows }}"
+              placeholder="{{ placeholder }}">{{ value or '' }}</textarea>
+    {% if hint %}<div class="field-hint">{{ hint }}</div>{% endif %}
+  </div>
+{% endmacro %}
+
+{% macro select(label, name, options, selected=None, hint=None) %}
+  <div class="field">
+    <label for="f-{{ name }}" class="field-label">{{ label }}</label>
+    <select id="f-{{ name }}" name="{{ name }}">
+      <option value="">—</option>
+      {% for opt in options %}
+      <option value="{{ opt }}" {% if opt == selected %}selected{% endif %}>{{ opt }}</option>
+      {% endfor %}
+    </select>
+    {% if hint %}<div class="field-hint">{{ hint }}</div>{% endif %}
+  </div>
+{% endmacro %}

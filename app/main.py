@@ -1,8 +1,8 @@
 """FastAPI application factory.
 
-Phase 1 Step 3: marketing pages, magic-link auth, role-aware redirects.
-The actual creator/brand/operator dashboards are stubs here and will be
-filled in in Phase 1 Step 4+.
+Wires marketing, auth, and onboarding. Dashboards (/creator, /brand,
+/operator) are still stubs but now bounce to /onboarding/<role> if the
+user's profile is incomplete.
 """
 
 from __future__ import annotations
@@ -10,13 +10,16 @@ from __future__ import annotations
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, Request
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
+from app.core.security import SessionPayload
 from app.deps import require_role
 from app.routes import auth as auth_routes
 from app.routes import marketing as marketing_routes
+from app.routes import onboarding as onboarding_routes
+from app.services import profiles
 
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 
@@ -34,17 +37,28 @@ def create_app() -> FastAPI:
 
     app.include_router(marketing_routes.router)
     app.include_router(auth_routes.router)
+    app.include_router(onboarding_routes.router)
 
     @app.get("/creator", response_class=HTMLResponse, tags=["creator"])
-    async def creator_home(request: Request, session=Depends(require_role("creator"))):
+    async def creator_home(
+        request: Request, session: SessionPayload = Depends(require_role("creator"))
+    ) -> Response:
+        if not profiles.is_creator_onboarded(session["user_id"]):
+            return RedirectResponse("/onboarding/creator", status_code=302)
         return _stub(request, role="creator", title="Creator dashboard")
 
     @app.get("/brand", response_class=HTMLResponse, tags=["brand"])
-    async def brand_home(request: Request, session=Depends(require_role("brand"))):
+    async def brand_home(
+        request: Request, session: SessionPayload = Depends(require_role("brand"))
+    ) -> Response:
+        if not profiles.is_brand_onboarded(session["user_id"]):
+            return RedirectResponse("/onboarding/brand", status_code=302)
         return _stub(request, role="brand", title="Brand console")
 
     @app.get("/operator", response_class=HTMLResponse, tags=["operator"])
-    async def operator_home(request: Request, session=Depends(require_role("operator"))):
+    async def operator_home(
+        request: Request, session: SessionPayload = Depends(require_role("operator"))
+    ) -> Response:
         return _stub(request, role="operator", title="Operator console")
 
     @app.get("/healthz", tags=["system"])
@@ -62,7 +76,7 @@ def _stub(request: Request, *, role: str, title: str) -> HTMLResponse:
     <body class='theme-dark'><main class='page'><section class='auth-pane'>
       <div class='auth-tag'>{role.capitalize()}</div>
       <h1 class='auth-title'>{title}</h1>
-      <p class='auth-sub'>Signed in. Dashboard ships in Phase 1 Step 4.</p>
+      <p class='auth-sub'>Signed in and onboarded. Dashboard ships in Phase 1 Step 5.</p>
       <form method='post' action='/auth/logout'>
         <button class='btn btn-ghost' type='submit'>Sign out</button>
       </form>

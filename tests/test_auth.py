@@ -388,12 +388,14 @@ def test_logout_clears_cookie(client: TestClient) -> None:
     assert SESSION_COOKIE in set_cookie
 
 
-def test_dashboard_requires_correct_role(client: TestClient) -> None:
+def test_dashboard_requires_correct_role(
+    client: TestClient, fake_service
+) -> None:
     # Anonymous → 401
     r = client.get("/creator")
     assert r.status_code == 401
 
-    # Brand session → 403 on /creator
+    # Brand session → 403 on /creator (require_role rejects).
     from fastapi import Response as _R
 
     resp = _R()
@@ -404,5 +406,8 @@ def test_dashboard_requires_correct_role(client: TestClient) -> None:
     r = client.get("/creator")
     assert r.status_code == 403
 
+    # /brand passes role check, then bounces to onboarding because no
+    # brand_profiles row exists in the fake service store.
     r2 = client.get("/brand")
-    assert r2.status_code == 200
+    assert r2.status_code == 302
+    assert r2.headers["location"] == "/onboarding/brand"

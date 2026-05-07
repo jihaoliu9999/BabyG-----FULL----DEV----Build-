@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% import "onboarding/_macros.html" as f %}
+
+{% block title %}Set up your creator profile · babyg{% endblock %}
+
+{% block content %}
+<section class="onb">
+  <div class="onb-header">
+    <div class="auth-tag">Creator setup</div>
+    <h1 class="onb-title">Tell us about your work.</h1>
+    <p class="onb-sub">
+      This shapes the daily intel, brand briefs, and collab matches you'll see.
+      You can change any of it later from your profile.
+    </p>
+  </div>
+
+  {% if error %}<div class="auth-error">{{ error }}</div>{% endif %}
+
+  <form class="onb-form" method="post" action="/onboarding/creator">
+
+    <section class="onb-section">
+      <h2 class="onb-section-title">About you</h2>
+      {{ f.field("Full name", "full_name", profile.get("full_name", ""), required=True) }}
+      {{ f.field("Instagram handle", "instagram_handle",
+                  profile.get("instagram_handle", ""),
+                  placeholder="yourhandle", required=True,
+                  hint="No need to include the @.") }}
+      {{ f.select("Neighborhood", "neighborhood", vocab.neighborhoods,
+                  selected=profile.get("neighborhood")) }}
+      {{ f.textarea("Short bio", "bio", profile.get("bio", ""),
+                    placeholder="Two or three sentences about who you are and what you cover.",
+                    rows=3) }}
+    </section>
+
+    <section class="onb-section">
+      <h2 class="onb-section-title">Your work</h2>
+
+      <div class="field">
+        <label class="field-label">Niches <span class="req">*</span></label>
+        <div class="field-hint">Pick everything that applies.</div>
+        {{ f.chip_group("niches", vocab.niches, profile.get("niches", [])) }}
+      </div>
+
+      <div class="field">
+        <label class="field-label">Content formats <span class="req">*</span></label>
+        <div class="field-hint">What do you actually post?</div>
+        {{ f.chip_group("content_formats", vocab.formats, profile.get("content_formats", [])) }}
+      </div>
+
+      <div class="field">
+        <label class="field-label">Primary platform</label>
+        {{ f.radio_group("primary_platform", vocab.platforms,
+                         profile.get("primary_platform")) }}
+      </div>
+
+      <div class="onb-row">
+        {{ f.select("Follower range", "follower_range", vocab.follower_ranges,
+                    selected=profile.get("follower_range")) }}
+        {{ f.select("Engagement rate", "engagement_range", vocab.engagement_ranges,
+                    selected=profile.get("engagement_range")) }}
+        {{ f.select("Creator tenure", "creator_tenure", vocab.tenures,
+                    selected=profile.get("creator_tenure")) }}
+      </div>
+    </section>
+
+    <section class="onb-section">
+      <h2 class="onb-section-title">Preferences</h2>
+
+      <div class="field">
+        <label class="field-label">Hard limits</label>
+        <div class="field-hint">Brand types you'll never work with.</div>
+        {{ f.chip_group("hard_limits", vocab.hard_limits, profile.get("hard_limits", [])) }}
+      </div>
+
+      <div class="field">
+        <label class="field-label">Tier</label>
+        <div class="field-hint">
+          Basic is free. Pro and VIP unlock daily intel, deeper analytics,
+          and priority brand briefs. You can change this anytime.
+        </div>
+        {{ f.radio_group("tier", vocab.tiers, profile.get("tier", "basic")) }}
+      </div>
+    </section>
+
+    <div class="onb-actions">
+      <button type="submit" class="btn btn-primary btn-wide">Save and continue</button>
+    </div>
+  </form>
+</section>
+{% endblock %}
