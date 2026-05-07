@@ -239,6 +239,10 @@ def world(monkeypatch) -> FakeWorld:
     from app.services import abuse as abuse_module_local
     monkeypatch.setattr(abuse_module_local, "count_pending", lambda: 0)
 
+    # Step 13+: operator actions write to the audit log.
+    from app.services import audit as audit_module_local
+    monkeypatch.setattr(audit_module_local, "record", lambda **kw: True)
+
     # ----- dms (Step 7+: outreach goes through threads/messages) -----
     # We stub these to no-ops; tests/test_dms.py covers the threading
     # contract. Here we just need outreach not to crash.

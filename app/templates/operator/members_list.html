@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}Members · operator console{% endblock %}
+
+{% block content %}
+<section class="op">
+  <a class="back-link" href="/operator">← console</a>
+
+  <header class="op-header">
+    <div class="auth-tag">Members</div>
+    <h1 class="op-title">Roster</h1>
+    <p class="op-sub">Everyone who's signed in. Filter by role.</p>
+  </header>
+
+  <nav class="feed-filters" aria-label="Filter by role">
+    <a class="chip {% if not active_role %}chip-active{% endif %}"
+       href="/operator/members">All</a>
+    <a class="chip {% if active_role == 'creator' %}chip-active{% endif %}"
+       href="/operator/members?role=creator">Creators</a>
+    <a class="chip {% if active_role == 'brand' %}chip-active{% endif %}"
+       href="/operator/members?role=brand">Brands</a>
+    <a class="chip {% if active_role == 'operator' %}chip-active{% endif %}"
+       href="/operator/members?role=operator">Operators</a>
+  </nav>
+
+  {% if members %}
+  <table class="op-table">
+    <thead>
+      <tr>
+        <th>Email</th>
+        <th>Role</th>
+        <th>Active</th>
+        <th>Joined</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for m in members %}
+      <tr>
+        <td><a class="op-table-title" href="/operator/members/{{ m.id }}">{{ m.email }}</a></td>
+        <td class="op-table-meta">{{ m.role }}</td>
+        <td class="op-table-meta">{{ "yes" if m.is_active else "no" }}</td>
+        <td class="op-table-meta">{{ m.created_at[:10] if m.created_at else "—" }}</td>
+        <td class="op-table-actions">
+          <a class="link-btn" href="/operator/members/{{ m.id }}">Open →</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="feed-empty">
+    <h2>No members in this view.</h2>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

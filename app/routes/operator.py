@@ -17,7 +17,18 @@ from app.core.security import SessionPayload
 from app.core.templating import templates
 from app.deps import require_role
 from app.routes.onboarding import CREATOR_NICHES  # reuse vocabulary
-from app.services import abuse, brands, dms, intel, jobs, notifications, profiles
+from app.services import (
+    abuse,
+    audit,
+    brands,
+    dms,
+    intel,
+    jobs,
+    members,
+    notifications,
+    operator_notes,
+    profiles,
+)
 
 router = APIRouter(prefix="/operator", tags=["operator"])
 
@@ -106,6 +117,11 @@ async def brand_verify(
         body="Your brand has been verified by babyg. You can now reach creators.",
         link_path="/brand",
     )
+    audit.record(
+        actor_user_id=session["user_id"],
+        action="brand.verify",
+        target_type="brand", target_id=user_id, notes=notes,
+    )
     return RedirectResponse("/operator/brands", status_code=303)
 
 
@@ -131,6 +147,11 @@ async def brand_reject(
         title="Verification needs another look.",
         body=notes,
         link_path="/brand",
+    )
+    audit.record(
+        actor_user_id=session["user_id"],
+        action="brand.reject",
+        target_type="brand", target_id=user_id, notes=notes,
     )
     return RedirectResponse("/operator/brands", status_code=303)
 
@@ -634,3 +655,93 @@ async def operator_jobs_takedown(
             link_path="/creator/jobs/mine",
         )
     return RedirectResponse("/operator/jobs", status_code=303)
+
+
+# -----------------------------------------------------------------------------
+# Member roster + per-user notes
+# -----------------------------------------------------------------------------
+
+
+@router.get("/members", response_class=HTMLResponse)
+async def members_list(
+    request: Request,
+    role: str | None = Query(None),
+    session: SessionPayload = Depends(require_role("operator")),
+) -> Response:
+    rows = members.list_users(role=role)
+    return templates.TemplateResponse(
+        request,
+        "operator/members_list.html",
+        {"members": rows, "active_role": role},
+    )
+
+
+@router.get("/members/{user_id}", response_class=HTMLResponse)
+async def member_detail(
+    user_id: str,
+    request: Request,
+    session: SessionPayload = Depends(require_role("operator")),
+) -> Response:
+    user = members.get_user(user_id)
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    members.annotate_with_profile(user)
+    notes = operator_notes.list_for_user(user_id)
+    return templates.TemplateResponse(
+        request,
+        "operator/member_detail.html",
+        {"member": user, "notes": notes, "error": None},
+    )
+
+
+@router.post("/members/{user_id}/note")
+async def member_note_create(
+    user_id: str,
+    request: Request,
+    session: SessionPayload = Depends(require_role("operator")),
+) -> Response:
+    form = await request.form()
+    body = (form.get("body") or "").strip()
+    if not body:
+        user = members.get_user(user_id)
+        if user is None:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+        members.annotate_with_profile(user)
+        return templates.TemplateResponse(
+            request,
+            "operator/member_detail.html",
+            {
+                "member": user,
+                "notes": operator_notes.list_for_user(user_id),
+                "error": "Notes can't be empty.",
+            },
+            status_code=400,
+        )
+    operator_notes.create(
+        target_user_id=user_id,
+        author_user_id=session["user_id"],
+        body=body,
+    )
+    audit.record(
+        actor_user_id=session["user_id"],
+        action="operator_note.create",
+        target_type="user",
+        target_id=user_id,
+    )
+    return RedirectResponse(f"/operator/members/{user_id}", status_code=303)
+
+
+# -----------------------------------------------------------------------------
+# Audit log
+# -----------------------------------------------------------------------------
+
+
+@router.get("/audit", response_class=HTMLResponse)
+async def audit_list(
+    request: Request,
+    session: SessionPayload = Depends(require_role("operator")),
+) -> Response:
+    rows = audit.list_recent()
+    return templates.TemplateResponse(
+        request, "operator/audit_list.html", {"rows": rows}
+    )

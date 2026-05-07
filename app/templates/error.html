@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} · babyg{% endblock %}
+
+{% block content %}
+<section class="auth-pane">
+  <div class="auth-tag">{{ status_code }}</div>
+  <h1 class="auth-title">{{ title }}</h1>
+  <p class="auth-sub">{{ message }}</p>
+  <a class="btn btn-primary" href="/">Back home</a>
+</section>
+{% endblock %}
