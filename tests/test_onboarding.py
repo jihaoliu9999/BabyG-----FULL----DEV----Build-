@@ -313,19 +313,10 @@ def test_brand_dashboard_redirects_to_onboarding_when_incomplete(client, store):
     assert r.headers["location"] == "/onboarding/brand"
 
 
-def test_creator_dashboard_renders_when_onboarded(client, store):
-    _signed_in(client, role="creator")
-    store.creator["u-1"] = {"onboarding_completed_at": "2026-05-07T00:00:00Z"}
-    r = client.get("/creator")
-    assert r.status_code == 200
-    assert "Creator dashboard" in r.text
-
-
-def test_operator_dashboard_does_not_check_onboarding(client, store):
-    _signed_in(client, role="operator")
-    r = client.get("/operator")
-    assert r.status_code == 200
-    assert "Operator console" in r.text
+# `creator dashboard renders when onboarded` and `operator dashboard skips
+# the onboarding check` are now covered by tests/test_intel.py, which stubs
+# the intel service. The dashboards do real work post-Phase-1-Step-5 and
+# can't be tested with only the profiles store stubbed.
 
 
 # -----------------------------------------------------------------------------

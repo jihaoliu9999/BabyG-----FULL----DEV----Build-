@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+
+{% block title %}Daily Hot Drops · babyg{% endblock %}
+
+{% block content %}
+<section class="feed">
+  <header class="feed-header">
+    <div class="feed-eyebrow">Today, {{ profile.full_name or "creator" }}</div>
+    <h1 class="feed-title">Daily Hot Drops</h1>
+    <p class="feed-sub">
+      Targeted intel for your work — venues, trends, brands worth a brief, and collabs.
+      Tap a feedback button so we learn what's useful.
+    </p>
+
+    <nav class="feed-filters" aria-label="Filter intel by category">
+      <a class="chip {% if not active_category %}chip-active{% endif %}" href="/creator">All</a>
+      {% for slug, label in categories %}
+      <a class="chip {% if active_category == slug %}chip-active{% endif %}"
+         href="/creator?category={{ slug }}">{{ label }}</a>
+      {% endfor %}
+    </nav>
+  </header>
+
+  {% if posts %}
+    <div class="intel-list">
+      {% for post in posts %}
+        {% include "_partials/intel_card.html" %}
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="feed-empty">
+      <h2>No drops yet today.</h2>
+      <p>
+        Nothing in your niches right now. Check back later, or pull the chat
+        for a quick scan of what's moving.
+      </p>
+    </div>
+  {% endif %}
+
+  <footer class="feed-foot">
+    <form method="post" action="/auth/logout">
+      <button type="submit" class="btn btn-ghost">Sign out</button>
+    </form>
+  </footer>
+</section>
+{% endblock %}

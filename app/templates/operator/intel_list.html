@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Intel · operator console{% endblock %}
+
+{% block content %}
+<section class="op">
+  <a class="back-link" href="/operator">← console</a>
+
+  <header class="op-header op-header-row">
+    <div>
+      <div class="auth-tag">Intel</div>
+      <h1 class="op-title">Daily Hot Drops</h1>
+    </div>
+    <a class="btn btn-primary" href="/operator/intel/new">+ New post</a>
+  </header>
+
+  <nav class="feed-filters" aria-label="Filter by status">
+    <a class="chip {% if not active_status %}chip-active{% endif %}" href="/operator/intel">All</a>
+    {% for s in statuses %}
+    <a class="chip {% if active_status == s %}chip-active{% endif %}"
+       href="/operator/intel?status={{ s }}">{{ s|capitalize }}</a>
+    {% endfor %}
+  </nav>
+
+  {% if posts %}
+  <table class="op-table">
+    <thead>
+      <tr>
+        <th>Title</th>
+        <th>Category</th>
+        <th>Status</th>
+        <th>Valid until</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for p in posts %}
+      <tr>
+        <td>
+          <a class="op-table-title" href="/operator/intel/{{ p.id }}/edit">{{ p.title }}</a>
+        </td>
+        <td><span class="badge badge-{{ p.category }}">{{ p.category|capitalize }}</span></td>
+        <td><span class="status-pill status-{{ p.status }}">{{ p.status }}</span></td>
+        <td class="op-table-meta">
+          {{ p.valid_until[:10] if p.valid_until else "—" }}
+        </td>
+        <td class="op-table-actions">
+          {% if p.status != "archived" %}
+          <form method="post" action="/operator/intel/{{ p.id }}/archive" class="inline-form">
+            <button type="submit" class="link-btn">Archive</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+    <div class="feed-empty">
+      <h2>No posts yet.</h2>
+      <p>Hit "+ New post" to publish your first drop.</p>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}

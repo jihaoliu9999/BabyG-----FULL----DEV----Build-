@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}Operator console · babyg{% endblock %}
+
+{% block content %}
+<section class="op">
+  <header class="op-header">
+    <div class="auth-tag">Operator</div>
+    <h1 class="op-title">Console</h1>
+    <p class="op-sub">
+      Publish intel, review verifications, work the flagged queue. More
+      surfaces ship as we go.
+    </p>
+  </header>
+
+  <div class="op-grid">
+    <a class="op-card" href="/operator/intel">
+      <div class="op-card-tag">Intel</div>
+      <div class="op-card-title">Daily Hot Drops</div>
+      <div class="op-card-stats">
+        <span><strong>{{ counts.active }}</strong> active</span>
+        <span><strong>{{ counts.draft }}</strong> draft</span>
+        <span><strong>{{ counts.archived }}</strong> archived</span>
+      </div>
+      <div class="op-card-cta">Open →</div>
+    </a>
+
+    <div class="op-card op-card-disabled">
+      <div class="op-card-tag">Verifications</div>
+      <div class="op-card-title">Brand verification queue</div>
+      <p class="op-card-body">Ships in Phase 1 Step 6.</p>
+    </div>
+
+    <div class="op-card op-card-disabled">
+      <div class="op-card-tag">Members</div>
+      <div class="op-card-title">Member roster</div>
+      <p class="op-card-body">Ships in Phase 1 Step 7.</p>
+    </div>
+  </div>
+
+  <footer class="feed-foot">
+    <form method="post" action="/auth/logout">
+      <button type="submit" class="btn btn-ghost">Sign out</button>
+    </form>
+  </footer>
+</section>
+{% endblock %}
