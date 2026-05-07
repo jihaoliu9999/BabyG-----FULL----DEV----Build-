@@ -907,3 +907,177 @@ a.chip.chip-active {
   font-size: 14px;
   margin-bottom: 16px;
 }
+
+/* ---------- Quicklinks (top-of-feed nav row) ---------- */
+.feed-quicklinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  margin-top: 12px;
+  font-size: 14px;
+  color: var(--text-mute);
+}
+.feed-quicklinks a {
+  color: var(--text);
+  text-decoration: none;
+  border-bottom: 1px solid var(--line);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.feed-quicklinks a:hover { border-color: #4d4d59; }
+.feed-quicklink-sep { color: var(--text-dim); }
+
+/* ---------- DM thread list ---------- */
+.dm-thread-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+}
+.dm-thread-row + .dm-thread-row { border-top: 1px solid var(--line); }
+.dm-thread-link {
+  display: block;
+  padding: 16px 20px;
+  color: var(--text);
+  text-decoration: none;
+  transition: background 120ms ease;
+}
+.dm-thread-link:hover { background: var(--bg-card-hi); text-decoration: none; }
+.dm-thread-name {
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: -0.005em;
+}
+.dm-thread-handle {
+  font-size: 13px;
+  color: var(--text-mute);
+  font-weight: 400;
+  margin-left: 6px;
+}
+.dm-thread-meta {
+  font-size: 13px;
+  color: var(--text-mute);
+  margin-top: 4px;
+}
+
+/* ---------- DM thread (single conversation) ---------- */
+.dm {
+  flex: 1;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 56px 24px 96px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.dm-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 8px;
+}
+.dm-title {
+  font-size: clamp(26px, 4vw, 34px);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin: 6px 0 4px;
+}
+.dm-sub { color: var(--text-mute); margin: 0; font-size: 14px; }
+.dm-sub a { color: var(--text-mute); border-bottom: 1px solid var(--line); }
+.dm-sub a:hover { color: var(--text); text-decoration: none; }
+
+.dm-messages {
+  list-style: none;
+  margin: 0;
+  padding: 18px;
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 200px;
+}
+.dm-empty {
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 40px 28px;
+  text-align: center;
+}
+
+.dm-message {
+  display: flex;
+  flex-direction: column;
+  max-width: 80%;
+}
+.dm-message-mine { align-self: flex-end; align-items: flex-end; }
+.dm-message-theirs { align-self: flex-start; align-items: flex-start; }
+.dm-message-body {
+  padding: 10px 14px;
+  border-radius: 16px;
+  font-size: 15px;
+  line-height: 1.45;
+  white-space: pre-wrap;
+}
+.dm-message-mine .dm-message-body {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-bottom-right-radius: 4px;
+}
+.dm-message-theirs .dm-message-body {
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  color: var(--text);
+  border-bottom-left-radius: 4px;
+}
+.dm-message-meta {
+  margin-top: 4px;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+  display: flex;
+  gap: 8px;
+}
+.dm-message-tick {
+  color: var(--text-mute);
+  font-style: italic;
+}
+
+/* ---------- DM composer (reply box) ---------- */
+.dm-composer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 14px;
+}
+.dm-composer textarea {
+  width: 100%;
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 15px;
+  padding: 12px 14px;
+  outline: none;
+  resize: vertical;
+  min-height: 84px;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.dm-composer textarea::placeholder { color: var(--text-dim); }
+.dm-composer textarea:focus {
+  border-color: #4d4d59;
+  background: var(--bg-card-hi);
+}
+.dm-composer .btn { align-self: flex-end; }

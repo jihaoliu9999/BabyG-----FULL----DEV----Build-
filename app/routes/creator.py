@@ -12,7 +12,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from app.core.security import SessionPayload
 from app.core.templating import templates
 from app.deps import require_role
-from app.services import brands, intel, notifications, profiles
+from app.services import brands, dms, intel, notifications, profiles
 
 router = APIRouter(tags=["creator"])
 
@@ -44,6 +44,7 @@ async def dashboard(
     feedback_map = intel.feedback_for_user(session["user_id"], post_ids)
     unread_notifs = notifications.list_unread(session["user_id"], limit=4)
     unread_total = notifications.unread_count(session["user_id"])
+    unread_dms = dms.unread_count_for_user(session["user_id"])
 
     return templates.TemplateResponse(
         request,
@@ -56,6 +57,7 @@ async def dashboard(
             "active_category": category if category in intel.CATEGORIES else None,
             "unread_notifs": unread_notifs,
             "unread_total": unread_total,
+            "unread_dms": unread_dms,
         },
     )
 
@@ -127,8 +129,96 @@ async def brand_view(
         # Unverified brands shouldn't be reachable as a profile page —
         # if a creator follows a stale link, return 404.
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    existing_thread = dms.get_thread_between(session["user_id"], brand_user_id)
     return templates.TemplateResponse(
         request,
         "creator/brand_view.html",
-        {"brand": brand},
+        {"brand": brand, "existing_thread": bool(existing_thread)},
     )
+
+
+# -----------------------------------------------------------------------------
+# DMs
+# -----------------------------------------------------------------------------
+
+
+@router.get("/creator/dm", response_class=HTMLResponse)
+async def dm_list(
+    request: Request, session: SessionPayload = Depends(require_role("creator"))
+) -> Response:
+    threads = dms.list_threads_for_user(session["user_id"])
+    # The creator only DMs verified brands in this step, so peer profiles
+    # come from the brands service.
+    peers = {t["peer_id"]: brands.get_by_user_id(t["peer_id"]) for t in threads}
+    return templates.TemplateResponse(
+        request,
+        "creator/dm_list.html",
+        {"threads": threads, "peers": peers},
+    )
+
+
+@router.get("/creator/dm/{peer_user_id}", response_class=HTMLResponse)
+async def dm_thread(
+    peer_user_id: str,
+    request: Request,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    peer = brands.get_by_user_id(peer_user_id)
+    if peer is None or not peer.get("is_verified"):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    thread = dms.get_or_create_thread(session["user_id"], peer_user_id)
+    if thread is None:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    messages = dms.list_messages(str(thread["id"]))
+    dms.mark_thread_read_for(str(thread["id"]), reader_id=session["user_id"])
+    return templates.TemplateResponse(
+        request,
+        "creator/dm_thread.html",
+        {
+            "thread": thread,
+            "messages": messages,
+            "peer": peer,
+            "peer_id": peer_user_id,
+            "me_id": session["user_id"],
+        },
+    )
+
+
+@router.post("/creator/dm/{peer_user_id}/send")
+async def dm_send(
+    peer_user_id: str,
+    body: str = Form(...),
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    peer = brands.get_by_user_id(peer_user_id)
+    if peer is None or not peer.get("is_verified"):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    body = (body or "").strip()
+    if not body:
+        return RedirectResponse(f"/creator/dm/{peer_user_id}", status_code=303)
+
+    thread = dms.get_or_create_thread(session["user_id"], peer_user_id)
+    if thread is None:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    msg = dms.send_message(
+        thread_id=str(thread["id"]),
+        sender_id=session["user_id"],
+        body=body,
+    )
+    if msg is not None:
+        creator_profile = profiles.get_creator_profile(session["user_id"]) or {}
+        sender_label = (
+            creator_profile.get("full_name")
+            or creator_profile.get("instagram_handle")
+            or "a creator"
+        )
+        notifications.create(
+            user_id=peer_user_id,
+            kind="new_dm",
+            title=f"New message from {sender_label}",
+            body=body[:160],
+            link_path=f"/brand/dm/{session['user_id']}",
+        )
+    return RedirectResponse(f"/creator/dm/{peer_user_id}", status_code=303)

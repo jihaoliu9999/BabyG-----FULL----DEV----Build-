@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}Messages · babyg{% endblock %}
+
+{% block content %}
+<section class="feed">
+  <a class="back-link" href="/creator">← dashboard</a>
+
+  <header class="feed-header">
+    <div class="feed-eyebrow">Direct messages</div>
+    <h1 class="feed-title">Conversations</h1>
+    <p class="feed-sub">
+      Brand outreach lands here. Reply directly — the brand will be notified.
+    </p>
+  </header>
+
+  {% if threads %}
+  <ul class="dm-thread-list">
+    {% for t in threads %}
+      {% set peer = peers.get(t.peer_id) %}
+      <li class="dm-thread-row">
+        <a class="dm-thread-link" href="/creator/dm/{{ t.peer_id }}">
+          <div class="dm-thread-name">
+            {{ peer.company_name if peer else "Conversation" }}
+          </div>
+          <div class="dm-thread-meta">
+            {% if t.last_message_at %}
+              Last message {{ t.last_message_at[:10] }}
+            {% else %}
+              No messages yet
+            {% endif %}
+          </div>
+        </a>
+      </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <div class="feed-empty">
+    <h2>No conversations yet.</h2>
+    <p>When a brand reaches out, the thread will land here.</p>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

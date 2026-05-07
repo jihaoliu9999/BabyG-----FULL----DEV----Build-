@@ -141,6 +141,9 @@ def store(monkeypatch) -> FakeIntelStore:
     monkeypatch.setattr(notifications_module, "list_unread", lambda uid, *, limit=10: [])
     monkeypatch.setattr(notifications_module, "unread_count", lambda uid: 0)
     monkeypatch.setattr(brands_module, "list_pending", lambda: [])
+    # Step 7+: creator dashboard reads DM unread count too.
+    from app.services import dms as dms_module_local
+    monkeypatch.setattr(dms_module_local, "unread_count_for_user", lambda uid: 0)
     return s
 
 

@@ -49,9 +49,10 @@
     </div>
   </section>
 
-  <p class="onb-foot">
-    Direct reply ships in the next step. For now, the operator team is
-    aware of every outreach via flagged messages.
-  </p>
+  <div class="onb-actions">
+    <a class="btn btn-primary btn-wide" href="/creator/dm/{{ brand.user_id }}">
+      {% if existing_thread %}Open thread →{% else %}Reply to {{ brand.company_name }} →{% endif %}
+    </a>
+  </div>
 </section>
 {% endblock %}

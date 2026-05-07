@@ -19,6 +19,16 @@
          href="/creator?category={{ slug }}">{{ label }}</a>
       {% endfor %}
     </nav>
+
+    <div class="feed-quicklinks">
+      <a href="/creator/dm">
+        Messages{% if unread_dms %} <span class="badge badge-alert">{{ unread_dms }}</span>{% endif %}
+      </a>
+      <span class="feed-quicklink-sep">·</span>
+      <a href="/creator/notifications">
+        Notifications{% if unread_total %} <span class="badge badge-alert">{{ unread_total }}</span>{% endif %}
+      </a>
+    </div>
   </header>
 
   {% if unread_total %}

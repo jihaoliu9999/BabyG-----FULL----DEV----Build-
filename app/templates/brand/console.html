@@ -11,6 +11,11 @@
       Matched on your niche preferences and creator-size preferences.
       Open a profile to view full details and send outreach.
     </p>
+    <div class="feed-quicklinks">
+      <a href="/brand/dm">
+        Messages{% if unread_dms %} <span class="badge badge-alert">{{ unread_dms }}</span>{% endif %}
+      </a>
+    </div>
   </header>
 
   {% if matches %}

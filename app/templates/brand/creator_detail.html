@@ -14,9 +14,6 @@
     {% endif %}
   </header>
 
-  {% if request.query_params.get("sent") %}
-  <div class="auth-success">Outreach sent. The creator will see it on their next visit.</div>
-  {% endif %}
   {% if error %}<div class="auth-error">{{ error }}</div>{% endif %}
 
   <section class="onb-section">
@@ -49,11 +46,22 @@
     {% endif %}
   </section>
 
+  {% if existing_thread %}
+  <section class="onb-section">
+    <h2 class="onb-section-title">Conversation</h2>
+    <p class="field-hint" style="margin-bottom:8px">
+      You already have a thread with this creator. Pick it up where you left off.
+    </p>
+    <a class="btn btn-primary btn-wide" href="/brand/dm/{{ creator.user_id }}">
+      Open thread →
+    </a>
+  </section>
+  {% else %}
   <section class="onb-section">
     <h2 class="onb-section-title">Reach out</h2>
     <p class="field-hint" style="margin-bottom:8px">
-      A short pitch is sent as a notification. The creator can view your
-      profile and reply once we ship the chat surface.
+      Your pitch becomes the first message in a new thread. The creator
+      gets a notification and can reply here.
     </p>
     <form method="post" action="/brand/creators/{{ creator.user_id }}/outreach"
           class="auth-form">
@@ -63,5 +71,6 @@
       <button type="submit" class="btn btn-primary btn-wide">Send outreach</button>
     </form>
   </section>
+  {% endif %}
 </section>
 {% endblock %}

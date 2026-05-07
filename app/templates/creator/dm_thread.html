@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}{{ peer.company_name }} · messages · babyg{% endblock %}
+
+{% block content %}
+<section class="dm">
+  <a class="back-link" href="/creator/dm">← all conversations</a>
+
+  <header class="dm-header">
+    <div>
+      <div class="auth-tag">Brand · Verified</div>
+      <h1 class="dm-title">{{ peer.company_name }}</h1>
+      <p class="dm-sub">
+        <a href="/creator/brands/{{ peer_id }}">View profile →</a>
+      </p>
+    </div>
+  </header>
+
+  {% if messages %}
+    {% include "_partials/dm_thread_messages.html" %}
+  {% else %}
+    <div class="feed-empty dm-empty">
+      <h2>Say hello.</h2>
+      <p>This is the start of your conversation.</p>
+    </div>
+  {% endif %}
+
+  <form class="dm-composer" method="post" action="/creator/dm/{{ peer_id }}/send">
+    <textarea name="body" rows="3" required maxlength="4000"
+              placeholder="Reply…"></textarea>
+    <button type="submit" class="btn btn-primary">Send</button>
+  </form>
+</section>
+{% endblock %}

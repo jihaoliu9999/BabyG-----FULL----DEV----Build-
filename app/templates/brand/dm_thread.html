@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}{{ peer.full_name or "Creator" }} · messages · brand console{% endblock %}
+
+{% block content %}
+<section class="dm">
+  <a class="back-link" href="/brand/dm">← all conversations</a>
+
+  <header class="dm-header">
+    <div>
+      <div class="auth-tag">Creator</div>
+      <h1 class="dm-title">{{ peer.full_name or "Creator" }}</h1>
+      <p class="dm-sub">
+        {% if peer.instagram_handle %}@{{ peer.instagram_handle }} · {% endif %}
+        <a href="/brand/creators/{{ peer_id }}">View profile →</a>
+      </p>
+    </div>
+  </header>
+
+  {% if messages %}
+    {% include "_partials/dm_thread_messages.html" %}
+  {% else %}
+    <div class="feed-empty dm-empty">
+      <h2>Send your first message.</h2>
+      <p>Keep it concrete: campaign, format, timeline, comp.</p>
+    </div>
+  {% endif %}
+
+  <form class="dm-composer" method="post" action="/brand/dm/{{ peer_id }}/send">
+    <textarea name="body" rows="3" required maxlength="4000"
+              placeholder="Type your message…"></textarea>
+    <button type="submit" class="btn btn-primary">Send</button>
+  </form>
+</section>
+{% endblock %}

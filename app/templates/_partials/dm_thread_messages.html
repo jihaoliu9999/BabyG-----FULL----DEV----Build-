@@ -1,0 +1,12 @@
+{# DM thread message list. Expects: messages, me_id. #}
+<ol class="dm-messages" aria-label="Messages">
+  {% for m in messages %}
+  <li class="dm-message {% if m.sender_id == me_id %}dm-message-mine{% else %}dm-message-theirs{% endif %}">
+    <div class="dm-message-body">{{ m.body }}</div>
+    <div class="dm-message-meta">
+      {% if m.created_at %}{{ m.created_at[:16]|replace("T", " ") }} UTC{% endif %}
+      {% if m.sender_id == me_id and not m.read_at %}<span class="dm-message-tick">unread</span>{% endif %}
+    </div>
+  </li>
+  {% endfor %}
+</ol>

@@ -26,6 +26,7 @@ from app.core.security import SESSION_COOKIE, write_session
 from app.main import app
 from app.services import brands as brands_module
 from app.services import creators as creators_module
+from app.services import dms as dms_module
 from app.services import intel as intel_module
 from app.services import notifications as notifications_module
 from app.services import profiles as profiles_module
@@ -234,6 +235,45 @@ def world(monkeypatch) -> FakeWorld:
     # ----- operator console calls intel.list_for_operator for status counts -----
     monkeypatch.setattr(intel_module, "list_for_operator", lambda **kw: [])
 
+    # ----- dms (Step 7+: outreach goes through threads/messages) -----
+    # We stub these to no-ops; tests/test_dms.py covers the threading
+    # contract. Here we just need outreach not to crash.
+    threads_state: dict[str, dict[str, Any]] = {}
+
+    def _get_or_create(a, b):
+        if a == b:
+            return None
+        ax, bx = (a, b) if a < b else (b, a)
+        key = (ax, bx)
+        if key not in threads_state:
+            threads_state[key] = {
+                "id": str(uuid4()),
+                "participant_a_id": ax, "participant_b_id": bx,
+                "last_message_at": None, "created_at": "2026-05-07T00:00:00Z",
+            }
+        return threads_state[key]
+
+    def _get_thread_between(a, b):
+        ax, bx = (a, b) if a < b else (b, a)
+        return threads_state.get((ax, bx))
+
+    monkeypatch.setattr(dms_module, "get_or_create_thread", _get_or_create)
+    monkeypatch.setattr(dms_module, "get_thread_between", _get_thread_between)
+    monkeypatch.setattr(
+        dms_module, "send_message",
+        lambda *, thread_id, sender_id, body: {
+            "id": str(uuid4()), "thread_id": thread_id,
+            "sender_id": sender_id, "body": body, "read_at": None,
+            "created_at": "2026-05-07T00:00:00Z",
+        },
+    )
+    monkeypatch.setattr(dms_module, "list_threads_for_user", lambda uid: [])
+    monkeypatch.setattr(dms_module, "list_messages", lambda tid, *, limit=200: [])
+    monkeypatch.setattr(
+        dms_module, "mark_thread_read_for", lambda tid, *, reader_id: 0
+    )
+    monkeypatch.setattr(dms_module, "unread_count_for_user", lambda uid: 0)
+
     return w
 
 
@@ -430,6 +470,10 @@ def test_unverified_brand_cant_view_creator(client, world):
 
 
 def test_outreach_creates_notification(client, world):
+    # Step 7: outreach now also creates a thread + first message and
+    # links the notification to the DM thread (not the brand profile).
+    # Detailed thread/message assertions live in tests/test_dms.py;
+    # here we just check the notification fan-out shape.
     _signed_in(client, role="brand", user_id="b-1")
     world.add_brand(user_id="b-1", company_name="Atelier Fig", is_verified=True)
     world.add_creator(user_id="c-1", full_name="Anna Reyes")
@@ -439,13 +483,13 @@ def test_outreach_creates_notification(client, world):
         data={"pitch": "We'd love to send you our SS26 capsule for a Reel."},
     )
     assert r.status_code == 303
-    assert r.headers["location"].startswith("/brand/creators/c-1")
+    assert r.headers["location"] == "/brand/dm/c-1"
     assert world.last_notif_payload is not None
     n = world.last_notif_payload
     assert n["user_id"] == "c-1"
     assert n["kind"] == "collab_match"
     assert "Atelier Fig" in n["title"]
-    assert n["link_path"] == "/creator/brands/b-1"
+    assert n["link_path"] == "/creator/dm/b-1"
 
 
 def test_outreach_rejects_short_pitch(client, world):
