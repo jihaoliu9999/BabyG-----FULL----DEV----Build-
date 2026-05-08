@@ -32,6 +32,10 @@ def list_for_user(
     horizon: str = "all",        # "upcoming" | "past" | "all"
     limit: int = 200,
 ) -> list[dict[str, Any]]:
+    # "upcoming" reads naturally chronologically (next event first); "past"
+    # and "all" want most-recent-first instead — past chronological order
+    # buries today's actionable items under last year's archive.
+    desc = horizon != "upcoming"
     try:
         query = (
             supabase_client.get_service_client()
@@ -39,7 +43,7 @@ def list_for_user(
             .select("*")
             .eq("user_id", user_id)
             .neq("status", "cancelled")
-            .order("starts_at", desc=False)
+            .order("starts_at", desc=desc)
             .limit(limit)
         )
         if horizon == "upcoming":

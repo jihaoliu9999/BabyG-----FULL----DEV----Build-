@@ -41,7 +41,7 @@
     <tbody>
       {% for b in bookings %}
       <tr>
-        <td class="op-table-meta">{{ b.starts_at[:16]|replace("T", " ") }}</td>
+        <td class="op-table-meta">{{ b.starts_at|short_dt }}</td>
         <td><a class="op-table-title" href="/creator/calendar/{{ b.id }}">{{ b.title }}</a></td>
         <td class="op-table-meta">{{ b.type }}</td>
         <td class="op-table-meta">{{ b.venue_name or "—" }}</td>

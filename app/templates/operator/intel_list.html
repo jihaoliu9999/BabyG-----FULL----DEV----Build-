@@ -42,7 +42,7 @@
         <td><span class="badge badge-{{ p.category }}">{{ p.category|capitalize }}</span></td>
         <td><span class="status-pill status-{{ p.status }}">{{ p.status }}</span></td>
         <td class="op-table-meta">
-          {{ p.valid_until[:10] if p.valid_until else "—" }}
+          {{ p.valid_until|short_date or "—" }}
         </td>
         <td class="op-table-actions">
           {% if p.status != "archived" %}

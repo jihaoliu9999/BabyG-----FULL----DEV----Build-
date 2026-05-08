@@ -41,7 +41,7 @@
             {% if p and p.instagram_handle %}<span class="dm-thread-handle">@{{ p.instagram_handle }}</span>{% endif %}
           </div>
           <div class="dm-thread-meta">
-            Viewed {{ v.viewed_at[:10] if v.viewed_at else "" }}
+            Viewed {{ v.viewed_at|short_date or "" }}
           </div>
         </a>
       </li>

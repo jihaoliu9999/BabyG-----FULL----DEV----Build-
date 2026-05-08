@@ -14,8 +14,8 @@
   <section class="onb-section">
     <h2 class="onb-section-title">Details</h2>
     <dl class="kv">
-      <dt>Starts</dt><dd>{{ booking.starts_at[:16]|replace("T", " ") }}</dd>
-      {% if booking.ends_at %}<dt>Ends</dt><dd>{{ booking.ends_at[:16]|replace("T", " ") }}</dd>{% endif %}
+      <dt>Starts</dt><dd>{{ booking.starts_at|short_dt }}</dd>
+      {% if booking.ends_at %}<dt>Ends</dt><dd>{{ booking.ends_at|short_dt }}</dd>{% endif %}
       {% if booking.venue_name %}<dt>Venue</dt><dd>{{ booking.venue_name }}</dd>{% endif %}
     </dl>
     {% if booking.notes %}

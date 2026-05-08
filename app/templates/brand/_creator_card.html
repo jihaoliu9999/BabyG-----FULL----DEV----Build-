@@ -1,25 +1,3 @@
-{# Creator preview card for brand discovery. #}
-<a class="creator-card" href="/brand/creators/{{ creator.user_id }}">
-  <div class="creator-card-head">
-    <div class="creator-card-name">{{ creator.full_name or "Creator" }}</div>
-    {% if creator.instagram_handle %}
-      <div class="creator-card-handle">@{{ creator.instagram_handle }}</div>
-    {% endif %}
-  </div>
-
-  <div class="creator-card-meta">
-    {% if creator.neighborhood %}<span>{{ creator.neighborhood }}</span>{% endif %}
-    {% if creator.follower_range %}<span>· {{ creator.follower_range }} followers</span>{% endif %}
-    {% if creator.primary_platform %}<span>· {{ creator.primary_platform }}</span>{% endif %}
-  </div>
-
-  <div class="tag-row tag-row-tight">
-    {% for n in (creator.niches or [])[:5] %}<span class="tag">{{ n }}</span>{% endfor %}
-  </div>
-
-  {% if creator.bio %}
-  <p class="creator-card-bio">{{ creator.bio[:140] }}{% if creator.bio|length > 140 %}…{% endif %}</p>
-  {% endif %}
-
-  <div class="creator-card-cta">View profile →</div>
-</a>
+{# Thin shim. Real card lives in _partials/creator_card.html. #}
+{% set view_path = "/brand/creators" %}
+{% include "_partials/creator_card.html" %}

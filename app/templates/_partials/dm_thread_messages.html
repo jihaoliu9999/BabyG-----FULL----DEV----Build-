@@ -4,7 +4,7 @@
   <li class="dm-message {% if m.sender_id == me_id %}dm-message-mine{% else %}dm-message-theirs{% endif %}">
     <div class="dm-message-body">{{ m.body }}</div>
     <div class="dm-message-meta">
-      {% if m.created_at %}{{ m.created_at[:16]|replace("T", " ") }} UTC{% endif %}
+      {% if m.created_at %}{{ m.created_at|short_dt }} UTC{% endif %}
       {% if m.sender_id == me_id and not m.read_at %}<span class="dm-message-tick">unread</span>{% endif %}
     </div>
   </li>

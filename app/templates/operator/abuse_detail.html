@@ -46,7 +46,7 @@
         <li class="dm-message dm-message-theirs">
           <div class="dm-message-body">{{ m.body }}</div>
           <div class="dm-message-meta">
-            sender {{ m.sender_id }} · {{ m.created_at[:16]|replace("T", " ") }} UTC
+            sender {{ m.sender_id }} · {{ m.created_at|short_dt }} UTC
           </div>
         </li>
         {% endfor %}

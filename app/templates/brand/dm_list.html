@@ -26,7 +26,7 @@
           </div>
           <div class="dm-thread-meta">
             {% if t.last_message_at %}
-              Last message {{ t.last_message_at[:10] }}
+              Last message {{ t.last_message_at|short_date }}
             {% else %}
               No messages yet
             {% endif %}

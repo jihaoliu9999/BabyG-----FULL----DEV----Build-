@@ -9,7 +9,7 @@
       <span class="badge badge-conf badge-conf-low">Low confidence</span>
     {% endif %}
     <span class="intel-card-meta">
-      Valid until {{ post.valid_until[:10] if post.valid_until else "" }}
+      Valid until {{ post.valid_until|short_date or "" }}
     </span>
   </header>
   <h3 class="intel-card-title">{{ post.title }}</h3>

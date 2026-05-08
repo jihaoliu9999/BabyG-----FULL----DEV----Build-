@@ -23,7 +23,7 @@
     <p class="kv-prose" style="white-space:pre-wrap;">{{ listing.description }}</p>
     <dl class="kv">
       {% if listing.compensation_text %}<dt>Comp</dt><dd>{{ listing.compensation_text }}</dd>{% endif %}
-      {% if listing.deadline %}<dt>Deadline</dt><dd>{{ listing.deadline[:16]|replace("T", " ") }}</dd>{% endif %}
+      {% if listing.deadline %}<dt>Deadline</dt><dd>{{ listing.deadline|short_dt }}</dd>{% endif %}
     </dl>
     <div class="tag-row">
       <span class="tag-row-label">Niches:</span>

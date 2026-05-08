@@ -28,7 +28,7 @@
                 {% if peer and peer.instagram_handle %}<span class="dm-thread-handle">@{{ peer.instagram_handle }}</span>{% endif %}
               </div>
               <div class="dm-thread-meta">
-                Requested {{ c.requested_at[:10] if c.requested_at else "" }}
+                Requested {{ c.requested_at|short_date or "" }}
               </div>
             </a>
             <div class="connection-actions">
@@ -61,7 +61,7 @@
               {% if peer and peer.instagram_handle %}<span class="dm-thread-handle">@{{ peer.instagram_handle }}</span>{% endif %}
             </div>
             <div class="dm-thread-meta">
-              Connected {{ c.responded_at[:10] if c.responded_at else "" }}
+              Connected {{ c.responded_at|short_date or "" }}
             </div>
           </a>
         </li>
@@ -85,7 +85,7 @@
               {% if peer and peer.instagram_handle %}<span class="dm-thread-handle">@{{ peer.instagram_handle }}</span>{% endif %}
             </div>
             <div class="dm-thread-meta">
-              Awaiting their response · sent {{ c.requested_at[:10] if c.requested_at else "" }}
+              Awaiting their response · sent {{ c.requested_at|short_date or "" }}
             </div>
           </a>
         </li>

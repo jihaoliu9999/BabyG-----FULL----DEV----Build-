@@ -45,7 +45,7 @@
         </td>
         <td class="op-table-meta">{{ b.industry or "—" }}</td>
         <td class="op-table-meta">
-          {{ b.onboarding_completed_at[:10] if b.onboarding_completed_at else "—" }}
+          {{ b.onboarding_completed_at|short_date or "—" }}
         </td>
         <td>
           {% if b.is_verified %}

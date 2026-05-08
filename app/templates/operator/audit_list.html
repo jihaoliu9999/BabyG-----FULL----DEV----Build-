@@ -26,7 +26,7 @@
     <tbody>
       {% for r in rows %}
       <tr>
-        <td class="op-table-meta">{{ r.created_at[:16]|replace("T", " ") }}</td>
+        <td class="op-table-meta">{{ r.created_at|short_dt }}</td>
         <td class="op-table-meta">{{ r.actor_user_id or "system" }}</td>
         <td>{{ r.action }}</td>
         <td class="op-table-meta">

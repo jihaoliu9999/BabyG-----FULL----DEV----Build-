@@ -68,16 +68,23 @@
       <p class="field-hint">You're connected.</p>
       <a class="btn btn-primary" href="/creator/dm/{{ peer_id }}">Message →</a>
     {% elif state == "declined" %}
-      <p class="field-hint">A previous request between you was declined.</p>
+      <p class="field-hint">A previous request between you was declined. You can try again.</p>
+      <form method="post" action="/creator/connections/request">
+        {% include "_partials/csrf.html" %}
+        <input type="hidden" name="peer_user_id" value="{{ peer_id }}" />
+        <button type="submit" class="btn btn-ghost">Send another request</button>
+      </form>
     {% endif %}
   </section>
 
-  {% if state in ("connected", "outgoing_pending", "incoming_pending", "none") %}
+  {# Always show the report form on a profile we can see — including
+     `declined` (where a previous bad-faith request might be exactly the
+     thing worth flagging). Only `blocked` skips the partial because we
+     404 those pages before this template ever renders. #}
   {% set target_type = "profile" %}
   {% set target_id = peer_id %}
   {% set return_to = "/creator/network/" ~ peer_id %}
   {% set label = "this profile" %}
   {% include "_partials/report_form.html" %}
-  {% endif %}
 </section>
 {% endblock %}

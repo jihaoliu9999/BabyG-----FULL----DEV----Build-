@@ -36,7 +36,7 @@
     <tbody>
       {% for r in reports %}
       <tr>
-        <td class="op-table-meta">{{ r.created_at[:10] if r.created_at else "—" }}</td>
+        <td class="op-table-meta">{{ r.created_at|short_date or "—" }}</td>
         <td>
           <span class="badge badge-{{ "alert" if r.target_type == "message" or r.target_type == "dm_thread" else "brand" }}">
             {{ r.target_type|replace("_", " ") }}

@@ -52,7 +52,7 @@
       <li class="dm-thread-row">
         <div class="dm-thread-link" style="cursor:default;">
           <div class="dm-thread-meta">
-            {{ n.created_at[:16]|replace("T", " ") }} UTC · author {{ n.author_user_id }}
+            {{ n.created_at|short_dt }} UTC · author {{ n.author_user_id }}
           </div>
           <div class="dm-thread-name" style="font-weight:400; font-size:14px; white-space:pre-wrap;">{{ n.body }}</div>
         </div>

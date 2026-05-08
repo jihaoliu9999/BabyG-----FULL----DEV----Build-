@@ -1,0 +1,33 @@
+{# Shared creator preview card. Caller passes:
+     creator    — the profile dict
+     view_path  — link prefix; "/creator/network" for the creator-side
+                  network directory, "/brand/creators" for the brand
+                  discovery surface.
+   The two role-specific files (creator/_creator_card.html and
+   brand/_creator_card.html) are thin shims that pass `view_path` and
+   include this partial, kept for backwards-compat with existing
+   {% include "creator/_creator_card.html" %} calls. #}
+<a class="creator-card" href="{{ view_path }}/{{ creator.user_id }}">
+  <div class="creator-card-head">
+    <div class="creator-card-name">{{ creator.full_name or "Creator" }}</div>
+    {% if creator.instagram_handle %}
+      <div class="creator-card-handle">@{{ creator.instagram_handle }}</div>
+    {% endif %}
+  </div>
+
+  <div class="creator-card-meta">
+    {% if creator.neighborhood %}<span>{{ creator.neighborhood }}</span>{% endif %}
+    {% if creator.follower_range %}<span>· {{ creator.follower_range }} followers</span>{% endif %}
+    {% if creator.primary_platform %}<span>· {{ creator.primary_platform }}</span>{% endif %}
+  </div>
+
+  <div class="tag-row tag-row-tight">
+    {% for n in (creator.niches or [])[:5] %}<span class="tag">{{ n }}</span>{% endfor %}
+  </div>
+
+  {% if creator.bio %}
+  <p class="creator-card-bio">{{ creator.bio[:140] }}{% if creator.bio|length > 140 %}…{% endif %}</p>
+  {% endif %}
+
+  <div class="creator-card-cta">View profile →</div>
+</a>

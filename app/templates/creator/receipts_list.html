@@ -33,7 +33,7 @@
     <tbody>
       {% for r in receipts %}
       <tr>
-        <td class="op-table-meta">{{ r.posted_at[:10] if r.posted_at else "—" }}</td>
+        <td class="op-table-meta">{{ r.posted_at|short_date or "—" }}</td>
         <td class="op-table-meta">{{ r.post_type or "—" }}</td>
         <td class="op-table-meta">
           {% if r.caption_excerpt %}{{ r.caption_excerpt[:60] }}{% if r.caption_excerpt|length > 60 %}…{% endif %}{% else %}—{% endif %}

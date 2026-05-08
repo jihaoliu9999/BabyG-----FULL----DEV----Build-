@@ -44,7 +44,7 @@
         <td><a class="op-table-title" href="/operator/members/{{ m.id }}">{{ m.email }}</a></td>
         <td class="op-table-meta">{{ m.role }}</td>
         <td class="op-table-meta">{{ "yes" if m.is_active else "no" }}</td>
-        <td class="op-table-meta">{{ m.created_at[:10] if m.created_at else "—" }}</td>
+        <td class="op-table-meta">{{ m.created_at|short_date or "—" }}</td>
         <td class="op-table-actions">
           <a class="link-btn" href="/operator/members/{{ m.id }}">Open →</a>
         </td>

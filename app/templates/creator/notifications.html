@@ -25,7 +25,7 @@
     {% include "_partials/csrf.html" %}
         <input type="hidden" name="target" value="{{ n.link_path or '/creator/notifications' }}" />
         <button type="submit" class="notif-item-btn" aria-label="Open notification">
-          <div class="notif-item-meta">{{ n.kind|replace("_", " ") }} · {{ n.created_at[:10] if n.created_at else "" }}</div>
+          <div class="notif-item-meta">{{ n.kind|replace("_", " ") }} · {{ n.created_at|short_date or "" }}</div>
           <div class="notif-item-title">{{ n.title }}</div>
           {% if n.body %}<div class="notif-item-body">{{ n.body }}</div>{% endif %}
         </button>

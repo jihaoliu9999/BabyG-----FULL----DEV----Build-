@@ -41,7 +41,7 @@
             <span class="status-pill status-archived">closed</span>
           {% endif %}
         </td>
-        <td class="op-table-meta">{{ l.created_at[:10] if l.created_at else "—" }}</td>
+        <td class="op-table-meta">{{ l.created_at|short_date or "—" }}</td>
         <td class="op-table-actions">
           <a class="link-btn" href="/creator/jobs/{{ l.id }}/edit">Edit</a>
           {% if l.is_active and not l.is_taken_down %}
