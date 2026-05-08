@@ -504,7 +504,12 @@ def test_brand_dm_requires_brand_role(client, world):
 
 
 def test_dm_routes_require_auth(client, world):
+    # HTML GETs redirect to login; JSON GETs still return 401.
     r = client.get("/creator/dm")
-    assert r.status_code == 401
+    assert r.status_code == 302
+    assert r.headers["location"] == "/auth/login?role=creator"
     r = client.get("/brand/dm")
+    assert r.status_code == 302
+    assert r.headers["location"] == "/auth/login?role=brand"
+    r = client.get("/brand/dm", headers={"accept": "application/json"})
     assert r.status_code == 401

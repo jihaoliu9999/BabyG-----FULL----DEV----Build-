@@ -21,6 +21,7 @@ from typing import Any
 from postgrest.exceptions import APIError as PostgrestAPIError
 
 from app.core import supabase_client
+from app.core.uuid_guard import safe_uuid
 
 logger = logging.getLogger(__name__)
 
@@ -70,12 +71,15 @@ def _list_onboarded_creators() -> list[dict[str, Any]]:
 
 def _blocked_user_ids(user_id: str) -> set[str]:
     """User IDs the caller can't see (either side blocked the other)."""
+    uid = safe_uuid(user_id)
+    if not uid:
+        return set()
     try:
         result = (
             supabase_client.get_service_client()
             .table("creator_connections")
             .select("requester_id, addressee_id, status")
-            .or_(f"requester_id.eq.{user_id},addressee_id.eq.{user_id}")
+            .or_(f"requester_id.eq.{uid},addressee_id.eq.{uid}")
             .eq("status", "blocked")
             .execute()
         )
@@ -99,14 +103,17 @@ def get_connection_between(a: str, b: str) -> dict[str, Any] | None:
     """Return any existing connection row between (a, b) regardless of
     direction. Returns the most recently updated row if multiple exist
     (which shouldn't happen — request_connection prevents it)."""
+    a_safe, b_safe = safe_uuid(a), safe_uuid(b)
+    if not a_safe or not b_safe:
+        return None
     try:
         result = (
             supabase_client.get_service_client()
             .table("creator_connections")
             .select("*")
             .or_(
-                f"and(requester_id.eq.{a},addressee_id.eq.{b}),"
-                f"and(requester_id.eq.{b},addressee_id.eq.{a})"
+                f"and(requester_id.eq.{a_safe},addressee_id.eq.{b_safe}),"
+                f"and(requester_id.eq.{b_safe},addressee_id.eq.{a_safe})"
             )
             .order("requested_at", desc=True)
             .limit(1)
@@ -247,6 +254,9 @@ def list_outgoing_pending(user_id: str) -> list[dict[str, Any]]:
 def _list_for_user(
     user_id: str, *, status: str, as_addressee: bool | None = None
 ) -> list[dict[str, Any]]:
+    uid = safe_uuid(user_id)
+    if not uid:
+        return []
     try:
         query = (
             supabase_client.get_service_client()
@@ -255,12 +265,12 @@ def _list_for_user(
             .eq("status", status)
         )
         if as_addressee is True:
-            query = query.eq("addressee_id", user_id)
+            query = query.eq("addressee_id", uid)
         elif as_addressee is False:
-            query = query.eq("requester_id", user_id)
+            query = query.eq("requester_id", uid)
         else:
             query = query.or_(
-                f"requester_id.eq.{user_id},addressee_id.eq.{user_id}"
+                f"requester_id.eq.{uid},addressee_id.eq.{uid}"
             )
         result = query.order("requested_at", desc=True).execute()
     except PostgrestAPIError:

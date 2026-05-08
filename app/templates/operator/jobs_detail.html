@@ -43,6 +43,7 @@
   <section class="onb-section">
     <h2 class="onb-section-title">Take down</h2>
     <form method="post" action="/operator/jobs/{{ listing.id }}/takedown" class="decision-form">
+    {% include "_partials/csrf.html" %}
       <div class="field">
         <label for="td-reason" class="field-label">
           Reason <span class="req">*</span>

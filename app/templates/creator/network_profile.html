@@ -45,6 +45,7 @@
     <h2 class="onb-section-title">Connection</h2>
     {% if state == "none" %}
       <form method="post" action="/creator/connections/request">
+    {% include "_partials/csrf.html" %}
         <input type="hidden" name="peer_user_id" value="{{ peer_id }}" />
         <button type="submit" class="btn btn-primary">Send connect request</button>
       </form>
@@ -55,9 +56,11 @@
       <p class="field-hint">This creator wants to connect with you.</p>
       <div class="decision-form" style="flex-direction:row; gap:8px;">
         <form method="post" action="/creator/connections/{{ connection.id }}/accept">
+    {% include "_partials/csrf.html" %}
           <button type="submit" class="btn btn-primary">Accept</button>
         </form>
         <form method="post" action="/creator/connections/{{ connection.id }}/decline">
+    {% include "_partials/csrf.html" %}
           <button type="submit" class="btn btn-ghost">Decline</button>
         </form>
       </div>

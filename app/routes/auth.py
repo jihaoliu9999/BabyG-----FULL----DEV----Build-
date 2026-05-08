@@ -45,13 +45,16 @@ quota and confusing admin inboxes.
 from __future__ import annotations
 
 import logging
+import re
 
 from fastapi import APIRouter, Form, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from gotrue.errors import AuthApiError
 from postgrest.exceptions import APIError as PostgrestAPIError
 
 from app.config import get_settings
 from app.core import supabase_client
+from app.core.rate_limit import client_ip, magic_link_limiter
 from app.core.security import (
     clear_pending_role,
     clear_session,
@@ -67,6 +70,17 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 VALID_ROLES = {"creator", "brand", "operator"}
 SELF_SIGNUP_ROLES = {"creator", "brand"}      # operator is invite-only
+
+# Supabase Auth verify_otp `type` values we accept on /auth/callback. Anything
+# outside this set is rejected before we forward to Supabase — passing
+# attacker-controlled values to verify_otp could surface unintended OTP types
+# (recovery, invite, etc.).
+ALLOWED_OTP_TYPES = frozenset({"magiclink", "email", "signup", "recovery"})
+
+# Conservative email format check. Anything past this still goes through
+# Supabase Auth, which does its own validation; we just want to block obvious
+# nonsense ("@", "a@b", whitespace) before we spend a magic-link send.
+_EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 
 
 @router.get("/login", response_class=HTMLResponse)
@@ -87,17 +101,29 @@ async def magic_link(
 
     if role not in VALID_ROLES:
         return _login_error(request, role="creator", email=email, message="Invalid role.")
-    if "@" not in email or len(email) > 254:
+    if len(email) > 254 or not _EMAIL_RE.match(email):
         return _login_error(request, role=role, email=email, message="Enter a valid email.")
+
+    # Per-IP rate limit. 5 sends / 10 min. Mitigates email-bombing and
+    # operator-email enumeration sweeps.
+    ip = client_ip(request)
+    if not magic_link_limiter.allow("magic-link", ip):
+        return _login_error(
+            request,
+            role=role,
+            email=email,
+            message="Too many sign-in attempts. Wait a couple of minutes.",
+        )
 
     settings = get_settings()
     redirect_to = f"{settings.app_url.rstrip('/')}/auth/callback"
 
-    # Operator gate: only existing operators may receive a link. We render the
-    # same confirmation page either way to avoid an enumeration oracle.
-    should_send = True
-    if role == "operator":
-        should_send = _operator_email_authorized(email)
+    # Operator gate: only existing operators may receive a link. We render
+    # the same confirmation page either way to avoid an enumeration oracle.
+    # Run the lookup unconditionally so the response time doesn't reveal
+    # which emails are operators (timing-side-channel mitigation).
+    is_known_operator = _operator_email_authorized(email)
+    should_send = True if role != "operator" else is_known_operator
 
     if should_send:
         try:
@@ -110,13 +136,30 @@ async def magic_link(
                     },
                 }
             )
-        except Exception:  # supabase-py raises a variety of errors
-            logger.exception("magic-link send failed for %s", email)
+        except AuthApiError:
+            # User-facing error (rate limit, malformed email Supabase
+            # rejected, etc.). Client should retry.
+            logger.warning(
+                "auth API rejected magic-link for email_hash=%s",
+                hash(email) & 0xFFFF,
+            )
             return _login_error(
                 request,
                 role=role,
                 email=email,
                 message="We couldn't send your link. Try again in a minute.",
+            )
+        except Exception:
+            # Network / infra failure. Different signal.
+            logger.exception(
+                "magic-link infra failure for email_hash=%s",
+                hash(email) & 0xFFFF,
+            )
+            return _login_error(
+                request,
+                role=role,
+                email=email,
+                message="We're having trouble sending email right now. Try again shortly.",
             )
 
     response = templates.TemplateResponse(
@@ -140,16 +183,31 @@ async def callback(
         return _callback_error(
             request, message="Your sign-in link is missing required parameters."
         )
+    if type not in ALLOWED_OTP_TYPES:
+        # Don't forward attacker-supplied `type` values to Supabase; refuse early.
+        logger.warning("rejected callback with unknown otp type: %r", type)
+        return _callback_error(
+            request, message="Your sign-in link is invalid. Please request a new one."
+        )
 
     # Step 1: exchange the token for a Supabase session.
     try:
         verify_result = supabase_client.get_anon_client().auth.verify_otp(
             {"token_hash": token_hash, "type": type}
         )
-    except Exception:
-        logger.exception("verify_otp failed")
+    except AuthApiError:
+        # Token expired / already used / wrong type. User-actionable.
+        logger.info("verify_otp rejected token (expired or invalid)")
         return _callback_error(
             request, message="Your sign-in link is invalid or has expired. Try again."
+        )
+    except Exception:
+        # Network / infra. Surface a different message so support can tell the
+        # difference from real link expiries.
+        logger.exception("verify_otp infra failure")
+        return _callback_error(
+            request,
+            message="We couldn't verify your link right now. Try again in a minute.",
         )
 
     user = getattr(verify_result, "user", None)
@@ -216,7 +274,14 @@ def _callback_error(request: Request, *, message: str) -> Response:
 
 
 def _operator_email_authorized(email: str) -> bool:
-    """Return True iff a public.users row already exists with role=operator."""
+    """Return True iff a public.users row already exists with role=operator.
+
+    The lookup runs unconditionally for every magic-link POST (regardless of
+    requested role) to equalize timing — otherwise, a request with role=operator
+    that doesn't issue a Supabase OTP returns measurably faster than one that
+    does, leaking which emails are operators. Callers always invoke this and
+    only branch on the boolean.
+    """
     try:
         result = (
             supabase_client.get_service_client()
@@ -228,7 +293,7 @@ def _operator_email_authorized(email: str) -> bool:
             .execute()
         )
     except PostgrestAPIError:
-        logger.exception("operator gate lookup failed for %s", email)
+        logger.exception("operator gate lookup failed")
         return False
     return bool(getattr(result, "data", None))
 

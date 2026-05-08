@@ -64,6 +64,7 @@
     {% endif %}
 
     <form method="post" action="/operator/members/{{ member.id }}/note" class="decision-form" style="margin-top:14px;">
+    {% include "_partials/csrf.html" %}
       <div class="field">
         <label for="note-body" class="field-label">Add a note</label>
         <textarea id="note-body" name="body" rows="3" required

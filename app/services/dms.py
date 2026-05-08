@@ -20,6 +20,7 @@ from typing import Any
 from postgrest.exceptions import APIError as PostgrestAPIError
 
 from app.core import supabase_client
+from app.core.uuid_guard import safe_uuid
 
 logger = logging.getLogger(__name__)
 
@@ -70,12 +71,15 @@ def list_threads_for_user(user_id: str) -> list[dict[str, Any]]:
     Each row carries `peer_id` (the other participant) so the caller doesn't
     have to remember which side of the pair the user is on.
     """
+    uid = safe_uuid(user_id)
+    if not uid:
+        return []
     try:
         result = (
             supabase_client.get_service_client()
             .table("dm_threads")
             .select("*")
-            .or_(f"participant_a_id.eq.{user_id},participant_b_id.eq.{user_id}")
+            .or_(f"participant_a_id.eq.{uid},participant_b_id.eq.{uid}")
             .order("last_message_at", desc=True, nullsfirst=False)
             .execute()
         )

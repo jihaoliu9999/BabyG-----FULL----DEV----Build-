@@ -33,9 +33,11 @@
             </a>
             <div class="connection-actions">
               <form method="post" action="/creator/connections/{{ c.id }}/accept" class="inline-form">
+    {% include "_partials/csrf.html" %}
                 <button type="submit" class="link-btn">Accept</button>
               </form>
               <form method="post" action="/creator/connections/{{ c.id }}/decline" class="inline-form">
+    {% include "_partials/csrf.html" %}
                 <button type="submit" class="link-btn">Decline</button>
               </form>
             </div>

@@ -354,5 +354,9 @@ def test_onboarding_brand_requires_brand_role(client, store):
 
 
 def test_onboarding_creator_requires_auth(client, store):
+    # HTML GET → redirect to login; JSON GET → 401.
     r = client.get("/onboarding/creator")
+    assert r.status_code == 302
+    assert r.headers["location"] == "/auth/login?role=creator"
+    r = client.get("/onboarding/creator", headers={"accept": "application/json"})
     assert r.status_code == 401

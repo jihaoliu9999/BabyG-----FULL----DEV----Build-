@@ -8,6 +8,7 @@
 <details class="report-block">
   <summary class="report-summary">Report {{ label }}</summary>
   <form class="report-form" method="post" action="/report">
+    {% include "_partials/csrf.html" %}
     <input type="hidden" name="target_type" value="{{ target_type }}" />
     <input type="hidden" name="target_id" value="{{ target_id }}" />
     <input type="hidden" name="return_to" value="{{ return_to }}" />

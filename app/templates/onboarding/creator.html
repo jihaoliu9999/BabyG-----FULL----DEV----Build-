@@ -17,6 +17,7 @@
   {% if error %}<div class="auth-error">{{ error }}</div>{% endif %}
 
   <form class="onb-form" method="post" action="/onboarding/creator">
+    {% include "_partials/csrf.html" %}
 
     <section class="onb-section">
       <h2 class="onb-section-title">About you</h2>

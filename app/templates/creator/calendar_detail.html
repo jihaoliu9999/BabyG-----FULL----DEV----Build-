@@ -29,6 +29,7 @@
   <div class="onb-actions" style="display:flex; gap:8px;">
     <a class="btn btn-ghost" href="/creator/calendar/{{ booking.id }}/edit">Edit</a>
     <form method="post" action="/creator/calendar/{{ booking.id }}/cancel" style="display:inline;">
+    {% include "_partials/csrf.html" %}
       <button type="submit" class="btn btn-ghost">Cancel booking</button>
     </form>
   </div>

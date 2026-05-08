@@ -9,11 +9,11 @@ user came from (with a ?reported=1 hint for the destination template).
 from __future__ import annotations
 
 import logging
-from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, Form, HTTPException, status
 from fastapi.responses import RedirectResponse, Response
 
+from app.core.redirects import safe_same_origin
 from app.core.security import SessionPayload
 from app.deps import current_user
 from app.services import abuse
@@ -47,26 +47,17 @@ async def report(
         reason=reason,
     )
     safe_return = _safe_return(return_to)
+    # Strip any prior ?reported=... so we don't stack hints.
+    if "?" in safe_return:
+        path, _, query = safe_return.partition("?")
+        kept = "&".join(
+            p for p in query.split("&") if p and not p.startswith("reported=")
+        )
+        safe_return = f"{path}?{kept}" if kept else path
     sep = "&" if "?" in safe_return else "?"
     suffix = f"{sep}reported={'1' if ok else 'fail'}"
     return RedirectResponse(safe_return + suffix, status_code=303)
 
 
 def _safe_return(value: str) -> str:
-    """Restrict redirects to same-origin paths so the form can't be used
-    as an open redirect."""
-    if not value or not value.startswith("/"):
-        return "/"
-    parsed = urlparse(value)
-    if parsed.scheme or parsed.netloc:
-        return "/"
-    # Strip any pre-existing ?reported=... so we don't stack hints.
-    base = parsed.path
-    if parsed.query:
-        kept = "&".join(
-            p for p in parsed.query.split("&")
-            if p and not p.startswith("reported=")
-        )
-        if kept:
-            base = f"{base}?{kept}"
-    return base
+    return safe_same_origin(value, default="/")

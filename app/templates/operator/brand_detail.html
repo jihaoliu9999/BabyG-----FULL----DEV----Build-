@@ -72,6 +72,7 @@
   <section class="onb-section">
     <h2 class="onb-section-title">Decision</h2>
     <form method="post" action="/operator/brands/{{ brand.user_id }}/verify" class="decision-form">
+    {% include "_partials/csrf.html" %}
       <div class="field">
         <label for="verify-notes" class="field-label">Verify notes (optional)</label>
         <textarea id="verify-notes" name="notes" rows="2"
@@ -83,6 +84,7 @@
     <hr class="op-divider" />
 
     <form method="post" action="/operator/brands/{{ brand.user_id }}/reject" class="decision-form">
+    {% include "_partials/csrf.html" %}
       <div class="field">
         <label for="reject-notes" class="field-label">
           Rejection reason <span class="req">*</span>

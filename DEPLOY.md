@@ -15,35 +15,32 @@ ops; no more code is needed for Tier 1.
 
 You need accounts on:
 
-- [ ] **Supabase** — project already exists (`ziqiokrjwzukzhaiyhpv`, `babyg`)
+- [ ] **Supabase** — project provisioned with `<your-project-ref>` and a friendly name
 - [ ] **Railway** — sign up at railway.app, link your GitHub
 - [ ] **Resend** — sign up at resend.com (10 minutes; needs a domain to verify)
 - [ ] **Your domain registrar** (Namecheap, Cloudflare, Squarespace, etc.) for DNS records
-
-Local repo has been pushed to:
-- `https://github.com/jihaoliu9999/babyg-----full----dev----build-`
-- branch: `claude/babyg-platform-planning-Xxvsn`
 
 Phase 1 checked-in artifacts already include `Procfile`, `railway.json`,
 `requirements.txt`, `.env.example` — Railway picks these up automatically.
 
 ---
 
-## 1 · Rotate the leaked Supabase service-role key (1 minute)
+## 1 · Verify Supabase keys are fresh (1 minute)
 
-You pasted the original `service_role` key in chat earlier, so it sits in
-this transcript. Rotate before deploying anywhere.
+Before deploying for the first time, make sure no service-role key has
+leaked into a transcript, screenshot, or shared doc. If unsure, rotate.
 
-1. Go to https://supabase.com/dashboard/project/ziqiokrjwzukzhaiyhpv/settings/api
-2. Find the **service_role secret** card → **Reset service role secret**
-3. **Copy the new value into a password manager** (1Password, Bitwarden, etc.).
-   You'll paste it into Railway in step 4. Don't paste it back into chat.
+1. Go to `https://supabase.com/dashboard/project/<your-project-ref>/settings/api`
+2. Find the **service_role secret** card → **Reset service role secret** if needed
+3. **Copy the value into a password manager** (1Password, Bitwarden, etc.).
+   You'll paste it into Railway in step 4. Never paste it back into chat
+   transcripts or commit it.
 4. Note the **anon public key** from the same page — you also need that
    for Railway. Copy it too.
 
 While you're here, also note:
 
-- **Project URL**: `https://ziqiokrjwzukzhaiyhpv.supabase.co`
+- **Project URL**: `https://<your-project-ref>.supabase.co`
 
 ---
 
@@ -53,7 +50,7 @@ Magic-link emails won't work until Supabase knows where to redirect after
 the user clicks the link in their email.
 
 1. Go to **Authentication → URL Configuration**
-   `https://supabase.com/dashboard/project/ziqiokrjwzukzhaiyhpv/auth/url-configuration`
+   `https://supabase.com/dashboard/project/<your-project-ref>/auth/url-configuration`
 
 2. **Site URL**: set to your eventual prod URL.
    - If you haven't set up the custom domain yet, use the Railway-provided
@@ -95,7 +92,7 @@ SMTP, branded from-address, and gives you 100 free emails/day forever.
 ### 3b. Tell Supabase to use Resend
 
 1. Go to **Authentication → Emails → SMTP Settings**
-   `https://supabase.com/dashboard/project/ziqiokrjwzukzhaiyhpv/auth/emails`
+   `https://supabase.com/dashboard/project/<your-project-ref>/auth/emails`
 
 2. Enable **Custom SMTP**. Fields:
    ```
@@ -144,7 +141,7 @@ APP_URL=https://babyg-xxxx.up.railway.app
 
 SESSION_SECRET=<run: python -c "import secrets; print(secrets.token_urlsafe(48))">
 
-SUPABASE_URL=https://ziqiokrjwzukzhaiyhpv.supabase.co
+SUPABASE_URL=https://<your-project-ref>.supabase.co
 SUPABASE_ANON_KEY=<the anon key you noted in step 1>
 SUPABASE_SERVICE_ROLE_KEY=<the rotated service_role key from step 1>
 
@@ -198,7 +195,7 @@ Railway will redeploy automatically when you save variables.
 
 ```bash
 curl https://babyg-xxxx.up.railway.app/healthz
-# → {"status":"ok","env":"production"}
+# → {"status":"ok"}
 ```
 
 Open `https://babyg-xxxx.up.railway.app/` in a browser. You should see
@@ -232,7 +229,7 @@ flip yourself to operator the first time.
 ### 5b. Promote yourself to operator via Supabase SQL
 
 1. Open **Supabase Studio → SQL Editor**:
-   `https://supabase.com/dashboard/project/ziqiokrjwzukzhaiyhpv/sql/new`
+   `https://supabase.com/dashboard/project/<your-project-ref>/sql/new`
 
 2. Paste and run:
 

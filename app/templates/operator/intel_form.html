@@ -20,6 +20,7 @@
 
   <form class="onb-form" method="post"
         action="{% if is_new %}/operator/intel{% else %}/operator/intel/{{ post_id }}{% endif %}">
+    {% include "_partials/csrf.html" %}
 
     <section class="onb-section">
       <h2 class="onb-section-title">Content</h2>

@@ -19,6 +19,7 @@
   {% endif %}
 
   <form class="auth-form" method="post" action="/auth/magic-link">
+    {% include "_partials/csrf.html" %}
     <input type="hidden" name="role" value="{{ role }}" />
     <label for="email" class="sr-only">Email</label>
     <input

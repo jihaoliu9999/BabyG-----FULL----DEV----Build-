@@ -9,6 +9,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
+from app.core.redirects import safe_same_origin
 from app.core.security import SessionPayload
 from app.core.templating import templates
 from app.deps import require_role
@@ -114,7 +115,10 @@ async def notifications_mark_read(
     notifications.mark_read(
         user_id=session["user_id"], notification_id=notification_id
     )
-    return RedirectResponse(target or "/creator/notifications", status_code=303)
+    return RedirectResponse(
+        safe_same_origin(target, default="/creator/notifications"),
+        status_code=303,
+    )
 
 
 @router.post("/creator/notifications/read-all")

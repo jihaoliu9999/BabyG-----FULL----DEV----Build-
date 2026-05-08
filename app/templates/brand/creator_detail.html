@@ -65,6 +65,7 @@
     </p>
     <form method="post" action="/brand/creators/{{ creator.user_id }}/outreach"
           class="auth-form">
+    {% include "_partials/csrf.html" %}
       <textarea name="pitch" rows="5" required minlength="20" maxlength="500"
                 placeholder="Quick pitch — what the collab is, format, timeline, comp."
                 >{{ pitch or "" }}</textarea>

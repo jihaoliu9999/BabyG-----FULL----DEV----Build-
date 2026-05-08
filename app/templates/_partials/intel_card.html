@@ -21,6 +21,7 @@
   {% endif %}
   <footer class="intel-card-foot">
     <form method="post" action="/creator/intel/{{ post.id }}/feedback" class="feedback-row">
+    {% include "_partials/csrf.html" %}
       {% for s, label in [("useful", "Useful"), ("not_useful", "Not for me"), ("acted_on", "I acted on this")] %}
       <button type="submit" name="signal" value="{{ s }}"
               class="feedback-btn {% if sig == s %}feedback-btn-active{% endif %}"

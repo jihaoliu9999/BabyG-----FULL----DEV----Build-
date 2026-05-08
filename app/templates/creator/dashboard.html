@@ -56,6 +56,7 @@
       <li class="notif-item">
         <form method="post" action="/creator/notifications/{{ n.id }}/read"
               class="notif-item-form">
+    {% include "_partials/csrf.html" %}
           <input type="hidden" name="target" value="{{ n.link_path or '/creator' }}" />
           <button type="submit" class="notif-item-btn" aria-label="Open notification">
             <div class="notif-item-title">{{ n.title }}</div>
@@ -86,6 +87,7 @@
 
   <footer class="feed-foot">
     <form method="post" action="/auth/logout">
+    {% include "_partials/csrf.html" %}
       <button type="submit" class="btn btn-ghost">Sign out</button>
     </form>
   </footer>

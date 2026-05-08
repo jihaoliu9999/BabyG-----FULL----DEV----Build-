@@ -35,6 +35,7 @@
   {% endif %}
 
   <form class="dm-composer" method="post" action="/creator/dm/{{ peer_id }}/send">
+    {% include "_partials/csrf.html" %}
     <textarea name="body" rows="3" required maxlength="4000"
               placeholder="Reply…"></textarea>
     <button type="submit" class="btn btn-primary">Send</button>

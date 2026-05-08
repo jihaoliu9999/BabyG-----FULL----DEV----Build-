@@ -8,4 +8,12 @@ def test_healthz_returns_ok(client: TestClient) -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "ok"
-    assert body["env"] in {"dev", "staging", "production"}
+    # `env` is intentionally omitted to avoid leaking deployment metadata
+    # to drive-by scanners.
+    assert "env" not in body
+
+
+def test_robots_disallows_indexing(client: TestClient) -> None:
+    response = client.get("/robots.txt")
+    assert response.status_code == 200
+    assert "Disallow: /" in response.text

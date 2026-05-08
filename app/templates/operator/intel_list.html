@@ -47,6 +47,7 @@
         <td class="op-table-actions">
           {% if p.status != "archived" %}
           <form method="post" action="/operator/intel/{{ p.id }}/archive" class="inline-form">
+    {% include "_partials/csrf.html" %}
             <button type="submit" class="link-btn">Archive</button>
           </form>
           {% endif %}

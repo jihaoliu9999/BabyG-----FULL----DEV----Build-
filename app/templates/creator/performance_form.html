@@ -18,6 +18,7 @@
   {% if error %}<div class="auth-error">{{ error }}</div>{% endif %}
 
   <form class="onb-form" method="post" action="/creator/performance">
+    {% include "_partials/csrf.html" %}
     <section class="onb-section">
       <h2 class="onb-section-title">Week</h2>
       {{ f.field("Week starts (Monday)", "week_start_date",

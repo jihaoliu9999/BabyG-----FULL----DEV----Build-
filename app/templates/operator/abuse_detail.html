@@ -72,6 +72,7 @@
     <h2 class="onb-section-title">Decision</h2>
 
     <form method="post" action="/operator/abuse/{{ report.id }}/dismiss" class="decision-form">
+    {% include "_partials/csrf.html" %}
       <div class="field">
         <label for="dismiss-notes" class="field-label">Dismiss notes (optional)</label>
         <textarea id="dismiss-notes" name="notes" rows="2"
@@ -83,6 +84,7 @@
     <hr class="op-divider" />
 
     <form method="post" action="/operator/abuse/{{ report.id }}/action" class="decision-form">
+    {% include "_partials/csrf.html" %}
       <div class="field">
         <label for="action-notes" class="field-label">Action notes <span class="req">*</span></label>
         <div class="field-hint">The reporter sees this verbatim.</div>
@@ -95,6 +97,7 @@
     <hr class="op-divider" />
 
     <form method="post" action="/operator/abuse/{{ report.id }}/escalate" class="decision-form">
+    {% include "_partials/csrf.html" %}
       <div class="field">
         <label for="escalate-notes" class="field-label">Escalation notes <span class="req">*</span></label>
         <div class="field-hint">The reporter sees this verbatim. Use for cases that need a human follow-up beyond babyg.</div>

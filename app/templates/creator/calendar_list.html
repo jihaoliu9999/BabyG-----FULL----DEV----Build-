@@ -48,6 +48,7 @@
         <td class="op-table-actions">
           <a class="link-btn" href="/creator/calendar/{{ b.id }}/edit">Edit</a>
           <form method="post" action="/creator/calendar/{{ b.id }}/cancel" class="inline-form">
+    {% include "_partials/csrf.html" %}
             <button type="submit" class="link-btn">Cancel</button>
           </form>
         </td>

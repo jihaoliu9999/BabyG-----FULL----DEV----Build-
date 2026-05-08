@@ -133,7 +133,7 @@ class FakeServiceTable:
             )
             if existing is not None:
                 self._pending_insert = None
-                self._upsert_result = existing if not ignore_duplicates else existing
+                self._upsert_existing = existing
                 return self
         self._pending_insert = payload
         return self
@@ -369,12 +369,34 @@ def test_callback_refuses_first_time_operator(
 def test_callback_with_bad_token_renders_error(
     client: TestClient, fake_auth: FakeAuth, fake_service: FakeService
 ) -> None:
-    fake_auth.verify_should_raise = RuntimeError("invalid token")
+    from gotrue.errors import AuthApiError
+
+    fake_auth.verify_should_raise = AuthApiError("invalid token", 400, None)
 
     r = client.get("/auth/callback?token_hash=bad&type=magiclink")
 
     assert r.status_code == 400
     assert "expired" in r.text.lower() or "invalid" in r.text.lower()
+
+
+def test_callback_with_infra_failure_distinct_message(
+    client: TestClient, fake_auth: FakeAuth, fake_service: FakeService
+) -> None:
+    # Non-AuthApi exceptions get a distinct "try again later" message
+    # so support can distinguish from real expired-link cases.
+    fake_auth.verify_should_raise = RuntimeError("network down")
+    r = client.get("/auth/callback?token_hash=abc&type=magiclink")
+    assert r.status_code == 400
+    assert "again" in r.text.lower()
+
+
+def test_callback_with_unknown_otp_type_rejected(
+    client: TestClient, fake_auth: FakeAuth, fake_service: FakeService
+) -> None:
+    # Attacker-supplied `type` values are refused before we forward to Supabase.
+    fake_auth.verify_response = SimpleNamespace()  # never read
+    r = client.get("/auth/callback?token_hash=abc&type=bogus")
+    assert r.status_code == 400
 
 
 def test_callback_missing_params_renders_error(
@@ -408,9 +430,14 @@ def test_logout_clears_cookie(client: TestClient) -> None:
 def test_dashboard_requires_correct_role(
     client: TestClient, fake_service
 ) -> None:
-    # Anonymous → 401
+    # Anonymous browser GET → redirect to login (was JSON 401 before).
     r = client.get("/creator")
-    assert r.status_code == 401
+    assert r.status_code == 302
+    assert r.headers["location"] == "/auth/login?role=creator"
+
+    # Anonymous non-HTML clients still get JSON 401.
+    r_json = client.get("/creator", headers={"accept": "application/json"})
+    assert r_json.status_code == 401
 
     # Brand session → 403 on /creator (require_role rejects).
     from fastapi import Response as _R

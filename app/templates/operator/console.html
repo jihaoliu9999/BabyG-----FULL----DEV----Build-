@@ -67,6 +67,7 @@
 
   <footer class="feed-foot">
     <form method="post" action="/auth/logout">
+    {% include "_partials/csrf.html" %}
       <button type="submit" class="btn btn-ghost">Sign out</button>
     </form>
   </footer>

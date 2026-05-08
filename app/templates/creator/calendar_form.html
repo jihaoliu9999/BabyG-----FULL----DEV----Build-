@@ -16,6 +16,7 @@
 
   <form class="onb-form" method="post"
         action="{% if is_new %}/creator/calendar{% else %}/creator/calendar/{{ booking_id }}{% endif %}">
+    {% include "_partials/csrf.html" %}
 
     <section class="onb-section">
       <h2 class="onb-section-title">Basics</h2>
