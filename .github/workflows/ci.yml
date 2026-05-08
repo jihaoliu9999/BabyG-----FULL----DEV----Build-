@@ -7,7 +7,7 @@ on:
 
 jobs:
   lint-and-test:
-    name: ruff + pytest
+    name: ruff + mypy + pytest
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -28,6 +28,9 @@ jobs:
 
       - name: Lint (ruff)
         run: ruff check .
+
+      - name: Type-check (mypy)
+        run: mypy app
 
       - name: Test (pytest)
         run: pytest -q

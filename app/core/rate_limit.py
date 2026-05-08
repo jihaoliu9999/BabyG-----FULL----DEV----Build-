@@ -62,8 +62,17 @@ magic_link_limiter = RateLimiter(capacity=5, refill_per_second=1 / 120.0)
 
 
 def client_ip(request) -> str:
-    # Trust X-Forwarded-For only one hop (Railway/Cloudflare set it).
+    """Best-effort client IP for rate-limit keying.
+
+    Trust model: assume exactly one reverse proxy (Railway/Cloudflare)
+    appends the real client to `X-Forwarded-For`. Read the LAST value,
+    not the first — the first is attacker-controlled (a client can send
+    `X-Forwarded-For: 1.2.3.4` themselves and the proxy will append, not
+    replace). Without the proxy hop, fall back to `request.client.host`.
+    """
     xff = request.headers.get("x-forwarded-for", "")
     if xff:
-        return xff.split(",")[0].strip()
+        last = xff.rsplit(",", 1)[-1].strip()
+        if last:
+            return last
     return request.client.host if request.client else ""

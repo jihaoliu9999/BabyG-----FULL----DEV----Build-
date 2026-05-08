@@ -375,6 +375,45 @@ If `SESSION_SECRET` ever leaks, rotate it in Railway env vars. Effect:
 **every signed-in user is forced to re-sign-in** (their cookies become
 unverifiable). This is the right behavior on rotation.
 
+### Security middleware (CSRF + rate limiter)
+
+The app installs two automatic protections; neither has env-var knobs
+in Phase 1 — limits live as constants in `app/core/`. If you need to
+tune them, edit the source and redeploy.
+
+**CSRF middleware** (`app/core/csrf.py`)
+- Every state-changing form (POST/PUT/PATCH/DELETE) must carry a
+  `csrf_token` field signed with `SESSION_SECRET`. Templates render it
+  via `_partials/csrf.html`.
+- Cross-origin requests are rejected: `Origin` (or `Referer`) must
+  match the app's origin. **Modern browsers always send Origin on POST**,
+  so a missing header is treated as suspicious and the request is
+  rejected with 403.
+- Bodies above **2 MiB** (`MAX_CSRF_BODY_BYTES`) are rejected with 413
+  before the route runs — prevents memory exhaustion via giant POSTs.
+- Exempt paths: `/auth/callback` only (it arrives in a fresh tab from
+  the email link).
+- 403/413 responses content-negotiate: HTML clients get a readable
+  page, JSON clients get `{"detail": ...}`.
+
+If a legitimate user hits "csrf failed" repeatedly, almost always it's
+a stale cookie (closed laptop for hours, browser killed the cookie).
+Solution: have them refresh the page (mints a new token) and resubmit.
+
+**Magic-link rate limiter** (`app/core/rate_limit.py`)
+- Bucket: **5 requests per IP per 10 minutes** on `/auth/magic-link`.
+- Backend: in-process token bucket. **Single-host only**; if you ever
+  scale to multiple web workers across hosts, swap for Redis-backed
+  limits (the call sites are intentionally compatible).
+- Client IP is read from the LAST entry of `X-Forwarded-For` (the hop
+  the trusted proxy added — the first entry is attacker-controlled).
+- When tripped, users see a friendly login-page error ("Too many
+  sign-in attempts. Wait a couple of minutes."), not a 429 JSON.
+
+If a legitimate operator hits the cap (e.g. testing magic links),
+restart the Railway service to clear the in-memory bucket, or wait
+~2 minutes per slot to refill.
+
 ### Resetting a user
 
 ```sql

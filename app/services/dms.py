@@ -223,27 +223,18 @@ def mark_thread_read_for(thread_id: str, *, reader_id: str) -> int:
 def unread_count_for_user(user_id: str) -> int:
     """Total unread messages addressed to this user across all threads.
 
-    Uses a single COUNT(*) with `head=True` (no rows pulled). Previous
-    implementation did two round-trips (fetch all threads, then count
-    messages restricted to those thread IDs); since list_threads_for_user
-    is itself called on every dashboard render, that doubled the work.
-    The new query relies on the unread index plus the participant filter
-    against the dm_threads table.
+    Two postgrest round-trips: list the user's thread ids (rows only,
+    no message payload), then `count="exact", head=True` against
+    dm_messages filtered by those ids + sender != me + read_at is null.
+    Postgrest can't express "exists" cheaply enough to fold this into
+    one query; the second call returns just the count header so volume
+    cost is minimal. A future swap to a Postgres view or RPC could
+    collapse this to one trip.
     """
     uid = safe_uuid(user_id)
     if not uid:
         return 0
     try:
-        # The cheapest correct query: count dm_messages where sender != me
-        # AND read_at is null AND the thread participates me. We express
-        # the participant filter as a nested .in_() against threads to keep
-        # to a single round-trip via postgrest's `select` with embed; but
-        # postgrest can't easily express "exists" so we settle for a
-        # subquery shape: fetch the thread ids inline as a comma list.
-        # Volumes are small enough that the listing-then-counting cost is
-        # one extra round-trip; we keep that for now but make sure the
-        # listing query is `count="exact", head=True` so no row payload
-        # crosses the wire.
         threads_result = (
             supabase_client.get_service_client()
             .table("dm_threads")

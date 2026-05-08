@@ -276,7 +276,11 @@ def world(monkeypatch) -> FakeWorld:
         },
     )
     monkeypatch.setattr(dms_module, "list_threads_for_user", lambda uid: [])
-    monkeypatch.setattr(dms_module, "list_messages", lambda tid, *, limit=200: [])
+    monkeypatch.setattr(
+        dms_module,
+        "list_messages",
+        lambda tid, *, participant_id=None, limit=200: [],
+    )
     monkeypatch.setattr(
         dms_module, "mark_thread_read_for", lambda tid, *, reader_id: 0
     )

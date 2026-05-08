@@ -26,7 +26,7 @@ from urllib.parse import parse_qsl, urlparse
 from fastapi import Request
 from itsdangerous import BadSignature, URLSafeSerializer
 from starlette.datastructures import Headers, MutableHeaders
-from starlette.responses import JSONResponse
+from starlette.responses import HTMLResponse, JSONResponse, Response
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.config import get_settings
@@ -37,6 +37,12 @@ logger = logging.getLogger(__name__)
 CSRF_FIELD = "csrf_token"
 CSRF_COOKIE = "bg_csrf"
 SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
+
+# Cap the body we'll buffer for token extraction. Larger uploads are
+# rejected with 413 before any per-route limit gets a chance to fire,
+# preventing a malicious POST from forcing the worker to allocate
+# unbounded memory on the CSRF path.
+MAX_CSRF_BODY_BYTES = 2 * 1024 * 1024  # 2 MiB
 
 # Routes that legitimately accept POSTs without a CSRF token. Keep this list
 # tiny and deliberate. /auth/callback is reachable from the email link in a
@@ -96,7 +102,13 @@ def _verify(request: Request, submitted: str) -> bool:
 
 
 def _origin_ok(request: Request) -> bool:
-    """Reject if Origin/Referer is set and points to a foreign host."""
+    """Reject cross-origin POSTs.
+
+    Modern browsers (Chrome 76+, Firefox 90+, Safari 12+) always send an
+    Origin header on state-changing requests. Treating a missing header
+    as suspicious is the right posture: legitimate non-browser clients
+    won't have a session cookie either, so they can't be CSRF vehicles.
+    """
     expected = urlparse(get_settings().app_url).netloc
     for header in ("origin", "referer"):
         raw = request.headers.get(header)
@@ -105,9 +117,10 @@ def _origin_ok(request: Request) -> bool:
         host = urlparse(raw).netloc
         if not host:
             continue
+        # Header set: must match the app's host or the request's host.
         return host == expected or host == request.url.netloc
-    # No Origin/Referer at all — allow (curl, some legitimate browsers).
-    return True
+    # Neither header present on a state-changing request.
+    return False
 
 
 class CSRFMiddleware:
@@ -135,19 +148,32 @@ class CSRFMiddleware:
 
         if not _origin_ok(request):
             logger.warning("CSRF: cross-origin %s rejected on %s", method, path)
-            await JSONResponse({"detail": "csrf failed"}, status_code=403)(
+            await _reject(request, status_code=403, detail="csrf failed")(
                 scope, receive, send
             )
             return
 
-        body, replay = await _buffer_body(receive)
+        body, replay, too_large = await _buffer_body(
+            receive, max_bytes=MAX_CSRF_BODY_BYTES
+        )
+        if too_large:
+            logger.warning(
+                "CSRF: request body exceeded %d bytes on %s",
+                MAX_CSRF_BODY_BYTES,
+                path,
+            )
+            await _reject(request, status_code=413, detail="payload too large")(
+                scope, receive, send
+            )
+            return
+
         submitted = (
             _extract_token_from_body(body, request.headers)
             or request.headers.get("x-csrf-token", "")
         )
         if not _verify(request, submitted):
             logger.warning("CSRF: token verification failed on %s", path)
-            await JSONResponse({"detail": "csrf failed"}, status_code=403)(
+            await _reject(request, status_code=403, detail="csrf failed")(
                 scope, receive, send
             )
             return
@@ -176,19 +202,30 @@ def _wrap_send(send: Send, request: Request) -> Send:
     return _send
 
 
-async def _buffer_body(receive: Receive) -> tuple[bytes, Receive]:
-    """Read the entire request body, return it plus a fresh `receive`
-    that replays the same bytes to the downstream app."""
+async def _empty_replay() -> Message:
+    return {"type": "http.disconnect"}
+
+
+async def _buffer_body(
+    receive: Receive, *, max_bytes: int
+) -> tuple[bytes, Receive, bool]:
+    """Read the request body up to `max_bytes`, return `(body, replay,
+    too_large)`. `too_large=True` means the cap was hit; in that case
+    the buffered body and replay are empty — the caller MUST 413 and
+    not call into the app, since downstream `Form(...)` would now read
+    truncated bytes."""
     chunks: list[bytes] = []
+    total = 0
     while True:
         message = await receive()
         if message["type"] != "http.request":
             # Disconnect or unexpected — short-circuit with an empty replay.
-            async def _empty_replay() -> Message:
-                return {"type": "http.disconnect"}
-
-            return b"".join(chunks), _empty_replay
-        chunks.append(message.get("body", b""))
+            return b"".join(chunks), _empty_replay, False
+        chunk = message.get("body", b"")
+        total += len(chunk)
+        if total > max_bytes:
+            return b"", _empty_replay, True
+        chunks.append(chunk)
         if not message.get("more_body", False):
             break
     body = b"".join(chunks)
@@ -201,7 +238,24 @@ async def _buffer_body(receive: Receive) -> tuple[bytes, Receive]:
         sent = True
         return {"type": "http.request", "body": body, "more_body": False}
 
-    return body, _replay
+    return body, _replay, False
+
+
+def _reject(request: Request, *, status_code: int, detail: str) -> Response:
+    """Build a rejection response. Negotiates HTML vs JSON via the
+    request's Accept header so users hitting a state-changing form get
+    a readable page instead of a raw `{"detail": ...}`."""
+    accept = (request.headers.get("accept") or "").lower()
+    if "text/html" in accept or ("*/*" in accept and "json" not in accept):
+        body = (
+            "<!doctype html><meta charset=\"utf-8\">"
+            "<title>Request blocked</title>"
+            "<h1>Request blocked</h1>"
+            f"<p>{detail}.</p>"
+            "<p><a href=\"/\">Go home</a></p>"
+        )
+        return HTMLResponse(body, status_code=status_code)
+    return JSONResponse({"detail": detail}, status_code=status_code)
 
 
 def _extract_token_from_body(body: bytes, headers: Headers) -> str:

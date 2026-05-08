@@ -114,7 +114,9 @@ def world(monkeypatch) -> FakeWorld:
     # ----- dms preview helper used on detail page -----
     monkeypatch.setattr(
         dms_module, "list_messages",
-        lambda thread_id, *, limit=200: w.thread_messages.get(thread_id, [])[:limit],
+        lambda thread_id, *, participant_id=None, limit=200: (
+            w.thread_messages.get(thread_id, [])[:limit]
+        ),
     )
 
     # ----- notifications -----
