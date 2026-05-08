@@ -36,7 +36,8 @@ NICHES = CREATOR_NICHES
 TIERS = intel.TIERS
 CATEGORIES = intel.CATEGORIES
 CONFIDENCES = intel.CONFIDENCES
-PUBLISH_STATUSES = ["draft", "active"]                          # what an operator picks
+PUBLISH_STATUSES = ["draft", "active"]                          # what the form offers
+ALL_STATUSES = list(intel.STATUSES)                              # what the DB allows
 
 
 @router.get("", response_class=HTMLResponse)
@@ -297,7 +298,11 @@ def _validate_intel(form) -> tuple[dict[str, Any], str | None]:
     valid_from = _str(form.get("valid_from"), 64)
     source = _str(form.get("source"), 500)
     city = _str(form.get("city"), 60) or "Miami"
-    publish_status = _enum(form.get("status"), PUBLISH_STATUSES) or "draft"
+    # Accept any DB-valid status from the form so editing a `scheduled`
+    # or `expired` post doesn't silently demote it. The form only
+    # *renders* draft/active radios, but a rendered hidden input or a
+    # round-trip from get_intel_post may carry the original.
+    publish_status = _enum(form.get("status"), ALL_STATUSES) or "draft"
     target_niches = _multi(form.getlist("target_niches"), NICHES)
     target_tiers = _multi(form.getlist("target_tiers"), TIERS) or list(TIERS)
 

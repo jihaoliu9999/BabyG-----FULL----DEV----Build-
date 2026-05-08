@@ -192,7 +192,9 @@ async def dm_thread(
     thread = dms.get_or_create_thread(session["user_id"], peer_user_id)
     if thread is None:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    messages = dms.list_messages(str(thread["id"]))
+    messages = dms.list_messages(
+        str(thread["id"]), participant_id=session["user_id"]
+    )
     dms.mark_thread_read_for(str(thread["id"]), reader_id=session["user_id"])
     return templates.TemplateResponse(
         request,

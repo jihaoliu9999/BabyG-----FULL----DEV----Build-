@@ -257,22 +257,43 @@ def _ensure_user_row(
         # every other route will 401/403.
         return None, False
 
+    # Idempotent insert: two near-simultaneous callbacks for the same auth
+    # user would PK-conflict on a plain insert. Upsert and re-select so the
+    # second caller sees the existing row instead of the "account isn't set
+    # up" error page.
     try:
-        client.table("users").insert(
-            {"id": auth_user_id, "email": email, "role": requested_role}
+        client.table("users").upsert(
+            {"id": auth_user_id, "email": email, "role": requested_role},
+            on_conflict="id",
+            ignore_duplicates=True,
         ).execute()
         # Seed an empty profile row so onboarding has something to update.
+        # Same upsert pattern — duplicate key races are silently ignored.
         if requested_role == "creator":
-            client.table("creator_profiles").insert({"user_id": auth_user_id}).execute()
+            client.table("creator_profiles").upsert(
+                {"user_id": auth_user_id},
+                on_conflict="user_id",
+                ignore_duplicates=True,
+            ).execute()
         elif requested_role == "brand":
-            client.table("brand_profiles").insert(
-                {"user_id": auth_user_id, "company_name": ""}
+            client.table("brand_profiles").upsert(
+                {"user_id": auth_user_id, "company_name": ""},
+                on_conflict="user_id",
+                ignore_duplicates=True,
             ).execute()
     except PostgrestAPIError:
         logger.exception("failed to provision public.users row for %s", auth_user_id)
         return None, False
 
-    return requested_role, True
+    # Re-select to recover the role even if a parallel callback wrote first
+    # with a different `requested_role` (shouldn't happen, but defends).
+    confirm = (
+        client.table("users").select("role").eq("id", auth_user_id).limit(1).execute()
+    )
+    rows = getattr(confirm, "data", None) or []
+    if not rows:
+        return None, False
+    return rows[0]["role"], True
 
 
 def _dashboard_path(role: str) -> str:

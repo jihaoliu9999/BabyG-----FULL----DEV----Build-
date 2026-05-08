@@ -97,21 +97,58 @@ def list_threads_for_user(user_id: str) -> list[dict[str, Any]]:
 # -----------------------------------------------------------------------------
 
 
-def list_messages(thread_id: str, *, limit: int = 200) -> list[dict[str, Any]]:
+def list_messages(
+    thread_id: str,
+    *,
+    participant_id: str | None = None,
+    limit: int = 200,
+) -> list[dict[str, Any]]:
+    """Most-recent `limit` messages, oldest-first for the template.
+
+    Ordering DESC at the DB so we keep the latest tail when the limit
+    bites; reversing in Python gives the template the chronological order
+    it renders. If `participant_id` is passed we assert the caller is a
+    participant of the thread before returning anything — defense in
+    depth against any future caller that bypasses route-level checks.
+    """
+    if participant_id is not None and not _is_participant(thread_id, participant_id):
+        return []
     try:
         result = (
             supabase_client.get_service_client()
             .table("dm_messages")
             .select("*")
             .eq("thread_id", thread_id)
-            .order("created_at", desc=False)
+            .order("created_at", desc=True)
             .limit(limit)
             .execute()
         )
     except PostgrestAPIError:
         logger.exception("dm messages list failed for thread %s", thread_id)
         return []
-    return getattr(result, "data", None) or []
+    rows = getattr(result, "data", None) or []
+    rows.reverse()
+    return rows
+
+
+def _is_participant(thread_id: str, user_id: str) -> bool:
+    try:
+        result = (
+            supabase_client.get_service_client()
+            .table("dm_threads")
+            .select("participant_a_id, participant_b_id")
+            .eq("id", thread_id)
+            .limit(1)
+            .execute()
+        )
+    except PostgrestAPIError:
+        logger.exception("participant check failed for thread %s", thread_id)
+        return False
+    rows = getattr(result, "data", None) or []
+    if not rows:
+        return False
+    row = rows[0]
+    return user_id in (row.get("participant_a_id"), row.get("participant_b_id"))
 
 
 def send_message(

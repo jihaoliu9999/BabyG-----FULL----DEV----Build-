@@ -107,8 +107,16 @@ def world(monkeypatch) -> FakeWorld:
         if requester_id == addressee_id:
             return False
         existing = _get_connection_between(requester_id, addressee_id)
-        if existing and existing["status"] in {"pending", "accepted", "blocked"}:
-            return False
+        if existing:
+            if existing["status"] in {"pending", "accepted", "blocked"}:
+                return False
+            if existing["status"] == "declined":
+                existing["requester_id"] = requester_id
+                existing["addressee_id"] = addressee_id
+                existing["status"] = "pending"
+                existing["requested_at"] = "2026-05-08T00:00:00Z"
+                existing["responded_at"] = None
+                return True
         w.add_connection(
             requester=requester_id, addressee=addressee_id, status="pending"
         )
@@ -350,6 +358,46 @@ def test_request_missing_peer_404(client, world):
         "/creator/connections/request", data={"peer_user_id": "ghost"}
     )
     assert r.status_code == 404
+
+
+def test_request_after_decline_reuses_row_and_flips_to_pending(client, world):
+    # c-1 sent a request, c-2 declined. c-1 sends again — must succeed
+    # without colliding on the (requester, addressee) UNIQUE constraint.
+    _signed_in(client, role="creator", user_id="c-1")
+    world.add_creator(user_id="c-1")
+    world.add_creator(user_id="c-2")
+    declined = world.add_connection(
+        requester="c-1", addressee="c-2", status="declined"
+    )
+    r = client.post(
+        "/creator/connections/request", data={"peer_user_id": "c-2"}
+    )
+    assert r.status_code == 303
+    assert len(world.connections) == 1                   # same row, not a duplicate
+    assert world.connections[declined["id"]]["status"] == "pending"
+    assert world.connections[declined["id"]]["responded_at"] is None
+    # The addressee should get a connection_request notification.
+    assert any(n["kind"] == "connection_request" for n in world.notifications_sent)
+
+
+def test_request_after_decline_from_other_side_re_orients_row(client, world):
+    # c-2 declined c-1's request. Later c-2 has a change of heart and
+    # requests c-1. The same row flips: requester becomes c-2.
+    _signed_in(client, role="creator", user_id="c-2")
+    world.add_creator(user_id="c-1")
+    world.add_creator(user_id="c-2")
+    declined = world.add_connection(
+        requester="c-1", addressee="c-2", status="declined"
+    )
+    r = client.post(
+        "/creator/connections/request", data={"peer_user_id": "c-1"}
+    )
+    assert r.status_code == 303
+    assert len(world.connections) == 1
+    row = world.connections[declined["id"]]
+    assert row["requester_id"] == "c-2"
+    assert row["addressee_id"] == "c-1"
+    assert row["status"] == "pending"
 
 
 def test_request_no_op_when_pending_exists(client, world):

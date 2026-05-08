@@ -158,7 +158,7 @@ def world(monkeypatch) -> FakeWorld:
         )
         return rows
 
-    def _list_messages(thread_id, *, limit=200):
+    def _list_messages(thread_id, *, participant_id=None, limit=200):
         rows = [m for m in w.messages if m["thread_id"] == thread_id]
         rows.sort(key=lambda m: m["created_at"])
         return rows[:limit]

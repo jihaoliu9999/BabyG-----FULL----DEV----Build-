@@ -424,6 +424,21 @@ def test_intel_update(client, store):
     assert store.posts[p["id"]]["title"] == "New title"
 
 
+def test_intel_update_preserves_scheduled_status(client, store):
+    # Editing a `scheduled` post must not silently demote it to `draft`.
+    _signed_in(client, role="operator")
+    p = store.add_post(title="Scheduled post", status="scheduled")
+    r = client.post(
+        f"/operator/intel/{p['id']}",
+        data={
+            "title": "Scheduled post", "body": "B", "category": "venue",
+            "valid_until": "2099-01-01T00:00", "status": "scheduled",
+        },
+    )
+    assert r.status_code == 303
+    assert store.posts[p["id"]]["status"] == "scheduled"
+
+
 def test_intel_archive(client, store):
     _signed_in(client, role="operator")
     p = store.add_post(title="To archive", status="active")

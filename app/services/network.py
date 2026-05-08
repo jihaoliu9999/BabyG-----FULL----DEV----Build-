@@ -124,10 +124,36 @@ def request_connection(*, requester_id: str, addressee_id: str) -> bool:
         return False
 
     existing = get_connection_between(requester_id, addressee_id)
-    if existing is not None and existing.get("status") in {"pending", "accepted", "blocked"}:
-        # Either side blocked, an outstanding request exists, or the pair
-        # is already connected. The route layer treats "False" as no-op.
-        return False
+    if existing is not None:
+        status = existing.get("status")
+        if status in {"pending", "accepted", "blocked"}:
+            # Outstanding request, already connected, or blocked. No-op.
+            return False
+        if status == "declined":
+            # The UNIQUE constraint is on (requester_id, addressee_id),
+            # so a fresh insert in either direction would collide. Flip
+            # the existing row back to pending and re-orient it so the
+            # current requester is the requester. responded_at is cleared
+            # so the addressee doesn't see "responded N days ago" text.
+            try:
+                supabase_client.get_service_client().table(
+                    "creator_connections"
+                ).update(
+                    {
+                        "requester_id": requester_id,
+                        "addressee_id": addressee_id,
+                        "status": "pending",
+                        "requested_at": _now_iso(),
+                        "responded_at": None,
+                    }
+                ).eq("id", existing["id"]).execute()
+            except PostgrestAPIError:
+                logger.exception(
+                    "connection re-request failed: %s -> %s",
+                    requester_id, addressee_id,
+                )
+                return False
+            return True
 
     try:
         supabase_client.get_service_client().table("creator_connections").insert(

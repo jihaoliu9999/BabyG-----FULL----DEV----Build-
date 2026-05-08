@@ -121,6 +121,23 @@ class FakeServiceTable:
         self._pending_insert = payload
         return self
 
+    def upsert(self, payload, *, on_conflict=None, ignore_duplicates=False):
+        # Treat the conflict column as the natural key. If a matching row
+        # exists, return it (or skip when ignore_duplicates) instead of
+        # inserting; otherwise behave like insert.
+        rows = self.parent.tables.setdefault(self.name, [])
+        key_col = (on_conflict or "").split(",")[0].strip() if on_conflict else None
+        if key_col:
+            existing = next(
+                (r for r in rows if r.get(key_col) == payload.get(key_col)), None
+            )
+            if existing is not None:
+                self._pending_insert = None
+                self._upsert_result = existing if not ignore_duplicates else existing
+                return self
+        self._pending_insert = payload
+        return self
+
     def execute(self):
         if self._pending_insert is not None:
             self.parent.inserts.append((self.name, self._pending_insert))

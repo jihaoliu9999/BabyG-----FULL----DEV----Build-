@@ -169,7 +169,7 @@ def _validate_creator(form) -> tuple[dict[str, Any], str | None]:
     if not handle:
         return {}, "Please enter your Instagram handle."
     if neighborhood and neighborhood not in CREATOR_NEIGHBORHOODS:
-        neighborhood = ""
+        return {}, "Pick a neighborhood from the list (or leave it blank)."
 
     payload: dict[str, Any] = {
         "full_name": full_name,

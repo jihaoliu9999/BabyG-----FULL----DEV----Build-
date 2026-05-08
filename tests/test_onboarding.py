@@ -229,6 +229,19 @@ def test_creator_submit_drops_unknown_enum_values(client, store):
     assert p["follower_range"] is None
 
 
+def test_creator_submit_rejects_invalid_neighborhood(client, store):
+    # An invalid neighborhood used to silently clear the field while
+    # reporting success. It must surface as a form error instead.
+    _signed_in(client, role="creator")
+    form = _valid_creator_form()
+    form["neighborhood"] = "Atlantis"
+
+    r = client.post("/onboarding/creator", data=form)
+    assert r.status_code == 400
+    assert "neighborhood" in r.text.lower()
+    assert store.last_creator_payload is None
+
+
 # -----------------------------------------------------------------------------
 # POST /onboarding/brand
 # -----------------------------------------------------------------------------
