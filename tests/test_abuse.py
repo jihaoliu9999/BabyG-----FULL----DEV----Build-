@@ -132,6 +132,11 @@ def world(monkeypatch) -> FakeWorld:
     # ----- intel / operator console quiet -----
     from app.services import intel as intel_module
     monkeypatch.setattr(intel_module, "list_for_operator", lambda **kw: [])
+    monkeypatch.setattr(intel_module, "status_counts", lambda: {"draft": 0, "active": 0, "archived": 0, "scheduled": 0, "expired": 0})
+
+    # ----- audit (resolve now writes to it) -----
+    from app.services import audit as audit_module
+    monkeypatch.setattr(audit_module, "record", lambda **kw: True)
     return w
 
 

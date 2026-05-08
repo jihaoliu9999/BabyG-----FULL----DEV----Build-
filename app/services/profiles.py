@@ -73,6 +73,12 @@ def update_brand_profile(user_id: str, payload: dict[str, Any]) -> bool:
     return _update_profile("brand_profiles", user_id, payload)
 
 
+class HandleAlreadyTakenError(RuntimeError):
+    """Raised when an instagram_handle update would violate the UNIQUE
+    constraint on creator_profiles.instagram_handle. Routes catch this and
+    surface a specific error message instead of a generic "couldn't save"."""
+
+
 def complete_creator_onboarding(user_id: str, payload: dict[str, Any]) -> bool:
     return _update_profile(
         "creator_profiles",
@@ -100,7 +106,16 @@ def _update_profile(table: str, user_id: str, payload: dict[str, Any]) -> bool:
             .eq("user_id", user_id)
             .execute()
         )
-    except PostgrestAPIError:
+    except PostgrestAPIError as e:
+        # 23505 = Postgres unique_violation. The only UNIQUE on a writable
+        # field today is creator_profiles.instagram_handle, so we surface a
+        # specific error so the route can render a useful message.
+        if (
+            getattr(e, "code", "") == "23505"
+            and table == "creator_profiles"
+            and "instagram_handle" in payload
+        ):
+            raise HandleAlreadyTakenError from e
         logger.exception("failed to update %s for %s", table, user_id)
         return False
     return bool(getattr(result, "data", None))

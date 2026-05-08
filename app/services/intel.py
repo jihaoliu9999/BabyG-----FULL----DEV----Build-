@@ -185,6 +185,30 @@ def archive_intel_post(post_id: str) -> bool:
     return update_intel_post(post_id, {"status": "archived"})
 
 
+def status_counts() -> dict[str, int]:
+    """Per-status post count for the operator console tile.
+
+    One indexed COUNT(*) per status (head=True so no rows are pulled).
+    Replaces the previous "fetch up to 500 rows then bucket in Python"
+    path which grew with the table and ignored anything past 500.
+    """
+    out: dict[str, int] = {s: 0 for s in STATUSES}
+    client = supabase_client.get_service_client()
+    for s in STATUSES:
+        try:
+            result = (
+                client.table("intel_posts")
+                .select("id", count="exact", head=True)
+                .eq("status", s)
+                .execute()
+            )
+        except PostgrestAPIError:
+            logger.exception("intel status_counts failed for status=%s", s)
+            continue
+        out[s] = int(getattr(result, "count", 0) or 0)
+    return out
+
+
 # -----------------------------------------------------------------------------
 # Helpers
 # -----------------------------------------------------------------------------

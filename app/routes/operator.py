@@ -194,8 +194,14 @@ async def intel_list(
 async def intel_new_form(
     request: Request, session: SessionPayload = Depends(require_role("operator"))
 ) -> Response:
-    default_until = (datetime.now(UTC) + timedelta(days=7)).isoformat(
-        timespec="minutes"
+    # `<input type="datetime-local">` strips any timezone offset, so we
+    # can't pre-fill an aware ISO string ("2026-05-15T12:00+00:00") — the
+    # browser silently drops the `+00:00` and the operator ends up with
+    # a different time than displayed. Drop tzinfo before formatting.
+    default_until = (
+        (datetime.now(UTC) + timedelta(days=7))
+        .replace(tzinfo=None)
+        .isoformat(timespec="minutes")
     )
     return templates.TemplateResponse(
         request,
@@ -374,12 +380,7 @@ def _vocab() -> dict[str, list[str]]:
 
 
 def _status_counts() -> dict[str, int]:
-    counts = {s: 0 for s in intel.STATUSES}
-    for row in intel.list_for_operator(limit=500):
-        s = row.get("status")
-        if s in counts:
-            counts[s] += 1
-    return counts
+    return intel.status_counts()
 
 
 def _str(value: Any, max_len: int) -> str:
@@ -490,6 +491,13 @@ async def abuse_resolve(
         link_path="/creator/notifications"
         if _reporter_role_hint(report) == "creator"
         else "/brand",
+    )
+    audit.record(
+        actor_user_id=session["user_id"],
+        action=f"abuse.{action}",
+        target_type="abuse_report",
+        target_id=report_id,
+        notes=notes or None,
     )
     return RedirectResponse("/operator/abuse", status_code=303)
 
@@ -659,6 +667,13 @@ async def operator_jobs_takedown(
             body=reason,
             link_path="/creator/jobs/mine",
         )
+    audit.record(
+        actor_user_id=session["user_id"],
+        action="listing.takedown",
+        target_type="listing",
+        target_id=listing_id,
+        notes=reason,
+    )
     return RedirectResponse("/operator/jobs", status_code=303)
 
 
@@ -671,13 +686,21 @@ async def operator_jobs_takedown(
 async def members_list(
     request: Request,
     role: str | None = Query(None),
+    page: int = Query(1, ge=1),
     session: SessionPayload = Depends(require_role("operator")),
 ) -> Response:
-    rows = members.list_users(role=role)
+    rows, total = members.list_users(role=role, page=page, page_size=100)
     return templates.TemplateResponse(
         request,
         "operator/members_list.html",
-        {"members": rows, "active_role": role},
+        {
+            "members": rows,
+            "active_role": role,
+            "page": page,
+            "total": total,
+            "has_next": (page * 100) < total,
+            "has_prev": page > 1,
+        },
     )
 
 

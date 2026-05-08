@@ -193,6 +193,9 @@ def world(monkeypatch) -> FakeWorld:
     monkeypatch.setattr(abuse_module, "count_pending", lambda: 0)
     monkeypatch.setattr(views_module, "record_view", lambda *, viewer_id, viewed_id: True)
 
+    from app.services import audit as audit_module
+    monkeypatch.setattr(audit_module, "record", lambda **kw: True)
+
     return w
 
 

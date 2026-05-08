@@ -23,6 +23,10 @@
        href="/operator/members?role=operator">Operators</a>
   </nav>
 
+  <p class="op-sub" style="margin-top:6px;">
+    Showing {{ members|length }} of {{ total }}.
+  </p>
+
   {% if members %}
   <table class="op-table">
     <thead>
@@ -53,5 +57,15 @@
     <h2>No members in this view.</h2>
   </div>
   {% endif %}
+
+  {% set query = ("?role=" ~ active_role) if active_role else "?" %}
+  <nav class="op-pagination" aria-label="Pagination" style="margin-top:14px; display:flex; gap:8px;">
+    {% if has_prev %}
+      <a class="btn btn-ghost" href="/operator/members{{ query }}{{ '&' if active_role else '' }}page={{ page - 1 }}">← Prev</a>
+    {% endif %}
+    {% if has_next %}
+      <a class="btn btn-ghost" href="/operator/members{{ query }}{{ '&' if active_role else '' }}page={{ page + 1 }}">Next →</a>
+    {% endif %}
+  </nav>
 </section>
 {% endblock %}

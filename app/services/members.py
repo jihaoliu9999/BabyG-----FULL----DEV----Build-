@@ -18,23 +18,35 @@ logger = logging.getLogger(__name__)
 
 
 def list_users(
-    *, role: str | None = None, limit: int = 500
-) -> list[dict[str, Any]]:
+    *, role: str | None = None, page: int = 1, page_size: int = 100
+) -> tuple[list[dict[str, Any]], int]:
+    """Return (rows, total_count) for the requested page.
+
+    Was a flat list capped at 500 with no signal on truncation. Now uses
+    postgrest's `count="exact"` + range so the operator UI can render
+    "showing N of M" and a next page link.
+    """
+    page = max(1, int(page or 1))
+    page_size = max(1, min(int(page_size or 100), 500))
+    start = (page - 1) * page_size
+    end = start + page_size - 1
     try:
         query = (
             supabase_client.get_service_client()
             .table("users")
-            .select("*")
+            .select("*", count="exact")
             .order("created_at", desc=True)
-            .limit(limit)
+            .range(start, end)
         )
         if role in ("creator", "brand", "operator"):
             query = query.eq("role", role)
         result = query.execute()
     except PostgrestAPIError:
         logger.exception("members list_users failed")
-        return []
-    return getattr(result, "data", None) or []
+        return [], 0
+    rows = getattr(result, "data", None) or []
+    total = int(getattr(result, "count", 0) or 0)
+    return rows, total
 
 
 def get_user(user_id: str) -> dict[str, Any] | None:

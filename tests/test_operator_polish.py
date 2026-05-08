@@ -35,11 +35,11 @@ class FakeWorld:
 def world(monkeypatch) -> FakeWorld:
     w = FakeWorld()
 
-    def _list_users(*, role=None, limit=500):
+    def _list_users(*, role=None, page=1, page_size=100):
         rows = list(w.users.values())
         if role:
             rows = [r for r in rows if r["role"] == role]
-        return rows
+        return rows, len(rows)
 
     def _get_user(uid):
         return w.users.get(uid)

@@ -34,6 +34,7 @@ STATIC_DIR = Path(__file__).resolve().parent / "static"
 def create_app() -> FastAPI:
     settings = get_settings()
     _assert_session_secret(settings)
+    _configure_logging(settings)
     app = FastAPI(
         title="babyg",
         version="0.1.0",
@@ -115,19 +116,30 @@ def create_app() -> FastAPI:
         # FastAPI re-raises FastAPIHTTPException through the StarletteHTTPException
         # handler above; this catches anything else (DB failures, code bugs).
         logger.exception("unhandled exception on %s", request.url.path)
-        return templates.TemplateResponse(
-            request,
-            "error.html",
-            {
-                "status_code": 500,
-                "title": "Something broke.",
-                "message": (
-                    "An error happened on our side. Try again in a minute — "
-                    "if it keeps happening, ping the operator team."
-                ),
-            },
-            status_code=500,
-        )
+        try:
+            return templates.TemplateResponse(
+                request,
+                "error.html",
+                {
+                    "status_code": 500,
+                    "title": "Something broke.",
+                    "message": (
+                        "An error happened on our side. Try again in a minute — "
+                        "if it keeps happening, ping the operator team."
+                    ),
+                },
+                status_code=500,
+            )
+        except Exception:
+            # Templating itself failed. Don't compound the error with an
+            # empty body — surface a plain-text 500 so monitoring still
+            # sees the right status code.
+            logger.exception("error.html render also failed")
+            return Response(
+                "Internal server error.",
+                status_code=500,
+                media_type="text/plain",
+            )
 
     return app
 
@@ -167,6 +179,23 @@ class _CachedStatic(StaticFiles):
 
 
 DEFAULT_DEV_SECRET = "dev-only-not-secure-replace-me"
+
+
+def _configure_logging(settings) -> None:
+    """Wire INFO-level stream logging.
+
+    Without this, gunicorn's default WARNING level swallows every
+    `logger.exception(...)` call in services — service errors disappear
+    silently in production. Format includes the level + module + path
+    so structured ingest tools can grep on it later.
+    """
+    if logging.getLogger().handlers:
+        # gunicorn / pytest may have already configured root; don't fight.
+        return
+    logging.basicConfig(
+        level=logging.INFO if settings.env != "dev" else logging.DEBUG,
+        format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    )
 
 
 def _assert_session_secret(settings) -> None:

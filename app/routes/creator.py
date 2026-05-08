@@ -14,6 +14,7 @@ from app.core.security import SessionPayload
 from app.core.templating import templates
 from app.deps import require_role
 from app.services import (
+    audit,
     bookings,
     brands,
     dms,
@@ -399,11 +400,21 @@ async def connection_respond(
 ) -> Response:
     if action not in network.RESPOND_ACTIONS:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
-    network.respond_to_connection(
+    if network.respond_to_connection(
         connection_id=connection_id,
         responder_id=session["user_id"],
         action=action,
-    )
+    ):
+        # Mirror brand-verify / abuse-resolve trail. Network actions are
+        # user-initiated rather than operator-initiated, but the audit_log
+        # is the right home for them too — operators reviewing a network
+        # dispute will want the timeline.
+        audit.record(
+            actor_user_id=session["user_id"],
+            action=f"connection.{action}",
+            target_type="connection",
+            target_id=connection_id,
+        )
     return RedirectResponse("/creator/connections", status_code=303)
 
 

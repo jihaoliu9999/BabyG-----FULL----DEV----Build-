@@ -11,11 +11,17 @@ keep KINDS in sync with migrations/0002_schema.sql §notifications.
 from __future__ import annotations
 
 import logging
+from datetime import UTC, datetime
 from typing import Any
 
 from postgrest.exceptions import APIError as PostgrestAPIError
 
 from app.core import supabase_client
+
+# Schema is `body text` (unbounded); cap at insert time so a pathological
+# caller can't insert a multi-MB body and inflate the table.
+_BODY_MAX = 2000
+_TITLE_MAX = 240
 
 logger = logging.getLogger(__name__)
 
@@ -47,8 +53,8 @@ def create(
     payload: dict[str, Any] = {
         "user_id": user_id,
         "kind": kind,
-        "title": title,
-        "body": body,
+        "title": (title or "")[:_TITLE_MAX],
+        "body": body[:_BODY_MAX] if isinstance(body, str) else body,
         "link_path": link_path,
     }
     try:
@@ -114,8 +120,6 @@ def list_unread(user_id: str, *, limit: int = 10) -> list[dict[str, Any]]:
 
 def mark_read(*, user_id: str, notification_id: str) -> bool:
     """Mark one notification as read. Returns True if a row was updated."""
-    from datetime import UTC, datetime
-
     payload = {"is_read": True, "read_at": datetime.now(UTC).isoformat()}
     try:
         result = (
@@ -134,15 +138,24 @@ def mark_read(*, user_id: str, notification_id: str) -> bool:
     return bool(getattr(result, "data", None))
 
 
-def mark_all_read(user_id: str) -> bool:
-    from datetime import UTC, datetime
+def mark_all_read(user_id: str) -> int:
+    """Mark every unread notification for `user_id` as read.
 
+    Returns the number of rows updated (0 if there was nothing to mark)
+    so callers can tell a real action apart from a no-op. Was previously
+    `bool` and always returned True, including on noop.
+    """
     payload = {"is_read": True, "read_at": datetime.now(UTC).isoformat()}
     try:
-        supabase_client.get_service_client().table("notifications").update(
-            payload
-        ).eq("user_id", user_id).eq("is_read", False).execute()
+        result = (
+            supabase_client.get_service_client()
+            .table("notifications")
+            .update(payload)
+            .eq("user_id", user_id)
+            .eq("is_read", False)
+            .execute()
+        )
     except PostgrestAPIError:
         logger.exception("notifications.mark_all_read failed: %s", user_id)
-        return False
-    return True
+        return 0
+    return len(getattr(result, "data", None) or [])

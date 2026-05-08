@@ -126,6 +126,14 @@ def store(monkeypatch) -> FakeIntelStore:
     def _archive_intel_post(pid):
         return _update_intel_post(pid, {"status": "archived"})
 
+    def _status_counts():
+        out = {st: 0 for st in intel_module.STATUSES}
+        for p in s.posts.values():
+            st = p.get("status")
+            if st in out:
+                out[st] += 1
+        return out
+
     monkeypatch.setattr(intel_module, "feed_for_creator", _feed)
     monkeypatch.setattr(intel_module, "feedback_for_user", _feedback_for_user)
     monkeypatch.setattr(intel_module, "record_feedback", _record_feedback)
@@ -134,6 +142,7 @@ def store(monkeypatch) -> FakeIntelStore:
     monkeypatch.setattr(intel_module, "create_intel_post", _create_intel_post)
     monkeypatch.setattr(intel_module, "update_intel_post", _update_intel_post)
     monkeypatch.setattr(intel_module, "archive_intel_post", _archive_intel_post)
+    monkeypatch.setattr(intel_module, "status_counts", _status_counts)
 
     # Step 6+: creator dashboard reads notifications, operator console reads
     # brand pending count. Stub both with empty results so the surfaces still

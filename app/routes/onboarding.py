@@ -105,7 +105,14 @@ async def creator_submit(
     if error:
         return _creator_error(request, form, error)
 
-    if not profiles.complete_creator_onboarding(session["user_id"], payload):
+    try:
+        ok = profiles.complete_creator_onboarding(session["user_id"], payload)
+    except profiles.HandleAlreadyTakenError:
+        return _creator_error(
+            request, form,
+            "That Instagram handle is already in use on babyg. Pick a different one.",
+        )
+    if not ok:
         return _creator_error(
             request, form, "We couldn't save your profile. Try again."
         )
