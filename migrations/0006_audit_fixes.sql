@@ -33,10 +33,15 @@ alter table public.brand_profiles
 --    to dedupe in Python. Add a per-day unique index so a Python upsert can
 --    no-op cleanly. We intentionally key on the date column rather than the
 --    timestamp so the same viewer's repeat hits during one day collapse.
+--
+--    `(timestamptz)::date` isn't immutable (it reads session TimeZone), so
+--    Postgres refuses to index it. Pin to UTC explicitly — that expression
+--    IS immutable. Repeat hits within the same UTC day collapse, which is
+--    what we want for the operator-tier counts.
 -- =============================================================================
 
 create unique index if not exists uq_profile_views_per_day
-  on public.profile_views (viewer_id, viewed_id, ((viewed_at)::date));
+  on public.profile_views (viewer_id, viewed_id, ((viewed_at at time zone 'UTC')::date));
 
 -- =============================================================================
 -- 4. intel_posts.target_tiers default : quote the array elements.
