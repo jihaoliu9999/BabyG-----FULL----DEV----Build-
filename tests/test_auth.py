@@ -333,6 +333,31 @@ def test_callback_creates_creator_row_and_redirects(
     assert SESSION_COOKIE in cookies
 
 
+def test_callback_creates_brand_row_with_required_columns(
+    client: TestClient, fake_auth: FakeAuth, fake_service: FakeService
+) -> None:
+    # Migration 0006 made brand_profiles.contact_full_name NOT NULL. The
+    # first-signup seed row must satisfy that — otherwise every new brand
+    # signup hits a NOT NULL violation that the broad except swallows,
+    # and the user lands on the "account isn't set up" error page.
+    fake_auth.verify_response = SimpleNamespace(
+        user=SimpleNamespace(id="brand-new-1", email="ops@brand.example")
+    )
+    _set_pending_role(client, "brand")
+
+    r = client.get("/auth/callback?token_hash=abc&type=magiclink")
+
+    assert r.status_code == 302
+    assert r.headers["location"] == "/brand"
+
+    brand_seed = next(
+        p for n, p in fake_service.inserts if n == "brand_profiles"
+    )
+    assert brand_seed["user_id"] == "brand-new-1"
+    assert brand_seed["company_name"] == ""
+    assert brand_seed["contact_full_name"] == ""           # the regression guard
+
+
 def test_callback_existing_user_does_not_reinsert(
     client: TestClient, fake_auth: FakeAuth, fake_service: FakeService
 ) -> None:

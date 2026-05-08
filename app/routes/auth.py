@@ -341,8 +341,15 @@ def _ensure_user_row(
                 ignore_duplicates=True,
             ).execute()
         elif requested_role == "brand":
+            # Migration 0006 made contact_full_name NOT NULL. The seed row
+            # has to satisfy that, even though onboarding will overwrite it
+            # with the operator's actual name on the next POST.
             client.table("brand_profiles").upsert(
-                {"user_id": auth_user_id, "company_name": ""},
+                {
+                    "user_id": auth_user_id,
+                    "company_name": "",
+                    "contact_full_name": "",
+                },
                 on_conflict="user_id",
                 ignore_duplicates=True,
             ).execute()
