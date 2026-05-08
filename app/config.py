@@ -52,10 +52,6 @@ class Settings(BaseSettings):
     instagram_app_id: str = ""
     instagram_app_secret: str = ""
 
-    # Resy
-    resy_api_key: str = ""
-    resy_auth_token: str = ""
-
     # OpenTable
     opentable_client_id: str = ""
     opentable_client_secret: str = ""

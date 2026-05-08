@@ -39,7 +39,7 @@ app/
   services/          prompts.py (single source), claude, context, moderation, etc.
   agent/             agentic loop, tool registry, approval gating
     tools/           one file per Claude tool
-  integrations/      external API clients (Anthropic, Tavily, Google, Resy, ...)
+  integrations/      external API clients (Anthropic, Tavily, Google, OpenTable, ...)
   tasks/             Celery tasks — names match Section 10.4 of the deck
   templates/  static/
 migrations/          Supabase SQL migrations + RLS
