@@ -11,6 +11,7 @@ Files are applied in numeric order. Each migration is plain SQL — run via the 
 | `0003_role_helpers.sql` | Role helper functions (`current_user_role`, `is_operator`, `is_creator`, `is_brand`) — must run after schema since their bodies reference `public.users` |
 | `0004_rls_policies.sql` | Enables RLS on every table and writes policies per product manual §10.2 |
 | `0005_security_hardening.sql` | Pins `set_updated_at` search_path; revokes EXECUTE on RLS helper fns from anon/authenticated so they cannot be called via `/rest/v1/rpc/`; narrows `dm_messages` UPDATE policy so participants can only flip read state |
+| `0006_audit_fixes.sql` | Drops the brittle `dm_messages_recipient_update_read` policy from 0005; tightens `brand_profiles.contact_full_name` to NOT NULL; adds per-day unique index on `profile_views (viewer_id, viewed_id, date(viewed_at))` so reloads don't inflate counts; rewrites `intel_posts.target_tiers` default with quoted array literal |
 
 ## Conventions
 

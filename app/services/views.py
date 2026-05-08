@@ -30,16 +30,28 @@ VISIBILITY_WINDOW_DAYS = 30
 def record_view(*, viewer_id: str, viewed_id: str) -> bool:
     if viewer_id == viewed_id or not viewer_id or not viewed_id:
         return False
+    # Per-day dedupe: the unique index on (viewer_id, viewed_id, date(viewed_at))
+    # rejects repeat hits during the same UTC day. Catch the conflict and
+    # treat it as a successful no-op so the route layer doesn't surface an
+    # error for the legitimate "same person reloaded twice" path.
     try:
         supabase_client.get_service_client().table("profile_views").insert(
             {"viewer_id": viewer_id, "viewed_id": viewed_id}
         ).execute()
-    except PostgrestAPIError:
+    except PostgrestAPIError as e:
+        if _is_unique_violation(e):
+            return True
         # Best-effort. If we can't write a view we still want to render
         # the profile.
         logger.exception("record_view failed: %s -> %s", viewer_id, viewed_id)
         return False
     return True
+
+
+def _is_unique_violation(err: PostgrestAPIError) -> bool:
+    # Postgres SQLSTATE for unique_violation is 23505. supabase-py surfaces
+    # the original code on the APIError under .code (string).
+    return getattr(err, "code", "") == "23505"
 
 
 def count_distinct_viewers(viewed_id: str, *, days: int = VISIBILITY_WINDOW_DAYS) -> int:
