@@ -2,6 +2,12 @@
 
 All values are server-side. Never import this module from templates or pass any
 field to the client. The Settings instance is a singleton via `get_settings()`.
+
+Phase 1 declares only the fields it actually reads. Phase 2 (Anthropic,
+Celery, Google, Twilio, Resend, PostHog, Sentry, Tavily, Instagram) keeps
+its env vars in Railway/.env for future use; pydantic's `extra="ignore"`
+accepts them silently. Add typed fields here when the corresponding code
+lands and starts reading them.
 """
 
 from functools import lru_cache
@@ -27,56 +33,6 @@ class Settings(BaseSettings):
     supabase_url: str = ""
     supabase_anon_key: str = ""
     supabase_service_role_key: str = ""
-
-    # Anthropic
-    anthropic_api_key: str = ""
-    anthropic_model: str = "claude-sonnet-4-6"
-
-    # Redis / Celery
-    redis_url: str = ""
-    celery_broker_url: str = ""
-
-    # Tavily
-    tavily_api_key: str = ""
-
-    # Google (Gmail + Calendar)
-    google_client_id: str = ""
-    google_client_secret: str = ""
-    google_oauth_scopes: str = (
-        "https://www.googleapis.com/auth/gmail.readonly "
-        "https://www.googleapis.com/auth/gmail.send "
-        "https://www.googleapis.com/auth/calendar.events"
-    )
-
-    # Instagram
-    instagram_app_id: str = ""
-    instagram_app_secret: str = ""
-
-    # OpenTable
-    opentable_client_id: str = ""
-    opentable_client_secret: str = ""
-
-    # Duffel
-    duffel_api_key: str = ""
-
-    # Twilio
-    twilio_account_sid: str = ""
-    twilio_auth_token: str = ""
-    twilio_phone_number: str = ""
-
-    # Resend
-    resend_api_key: str = ""
-
-    # PostHog
-    posthog_api_key: str = ""
-    posthog_public_key: str = ""
-
-    # Sentry
-    sentry_dsn: str = ""
-
-    # Feature flags
-    scope_precheck_enabled: bool = True
-    tool_use_enabled: bool = True
 
     @property
     def is_production(self) -> bool:

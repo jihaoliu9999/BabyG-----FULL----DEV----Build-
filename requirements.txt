@@ -1,5 +1,7 @@
-# babyg runtime dependencies
-# Pinned to compatible ranges. Lock with pip-tools or uv when ready.
+# babyg Phase 1 runtime dependencies — only what app/ actually imports.
+# Phase 2 deps (anthropic, celery, redis, twilio, resend, posthog, sentry,
+# structlog, humanize, tavily) live in requirements-phase2.txt and only
+# ship when the corresponding code arrives.
 
 # --- Web framework ---
 fastapi==0.115.4
@@ -19,23 +21,3 @@ httpx==0.27.2
 
 # --- Supabase ---
 supabase==2.10.0
-
-# --- Anthropic Claude ---
-anthropic==0.39.0
-
-# --- Background jobs ---
-celery==5.4.0
-redis==5.2.0
-
-# --- External integrations ---
-tavily-python==0.5.0
-resend==2.4.0
-twilio==9.3.7
-
-# --- Observability ---
-sentry-sdk[fastapi]==2.18.0
-posthog==3.7.0
-structlog==24.4.0
-
-# --- Utilities ---
-humanize==4.11.0

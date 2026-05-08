@@ -1,0 +1,24 @@
+# Phase 2 dependencies. Add to requirements.txt (or include via -r) only
+# once the corresponding code lands in app/.
+
+-r requirements.txt
+
+# --- Anthropic Claude (agent + Hot Drops personalization) ---
+anthropic==0.39.0
+
+# --- Background jobs (Celery worker + Beat scheduler) ---
+celery==5.4.0
+redis==5.2.0
+
+# --- External integrations ---
+tavily-python==0.5.0
+resend==2.4.0
+twilio==9.3.7
+
+# --- Observability ---
+sentry-sdk[fastapi]==2.18.0
+posthog==3.7.0
+structlog==24.4.0
+
+# --- Utilities ---
+humanize==4.11.0
