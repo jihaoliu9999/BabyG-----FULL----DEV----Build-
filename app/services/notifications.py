@@ -15,6 +15,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from postgrest.exceptions import APIError as PostgrestAPIError
+from postgrest.types import CountMethod
 
 from app.core import supabase_client
 
@@ -89,7 +90,7 @@ def unread_count(user_id: str) -> int:
         result = (
             supabase_client.get_service_client()
             .table("notifications")
-            .select("id", count="exact")
+            .select("id", count=CountMethod.exact)
             .eq("user_id", user_id)
             .eq("is_read", False)
             .execute()

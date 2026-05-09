@@ -456,7 +456,7 @@ async def abuse_resolve(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
 
     form = await request.form()
-    notes = (form.get("notes") or "").strip()
+    notes = _str(form.get("notes"), 1000)
 
     report = abuse.get(report_id)
     if report is None:
@@ -628,7 +628,7 @@ async def operator_jobs_takedown(
     session: SessionPayload = Depends(require_role("operator")),
 ) -> Response:
     form = await request.form()
-    reason = (form.get("reason") or "").strip()
+    reason = _str(form.get("reason"), 1000)
     if not reason:
         listing = jobs.get(listing_id)
         return templates.TemplateResponse(
@@ -729,7 +729,7 @@ async def member_note_create(
     session: SessionPayload = Depends(require_role("operator")),
 ) -> Response:
     form = await request.form()
-    body = (form.get("body") or "").strip()
+    body = _str(form.get("body"), 2000)
     if not body:
         user = members.get_user(user_id)
         if user is None:

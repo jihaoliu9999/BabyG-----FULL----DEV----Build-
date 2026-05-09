@@ -13,6 +13,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from postgrest.exceptions import APIError as PostgrestAPIError
+from postgrest.types import CountMethod
 
 from app.core import supabase_client
 
@@ -198,7 +199,7 @@ def status_counts() -> dict[str, int]:
         try:
             result = (
                 client.table("intel_posts")
-                .select("id", count="exact", head=True)
+                .select("id", count=CountMethod.exact, head=True)
                 .eq("status", s)
                 .execute()
             )

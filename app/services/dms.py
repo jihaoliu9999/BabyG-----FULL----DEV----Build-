@@ -18,6 +18,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from postgrest.exceptions import APIError as PostgrestAPIError
+from postgrest.types import CountMethod
 
 from app.core import supabase_client
 from app.core.uuid_guard import safe_uuid
@@ -250,7 +251,7 @@ def unread_count_for_user(user_id: str) -> int:
         result = (
             supabase_client.get_service_client()
             .table("dm_messages")
-            .select("id", count="exact", head=True)
+            .select("id", count=CountMethod.exact, head=True)
             .in_("thread_id", thread_ids)
             .neq("sender_id", uid)
             .is_("read_at", "null")

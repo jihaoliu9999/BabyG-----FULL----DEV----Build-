@@ -14,6 +14,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from postgrest.exceptions import APIError as PostgrestAPIError
+from postgrest.types import CountMethod
 
 from app.core import supabase_client
 
@@ -128,7 +129,7 @@ def count_pending() -> int:
         result = (
             supabase_client.get_service_client()
             .table("abuse_reports")
-            .select("id", count="exact")
+            .select("id", count=CountMethod.exact)
             .eq("status", "pending")
             .execute()
         )

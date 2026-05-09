@@ -191,9 +191,11 @@ async def callback(
         )
 
     # Step 1: exchange the token for a Supabase session.
+    # `type` was validated against ALLOWED_OTP_TYPES above, but mypy can't
+    # narrow a `frozenset` membership check to the gotrue Literal — cast.
     try:
         verify_result = supabase_client.get_anon_client().auth.verify_otp(
-            {"token_hash": token_hash, "type": type}
+            {"token_hash": token_hash, "type": type}  # type: ignore[typeddict-item]
         )
     except AuthApiError:
         # Token expired / already used / wrong type. User-actionable.

@@ -11,6 +11,7 @@ import logging
 from typing import Any
 
 from postgrest.exceptions import APIError as PostgrestAPIError
+from postgrest.types import CountMethod
 
 from app.core import supabase_client
 
@@ -34,7 +35,7 @@ def list_users(
         query = (
             supabase_client.get_service_client()
             .table("users")
-            .select("*", count="exact")
+            .select("*", count=CountMethod.exact)
             .order("created_at", desc=True)
             .range(start, end)
         )
