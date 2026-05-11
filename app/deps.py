@@ -38,6 +38,7 @@ def current_user(request: Request) -> SessionPayload:
 
 
 def require_role(*roles: str):
+    _validate_roles(roles)
     allowed = frozenset(roles)
 
     def _dep(request: Request) -> SessionPayload:
@@ -52,6 +53,9 @@ def require_role(*roles: str):
 
 
 def _validate_roles(roles: Iterable[str]) -> None:
+    """Sanity-check the role list at import time. Catches typos like
+    `require_role("creators")` that would otherwise silently 403 every
+    request to the affected route."""
     valid = {"creator", "brand", "operator"}
     for r in roles:
         if r not in valid:

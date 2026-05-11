@@ -15,6 +15,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from app.core.security import SessionPayload
 from app.core.templating import templates
+from app.core.url_guard import http_url_or_none
 from app.deps import require_role
 from app.routes.onboarding import CREATOR_NICHES  # reuse vocabulary
 from app.services import (
@@ -320,6 +321,11 @@ def _validate_intel(form) -> tuple[dict[str, Any], str | None]:
         return {}, "Pick a category."
     if not valid_until:
         return {}, "Please set a valid_until date."
+    if source:
+        safe_source = http_url_or_none(source)
+        if safe_source is None:
+            return {}, "Source must be a valid http(s) URL."
+        source = safe_source
 
     payload: dict[str, Any] = {
         "title": title,
@@ -520,10 +526,7 @@ def _abuse_target_context(report: dict[str, Any]) -> dict[str, Any]:
         return out
 
     if target_type == "dm_thread":
-        try:
-            messages = dms.list_messages(str(target_id), limit=20)
-        except Exception:
-            messages = []
+        messages = dms.list_messages_for_operator(str(target_id), limit=20)
         out["available"] = bool(messages)
         out["messages"] = messages
         return out

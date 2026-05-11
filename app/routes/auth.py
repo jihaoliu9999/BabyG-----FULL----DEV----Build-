@@ -252,6 +252,10 @@ async def callback(
 async def logout():
     response = RedirectResponse("/", status_code=302)
     clear_session(response)
+    # Also drop the role-hint cookie so a sign-out + sign-in cycle
+    # within the 10-min window doesn't resurrect the previous role
+    # and land the user on the wrong onboarding flow.
+    clear_pending_role(response)
     return response
 
 

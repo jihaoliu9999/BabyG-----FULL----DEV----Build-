@@ -115,7 +115,14 @@ def create(*, poster_id: str, payload: dict[str, Any]) -> str | None:
     return str(rows[0]["id"]) if rows else None
 
 
-def update(listing_id: str, payload: dict[str, Any]) -> bool:
+def update(
+    listing_id: str, payload: dict[str, Any], *, poster_id: str
+) -> bool:
+    """Update a listing. `poster_id` is REQUIRED and applied as a
+    service-layer write filter so a route-layer slip can't mutate
+    another user's listing. Operators don't write through this —
+    they use `take_down`.
+    """
     if not payload:
         return True
     try:
@@ -124,6 +131,7 @@ def update(listing_id: str, payload: dict[str, Any]) -> bool:
             .table("creator_job_listings")
             .update(payload)
             .eq("id", listing_id)
+            .eq("poster_user_id", poster_id)
             .execute()
         )
     except PostgrestAPIError:

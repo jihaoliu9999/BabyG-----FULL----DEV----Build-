@@ -12,6 +12,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from app.core.redirects import safe_same_origin
 from app.core.security import SessionPayload
 from app.core.templating import templates
+from app.core.url_guard import http_url_or_none
 from app.deps import require_role
 from app.services import (
     audit,
@@ -561,8 +562,14 @@ async def jobs_detail(
     listing = jobs.get(listing_id)
     if listing is None or listing.get("is_taken_down"):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-    poster = profiles.get_creator_profile(str(listing["poster_user_id"]))
     is_mine = str(listing["poster_user_id"]) == session["user_id"]
+    # Closed listings (is_active=false) shouldn't be discoverable to
+    # other creators by guessing the UUID — mirror brand.py's check.
+    # The poster still sees their own closed listings so they can
+    # re-open them.
+    if not is_mine and not listing.get("is_active"):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    poster = profiles.get_creator_profile(str(listing["poster_user_id"]))
 
     # "Apply" CTA logic — for creators, must be connected to the poster.
     can_dm = False
@@ -627,7 +634,7 @@ async def jobs_update(
         return _jobs_form_error(
             request, form, error, is_new=False, listing_id=listing_id
         )
-    if not jobs.update(listing_id, payload):
+    if not jobs.update(listing_id, payload, poster_id=session["user_id"]):
         return _jobs_form_error(
             request, form, "Couldn't save the listing. Try again.",
             is_new=False, listing_id=listing_id,
@@ -1059,6 +1066,10 @@ def _validate_receipt(form):
 
     if not post_url:
         return {}, "Please paste the post URL."
+    safe_post_url = http_url_or_none(post_url)
+    if safe_post_url is None:
+        return {}, "Post URL must be a valid http(s) URL."
+    post_url = safe_post_url
     if post_type not in receipts.POST_TYPES:
         return {}, "Pick a post type."
     likes = _maybe_int(likes_raw)

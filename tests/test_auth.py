@@ -447,9 +447,12 @@ def test_logout_clears_cookie(client: TestClient) -> None:
     r = client.post("/auth/logout")
     assert r.status_code == 302
     assert r.headers["location"] == "/"
-    # Cookie should be cleared on the response.
+    # Both cookies should be cleared so a re-sign-in within the
+    # bg_pending_role expiry window can't resurrect the previous role
+    # (AUDIT.md M9).
     set_cookie = r.headers.get("set-cookie", "")
     assert SESSION_COOKIE in set_cookie
+    assert PENDING_ROLE_COOKIE in set_cookie
 
 
 def test_dashboard_requires_correct_role(

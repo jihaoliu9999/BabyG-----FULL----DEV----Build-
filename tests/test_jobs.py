@@ -132,10 +132,11 @@ def world(monkeypatch) -> FakeWorld:
         }
         return lid
 
-    def _update(lid, payload):
-        if lid not in w.listings:
+    def _update(lid, payload, *, poster_id):
+        listing = w.listings.get(lid)
+        if listing is None or listing.get("poster_user_id") != poster_id:
             return False
-        w.listings[lid].update(payload)
+        listing.update(payload)
         return True
 
     def _deactivate(lid, *, poster_id):
@@ -302,6 +303,26 @@ def test_creator_jobs_404_taken_down(client, world):
     listing = world.add_listing(poster="c-1", is_taken_down=True)
     r = client.get(f"/creator/jobs/{listing['id']}")
     assert r.status_code == 404
+
+
+def test_creator_jobs_closed_listing_404_for_non_owner(client, world):
+    """Other creators shouldn't be able to read soft-closed listings
+    by guessing the UUID (AUDIT.md M4)."""
+    _signed_in(client, role="creator", user_id="c-2")
+    world.add_creator(user_id="c-1")
+    world.add_creator(user_id="c-2")
+    listing = world.add_listing(poster="c-1", is_active=False)
+    r = client.get(f"/creator/jobs/{listing['id']}")
+    assert r.status_code == 404
+
+
+def test_creator_jobs_closed_listing_visible_to_owner(client, world):
+    """Posters still see their own closed listings so they can re-open."""
+    _signed_in(client, role="creator", user_id="c-1")
+    world.add_creator(user_id="c-1")
+    listing = world.add_listing(poster="c-1", is_active=False)
+    r = client.get(f"/creator/jobs/{listing['id']}")
+    assert r.status_code == 200
 
 
 # -----------------------------------------------------------------------------

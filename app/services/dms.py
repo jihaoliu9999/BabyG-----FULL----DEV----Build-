@@ -105,19 +105,35 @@ def list_threads_for_user(user_id: str) -> list[dict[str, Any]]:
 def list_messages(
     thread_id: str,
     *,
-    participant_id: str | None = None,
+    participant_id: str,
     limit: int = 200,
 ) -> list[dict[str, Any]]:
     """Most-recent `limit` messages, oldest-first for the template.
 
+    `participant_id` is REQUIRED: every caller must prove they're a
+    participant before we return any row. Operators that legitimately
+    need to read any thread (abuse review) use the explicit
+    `list_messages_for_operator` helper.
+
     Ordering DESC at the DB so we keep the latest tail when the limit
     bites; reversing in Python gives the template the chronological order
-    it renders. If `participant_id` is passed we assert the caller is a
-    participant of the thread before returning anything — defense in
-    depth against any future caller that bypasses route-level checks.
+    it renders.
     """
-    if participant_id is not None and not _is_participant(thread_id, participant_id):
+    if not _is_participant(thread_id, participant_id):
         return []
+    return _read_messages(thread_id, limit=limit)
+
+
+def list_messages_for_operator(
+    thread_id: str, *, limit: int = 200
+) -> list[dict[str, Any]]:
+    """Privileged read used by the abuse review surface. Caller is
+    responsible for enforcing the operator role; no participant check.
+    """
+    return _read_messages(thread_id, limit=limit)
+
+
+def _read_messages(thread_id: str, *, limit: int) -> list[dict[str, Any]]:
     try:
         result = (
             supabase_client.get_service_client()
@@ -159,12 +175,24 @@ def _is_participant(thread_id: str, user_id: str) -> bool:
 def send_message(
     *, thread_id: str, sender_id: str, body: str
 ) -> dict[str, Any] | None:
-    """Insert a message and bump the thread's last_message_at."""
+    """Insert a message and bump the thread's last_message_at.
+
+    Refuses to write if `sender_id` is not a participant of
+    `thread_id` — defense in depth against a future caller that
+    forwards a URL-supplied thread_id raw.
+    """
     body = (body or "").strip()
     if not body:
         return None
     if len(body) > 4000:
         body = body[:4000]
+    if not _is_participant(thread_id, sender_id):
+        logger.warning(
+            "send_message refused: sender=%s not a participant of thread=%s",
+            sender_id,
+            thread_id,
+        )
+        return None
 
     now = _now_iso()
     try:

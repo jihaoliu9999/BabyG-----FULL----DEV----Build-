@@ -199,23 +199,24 @@ def _configure_logging(settings) -> None:
 
 
 def _assert_session_secret(settings) -> None:
-    """Refuse to boot in production with a weak/default session secret.
+    """Refuse to boot in production or staging with a weak/default secret.
 
     `URLSafeTimedSerializer` accepts an empty string and silently signs
-    with it, which would let any visitor mint sessions. Enforce both a
-    non-default value and a minimum length when env=production.
+    with it, which would let any visitor mint sessions. Enforce a
+    non-default, ≥32-char value for every internet-reachable env.
+    Local `dev` is exempt so contributors can run without an .env.
     """
     secret = settings.session_secret or ""
-    if settings.env != "production":
+    if settings.env == "dev":
         return
     if not secret or secret == DEFAULT_DEV_SECRET:
         raise RuntimeError(
-            "SESSION_SECRET is unset or still the dev default in production. "
+            f"SESSION_SECRET is unset or still the dev default in env={settings.env}. "
             "Generate one with: python -c \"import secrets; print(secrets.token_urlsafe(48))\""
         )
     if len(secret) < 32:
         raise RuntimeError(
-            "SESSION_SECRET must be at least 32 characters in production."
+            f"SESSION_SECRET must be at least 32 characters in env={settings.env}."
         )
 
 

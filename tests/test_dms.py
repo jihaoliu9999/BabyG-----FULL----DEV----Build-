@@ -158,7 +158,17 @@ def world(monkeypatch) -> FakeWorld:
         )
         return rows
 
-    def _list_messages(thread_id, *, participant_id=None, limit=200):
+    def _list_messages(thread_id, *, participant_id, limit=200):
+        t = w.threads.get(thread_id)
+        if t is None or participant_id not in (
+            t["participant_a_id"], t["participant_b_id"]
+        ):
+            return []
+        rows = [m for m in w.messages if m["thread_id"] == thread_id]
+        rows.sort(key=lambda m: m["created_at"])
+        return rows[:limit]
+
+    def _list_messages_for_operator(thread_id, *, limit=200):
         rows = [m for m in w.messages if m["thread_id"] == thread_id]
         rows.sort(key=lambda m: m["created_at"])
         return rows[:limit]
@@ -166,6 +176,11 @@ def world(monkeypatch) -> FakeWorld:
     def _send_message(*, thread_id, sender_id, body):
         body = (body or "").strip()
         if not body:
+            return None
+        t = w.threads.get(thread_id)
+        if t is None or sender_id not in (
+            t["participant_a_id"], t["participant_b_id"]
+        ):
             return None
         msg = {
             "id": str(uuid4()),
@@ -210,6 +225,9 @@ def world(monkeypatch) -> FakeWorld:
     monkeypatch.setattr(dms_module, "get_thread_between", _get_thread_between)
     monkeypatch.setattr(dms_module, "list_threads_for_user", _list_threads_for_user)
     monkeypatch.setattr(dms_module, "list_messages", _list_messages)
+    monkeypatch.setattr(
+        dms_module, "list_messages_for_operator", _list_messages_for_operator
+    )
     monkeypatch.setattr(dms_module, "send_message", _send_message)
     monkeypatch.setattr(dms_module, "mark_thread_read_for", _mark_thread_read_for)
     monkeypatch.setattr(dms_module, "unread_count_for_user", _unread_count_for_user)

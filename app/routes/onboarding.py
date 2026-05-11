@@ -22,6 +22,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from app.core.security import SessionPayload
 from app.core.templating import templates
+from app.core.url_guard import http_url_or_none
 from app.deps import require_role
 from app.services import profiles
 
@@ -214,6 +215,10 @@ def _validate_brand(form) -> tuple[dict[str, Any], str | None]:
         return {}, "Please enter your company name."
     if not website:
         return {}, "Please enter your brand website."
+    safe_website = http_url_or_none(website)
+    if safe_website is None:
+        return {}, "Please enter a valid http(s) URL for your brand website."
+    website = safe_website
     if not contact_name:
         return {}, "Please enter your name."
 

@@ -40,6 +40,8 @@ class FakeWorld:
         self.brands: dict[str, dict[str, Any]] = {}
         self.creators: dict[str, dict[str, Any]] = {}
         self.thread_messages: dict[str, list[dict[str, Any]]] = {}
+        self.threads: dict[str, dict[str, Any]] = {}          # id -> thread
+        self.listings: dict[str, dict[str, Any]] = {}         # id -> listing
         self.notifications_sent: list[dict[str, Any]] = []
         self.last_report: dict[str, Any] | None = None
 
@@ -111,12 +113,29 @@ def world(monkeypatch) -> FakeWorld:
         profiles_module, "get_creator_profile", lambda uid: w.creators.get(uid)
     )
 
-    # ----- dms preview helper used on detail page -----
+    # ----- dms preview helper used on operator detail page -----
     monkeypatch.setattr(
-        dms_module, "list_messages",
-        lambda thread_id, *, participant_id=None, limit=200: (
+        dms_module, "list_messages_for_operator",
+        lambda thread_id, *, limit=200: (
             w.thread_messages.get(thread_id, [])[:limit]
         ),
+    )
+    # _is_participant powers the /report standing check.
+    monkeypatch.setattr(
+        dms_module,
+        "_is_participant",
+        lambda thread_id, user_id: any(
+            user_id in (t.get("participant_a_id"), t.get("participant_b_id"))
+            for t in w.threads.values()
+            if t.get("id") == thread_id
+        ),
+    )
+    # jobs.get powers the listing-standing check.
+    from app.services import jobs as jobs_module
+    monkeypatch.setattr(
+        jobs_module,
+        "get",
+        lambda listing_id: w.listings.get(listing_id),
     )
 
     # ----- notifications -----
@@ -158,49 +177,64 @@ def _signed_in(client: TestClient, *, role: str, user_id: str) -> None:
 # /report submission
 # -----------------------------------------------------------------------------
 
+# Real UUIDs the standing check accepts; participation is seeded into
+# the world via _seed_thread below.
+C1_ID = "c1c1c1c1-c1c1-c1c1-c1c1-c1c1c1c1c1c1"
+B1_ID = "b1b1b1b1-b1b1-b1b1-b1b1-b1b1b1b1b1b1"
+THREAD_ID = "11111111-1111-1111-1111-111111111111"
+
+
+def _seed_thread(world, *, a, b, thread_id=THREAD_ID):
+    world.threads[thread_id] = {
+        "id": thread_id,
+        "participant_a_id": a,
+        "participant_b_id": b,
+    }
+
 
 def test_creator_can_report_dm_thread(client, world):
-    _signed_in(client, role="creator", user_id="c-1")
+    _signed_in(client, role="creator", user_id=C1_ID)
+    _seed_thread(world, a=C1_ID, b=B1_ID)
     r = client.post(
         "/report",
         data={
             "target_type": "dm_thread",
-            "target_id": "t-1",
+            "target_id": THREAD_ID,
             "reason": "Persistent harassment after I declined the brief.",
-            "return_to": "/creator/dm/b-1",
+            "return_to": "/creator/dm/" + B1_ID,
         },
     )
     assert r.status_code == 303
-    assert r.headers["location"] == "/creator/dm/b-1?reported=1"
+    assert r.headers["location"] == f"/creator/dm/{B1_ID}?reported=1"
     assert world.last_report is not None
-    assert world.last_report["reporter_id"] == "c-1"
+    assert world.last_report["reporter_id"] == C1_ID
     assert world.last_report["target_type"] == "dm_thread"
-    assert world.last_report["target_id"] == "t-1"
+    assert world.last_report["target_id"] == THREAD_ID
 
 
 def test_brand_can_report_profile(client, world):
-    _signed_in(client, role="brand", user_id="b-1")
+    _signed_in(client, role="brand", user_id=B1_ID)
     r = client.post(
         "/report",
         data={
             "target_type": "profile",
-            "target_id": "c-1",
+            "target_id": C1_ID,
             "reason": "Profile claims sponsorships from us that never existed.",
-            "return_to": "/brand/creators/c-1",
+            "return_to": "/brand/creators/" + C1_ID,
         },
     )
     assert r.status_code == 303
-    assert r.headers["location"] == "/brand/creators/c-1?reported=1"
-    assert world.last_report["reporter_id"] == "b-1"
+    assert r.headers["location"] == f"/brand/creators/{C1_ID}?reported=1"
+    assert world.last_report["reporter_id"] == B1_ID
 
 
 def test_report_rejects_unknown_target_type(client, world):
-    _signed_in(client, role="creator", user_id="c-1")
+    _signed_in(client, role="creator", user_id=C1_ID)
     r = client.post(
         "/report",
         data={
             "target_type": "garbage",
-            "target_id": "t-1",
+            "target_id": THREAD_ID,
             "reason": "Long enough reason here.",
             "return_to": "/creator/dm/x",
         },
@@ -210,28 +244,30 @@ def test_report_rejects_unknown_target_type(client, world):
 
 
 def test_report_short_reason_is_recorded_as_failure(client, world):
-    _signed_in(client, role="creator", user_id="c-1")
+    _signed_in(client, role="creator", user_id=C1_ID)
+    _seed_thread(world, a=C1_ID, b=B1_ID)
     r = client.post(
         "/report",
         data={
             "target_type": "dm_thread",
-            "target_id": "t-1",
+            "target_id": THREAD_ID,
             "reason": "no",                                   # too short
-            "return_to": "/creator/dm/b-1",
+            "return_to": "/creator/dm/" + B1_ID,
         },
     )
     assert r.status_code == 303
-    assert r.headers["location"] == "/creator/dm/b-1?reported=fail"
+    assert r.headers["location"] == f"/creator/dm/{B1_ID}?reported=fail"
     assert world.last_report is None
 
 
 def test_report_strips_offsite_redirects(client, world):
-    _signed_in(client, role="creator", user_id="c-1")
+    _signed_in(client, role="creator", user_id=C1_ID)
+    _seed_thread(world, a=C1_ID, b=B1_ID)
     r = client.post(
         "/report",
         data={
             "target_type": "dm_thread",
-            "target_id": "t-1",
+            "target_id": THREAD_ID,
             "reason": "Long enough reason here.",
             "return_to": "https://evil.example/phish",        # off-site
         },
@@ -242,14 +278,15 @@ def test_report_strips_offsite_redirects(client, world):
 
 def test_report_drops_existing_reported_query(client, world):
     """Posting a second report shouldn't stack ?reported= flags."""
-    _signed_in(client, role="creator", user_id="c-1")
+    _signed_in(client, role="creator", user_id=C1_ID)
+    _seed_thread(world, a=C1_ID, b=B1_ID)
     r = client.post(
         "/report",
         data={
             "target_type": "dm_thread",
-            "target_id": "t-1",
+            "target_id": THREAD_ID,
             "reason": "Long enough reason here.",
-            "return_to": "/creator/dm/b-1?reported=fail&keep=this",
+            "return_to": "/creator/dm/" + B1_ID + "?reported=fail&keep=this",
         },
     )
     assert r.status_code == 303
@@ -258,6 +295,61 @@ def test_report_drops_existing_reported_query(client, world):
     assert "reported=1" in loc
     assert "reported=fail" not in loc
     assert "keep=this" in loc
+
+
+def test_report_dm_thread_rejects_non_participant(client, world):
+    """Reporter must be a participant of the thread they're reporting.
+    Closes the operator-queue weaponization vector (AUDIT.md H3)."""
+    _signed_in(client, role="creator", user_id=C1_ID)
+    other_a = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
+    other_b = "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb"
+    _seed_thread(world, a=other_a, b=other_b)
+    r = client.post(
+        "/report",
+        data={
+            "target_type": "dm_thread",
+            "target_id": THREAD_ID,
+            "reason": "Long enough reason here.",
+            "return_to": "/creator/dm/x",
+        },
+    )
+    assert r.status_code == 303
+    assert "reported=fail" in r.headers["location"]
+    assert world.last_report is None  # no row landed in the operator queue
+
+
+def test_report_profile_rejects_self_target(client, world):
+    _signed_in(client, role="creator", user_id=C1_ID)
+    r = client.post(
+        "/report",
+        data={
+            "target_type": "profile",
+            "target_id": C1_ID,                              # reporting self
+            "reason": "Long enough reason here.",
+            "return_to": "/creator",
+        },
+    )
+    assert r.status_code == 303
+    assert "reported=fail" in r.headers["location"]
+    assert world.last_report is None
+
+
+def test_report_message_target_rejected(client, world):
+    """`message` target type has no service-layer preview yet — refuse
+    rather than fill the queue with unactionable rows."""
+    _signed_in(client, role="creator", user_id=C1_ID)
+    r = client.post(
+        "/report",
+        data={
+            "target_type": "message",
+            "target_id": "33333333-3333-3333-3333-333333333333",
+            "reason": "Long enough reason here.",
+            "return_to": "/creator/dm/x",
+        },
+    )
+    assert r.status_code == 303
+    assert "reported=fail" in r.headers["location"]
+    assert world.last_report is None
 
 
 def test_operators_cannot_report(client, world):

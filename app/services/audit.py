@@ -19,6 +19,9 @@ from app.core import supabase_client
 logger = logging.getLogger(__name__)
 
 
+_NOTES_MAX = 1000
+
+
 def record(
     *,
     actor_user_id: str | None,
@@ -27,6 +30,11 @@ def record(
     target_id: str | None = None,
     notes: str | None = None,
 ) -> bool:
+    # Cap notes to match abuse.action_notes / operator_notes.body limits;
+    # the schema is unbounded text and we don't want one rogue caller
+    # filling the audit log with megabytes.
+    if notes is not None and len(notes) > _NOTES_MAX:
+        notes = notes[:_NOTES_MAX]
     payload: dict[str, Any] = {
         "actor_user_id": actor_user_id,
         "action": action,
