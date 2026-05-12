@@ -82,6 +82,14 @@ def list_rejected() -> list[dict[str, Any]]:
 
 
 def get_by_user_id(user_id: str) -> dict[str, Any] | None:
+    """Full-row read. Used by:
+      * the brand's own dashboard / onboarding
+      * the operator console (operators see everything)
+      * `members.py` (operator-only)
+
+    For non-operator cross-user reads (a creator viewing a brand
+    profile), funnel through `get_for_view` so internal fields like
+    `verification_notes` don't leak."""
     try:
         result = (
             supabase_client.get_service_client()
@@ -96,6 +104,13 @@ def get_by_user_id(user_id: str) -> dict[str, Any] | None:
         return None
     rows = getattr(result, "data", None) or []
     return rows[0] if rows else None
+
+
+def get_for_view(user_id: str) -> dict[str, Any] | None:
+    """Cross-user / non-operator read of a brand profile. Strips
+    operator-only fields like `verification_notes`."""
+    from app.services.profiles import public_brand
+    return public_brand(get_by_user_id(user_id))
 
 
 def verify(user_id: str, notes: str | None) -> bool:

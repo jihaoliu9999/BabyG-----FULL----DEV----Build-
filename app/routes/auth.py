@@ -44,7 +44,9 @@ quota and confusing admin inboxes.
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import random
 import re
 
 from fastapi import APIRouter, Form, Query, Request
@@ -124,6 +126,13 @@ async def magic_link(
     # which emails are operators (timing-side-channel mitigation).
     is_known_operator = _operator_email_authorized(email)
     should_send = True if role != "operator" else is_known_operator
+
+    if not should_send:
+        # role=operator + unknown email: equalize timing with the
+        # success path so the response time can't be used to enumerate
+        # which emails are operators. Jitter to make the difference
+        # less mechanical when an attacker measures across many probes.
+        await asyncio.sleep(random.uniform(0.15, 0.30))
 
     if should_send:
         try:

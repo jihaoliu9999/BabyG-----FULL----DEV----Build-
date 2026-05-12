@@ -594,8 +594,8 @@ async def operator_jobs_list(
     else:
         tab = "active"
         listings = jobs.list_for_operator(taken_down=False)
-    poster_ids = {str(lst["poster_user_id"]) for lst in listings}
-    poster_profiles = {pid: profiles.get_creator_profile(pid) for pid in poster_ids}
+    poster_ids = sorted({str(lst["poster_user_id"]) for lst in listings})
+    poster_profiles = profiles.get_creators_by_ids(poster_ids)
     return templates.TemplateResponse(
         request,
         "operator/jobs_list.html",

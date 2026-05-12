@@ -78,6 +78,11 @@ def world(monkeypatch) -> FakeWorld:
     monkeypatch.setattr(
         profiles_module, "get_creator_profile", lambda uid: w.creators.get(uid)
     )
+    monkeypatch.setattr(
+        profiles_module,
+        "get_creators_by_ids",
+        lambda ids: {uid: w.creators[uid] for uid in ids if uid in w.creators},
+    )
 
     # ----- network service -----
     def _list_directory(uid):

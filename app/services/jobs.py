@@ -46,7 +46,7 @@ def list_active(*, niche: str | None = None, limit: int = 100) -> list[dict[str,
     return getattr(result, "data", None) or []
 
 
-def list_by_poster(poster_id: str) -> list[dict[str, Any]]:
+def list_by_poster(poster_id: str, *, limit: int = 200) -> list[dict[str, Any]]:
     try:
         result = (
             supabase_client.get_service_client()
@@ -54,6 +54,7 @@ def list_by_poster(poster_id: str) -> list[dict[str, Any]]:
             .select("*")
             .eq("poster_user_id", poster_id)
             .order("created_at", desc=True)
+            .limit(limit)
             .execute()
         )
     except PostgrestAPIError:

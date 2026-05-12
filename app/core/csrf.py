@@ -191,8 +191,12 @@ def _wrap_send(send: Send, request: Request) -> Send:
                 CSRF_COOKIE
             ):
                 settings = get_settings()
+                # 24h. The cookie binds nothing privileged (the
+                # principal is purely anti-CSRF), so the longer
+                # lifetime just prevents legitimate slow form-fillers
+                # from hitting a 403 when they hit Submit after lunch.
                 cookie = (
-                    f"{CSRF_COOKIE}={anon}; Max-Age={60 * 30}; Path=/; HttpOnly; "
+                    f"{CSRF_COOKIE}={anon}; Max-Age={60 * 60 * 24}; Path=/; HttpOnly; "
                     f"SameSite=Lax{'; Secure' if settings.is_production else ''}"
                 )
                 headers = MutableHeaders(raw=message.setdefault("headers", []))

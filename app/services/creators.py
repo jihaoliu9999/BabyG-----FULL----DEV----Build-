@@ -3,6 +3,10 @@
 Filtering happens in two passes: pg-side filter for completed onboarding,
 then a Python pass for niche overlap + size match. Volumes are tiny early
 on; we'll move to a SQL function or pg_trgm when this profiles hot.
+
+Reads go through `profiles.public_creator` so internal fields
+(`baseline_followers`, `tier`, `writing_samples`, etc.) don't leak to
+other users. Owner-side reads use `profiles.get_creator_profile`.
 """
 
 from __future__ import annotations
@@ -13,6 +17,7 @@ from typing import Any
 from postgrest.exceptions import APIError as PostgrestAPIError
 
 from app.core import supabase_client
+from app.services.profiles import public_creator
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +36,7 @@ FOLLOWER_BAND_TO_SIZE: dict[str, str] = {
 def list_for_brand_match(
     *, niche_preferences: list[str], creator_size_preferences: list[str]
 ) -> list[dict[str, Any]]:
+    """Public-projected list of onboarded creators matching brand prefs."""
     rows = _list_onboarded_creators()
 
     brand_niches = set(niche_preferences or [])
@@ -47,13 +53,18 @@ def list_for_brand_match(
         if brand_sizes and (creator_size is None or creator_size not in brand_sizes):
             continue
 
-        matches.append(row)
+        projected = public_creator(row)
+        if projected is not None:
+            matches.append(projected)
 
     return matches
 
 
 def get_for_view(user_id: str) -> dict[str, Any] | None:
-    """Public read of a creator profile. Used by brand discovery."""
+    """Cross-user read of a creator profile. Used by brand discovery
+    and any other "view someone else's profile" surface. Returns the
+    public-field projection — internal fields are intentionally omitted
+    so a future template addition can't leak them."""
     try:
         result = (
             supabase_client.get_service_client()
@@ -67,10 +78,13 @@ def get_for_view(user_id: str) -> dict[str, Any] | None:
         logger.exception("creator get_for_view failed: %s", user_id)
         return None
     rows = getattr(result, "data", None) or []
-    return rows[0] if rows else None
+    return public_creator(rows[0]) if rows else None
 
 
 def _list_onboarded_creators() -> list[dict[str, Any]]:
+    """Internal: returns the FULL row so `list_for_brand_match` can do
+    its niche/size filter on private columns like `follower_range`.
+    Callers must `public_creator()` before returning to a route."""
     try:
         result = (
             supabase_client.get_service_client()

@@ -142,7 +142,7 @@ async def brand_view(
     request: Request,
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
-    brand = brands.get_by_user_id(brand_user_id)
+    brand = brands.get_for_view(brand_user_id)
     if brand is None or not brand.get("is_verified"):
         # Unverified brands shouldn't be reachable as a profile page —
         # if a creator follows a stale link, return 404.
@@ -379,8 +379,8 @@ async def connections_list(
     incoming = network.list_incoming_pending(session["user_id"])
     outgoing = network.list_outgoing_pending(session["user_id"])
 
-    peer_ids = {row["peer_id"] for row in accepted + incoming + outgoing}
-    peers = {pid: profiles.get_creator_profile(pid) for pid in peer_ids}
+    peer_ids = sorted({str(row["peer_id"]) for row in accepted + incoming + outgoing})
+    peers = profiles.get_creators_by_ids(peer_ids)
     return templates.TemplateResponse(
         request,
         "creator/connections_list.html",
@@ -493,8 +493,8 @@ async def jobs_board(
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
     listings = jobs.list_active(niche=niche)
-    poster_ids = {str(lst["poster_user_id"]) for lst in listings}
-    poster_profiles = {pid: profiles.get_creator_profile(pid) for pid in poster_ids}
+    poster_ids = sorted({str(lst["poster_user_id"]) for lst in listings})
+    poster_profiles = profiles.get_creators_by_ids(poster_ids)
     return templates.TemplateResponse(
         request,
         "creator/jobs_list.html",

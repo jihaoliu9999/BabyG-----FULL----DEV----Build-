@@ -42,7 +42,7 @@
         <td class="op-table-meta">{{ r.comments_count if r.comments_count is not none else "—" }}</td>
         <td class="op-table-actions">
           {% if r.post_url %}
-          <a class="link-btn" href="{{ r.post_url }}" target="_blank" rel="noopener noreferrer">Open ↗</a>
+          <a class="link-btn" href="{{ r.post_url|safe_url }}" target="_blank" rel="noopener noreferrer">Open ↗</a>
           {% endif %}
         </td>
       </tr>

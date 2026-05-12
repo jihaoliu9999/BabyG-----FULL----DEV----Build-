@@ -30,8 +30,34 @@ def _short_date(value):
     return str(value)[:10]
 
 
+def _safe_url(value):
+    """Render-time defense: collapse non-http(s) URLs to "#".
+
+    Validators (`app/core/url_guard`) already gate user input at write
+    time, but a row could pre-date the validator, be inserted via
+    Supabase Studio, or arrive from a future import path. Use this
+    filter on every `href` that interpolates a stored URL:
+
+        <a href="{{ row.url|safe_url }}">...</a>
+
+    Anything not starting with `http://` or `https://` becomes "#",
+    so a `javascript:` payload in a stale row renders as a dead link
+    instead of executing.
+    """
+    if not value:
+        return "#"
+    s = str(value).strip()
+    if not s:
+        return "#"
+    lower = s.lower()
+    if lower.startswith("http://") or lower.startswith("https://"):
+        return s
+    return "#"
+
+
 templates.env.filters["short_dt"] = _short_dt
 templates.env.filters["short_date"] = _short_date
+templates.env.filters["safe_url"] = _safe_url
 
 # Lazy-import to avoid a circular: csrf.py imports from app.config which is
 # safe, but app.core.security imports app.config too and we don't want any

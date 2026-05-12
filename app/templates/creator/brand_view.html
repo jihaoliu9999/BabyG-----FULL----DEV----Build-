@@ -11,7 +11,7 @@
     <h1 class="onb-title">{{ brand.company_name }}</h1>
     {% if brand.brand_website %}
     <p class="onb-sub">
-      <a href="{{ brand.brand_website }}" target="_blank" rel="noopener noreferrer">
+      <a href="{{ brand.brand_website|safe_url }}" target="_blank" rel="noopener noreferrer">
         {{ brand.brand_website }} ↗
       </a>
     </p>

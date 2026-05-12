@@ -15,7 +15,7 @@
   <h3 class="intel-card-title">{{ post.title }}</h3>
   <p class="intel-card-body">{{ post.body }}</p>
   {% if post.source %}
-    <a class="intel-card-source" href="{{ post.source }}" target="_blank" rel="noopener noreferrer">
+    <a class="intel-card-source" href="{{ post.source|safe_url }}" target="_blank" rel="noopener noreferrer">
       Source ↗
     </a>
   {% endif %}

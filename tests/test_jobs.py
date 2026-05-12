@@ -88,6 +88,11 @@ def world(monkeypatch) -> FakeWorld:
         profiles_module, "get_creator_profile", lambda uid: w.creators.get(uid)
     )
     monkeypatch.setattr(
+        profiles_module,
+        "get_creators_by_ids",
+        lambda ids: {uid: w.creators[uid] for uid in ids if uid in w.creators},
+    )
+    monkeypatch.setattr(
         brands_module, "get_by_user_id", lambda uid: w.brands.get(uid)
     )
     monkeypatch.setattr(

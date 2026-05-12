@@ -64,3 +64,25 @@ def test_rejects_non_http_or_malformed(value):
 def test_rejects_non_string_input():
     for v in (123, ["http://example.com"], object(), b"http://example.com"):
         assert http_url_or_none(v) is None  # type: ignore[arg-type]
+
+
+# ---------- Jinja `safe_url` filter (render-time defense) ----------
+
+
+def test_safe_url_filter_passes_http_urls():
+    from app.core.templating import _safe_url
+
+    assert _safe_url("https://example.com/x") == "https://example.com/x"
+    assert _safe_url("http://example.com") == "http://example.com"
+
+
+def test_safe_url_filter_collapses_javascript_to_hash():
+    """If a row predates the validator (Supabase Studio insert, future
+    importer), the filter still neutralises the dangerous href."""
+    from app.core.templating import _safe_url
+
+    assert _safe_url("javascript:alert(1)") == "#"
+    assert _safe_url("data:text/html,<script>") == "#"
+    assert _safe_url("//evil.example") == "#"
+    assert _safe_url("") == "#"
+    assert _safe_url(None) == "#"

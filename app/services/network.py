@@ -22,6 +22,7 @@ from postgrest.exceptions import APIError as PostgrestAPIError
 
 from app.core import supabase_client
 from app.core.uuid_guard import safe_uuid
+from app.services.profiles import public_creator
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +51,11 @@ def list_directory_for_creator(user_id: str) -> list[dict[str, Any]]:
     """
     rows = _list_onboarded_creators()
     blocked = _blocked_user_ids(user_id)
-    return [r for r in rows if r.get("user_id") != user_id and r.get("user_id") not in blocked]
+    filtered = [
+        r for r in rows
+        if r.get("user_id") != user_id and r.get("user_id") not in blocked
+    ]
+    return [p for p in (public_creator(r) for r in filtered) if p is not None]
 
 
 def _list_onboarded_creators() -> list[dict[str, Any]]:
@@ -272,7 +277,7 @@ def _list_for_user(
             query = query.or_(
                 f"requester_id.eq.{uid},addressee_id.eq.{uid}"
             )
-        result = query.order("requested_at", desc=True).execute()
+        result = query.order("requested_at", desc=True).limit(500).execute()
     except PostgrestAPIError:
         logger.exception("connection list failed: %s status=%s", user_id, status)
         return []
