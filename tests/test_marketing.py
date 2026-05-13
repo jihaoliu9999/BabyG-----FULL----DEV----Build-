@@ -36,14 +36,6 @@ def test_landing_redirects_signed_in_creator(client: TestClient) -> None:
     assert r.headers["location"] == "/creator"
 
 
-def test_landing_redirects_signed_in_brand(client: TestClient) -> None:
-    resp = _R()
-    write_session(resp, {"user_id": "u-brand", "role": "brand"})
-    cookie = resp.headers["set-cookie"].split(";")[0].split("=", 1)[1]
-    client.cookies.set(SESSION_COOKIE, cookie)
-    r = client.get("/")
-    assert r.headers["location"] == "/brand"
-
 
 def test_landing_redirects_signed_in_operator(client: TestClient) -> None:
     resp = _R()
@@ -63,15 +55,17 @@ def test_landing_handles_unknown_role_safely(client: TestClient) -> None:
     assert r.status_code == 200
 
 
-def test_get_started_renders_three_cards(client: TestClient) -> None:
+def test_get_started_renders_role_cards(client: TestClient) -> None:
     r = client.get("/get-started")
     assert r.status_code == 200
     assert "/auth/login?role=creator" in r.text
-    assert "/auth/login?role=brand" in r.text
     assert "/auth/login?role=operator" in r.text
+    # Brand card was removed when scope shipped creator-only (v1.5
+    # branch carries the brand surface).
+    assert "/auth/login?role=brand" not in r.text
 
 
-@pytest.mark.parametrize("role", ["creator", "brand", "operator"])
+@pytest.mark.parametrize("role", ["creator", "operator"])
 def test_get_started_with_role_query_redirects(
     client: TestClient, role: str
 ) -> None:

@@ -14,7 +14,6 @@ from app.core.security import SESSION_COOKIE, write_session
 from app.main import app
 from app.services import abuse as abuse_module
 from app.services import audit as audit_module
-from app.services import brands as brands_module
 from app.services import intel as intel_module
 from app.services import members as members_module
 from app.services import notifications as notifications_module
@@ -85,8 +84,6 @@ def world(monkeypatch) -> FakeWorld:
     # Quiet everything else used by the operator console
     monkeypatch.setattr(notifications_module, "create", lambda **kw: True)
     monkeypatch.setattr(intel_module, "list_for_operator", lambda **kw: [])
-    monkeypatch.setattr(brands_module, "list_pending", lambda: [])
-    monkeypatch.setattr(brands_module, "get_by_user_id", lambda uid: None)
     monkeypatch.setattr(profiles_module, "get_creator_profile", lambda uid: None)
     monkeypatch.setattr(abuse_module, "count_pending", lambda: 0)
     return w
@@ -113,15 +110,15 @@ def test_members_list_renders(client, world):
         "is_active": True, "last_seen_at": None,
         "created_at": "2026-05-01T00:00:00Z",
     }
-    world.users["b-1"] = {
-        "id": "b-1", "email": "ops@brand.com", "role": "brand",
+    world.users["op-2"] = {
+        "id": "op-2", "email": "ops@example.com", "role": "operator",
         "is_active": True, "last_seen_at": None,
         "created_at": "2026-05-02T00:00:00Z",
     }
     r = client.get("/operator/members")
     assert r.status_code == 200
     assert "anna@example.com" in r.text
-    assert "ops@brand.com" in r.text
+    assert "ops@example.com" in r.text
 
 
 def test_members_list_role_filter(client, world):
@@ -130,13 +127,13 @@ def test_members_list_role_filter(client, world):
         "id": "c-1", "email": "anna@example.com", "role": "creator",
         "is_active": True, "last_seen_at": None, "created_at": "2026-05-01T00:00:00Z",
     }
-    world.users["b-1"] = {
-        "id": "b-1", "email": "ops@brand.com", "role": "brand",
+    world.users["op-2"] = {
+        "id": "op-2", "email": "ops@example.com", "role": "operator",
         "is_active": True, "last_seen_at": None, "created_at": "2026-05-02T00:00:00Z",
     }
     r = client.get("/operator/members?role=creator")
     assert "anna@example.com" in r.text
-    assert "ops@brand.com" not in r.text
+    assert "ops@example.com" not in r.text
 
 
 def test_member_detail_renders_with_notes(client, world):
@@ -201,18 +198,18 @@ def test_audit_list_renders(client, world):
     _signed_in(client, role="operator", user_id="op-1")
     world.audit_rows = [
         {
-            "id": "a-1", "actor_user_id": "op-1", "action": "brand.verify",
-            "target_type": "brand", "target_id": "b-1", "notes": None,
+            "id": "a-1", "actor_user_id": "op-1", "action": "intel.publish",
+            "target_type": "intel", "target_id": "i-1", "notes": None,
             "created_at": "2026-05-07T10:00:00Z",
         },
     ]
     r = client.get("/operator/audit")
     assert r.status_code == 200
-    assert "brand.verify" in r.text
+    assert "intel.publish" in r.text
 
 
 def test_audit_requires_operator(client, world):
-    _signed_in(client, role="brand", user_id="b-1")
+    _signed_in(client, role="creator", user_id="c-1")
     r = client.get("/operator/audit")
     assert r.status_code == 403
 

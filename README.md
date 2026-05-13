@@ -1,20 +1,28 @@
 # babyg
 
-Hybrid AI social media management platform for lifestyle creators and brands in Miami.
+AI-assisted social media management platform for lifestyle creators in Miami.
 
-## Phase 1 (current)
+## v1 scope (current)
 
-What's actually shipped:
+**v1 ships creator-side only.** Brand discovery, verification, outreach,
+and the brand console were originally built but have been deferred to
+v1.5 — the full hardened brand-side code is preserved on the
+`brand-side-v1.5` branch (do not delete that branch).
+
+What's actually shipped in v1:
 
 - **Backend:** FastAPI (Python 3.12), single web process.
 - **Database / Auth:** Supabase (Postgres + magic-link OTP).
 - **Frontend:** Server-rendered Jinja2 templates. Dark mode only.
 - **Surfaces:** marketing landing, magic-link auth, role-gated consoles
-  for **Creator**, **Brand**, **Operator** — DMs, network/connections,
+  for **Creator** and **Operator** — creator DMs, network/connections,
   job listings, calendar, content receipts, weekly performance, intel
-  feed, brand verification queue, abuse reports, member roster, audit log.
+  feed; operator intel publishing, abuse reports, member roster, audit log.
 - **Security:** signed session cookie, CSRF middleware, security headers,
   rate-limited magic-link, RLS policies on every Supabase table.
+
+SMS scaffolding (Twilio columns, phone fields) is in place but un-wired
+— wiring up is the last step of v1 once 10DLC approval lands.
 
 ## Phase 2 (planned, not built)
 
@@ -54,14 +62,14 @@ app/
   main.py            FastAPI factory + middleware (CSRF, GZip, security headers)
   config.py          pydantic-settings env loader
   core/              session signing, supabase clients, CSRF, rate-limit, redirects
-  routes/            marketing, auth, onboarding, creator/, brand/, operator/, abuse
+  routes/            marketing, auth, onboarding, creator, operator, abuse
   services/          DB access for each domain (dms, network, intel, jobs, ...)
   agent/             — Phase 2 — agent loop, tool registry
     tools/           — Phase 2 — one file per Claude tool
   integrations/      — Phase 2 — external API clients
   tasks/             — Phase 2 — Celery tasks
   templates/  static/
-migrations/          Supabase SQL migrations + RLS (0001-0006)
+migrations/          Supabase SQL migrations + RLS (0001-0007)
 scripts/             ops helpers (generate_session_secret.py)
 tests/               pytest suite
 ```
@@ -75,4 +83,4 @@ See `DEPLOY.md` for the end-to-end Railway + Supabase + Resend playbook.
 - Python only.
 - Every prompt lives in `app/services/prompts.py` (Phase 2). No prompts elsewhere.
 - API keys never reach templates or client JS.
-- Three user types: Creator, Brand, Operator. Each has a separate interface.
+- v1 user types: Creator and Operator. Brand returns in v1.5.

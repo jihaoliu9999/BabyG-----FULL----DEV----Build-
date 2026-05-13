@@ -51,13 +51,6 @@
         </li>
         {% endfor %}
       </ol>
-    {% elif context.kind == "profile" and context.profile_kind == "brand" %}
-      <dl class="kv">
-        <dt>Type</dt><dd>Brand</dd>
-        <dt>Company</dt><dd>{{ context.profile.company_name }}</dd>
-        <dt>Industry</dt><dd>{{ context.profile.industry or "—" }}</dd>
-        <dt>Verified</dt><dd>{{ "yes" if context.profile.is_verified else "no" }}</dd>
-      </dl>
     {% elif context.kind == "profile" and context.profile_kind == "creator" %}
       <dl class="kv">
         <dt>Type</dt><dd>Creator</dd>

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}{% if peer_kind == "brand" %}{{ peer.company_name }}{% else %}{{ peer.full_name or "Creator" }}{% endif %} · messages · babyg{% endblock %}
+{% block title %}{{ peer.full_name or "Creator" }} · messages · babyg{% endblock %}
 
 {% block content %}
 <section class="dm">
@@ -8,20 +8,12 @@
 
   <header class="dm-header">
     <div>
-      {% if peer_kind == "brand" %}
-        <div class="auth-tag">Brand · Verified</div>
-        <h1 class="dm-title">{{ peer.company_name }}</h1>
-        <p class="dm-sub">
-          <a href="/creator/brands/{{ peer_id }}">View profile →</a>
-        </p>
-      {% else %}
-        <div class="auth-tag">Creator · Connected</div>
-        <h1 class="dm-title">{{ peer.full_name or "Creator" }}</h1>
-        <p class="dm-sub">
-          {% if peer.instagram_handle %}@{{ peer.instagram_handle }} · {% endif %}
-          <a href="/creator/network/{{ peer_id }}">View profile →</a>
-        </p>
-      {% endif %}
+      <div class="auth-tag">Creator · Connected</div>
+      <h1 class="dm-title">{{ peer.full_name or "Creator" }}</h1>
+      <p class="dm-sub">
+        {% if peer.instagram_handle %}@{{ peer.instagram_handle }} · {% endif %}
+        <a href="/creator/network/{{ peer_id }}">View profile →</a>
+      </p>
     </div>
   </header>
 

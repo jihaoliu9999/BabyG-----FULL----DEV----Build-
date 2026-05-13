@@ -1,4 +1,7 @@
-"""Job listing tests — creator CRUD + brand browse + operator takedown.
+"""Job listing tests — creator CRUD + operator takedown.
+
+v1 is creator-only. Brand-side jobs browse (signed in as a verified
+brand, hitting /brand/jobs) shipped on the brand-side-v1.5 branch.
 
 Stubs the jobs service; the routes integrate cleanly because every layer
 is gated by require_role and the service contract is small.
@@ -16,7 +19,6 @@ from fastapi.testclient import TestClient
 from app.core.security import SESSION_COOKIE, write_session
 from app.main import app
 from app.services import abuse as abuse_module
-from app.services import brands as brands_module
 from app.services import creators as creators_module
 from app.services import dms as dms_module
 from app.services import intel as intel_module
@@ -30,7 +32,6 @@ from app.services import views as views_module
 class FakeWorld:
     def __init__(self):
         self.creators: dict[str, dict[str, Any]] = {}
-        self.brands: dict[str, dict[str, Any]] = {}
         self.listings: dict[str, dict[str, Any]] = {}
         self.connections: dict[tuple[str, str], dict[str, Any]] = {}
         self.notifs: list[dict[str, Any]] = []
@@ -49,16 +50,6 @@ class FakeWorld:
             "content_formats": ["reels"], "hard_limits": [], "bio": None,
         }
         return self.creators[user_id]
-
-    def add_brand(self, *, user_id, **kw):
-        self.brands[user_id] = {
-            "user_id": user_id,
-            "company_name": kw.get("company_name", "Acme"),
-            "is_verified": kw.get("is_verified", True),
-            "onboarding_completed_at": "2026-05-07T00:00:00Z",
-            "niche_preferences": [], "creator_size_preferences": [],
-        }
-        return self.brands[user_id]
 
     def add_listing(self, *, poster, **kw):
         lid = str(uuid4())
@@ -93,13 +84,7 @@ def world(monkeypatch) -> FakeWorld:
         lambda ids: {uid: w.creators[uid] for uid in ids if uid in w.creators},
     )
     monkeypatch.setattr(
-        brands_module, "get_by_user_id", lambda uid: w.brands.get(uid)
-    )
-    monkeypatch.setattr(
         creators_module, "get_for_view", lambda uid: w.creators.get(uid)
-    )
-    monkeypatch.setattr(
-        creators_module, "list_for_brand_match", lambda **kw: list(w.creators.values())
     )
 
     # ----- jobs service -----
@@ -195,7 +180,6 @@ def world(monkeypatch) -> FakeWorld:
     monkeypatch.setattr(dms_module, "unread_count_for_user", lambda uid: 0)
     monkeypatch.setattr(intel_module, "feed_for_creator", lambda **kw: [])
     monkeypatch.setattr(intel_module, "feedback_for_user", lambda uid, ids: {})
-    monkeypatch.setattr(brands_module, "list_pending", lambda: [])
     monkeypatch.setattr(abuse_module, "count_pending", lambda: 0)
     monkeypatch.setattr(views_module, "record_view", lambda *, viewer_id, viewed_id: True)
 
@@ -328,39 +312,6 @@ def test_creator_jobs_closed_listing_visible_to_owner(client, world):
     listing = world.add_listing(poster="c-1", is_active=False)
     r = client.get(f"/creator/jobs/{listing['id']}")
     assert r.status_code == 200
-
-
-# -----------------------------------------------------------------------------
-# Brand-side: read-only browse
-# -----------------------------------------------------------------------------
-
-
-def test_brand_jobs_board_renders(client, world):
-    _signed_in(client, role="brand", user_id="b-1")
-    world.add_brand(user_id="b-1")
-    world.add_creator(user_id="c-2", full_name="Anna")
-    world.add_listing(poster="c-2", title="UGC pack")
-    r = client.get("/brand/jobs")
-    assert r.status_code == 200
-    assert "UGC pack" in r.text
-
-
-def test_brand_jobs_detail_routes_to_creator_profile(client, world):
-    _signed_in(client, role="brand", user_id="b-1")
-    world.add_brand(user_id="b-1")
-    world.add_creator(user_id="c-2")
-    listing = world.add_listing(poster="c-2", title="Open")
-    r = client.get(f"/brand/jobs/{listing['id']}")
-    assert r.status_code == 200
-    assert "/brand/creators/c-2" in r.text
-
-
-def test_unverified_brand_redirects_from_jobs(client, world):
-    _signed_in(client, role="brand", user_id="b-1")
-    world.add_brand(user_id="b-1", is_verified=False)
-    r = client.get("/brand/jobs")
-    assert r.status_code == 302
-    assert r.headers["location"] == "/brand"
 
 
 # -----------------------------------------------------------------------------

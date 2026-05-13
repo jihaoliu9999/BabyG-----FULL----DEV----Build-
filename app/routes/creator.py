@@ -1,7 +1,10 @@
-"""Creator dashboard, intel feedback, notifications, and brand view.
+"""Creator dashboard, intel feedback, notifications, DMs, network,
+calendar, jobs, content receipts, and performance logs.
 
-The chat surface arrives in Phase 1 Step 7. Until then, "outreach" from
-brands lands as a notification linking to the brand's read-only profile.
+v1 scope is creator-only. Brand-side read views (the creator's
+read-only brand profile, brand→creator outreach notifications) shipped
+in the full design but were removed when brand was deferred to v1.5
+(see the brand-side-v1.5 branch).
 """
 
 from __future__ import annotations
@@ -17,7 +20,6 @@ from app.deps import require_role
 from app.services import (
     audit,
     bookings,
-    brands,
     dms,
     intel,
     jobs,
@@ -132,30 +134,6 @@ async def notifications_mark_all_read(
 
 
 # -----------------------------------------------------------------------------
-# Read-only brand profile (entry point for collab_match notifications)
-# -----------------------------------------------------------------------------
-
-
-@router.get("/creator/brands/{brand_user_id}", response_class=HTMLResponse)
-async def brand_view(
-    brand_user_id: str,
-    request: Request,
-    session: SessionPayload = Depends(require_role("creator")),
-) -> Response:
-    brand = brands.get_for_view(brand_user_id)
-    if brand is None or not brand.get("is_verified"):
-        # Unverified brands shouldn't be reachable as a profile page —
-        # if a creator follows a stale link, return 404.
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-    existing_thread = dms.get_thread_between(session["user_id"], brand_user_id)
-    return templates.TemplateResponse(
-        request,
-        "creator/brand_view.html",
-        {"brand": brand, "existing_thread": bool(existing_thread)},
-    )
-
-
-# -----------------------------------------------------------------------------
 # DMs
 # -----------------------------------------------------------------------------
 
@@ -165,20 +143,10 @@ async def dm_list(
     request: Request, session: SessionPayload = Depends(require_role("creator"))
 ) -> Response:
     threads = dms.list_threads_for_user(session["user_id"])
-    # Peer can be a verified brand OR a connected creator. Try brand first,
-    # fall back to creator profile.
-    peers: dict[str, dict | None] = {}
-    peer_kinds: dict[str, str] = {}
-    for t in threads:
-        pid = t["peer_id"]
-        b = brands.get_by_user_id(pid)
-        if b is not None:
-            peers[pid] = b
-            peer_kinds[pid] = "brand"
-            continue
-        c = profiles.get_creator_profile(pid)
-        peers[pid] = c
-        peer_kinds[pid] = "creator" if c else "unknown"
+    # v1 is creator-only — peer is always another connected creator.
+    peer_ids = sorted({str(t["peer_id"]) for t in threads})
+    peers = profiles.get_creators_by_ids(peer_ids)
+    peer_kinds = {pid: ("creator" if pid in peers else "unknown") for pid in peer_ids}
     return templates.TemplateResponse(
         request,
         "creator/dm_list.html",
@@ -225,7 +193,7 @@ async def dm_send(
     body: str = Form(...),
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
-    peer, peer_kind = _resolve_creator_dm_peer(
+    peer, _peer_kind = _resolve_creator_dm_peer(
         me_id=session["user_id"], peer_user_id=peer_user_id
     )
     if peer is None:
@@ -250,12 +218,10 @@ async def dm_send(
             or creator_profile.get("instagram_handle")
             or "a creator"
         )
-        # Notification target depends on peer's role: brand reads at
-        # /brand/dm/{me}, creator reads at /creator/dm/{me}.
-        target = (
-            f"/brand/dm/{session['user_id']}" if peer_kind == "brand"
-            else f"/creator/dm/{session['user_id']}"
-        )
+        # v1 is creator-only: the recipient always reads at
+        # /creator/dm/{me}. peer_kind is unused but kept on the return
+        # tuple so future v1.5 work can re-introduce role-based routing.
+        target = f"/creator/dm/{session['user_id']}"
         notifications.create(
             user_id=peer_user_id,
             kind="new_dm",
@@ -271,18 +237,13 @@ def _resolve_creator_dm_peer(
 ) -> tuple[dict | None, str]:
     """Look up the DM peer for a creator-side route.
 
-    A creator may DM:
-      * any verified brand (always)
-      * another creator only if there's an `accepted` connection between
-        them (creator-creator DMs are gated to deter cold messaging)
+    v1 is creator-only: the peer must be another onboarded creator the
+    caller has an `accepted` connection with (this gate deters cold
+    messaging). Brand-side DM peers shipped in the full v1 design but
+    are deferred to v1.5 (see brand-side-v1.5 branch).
 
-    Returns (peer_profile, peer_kind) or (None, "") if the peer isn't
-    reachable from this creator. peer_kind is "brand" or "creator".
+    Returns (peer_profile, "creator") on success, (None, "") otherwise.
     """
-    brand = brands.get_by_user_id(peer_user_id)
-    if brand is not None and brand.get("is_verified"):
-        return brand, "brand"
-
     if peer_user_id == me_id:
         return None, ""
     creator = profiles.get_creator_profile(peer_user_id)

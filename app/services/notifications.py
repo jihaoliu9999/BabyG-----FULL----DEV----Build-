@@ -31,7 +31,6 @@ KINDS = [
     "intel_push",
     "booking_reminder",
     "flag_update",
-    "collab_match",
     "connection_request",
     "profile_view_digest",
     "job_match",

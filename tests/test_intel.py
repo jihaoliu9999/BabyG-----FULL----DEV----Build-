@@ -21,7 +21,6 @@ from fastapi.testclient import TestClient
 
 from app.core.security import SESSION_COOKIE, write_session
 from app.main import app
-from app.services import brands as brands_module
 from app.services import intel as intel_module
 from app.services import notifications as notifications_module
 from app.services import profiles as profiles_module
@@ -144,12 +143,10 @@ def store(monkeypatch) -> FakeIntelStore:
     monkeypatch.setattr(intel_module, "archive_intel_post", _archive_intel_post)
     monkeypatch.setattr(intel_module, "status_counts", _status_counts)
 
-    # Step 6+: creator dashboard reads notifications, operator console reads
-    # brand pending count. Stub both with empty results so the surfaces still
-    # render in this test file.
+    # Step 6+: creator dashboard reads notifications. Stub empty so the
+    # surface still renders in this test file.
     monkeypatch.setattr(notifications_module, "list_unread", lambda uid, *, limit=10: [])
     monkeypatch.setattr(notifications_module, "unread_count", lambda uid: 0)
-    monkeypatch.setattr(brands_module, "list_pending", lambda: [])
     # Step 7+: creator dashboard reads DM unread count too.
     from app.services import dms as dms_module_local
     monkeypatch.setattr(dms_module_local, "unread_count_for_user", lambda uid: 0)
@@ -305,7 +302,7 @@ def test_feedback_rejects_unknown_signal(client, store, fake_creator):
 
 
 def test_feedback_requires_creator_role(client, store):
-    _signed_in(client, role="brand")
+    _signed_in(client, role="operator")
     r = client.post(
         "/creator/intel/abc/feedback", data={"signal": "useful"}
     )

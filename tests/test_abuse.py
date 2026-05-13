@@ -1,10 +1,13 @@
 """Abuse-report submission + operator review tests.
 
+v1 is creator-only. Brand-side report submission tests (a brand
+reporting a creator profile) shipped on the brand-side-v1.5 branch.
+
 Covers:
   * /report from a creator (DM thread, profile)
-  * /report from a brand (DM thread, profile)
   * /report rejects unknown target_type
   * /report enforces same-origin redirect on return_to (open-redirect guard)
+  * /report standing checks (participant for dm_thread, ≠ self for profile)
   * Operator queue list, status filter
   * Operator detail renders thread / profile preview
   * Operator dismiss (notes optional), action (notes required), escalate
@@ -24,7 +27,6 @@ from fastapi.testclient import TestClient
 from app.core.security import SESSION_COOKIE, write_session
 from app.main import app
 from app.services import abuse as abuse_module
-from app.services import brands as brands_module
 from app.services import dms as dms_module
 from app.services import notifications as notifications_module
 from app.services import profiles as profiles_module
@@ -37,7 +39,6 @@ from app.services import profiles as profiles_module
 class FakeWorld:
     def __init__(self) -> None:
         self.reports: dict[str, dict[str, Any]] = {}        # id -> report
-        self.brands: dict[str, dict[str, Any]] = {}
         self.creators: dict[str, dict[str, Any]] = {}
         self.thread_messages: dict[str, list[dict[str, Any]]] = {}
         self.threads: dict[str, dict[str, Any]] = {}          # id -> thread
@@ -102,13 +103,7 @@ def world(monkeypatch) -> FakeWorld:
     monkeypatch.setattr(abuse_module, "resolve", _resolve)
     monkeypatch.setattr(abuse_module, "count_pending", _count_pending)
 
-    # ----- brands / profiles for the operator detail context preview -----
-    monkeypatch.setattr(
-        brands_module, "get_by_user_id", lambda uid: w.brands.get(uid)
-    )
-    monkeypatch.setattr(
-        brands_module, "list_pending", lambda: []
-    )
+    # ----- profiles for the operator detail context preview -----
     monkeypatch.setattr(
         profiles_module, "get_creator_profile", lambda uid: w.creators.get(uid)
     )
@@ -212,20 +207,23 @@ def test_creator_can_report_dm_thread(client, world):
     assert world.last_report["target_id"] == THREAD_ID
 
 
-def test_brand_can_report_profile(client, world):
-    _signed_in(client, role="brand", user_id=B1_ID)
+def test_creator_can_report_profile(client, world):
+    """Replaces the v1.5 `test_brand_can_report_profile` — same flow,
+    but the reporter is a creator (the only non-operator role in v1)."""
+    other_creator = "cccccccc-cccc-cccc-cccc-cccccccccccc"
+    _signed_in(client, role="creator", user_id=C1_ID)
     r = client.post(
         "/report",
         data={
             "target_type": "profile",
-            "target_id": C1_ID,
-            "reason": "Profile claims sponsorships from us that never existed.",
-            "return_to": "/brand/creators/" + C1_ID,
+            "target_id": other_creator,
+            "reason": "Profile is impersonating someone in my network.",
+            "return_to": "/creator/network/" + other_creator,
         },
     )
     assert r.status_code == 303
-    assert r.headers["location"] == f"/brand/creators/{C1_ID}?reported=1"
-    assert world.last_report["reporter_id"] == B1_ID
+    assert r.headers["location"] == f"/creator/network/{other_creator}?reported=1"
+    assert world.last_report["reporter_id"] == C1_ID
 
 
 def test_report_rejects_unknown_target_type(client, world):

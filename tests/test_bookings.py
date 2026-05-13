@@ -13,7 +13,6 @@ from app.core.security import SESSION_COOKIE, write_session
 from app.main import app
 from app.services import abuse as abuse_module
 from app.services import bookings as bookings_module
-from app.services import brands as brands_module
 from app.services import dms as dms_module
 from app.services import intel as intel_module
 from app.services import notifications as notifications_module
@@ -67,7 +66,6 @@ def world(monkeypatch) -> FakeWorld:
     monkeypatch.setattr(dms_module, "unread_count_for_user", lambda uid: 0)
     monkeypatch.setattr(intel_module, "feed_for_creator", lambda **kw: [])
     monkeypatch.setattr(intel_module, "feedback_for_user", lambda uid, ids: {})
-    monkeypatch.setattr(brands_module, "list_pending", lambda: [])
     monkeypatch.setattr(abuse_module, "count_pending", lambda: 0)
     return w
 
@@ -165,6 +163,6 @@ def test_calendar_cancel(client, world):
 
 
 def test_calendar_requires_creator(client, world):
-    _signed_in(client, role="brand", user_id="b-1")
+    _signed_in(client, role="operator", user_id="op-1")
     r = client.get("/creator/calendar")
     assert r.status_code == 403

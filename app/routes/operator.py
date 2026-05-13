@@ -21,7 +21,6 @@ from app.routes.onboarding import CREATOR_NICHES  # reuse vocabulary
 from app.services import (
     abuse,
     audit,
-    brands,
     dms,
     intel,
     jobs,
@@ -46,125 +45,14 @@ async def console_home(
     request: Request, session: SessionPayload = Depends(require_role("operator"))
 ) -> Response:
     counts = _status_counts()
-    pending_brands = len(brands.list_pending())
     pending_abuse = abuse.count_pending()
     return templates.TemplateResponse(
         request,
         "operator/console.html",
         {
             "counts": counts,
-            "pending_brands": pending_brands,
             "pending_abuse": pending_abuse,
         },
-    )
-
-
-# -----------------------------------------------------------------------------
-# Brand verification queue
-# -----------------------------------------------------------------------------
-
-
-@router.get("/brands", response_class=HTMLResponse)
-async def brands_list(
-    request: Request,
-    tab: str = Query("pending"),
-    session: SessionPayload = Depends(require_role("operator")),
-) -> Response:
-    if tab == "verified":
-        rows = brands.list_verified()
-    elif tab == "rejected":
-        rows = brands.list_rejected()
-    else:
-        tab = "pending"
-        rows = brands.list_pending()
-    return templates.TemplateResponse(
-        request,
-        "operator/brand_list.html",
-        {"brands": rows, "active_tab": tab},
-    )
-
-
-@router.get("/brands/{user_id}", response_class=HTMLResponse)
-async def brand_detail(
-    user_id: str,
-    request: Request,
-    session: SessionPayload = Depends(require_role("operator")),
-) -> Response:
-    brand = brands.get_by_user_id(user_id)
-    if brand is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-    return templates.TemplateResponse(
-        request,
-        "operator/brand_detail.html",
-        {"brand": brand, "error": None},
-    )
-
-
-@router.post("/brands/{user_id}/verify")
-async def brand_verify(
-    user_id: str,
-    request: Request,
-    session: SessionPayload = Depends(require_role("operator")),
-) -> Response:
-    form = await request.form()
-    notes = _str(form.get("notes"), 1000) or None
-    if not brands.verify(user_id, notes):
-        return _brand_detail_error(
-            request, user_id, "Couldn't verify the brand. Try again."
-        )
-    notifications.create(
-        user_id=user_id,
-        kind="system",
-        title="You're verified.",
-        body="Your brand has been verified by babyg. You can now reach creators.",
-        link_path="/brand",
-    )
-    audit.record(
-        actor_user_id=session["user_id"],
-        action="brand.verify",
-        target_type="brand", target_id=user_id, notes=notes,
-    )
-    return RedirectResponse("/operator/brands", status_code=303)
-
-
-@router.post("/brands/{user_id}/reject")
-async def brand_reject(
-    user_id: str,
-    request: Request,
-    session: SessionPayload = Depends(require_role("operator")),
-) -> Response:
-    form = await request.form()
-    notes = _str(form.get("notes"), 1000)
-    if not notes:
-        return _brand_detail_error(
-            request, user_id, "Reason notes are required for rejection."
-        )
-    if not brands.reject(user_id, notes):
-        return _brand_detail_error(
-            request, user_id, "Couldn't reject the brand. Try again."
-        )
-    notifications.create(
-        user_id=user_id,
-        kind="system",
-        title="Verification needs another look.",
-        body=notes,
-        link_path="/brand",
-    )
-    audit.record(
-        actor_user_id=session["user_id"],
-        action="brand.reject",
-        target_type="brand", target_id=user_id, notes=notes,
-    )
-    return RedirectResponse("/operator/brands", status_code=303)
-
-
-def _brand_detail_error(request: Request, user_id: str, message: str) -> Response:
-    brand = brands.get_by_user_id(user_id)
-    return templates.TemplateResponse(
-        request,
-        "operator/brand_detail.html",
-        {"brand": brand or {"user_id": user_id}, "error": message},
-        status_code=400,
     )
 
 
@@ -494,9 +382,7 @@ async def abuse_resolve(
         kind="flag_update",
         title=_resolve_title(action),
         body=notes or None,
-        link_path="/creator/notifications"
-        if _reporter_role_hint(report) == "creator"
-        else "/brand",
+        link_path="/creator/notifications",
     )
     audit.record(
         actor_user_id=session["user_id"],
@@ -540,14 +426,9 @@ def _abuse_target_context(report: dict[str, Any]) -> dict[str, Any]:
         return out
 
     if target_type == "profile":
-        # The reported user_id is in target_id. Try brand first, then
-        # creator.
-        brand = brands.get_by_user_id(str(target_id))
-        if brand is not None:
-            out["available"] = True
-            out["profile_kind"] = "brand"
-            out["profile"] = brand
-            return out
+        # The reported user_id is in target_id. v1 is creator-only, so
+        # we look up creator_profiles; brand profile lookups return
+        # nothing now that the surface is removed.
         creator = profiles.get_creator_profile(str(target_id))
         if creator is not None:
             out["available"] = True
@@ -565,17 +446,6 @@ def _resolve_title(action: str) -> str:
         "action": "Action taken on your report.",
         "escalate": "Your report has been escalated.",
     }[action]
-
-
-def _reporter_role_hint(report: dict[str, Any]) -> str:
-    """Best-effort: figure out whether the reporter is a creator or brand
-    so the notification's link_path lands them somewhere sensible. This
-    is a hint only; the notification renders the same either way.
-    """
-    rid = str(report.get("reporter_id") or "")
-    if rid and brands.get_by_user_id(rid) is not None:
-        return "brand"
-    return "creator"
 
 
 # -----------------------------------------------------------------------------

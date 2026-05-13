@@ -9,6 +9,34 @@ If you're picking up Phase 2, start by reading [`AUDIT.md`](./AUDIT.md)
 (the fresh-eyes review on the audit branch) — every entry below
 references its AUDIT.md / commit origin so you can dig in.
 
+## v1.5 — brand-side revival
+
+**v1 ships creator-only.** Brand-side (discovery, verification,
+outreach, brand console, brand DMs) was hardened on the audit branch
+and then removed via migration `0007_remove_brand_side.sql`. The full
+pre-removal state is preserved on the `brand-side-v1.5` branch (commit
+`ed3117b`). Do not delete that branch.
+
+When v1.5 starts:
+1. Cherry-pick (or rebase) `brand-side-v1.5` onto current `main`,
+   resolving the deletions in 0007 by reintroducing the
+   `brand_profiles` table + RLS + trigger and re-adding
+   `collab_match` to the `notifications.kind` CHECK.
+2. Re-add `brand` to `VALID_ROLES` / `SELF_SIGNUP_ROLES` in
+   `app/routes/marketing.py` and `app/routes/auth.py`.
+3. Re-include the brand router in `app/main.py` (`app.routes.brand`).
+4. Re-add the `/brand` branch in `_role_hint_from_path`.
+5. Restore the `brand` card in `app/templates/marketing/get_started.html`.
+
+Everything else (the brand routes, services, templates, tests) is on
+the safety branch ready to bring back.
+
+## SMS wiring (last step of v1)
+
+Twilio columns + phone fields are already in the schema (un-wired).
+The integrations stub at `app/integrations/__init__.py` is the
+intended home. Don't wire it up until 10DLC approval lands.
+
 ## Carry-overs from the pre-launch audit
 
 ### Rate limiter goes Redis (AUDIT M7)

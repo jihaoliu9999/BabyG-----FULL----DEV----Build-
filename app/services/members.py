@@ -1,8 +1,9 @@
 """Operator-side member roster.
 
-Reads from `users` and joins per-row to creator_profiles or brand_profiles
-in Python (volumes are small enough; if it ever profiles hot we move it
-to a SQL view).
+Reads from `users` and joins per-row to creator_profiles in Python
+(volumes are small enough; if it ever profiles hot we move it to a SQL
+view). Brand-profile join was removed in v1 (creator-only scope);
+restored on the brand-side-v1.5 branch.
 """
 
 from __future__ import annotations
@@ -39,7 +40,7 @@ def list_users(
             .order("created_at", desc=True)
             .range(start, end)
         )
-        if role in ("creator", "brand", "operator"):
+        if role in ("creator", "operator"):
             query = query.eq("role", role)
         result = query.execute()
     except PostgrestAPIError:
@@ -68,15 +69,14 @@ def get_user(user_id: str) -> dict[str, Any] | None:
 
 
 def annotate_with_profile(user: dict[str, Any]) -> dict[str, Any]:
-    """Look up the role-matching profile and stash it on `user["profile"]`."""
+    """Look up the role-matching profile and stash it on `user["profile"]`.
+    v1 only knows creator profiles; operator users carry no profile row.
+    """
     role = user.get("role")
     user_id = str(user.get("id") or "")
     if role == "creator":
         from app.services import profiles
         user["profile"] = profiles.get_creator_profile(user_id)
-    elif role == "brand":
-        from app.services import brands
-        user["profile"] = brands.get_by_user_id(user_id)
     else:
         user["profile"] = None
     return user

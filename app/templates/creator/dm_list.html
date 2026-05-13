@@ -10,7 +10,7 @@
     <div class="feed-eyebrow">Direct messages</div>
     <h1 class="feed-title">Conversations</h1>
     <p class="feed-sub">
-      Brand outreach and connected creators. Reply directly — the other side
+      Conversations with connected creators. Reply directly — the other side
       will be notified.
     </p>
   </header>
@@ -23,9 +23,7 @@
       <li class="dm-thread-row">
         <a class="dm-thread-link" href="/creator/dm/{{ t.peer_id }}">
           <div class="dm-thread-name">
-            {% if kind == "brand" %}
-              {{ peer.company_name if peer else "Brand" }}
-            {% elif kind == "creator" %}
+            {% if kind == "creator" %}
               {{ peer.full_name if peer else "Creator" }}
               {% if peer and peer.instagram_handle %}<span class="dm-thread-handle">@{{ peer.instagram_handle }}</span>{% endif %}
             {% else %}
@@ -46,7 +44,7 @@
   {% else %}
   <div class="feed-empty">
     <h2>No conversations yet.</h2>
-    <p>When a brand reaches out, the thread will land here.</p>
+    <p>Connect with another creator from the network to start a thread.</p>
   </div>
   {% endif %}
 </section>

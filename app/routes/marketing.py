@@ -10,7 +10,9 @@ from app.core.templating import templates
 
 router = APIRouter(tags=["marketing"])
 
-VALID_ROLES = {"creator", "brand", "operator"}
+# v1 ships creator-only. Brand has been deferred to v1.5 (preserved on
+# the brand-side-v1.5 branch). Operator is invite-only.
+VALID_ROLES = {"creator", "operator"}
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -26,7 +28,7 @@ async def landing(request: Request):
 async def get_started(request: Request, role: str | None = None):
     # If a role is specified in the query (e.g. from a footer link on the
     # landing page), shortcut directly into the login form. Otherwise show
-    # the three role cards.
+    # the role cards.
     if role and role in VALID_ROLES:
         return RedirectResponse(f"/auth/login?role={role}", status_code=302)
     return templates.TemplateResponse(request, "marketing/get_started.html", {})
@@ -35,8 +37,6 @@ async def get_started(request: Request, role: str | None = None):
 def _dashboard_path(role: str) -> str:
     if role == "creator":
         return "/creator"
-    if role == "brand":
-        return "/brand"
     if role == "operator":
         return "/operator"
     return "/"

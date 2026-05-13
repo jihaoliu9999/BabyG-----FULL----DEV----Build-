@@ -33,13 +33,6 @@
         <dt>Tier</dt><dd>{{ member.profile.tier or "basic" }}</dd>
         <dt>Followers</dt><dd>{{ member.profile.follower_range or "—" }}</dd>
       </dl>
-    {% elif member.role == "brand" %}
-      <dl class="kv">
-        <dt>Company</dt><dd>{{ member.profile.company_name or "—" }}</dd>
-        <dt>Industry</dt><dd>{{ member.profile.industry or "—" }}</dd>
-        <dt>Verified</dt><dd>{{ "yes" if member.profile.is_verified else "no" }}</dd>
-      </dl>
-      <a class="btn btn-ghost" href="/operator/brands/{{ member.id }}">Open verification queue →</a>
     {% endif %}
   </section>
   {% endif %}

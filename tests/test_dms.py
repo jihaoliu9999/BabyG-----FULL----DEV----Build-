@@ -1,17 +1,16 @@
 """DM thread + message tests.
 
-Stubs the dms service plus the surrounding services (brands, creators,
+v1 is creator-only. Brand-side DM tests (brand outreach, brand DM
+list/thread/send, cross-role threading) shipped on the brand-side-v1.5
+branch.
+
+Stubs the dms service plus the surrounding services (creators,
 profiles, notifications) so the routes render without hitting Supabase.
 
 Covers:
-  * Creator side: thread list, thread render, send message, mark-read on
-    open, send fans out a `new_dm` notification, peer must be a verified
-    brand
-  * Brand side: same shape, mirrored. Peer must be an onboarded creator.
-  * Cross-role threading: creator and brand each see the same thread by
-    each other's user_id (canonical pair)
-  * Outreach now creates a thread + first message + collab_match
-    notification linking to the thread (not the brand profile)
+  * Creator side: thread list, thread render, send message, mark-read
+    on open, send fans out a `new_dm` notification, peer must be a
+    connected creator
   * Role guards (anonymous, wrong role)
 """
 
@@ -26,7 +25,6 @@ from fastapi.testclient import TestClient
 
 from app.core.security import SESSION_COOKIE, write_session
 from app.main import app
-from app.services import brands as brands_module
 from app.services import creators as creators_module
 from app.services import dms as dms_module
 from app.services import notifications as notifications_module
@@ -39,26 +37,10 @@ from app.services import profiles as profiles_module
 
 class FakeWorld:
     def __init__(self) -> None:
-        self.brands: dict[str, dict[str, Any]] = {}
         self.creators: dict[str, dict[str, Any]] = {}
         self.threads: dict[str, dict[str, Any]] = {}        # id -> thread
         self.messages: list[dict[str, Any]] = []
         self.notifications_sent: list[dict[str, Any]] = []
-
-    def add_brand(self, *, user_id, **kwargs):
-        b = {
-            "user_id": user_id,
-            "company_name": kwargs.get("company_name", "Acme"),
-            "is_verified": kwargs.get("is_verified", True),
-            "onboarding_completed_at": kwargs.get(
-                "onboarding_completed_at", "2026-05-07T00:00:00Z"
-            ),
-            "verification_notes": kwargs.get("verification_notes"),
-            "niche_preferences": kwargs.get("niche_preferences", []),
-            "creator_size_preferences": kwargs.get("creator_size_preferences", []),
-        }
-        self.brands[user_id] = b
-        return b
 
     def add_creator(self, *, user_id, **kwargs):
         c = {
@@ -84,23 +66,19 @@ def _canonical(a, b):
 def world(monkeypatch) -> FakeWorld:
     w = FakeWorld()
 
-    # ----- brands service -----
-    monkeypatch.setattr(
-        brands_module, "get_by_user_id", lambda uid: w.brands.get(uid)
-    )
-
     # ----- creators service -----
     monkeypatch.setattr(
         creators_module, "get_for_view", lambda uid: w.creators.get(uid)
-    )
-    monkeypatch.setattr(
-        creators_module, "list_for_brand_match",
-        lambda **kw: list(w.creators.values()),
     )
 
     # ----- profiles (creator dashboard reads it) -----
     monkeypatch.setattr(
         profiles_module, "get_creator_profile", lambda uid: w.creators.get(uid)
+    )
+    monkeypatch.setattr(
+        profiles_module,
+        "get_creators_by_ids",
+        lambda ids: {u: w.creators[u] for u in ids if u in w.creators},
     )
 
     # ----- notifications -----
@@ -253,255 +231,117 @@ def _signed_in(client: TestClient, *, role: str, user_id: str) -> None:
 
 
 # -----------------------------------------------------------------------------
-# Brand outreach (Step 7 behavior change)
-# -----------------------------------------------------------------------------
-
-
-def test_outreach_creates_thread_message_and_notification(client, world):
-    _signed_in(client, role="brand", user_id="b-1")
-    world.add_brand(user_id="b-1", company_name="Atelier Fig")
-    world.add_creator(user_id="c-1")
-
-    r = client.post(
-        "/brand/creators/c-1/outreach",
-        data={"pitch": "We'd love to send you our SS26 capsule for a Reel."},
-    )
-    assert r.status_code == 303
-    assert r.headers["location"] == "/brand/dm/c-1"
-
-    # One thread exists with b-1 + c-1 (canonicalized)
-    assert len(world.threads) == 1
-    t = next(iter(world.threads.values()))
-    assert {t["participant_a_id"], t["participant_b_id"]} == {"b-1", "c-1"}
-
-    # First message is the pitch, sent by the brand
-    assert len(world.messages) == 1
-    m = world.messages[0]
-    assert m["sender_id"] == "b-1"
-    assert m["body"].startswith("We'd love")
-
-    # Notification fired with the new link target (DM thread, not profile)
-    assert len(world.notifications_sent) == 1
-    n = world.notifications_sent[0]
-    assert n["user_id"] == "c-1"
-    assert n["kind"] == "collab_match"
-    assert n["link_path"] == "/creator/dm/b-1"
-
-
-def test_outreach_short_pitch_rejected(client, world):
-    _signed_in(client, role="brand", user_id="b-1")
-    world.add_brand(user_id="b-1")
-    world.add_creator(user_id="c-1")
-    r = client.post("/brand/creators/c-1/outreach", data={"pitch": "hi"})
-    assert r.status_code == 400
-    assert world.threads == {}
-    assert world.messages == []
-    assert world.notifications_sent == []
-
-
-def test_outreach_when_thread_exists_just_appends_message(client, world):
-    _signed_in(client, role="brand", user_id="b-1")
-    world.add_brand(user_id="b-1")
-    world.add_creator(user_id="c-1")
-
-    client.post(
-        "/brand/creators/c-1/outreach",
-        data={"pitch": "First pitch — long enough to pass validation."},
-    )
-    client.post(
-        "/brand/creators/c-1/outreach",
-        data={"pitch": "Second pitch — also long enough to pass validation."},
-    )
-    assert len(world.threads) == 1
-    assert len(world.messages) == 2
-
-
-# -----------------------------------------------------------------------------
-# Brand side: DM list + thread
-# -----------------------------------------------------------------------------
-
-
-def test_brand_dm_list_renders(client, world):
-    _signed_in(client, role="brand", user_id="b-1")
-    world.add_brand(user_id="b-1")
-    world.add_creator(user_id="c-1", full_name="Anna Reyes")
-    client.post(
-        "/brand/creators/c-1/outreach",
-        data={"pitch": "First pitch — long enough to pass validation."},
-    )
-    r = client.get("/brand/dm")
-    assert r.status_code == 200
-    assert "Anna Reyes" in r.text
-
-
-def test_brand_dm_thread_renders_with_messages(client, world):
-    _signed_in(client, role="brand", user_id="b-1")
-    world.add_brand(user_id="b-1")
-    world.add_creator(user_id="c-1", full_name="Anna Reyes")
-    client.post(
-        "/brand/creators/c-1/outreach",
-        data={"pitch": "Loving your last reel — collab idea inside."},
-    )
-    r = client.get("/brand/dm/c-1")
-    assert r.status_code == 200
-    assert "Loving your last reel" in r.text
-    assert "Anna Reyes" in r.text
-
-
-def test_brand_dm_send_appends_and_notifies(client, world):
-    _signed_in(client, role="brand", user_id="b-1")
-    world.add_brand(user_id="b-1", company_name="Atelier Fig")
-    world.add_creator(user_id="c-1")
-    client.post(
-        "/brand/creators/c-1/outreach",
-        data={"pitch": "Initial pitch — long enough to pass validation."},
-    )
-    world.notifications_sent.clear()  # ignore the outreach notification
-
-    r = client.post(
-        "/brand/dm/c-1/send",
-        data={"body": "Confirmed for Tuesday — sending product Monday."},
-    )
-    assert r.status_code == 303
-    assert r.headers["location"] == "/brand/dm/c-1"
-    assert len(world.messages) == 2
-    assert world.messages[-1]["body"].startswith("Confirmed")
-
-    assert len(world.notifications_sent) == 1
-    n = world.notifications_sent[0]
-    assert n["user_id"] == "c-1"
-    assert n["kind"] == "new_dm"
-    assert n["link_path"] == "/creator/dm/b-1"
-
-
-def test_brand_dm_send_empty_body_redirects_without_message(client, world):
-    _signed_in(client, role="brand", user_id="b-1")
-    world.add_brand(user_id="b-1")
-    world.add_creator(user_id="c-1")
-    r = client.post("/brand/dm/c-1/send", data={"body": "   "})
-    assert r.status_code == 303
-    assert world.messages == []
-
-
-def test_brand_dm_404_when_creator_missing(client, world):
-    _signed_in(client, role="brand", user_id="b-1")
-    world.add_brand(user_id="b-1")
-    r = client.get("/brand/dm/missing")
-    assert r.status_code == 404
-
-
-def test_brand_dm_redirects_when_unverified(client, world):
-    _signed_in(client, role="brand", user_id="b-1")
-    world.add_brand(user_id="b-1", is_verified=False)
-    world.add_creator(user_id="c-1")
-    r = client.get("/brand/dm/c-1")
-    assert r.status_code == 302
-    assert r.headers["location"] == "/brand"
-
-
-# -----------------------------------------------------------------------------
 # Creator side: DM list + thread
+#
+# v1 is creator-only. Brand outreach + brand DM tests
+# (test_outreach_*, test_brand_dm_*) shipped on the brand-side-v1.5
+# branch.
 # -----------------------------------------------------------------------------
+
+
+def _seed_thread(world, *, a, b, body, sender):
+    """Insert a thread + one message directly so creator DM tests don't
+    have to set up an accepted-connection round-trip. Mirrors the
+    canonical-pair shape the stubs in `world` use."""
+    ax, bx = _canonical(a, b)
+    tid = str(uuid4())
+    world.threads[tid] = {
+        "id": tid,
+        "participant_a_id": ax,
+        "participant_b_id": bx,
+        "last_message_at": "2026-05-07T00:00:00Z",
+        "created_at": "2026-05-07T00:00:00Z",
+    }
+    world.messages.append(
+        {
+            "id": str(uuid4()),
+            "thread_id": tid,
+            "sender_id": sender,
+            "body": body,
+            "read_at": None,
+            "created_at": "2026-05-07T00:00:01Z",
+        }
+    )
+
+
+def _accepted_connection(monkeypatch, *, a, b):
+    """Pretend (a, b) have an accepted creator-creator connection so
+    `_resolve_creator_dm_peer` admits the peer."""
+    from app.services import network as network_module
+
+    def _between(x, y):
+        if {x, y} == {a, b}:
+            return {"status": "accepted", "requester_id": a, "addressee_id": b}
+        return None
+
+    monkeypatch.setattr(network_module, "get_connection_between", _between)
 
 
 def test_creator_dm_list_renders(client, world):
     _signed_in(client, role="creator", user_id="c-1")
     world.add_creator(user_id="c-1")
-    world.add_brand(user_id="b-1", company_name="Atelier Fig")
-    # Brand reaches out, creating thread + first message:
-    sb_client = TestClient(app, follow_redirects=False)
-    _signed_in(sb_client, role="brand", user_id="b-1")
-    sb_client.post(
-        "/brand/creators/c-1/outreach",
-        data={"pitch": "Initial pitch — long enough to pass validation."},
-    )
+    world.add_creator(user_id="c-2", full_name="Anna Reyes")
+    _seed_thread(world, a="c-2", b="c-1", body="hello", sender="c-2")
 
     r = client.get("/creator/dm")
     assert r.status_code == 200
-    assert "Atelier Fig" in r.text
+    assert "Anna Reyes" in r.text
 
 
-def test_creator_dm_thread_marks_messages_read(client, world):
+def test_creator_dm_thread_marks_messages_read(client, world, monkeypatch):
     _signed_in(client, role="creator", user_id="c-1")
     world.add_creator(user_id="c-1")
-    world.add_brand(user_id="b-1")
-    sb_client = TestClient(app, follow_redirects=False)
-    _signed_in(sb_client, role="brand", user_id="b-1")
-    sb_client.post(
-        "/brand/creators/c-1/outreach",
-        data={"pitch": "Initial pitch — long enough to pass validation."},
-    )
-    # Brand-sent message is unread for the creator
+    world.add_creator(user_id="c-2")
+    _accepted_connection(monkeypatch, a="c-2", b="c-1")
+    _seed_thread(world, a="c-2", b="c-1", body="hi from c-2", sender="c-2")
     assert all(m["read_at"] is None for m in world.messages)
 
-    r = client.get("/creator/dm/b-1")
+    r = client.get("/creator/dm/c-2")
     assert r.status_code == 200
-    # On open, the message from the brand becomes read
     assert all(m["read_at"] is not None for m in world.messages)
 
 
-def test_creator_dm_send_appends_and_notifies(client, world):
+def test_creator_dm_send_appends_and_notifies(client, world, monkeypatch):
     _signed_in(client, role="creator", user_id="c-1")
-    world.add_creator(user_id="c-1", full_name="Anna Reyes",
-                      instagram_handle="annareyes")
-    world.add_brand(user_id="b-1")
-    # Seed thread (brand reached out first)
-    sb_client = TestClient(app, follow_redirects=False)
-    _signed_in(sb_client, role="brand", user_id="b-1")
-    sb_client.post(
-        "/brand/creators/c-1/outreach",
-        data={"pitch": "Initial pitch — long enough to pass validation."},
+    world.add_creator(
+        user_id="c-1", full_name="Anna Reyes", instagram_handle="annareyes"
     )
+    world.add_creator(user_id="c-2")
+    _accepted_connection(monkeypatch, a="c-2", b="c-1")
+    _seed_thread(world, a="c-2", b="c-1", body="hi", sender="c-2")
     world.notifications_sent.clear()
 
     r = client.post(
-        "/creator/dm/b-1/send",
+        "/creator/dm/c-2/send",
         data={"body": "Yes, let's chat — Tuesday afternoon works."},
     )
     assert r.status_code == 303
-    assert r.headers["location"] == "/creator/dm/b-1"
-    # 1 outreach message + 1 reply
+    assert r.headers["location"] == "/creator/dm/c-2"
+    # 1 seeded message + 1 reply
     assert len(world.messages) == 2
     assert world.messages[-1]["sender_id"] == "c-1"
 
     assert len(world.notifications_sent) == 1
     n = world.notifications_sent[0]
-    assert n["user_id"] == "b-1"
+    assert n["user_id"] == "c-2"
     assert n["kind"] == "new_dm"
-    assert n["link_path"] == "/brand/dm/c-1"
+    assert n["link_path"] == "/creator/dm/c-1"
     assert "Anna Reyes" in n["title"]
 
 
-def test_creator_dm_404_for_unverified_brand(client, world):
+def test_creator_dm_404_for_unconnected_creator(client, world, monkeypatch):
+    """Without an accepted connection, the DM peer isn't reachable
+    (gate against cold messaging)."""
     _signed_in(client, role="creator", user_id="c-1")
     world.add_creator(user_id="c-1")
-    world.add_brand(user_id="b-1", is_verified=False)
-    r = client.get("/creator/dm/b-1")
-    assert r.status_code == 404
-
-
-# -----------------------------------------------------------------------------
-# Cross-role threading: same thread reachable from both sides
-# -----------------------------------------------------------------------------
-
-
-def test_thread_is_canonical_across_roles(client, world):
-    # Brand opens thread first
-    world.add_brand(user_id="b-1")
-    world.add_creator(user_id="c-1")
-    sb_client = TestClient(app, follow_redirects=False)
-    _signed_in(sb_client, role="brand", user_id="b-1")
-    sb_client.post(
-        "/brand/creators/c-1/outreach",
-        data={"pitch": "Pitch — long enough to pass validation."},
+    world.add_creator(user_id="c-2")
+    # No `_accepted_connection` call — connection lookup returns None.
+    from app.services import network as network_module
+    monkeypatch.setattr(
+        network_module, "get_connection_between", lambda x, y: None
     )
-
-    # Creator opens the same thread; no second thread is created
-    cc_client = TestClient(app, follow_redirects=False)
-    _signed_in(cc_client, role="creator", user_id="c-1")
-    cc_client.get("/creator/dm/b-1")
-
-    assert len(world.threads) == 1
+    r = client.get("/creator/dm/c-2")
+    assert r.status_code == 404
 
 
 # -----------------------------------------------------------------------------
@@ -510,14 +350,8 @@ def test_thread_is_canonical_across_roles(client, world):
 
 
 def test_creator_dm_requires_creator_role(client, world):
-    _signed_in(client, role="brand", user_id="b-1")
+    _signed_in(client, role="operator", user_id="op-1")
     r = client.get("/creator/dm")
-    assert r.status_code == 403
-
-
-def test_brand_dm_requires_brand_role(client, world):
-    _signed_in(client, role="creator", user_id="c-1")
-    r = client.get("/brand/dm")
     assert r.status_code == 403
 
 
@@ -526,8 +360,5 @@ def test_dm_routes_require_auth(client, world):
     r = client.get("/creator/dm")
     assert r.status_code == 302
     assert r.headers["location"] == "/auth/login?role=creator"
-    r = client.get("/brand/dm")
-    assert r.status_code == 302
-    assert r.headers["location"] == "/auth/login?role=brand"
-    r = client.get("/brand/dm", headers={"accept": "application/json"})
+    r = client.get("/creator/dm", headers={"accept": "application/json"})
     assert r.status_code == 401

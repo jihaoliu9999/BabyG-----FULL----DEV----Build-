@@ -92,7 +92,6 @@ class FakeService:
         self.tables: dict[str, list[dict]] = {
             "users": [],
             "creator_profiles": [],
-            "brand_profiles": [],
         }
         self.inserts: list[tuple[str, dict]] = []
 
@@ -181,18 +180,17 @@ def test_landing_renders(client: TestClient) -> None:
     assert "Get started" in r.text
 
 
-def test_get_started_renders_three_role_cards(client: TestClient) -> None:
+def test_get_started_renders_role_cards(client: TestClient) -> None:
     r = client.get("/get-started")
     assert r.status_code == 200
     assert "/auth/login?role=creator" in r.text
-    assert "/auth/login?role=brand" in r.text
     assert "/auth/login?role=operator" in r.text
 
 
 def test_get_started_with_role_query_redirects(client: TestClient) -> None:
-    r = client.get("/get-started?role=brand")
+    r = client.get("/get-started?role=creator")
     assert r.status_code == 302
-    assert r.headers["location"] == "/auth/login?role=brand"
+    assert r.headers["location"] == "/auth/login?role=creator"
 
 
 def test_landing_redirects_signed_in_users(client: TestClient) -> None:
@@ -333,46 +331,21 @@ def test_callback_creates_creator_row_and_redirects(
     assert SESSION_COOKIE in cookies
 
 
-def test_callback_creates_brand_row_with_required_columns(
-    client: TestClient, fake_auth: FakeAuth, fake_service: FakeService
-) -> None:
-    # Migration 0006 made brand_profiles.contact_full_name NOT NULL. The
-    # first-signup seed row must satisfy that — otherwise every new brand
-    # signup hits a NOT NULL violation that the broad except swallows,
-    # and the user lands on the "account isn't set up" error page.
-    fake_auth.verify_response = SimpleNamespace(
-        user=SimpleNamespace(id="brand-new-1", email="ops@brand.example")
-    )
-    _set_pending_role(client, "brand")
-
-    r = client.get("/auth/callback?token_hash=abc&type=magiclink")
-
-    assert r.status_code == 302
-    assert r.headers["location"] == "/brand"
-
-    brand_seed = next(
-        p for n, p in fake_service.inserts if n == "brand_profiles"
-    )
-    assert brand_seed["user_id"] == "brand-new-1"
-    assert brand_seed["company_name"] == ""
-    assert brand_seed["contact_full_name"] == ""           # the regression guard
-
-
 def test_callback_existing_user_does_not_reinsert(
     client: TestClient, fake_auth: FakeAuth, fake_service: FakeService
 ) -> None:
     fake_service.tables["users"].append(
-        {"id": "user-existing", "email": "ana@example.com", "role": "brand"}
+        {"id": "user-existing", "email": "ana@example.com", "role": "creator"}
     )
     fake_auth.verify_response = SimpleNamespace(
         user=SimpleNamespace(id="user-existing", email="ana@example.com")
     )
-    _set_pending_role(client, "creator")  # role on cookie is wrong, must be ignored
+    _set_pending_role(client, "operator")  # cookie hint is ignored — existing role wins
 
     r = client.get("/auth/callback?token_hash=abc&type=magiclink")
 
     assert r.status_code == 302
-    assert r.headers["location"] == "/brand"  # existing role wins
+    assert r.headers["location"] == "/creator"  # existing role wins
     assert fake_service.inserts == []
 
 
@@ -467,19 +440,13 @@ def test_dashboard_requires_correct_role(
     r_json = client.get("/creator", headers={"accept": "application/json"})
     assert r_json.status_code == 401
 
-    # Brand session → 403 on /creator (require_role rejects).
+    # Operator session → 403 on /creator (require_role rejects).
     from fastapi import Response as _R
 
     resp = _R()
-    write_session(resp, {"user_id": "u", "role": "brand"})
+    write_session(resp, {"user_id": "u", "role": "operator"})
     cookie = resp.headers["set-cookie"].split(";")[0].split("=", 1)[1]
     client.cookies.set(SESSION_COOKIE, cookie)
 
     r = client.get("/creator")
     assert r.status_code == 403
-
-    # /brand passes role check, then bounces to onboarding because no
-    # brand_profiles row exists in the fake service store.
-    r2 = client.get("/brand")
-    assert r2.status_code == 302
-    assert r2.headers["location"] == "/onboarding/brand"
