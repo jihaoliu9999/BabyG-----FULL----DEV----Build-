@@ -161,7 +161,6 @@ INSTAGRAM_APP_ID=
 INSTAGRAM_APP_SECRET=
 OPENTABLE_CLIENT_ID=
 OPENTABLE_CLIENT_SECRET=
-DUFFEL_API_KEY=
 TWILIO_ACCOUNT_SID=
 TWILIO_AUTH_TOKEN=
 TWILIO_PHONE_NUMBER=
@@ -289,7 +288,7 @@ If you want `babyg.com` instead of `babyg-xxxx.up.railway.app`:
 
 ---
 
-## 7 · Smoke-test the full creator + brand flow (10 minutes)
+## 7 · Smoke-test the full creator + operator flow (10 minutes)
 
 Before inviting anyone, run through both happy paths yourself in two
 different browsers (so you're signed in twice).
@@ -303,6 +302,10 @@ different browsers (so you're signed in twice).
 4. Visit `/creator/network` — empty grid (no other creators yet)
 5. Visit `/creator/calendar`, `/creator/receipts`, `/creator/performance`,
    `/creator/views`, `/creator/jobs` — all should render with empty states
+6. Create a listing from `/creator/jobs/new` and confirm it appears in
+   `/creator/jobs` and `/creator/jobs/mine`.
+7. Add a booking from `/creator/calendar/new` and confirm it appears on
+   the calendar list.
 
 ### Browser B — operator flow
 
@@ -314,23 +317,15 @@ different browsers (so you're signed in twice).
    **active** → save
 4. Refresh Browser A on `/creator` — you should see the intel card.
    Click a feedback button to confirm it sticks.
+5. Visit `/operator/members` and confirm the onboarded creator appears.
+6. Visit `/operator/jobs` and confirm the creator listing appears.
+7. Visit `/operator/abuse` and confirm the moderation queue renders.
 
-### Browser C — brand flow
+There is no standalone brand-side surface in v1. That functionality is
+deferred to v1.5 and preserved on the `brand-side-v1.5` branch.
 
-1. New incognito window: `/get-started` → Brand → different email →
-   magic link
-2. Complete brand onboarding
-3. Land on `/brand` — should show the **verification pending** pane
-4. Switch to Browser B (operator) → `/operator/brands` → review the new
-   brand → **Verify**
-5. Refresh Browser C on `/brand` → should now show the discovery grid
-   with Browser A's creator
-6. Click into the creator → **Send outreach** with a 20+ char pitch
-7. Refresh Browser A → notification strip shows the outreach;
-   `/creator/dm` shows the thread
-8. Reply from Browser A; verify Browser C sees the reply on `/brand/dm`
-
-If all of that works, you're shippable for an invite-only beta.
+If the creator and operator paths above work, you're shippable for an
+invite-only beta.
 
 ---
 
@@ -340,7 +335,7 @@ When you invite the first 5-10 people, set expectations:
 
 - **No AI cofounder yet.** The chat surface and Anthropic integration
   arrive in Phase 2. Today the platform is a manual "directory + intel
-  feed + DM + verification" — useful, but not the differentiator.
+  feed + DM + operator moderation" — useful, but not the differentiator.
 - **No Google Calendar sync yet.** Bookings live in babyg only;
   two-way Google sync ships with the bot's tool use in Phase 2.
 - **No scheduled / automated jobs.** Daily intel push, posting reminders,

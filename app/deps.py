@@ -56,7 +56,7 @@ def _validate_roles(roles: Iterable[str]) -> None:
     """Sanity-check the role list at import time. Catches typos like
     `require_role("creators")` that would otherwise silently 403 every
     request to the affected route."""
-    valid = {"creator", "brand", "operator"}
+    valid = {"creator", "operator", "admin"}
     for r in roles:
         if r not in valid:
             raise ValueError(f"unknown role: {r}")

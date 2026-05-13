@@ -1,8 +1,6 @@
 {# Shared creator preview card. Caller passes:
      creator    — the profile dict
      view_path  — link prefix; in v1 always "/creator/network".
-                  The brand-side discovery surface used "/brand/creators"
-                  on the brand-side-v1.5 branch.
    creator/_creator_card.html is a thin shim that passes view_path. #}
 <a class="creator-card" href="{{ view_path }}/{{ creator.user_id }}">
   <div class="creator-card-head">

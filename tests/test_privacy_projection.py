@@ -10,8 +10,7 @@ What we lock in here:
     fields (`baseline_followers`, `tier`, `writing_samples`,
     `notification_settings`, `sub_bot_persona`, `brand_preferences`).
   * `public_creator` strips those fields.
-  * `creators.get_for_view` and `creators.list_for_brand_match` both
-    return projected rows.
+  * `creators.get_for_view` returns projected rows.
 
 `public_brand` and `PUBLIC_BRAND_FIELDS` shipped in v1 but were
 removed when brand scope deferred to v1.5 (brand-side-v1.5 branch).

@@ -1,8 +1,7 @@
-"""Creator job listings — collab posts, UGC gigs, hiring asks, brand-deal shares.
+"""Creator job listings — collab posts, UGC swaps, hiring asks, creator shares.
 
 Schema: see migrations/0002_schema.sql §creator_job_listings. Listings are
-written by creators only (brands hire via outreach), but anyone — creator
-or verified brand — can browse the active board.
+written by creators only; creators browse and respond through the network.
 
 Operators can take down a listing with a reason (`is_taken_down=true,
 taken_down_reason, taken_down_at, taken_down_by`).
