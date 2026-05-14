@@ -1,9 +1,9 @@
 {# Job listing card. Caller passes `listing`, optional `poster`, and
    the route prefix `view_path` (for v1, "/creator/jobs"). #}
-<a class="creator-card" href="{{ view_path }}/{{ listing.id }}">
+<a class="creator-card listing-card" href="{{ view_path }}/{{ listing.id }}">
   <div class="creator-card-head">
+    <span class="badge badge-muted">{{ listing.listing_type|replace("_", " ") }}</span>
     <div class="creator-card-name">{{ listing.title }}</div>
-    <div class="creator-card-handle">{{ listing.listing_type|replace("_", " ") }}</div>
   </div>
   {% if listing.compensation_text %}
   <div class="creator-card-meta">
@@ -14,9 +14,9 @@
     {% for n in (listing.target_niches or [])[:5] %}<span class="tag">{{ n }}</span>{% endfor %}
   </div>
   {% if listing.description %}
-  <p class="creator-card-bio">{{ listing.description[:140] }}{% if listing.description|length > 140 %}…{% endif %}</p>
+  <p class="creator-card-bio">{{ listing.description[:140] }}{% if listing.description|length > 140 %}...{% endif %}</p>
   {% endif %}
   <div class="creator-card-cta">
-    {% if poster %}From {{ poster.full_name or "@" ~ (poster.instagram_handle or "creator") }} →{% else %}Open →{% endif %}
+    {% if poster %}From {{ poster.full_name or "@" ~ (poster.instagram_handle or "creator") }}{% else %}Open{% endif %}
   </div>
 </a>

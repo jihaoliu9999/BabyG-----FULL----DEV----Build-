@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 {% import "onboarding/_macros.html" as f %}
 
-{% block title %}{{ "New" if is_new else "Edit" }} listing · babyg{% endblock %}
+{% block title %}{{ "New" if is_new else "Edit" }} listing - babyg{% endblock %}
 
 {% block content %}
 <section class="onb">
-  <a class="back-link" href="/creator/jobs/mine">← my listings</a>
+  <a class="back-link" href="/creator/jobs/mine">&larr; my listings</a>
 
   <header class="onb-header">
     <div class="auth-tag">{% if is_new %}New listing{% else %}Edit listing{% endif %}</div>
@@ -57,10 +57,10 @@
 
     <section class="onb-section">
       <h2 class="onb-section-title">Visibility</h2>
-      <label style="display:flex; gap:10px; align-items:center; font-size:14px;">
+      <label class="toggle-row">
         <input type="checkbox" name="is_active" value="on"
                {% if listing.get("is_active", True) %}checked{% endif %} />
-        <span>Active — show on the jobs board</span>
+        <span>Active - show on the listings board</span>
       </label>
     </section>
 

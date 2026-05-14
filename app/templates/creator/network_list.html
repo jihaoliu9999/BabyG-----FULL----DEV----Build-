@@ -1,23 +1,21 @@
 {% extends "base.html" %}
 
-{% block title %}Network · babyg{% endblock %}
+{% block title %}Network - babyg{% endblock %}
 
 {% block content %}
-<section class="op">
-  <a class="back-link" href="/creator">← dashboard</a>
-
-  <header class="op-header op-header-row">
-    <div>
-      <div class="auth-tag">Network</div>
-      <h1 class="op-title">Miami creators</h1>
-      <p class="op-sub">
-        Other working creators on babyg. Connect to unlock direct messaging
-        and collab matching with people you trust.
-      </p>
+<section class="feed creator-surface">
+  <header class="feed-header surface-header">
+    <div class="feed-eyebrow">Network</div>
+    <h1 class="feed-title">Miami creators</h1>
+    <p class="feed-sub">
+      Find working creators, request connections, and unlock DMs with people
+      you actually want to collaborate with.
+    </p>
+    <div class="action-row action-row-inline">
+      <a class="btn btn-secondary" href="/creator/connections">
+        Connections{% if pending_in %} <span class="badge badge-alert">{{ pending_in }}</span>{% endif %}
+      </a>
     </div>
-    <a class="btn btn-ghost" href="/creator/connections">
-      Connections{% if pending_in %} <span class="badge badge-alert">{{ pending_in }}</span>{% endif %}
-    </a>
   </header>
 
   {% if creators %}

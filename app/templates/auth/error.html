@@ -1,9 +1,14 @@
 {% extends "base.html" %}
+{% import "_partials/brand_mark.html" as brand %}
 
-{% block title %}Sign-in failed · babyg{% endblock %}
+{% block title %}Sign-in failed - babyg{% endblock %}
 
 {% block content %}
 <section class="auth-pane">
+  <div class="auth-logo-row">
+    {{ brand.wordmark("brand-lockup-small") }}
+    {{ brand.icon() }}
+  </div>
   <div class="auth-tag">Sign-in</div>
   <h1 class="auth-title">That didn't work.</h1>
   <p class="auth-sub">{{ message }}</p>

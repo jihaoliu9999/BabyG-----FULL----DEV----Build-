@@ -2,27 +2,32 @@
 {% set sig = feedback_map.get(post.id|string) %}
 <article class="intel-card">
   <header class="intel-card-head">
-    <span class="badge badge-{{ post.category }}">{{ post.category|capitalize }}</span>
-    {% if post.confidence == "high" %}
-      <span class="badge badge-conf badge-conf-high">High confidence</span>
-    {% elif post.confidence == "low" %}
-      <span class="badge badge-conf badge-conf-low">Low confidence</span>
+    <div class="intel-card-tags">
+      <span class="badge badge-{{ post.category }}">{{ post.category|replace("_", " ")|capitalize }}</span>
+      {% if post.confidence == "high" %}
+        <span class="badge badge-conf badge-conf-high">High confidence</span>
+      {% elif post.confidence == "low" %}
+        <span class="badge badge-conf badge-conf-low">Low confidence</span>
+      {% endif %}
+    </div>
+    {% if post.valid_until %}
+      <span class="intel-card-meta">Until {{ post.valid_until|short_date }}</span>
     {% endif %}
-    <span class="intel-card-meta">
-      Valid until {{ post.valid_until|short_date or "" }}
-    </span>
   </header>
+
   <h3 class="intel-card-title">{{ post.title }}</h3>
   <p class="intel-card-body">{{ post.body }}</p>
+
   {% if post.source %}
     <a class="intel-card-source" href="{{ post.source|safe_url }}" target="_blank" rel="noopener noreferrer">
-      Source ↗
+      Source
     </a>
   {% endif %}
+
   <footer class="intel-card-foot">
     <form method="post" action="/creator/intel/{{ post.id }}/feedback" class="feedback-row">
-    {% include "_partials/csrf.html" %}
-      {% for s, label in [("useful", "Useful"), ("not_useful", "Not for me"), ("acted_on", "I acted on this")] %}
+      {% include "_partials/csrf.html" %}
+      {% for s, label in [("useful", "Useful"), ("not_useful", "Not useful"), ("acted_on", "Acted on")] %}
       <button type="submit" name="signal" value="{{ s }}"
               class="feedback-btn {% if sig == s %}feedback-btn-active{% endif %}"
               aria-pressed="{{ 'true' if sig == s else 'false' }}">

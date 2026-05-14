@@ -1,21 +1,21 @@
 {% extends "base.html" %}
 
-{% block title %}Listing · operator console{% endblock %}
+{% block title %}Listing - operator console{% endblock %}
 
 {% block content %}
-<section class="onb">
-  <a class="back-link" href="/operator/jobs">← jobs</a>
+<section class="op op-detail">
+  <a class="back-link" href="/operator/jobs">Back to listings</a>
 
-  <header class="onb-header">
+  <header class="op-header">
     <div class="auth-tag">
       {{ listing.listing_type|replace("_", " ") }}
-      {% if listing.is_taken_down %} · <span class="status-pill status-archived">taken down</span>{% endif %}
+      {% if listing.is_taken_down %} / <span class="status-pill status-archived">taken down</span>{% endif %}
     </div>
-    <h1 class="onb-title">{{ listing.title }}</h1>
+    <h1 class="op-title">{{ listing.title }}</h1>
     {% if poster %}
-    <p class="onb-sub">
+    <p class="op-sub">
       Posted by {{ poster.full_name or "Creator" }}
-      {% if poster.instagram_handle %} · @{{ poster.instagram_handle }}{% endif %}
+      {% if poster.instagram_handle %} / @{{ poster.instagram_handle }}{% endif %}
     </p>
     {% endif %}
   </header>
@@ -43,7 +43,7 @@
   <section class="onb-section">
     <h2 class="onb-section-title">Take down</h2>
     <form method="post" action="/operator/jobs/{{ listing.id }}/takedown" class="decision-form">
-    {% include "_partials/csrf.html" %}
+      {% include "_partials/csrf.html" %}
       <div class="field">
         <label for="td-reason" class="field-label">
           Reason <span class="req">*</span>
@@ -52,7 +52,7 @@
         <textarea id="td-reason" name="reason" rows="3" required
                   placeholder="What rule was broken; what the poster should do."></textarea>
       </div>
-      <button type="submit" class="btn btn-ghost">Take down</button>
+      <button type="submit" class="btn btn-danger">Take down</button>
     </form>
   </section>
   {% endif %}

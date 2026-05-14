@@ -1,19 +1,24 @@
 {# Shared creator preview card. Caller passes:
-     creator    — the profile dict
-     view_path  — link prefix; in v1 always "/creator/network".
+     creator    - the profile dict
+     view_path  - link prefix; in v1 always "/creator/network".
    creator/_creator_card.html is a thin shim that passes view_path. #}
 <a class="creator-card" href="{{ view_path }}/{{ creator.user_id }}">
-  <div class="creator-card-head">
-    <div class="creator-card-name">{{ creator.full_name or "Creator" }}</div>
-    {% if creator.instagram_handle %}
-      <div class="creator-card-handle">@{{ creator.instagram_handle }}</div>
-    {% endif %}
+  <div class="creator-card-top">
+    <div class="creator-avatar" aria-hidden="true">
+      {{ (creator.full_name or creator.instagram_handle or "C")[:1]|upper }}
+    </div>
+    <div class="creator-card-head">
+      <div class="creator-card-name">{{ creator.full_name or "Creator" }}</div>
+      {% if creator.instagram_handle %}
+        <div class="creator-card-handle">@{{ creator.instagram_handle }}</div>
+      {% endif %}
+    </div>
   </div>
 
   <div class="creator-card-meta">
     {% if creator.neighborhood %}<span>{{ creator.neighborhood }}</span>{% endif %}
-    {% if creator.follower_range %}<span>· {{ creator.follower_range }} followers</span>{% endif %}
-    {% if creator.primary_platform %}<span>· {{ creator.primary_platform }}</span>{% endif %}
+    {% if creator.follower_range %}<span>{{ creator.follower_range }} followers</span>{% endif %}
+    {% if creator.primary_platform %}<span>{{ creator.primary_platform }}</span>{% endif %}
   </div>
 
   <div class="tag-row tag-row-tight">
@@ -21,8 +26,8 @@
   </div>
 
   {% if creator.bio %}
-  <p class="creator-card-bio">{{ creator.bio[:140] }}{% if creator.bio|length > 140 %}…{% endif %}</p>
+  <p class="creator-card-bio">{{ creator.bio[:140] }}{% if creator.bio|length > 140 %}...{% endif %}</p>
   {% endif %}
 
-  <div class="creator-card-cta">View profile →</div>
+  <div class="creator-card-cta">View profile</div>
 </a>

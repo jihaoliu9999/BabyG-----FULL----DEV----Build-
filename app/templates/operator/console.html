@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Operator console · babyg{% endblock %}
+{% block title %}Operator console - babyg{% endblock %}
 
 {% block content %}
 <section class="op">
@@ -8,8 +8,7 @@
     <div class="auth-tag">Operator</div>
     <h1 class="op-title">Console</h1>
     <p class="op-sub">
-      Publish intel, work the flagged queue, manage listings + members.
-      More surfaces ship as we go.
+      Publish Hot Drops, work moderation, manage creator listings and keep the roster clean.
     </p>
   </header>
 
@@ -22,7 +21,7 @@
         <span><strong>{{ counts.draft }}</strong> draft</span>
         <span><strong>{{ counts.archived }}</strong> archived</span>
       </div>
-      <div class="op-card-cta">Open →</div>
+      <div class="op-card-cta">Open</div>
     </a>
 
     <a class="op-card" href="/operator/abuse">
@@ -31,34 +30,34 @@
       <div class="op-card-stats">
         <span><strong>{{ pending_abuse }}</strong> pending</span>
       </div>
-      <div class="op-card-cta">Open →</div>
+      <div class="op-card-cta">Open</div>
     </a>
 
     <a class="op-card" href="/operator/jobs">
-      <div class="op-card-tag">Jobs</div>
-      <div class="op-card-title">Listings</div>
-      <p class="op-card-body">Active board + takedowns.</p>
-      <div class="op-card-cta">Open →</div>
+      <div class="op-card-tag">Listings</div>
+      <div class="op-card-title">Creator board</div>
+      <p class="op-card-body">Active creator-shared opportunities and takedowns.</p>
+      <div class="op-card-cta">Open</div>
     </a>
 
     <a class="op-card" href="/operator/members">
       <div class="op-card-tag">Members</div>
       <div class="op-card-title">Member roster</div>
       <p class="op-card-body">Browse creators and operators. Add notes per user.</p>
-      <div class="op-card-cta">Open →</div>
+      <div class="op-card-cta">Open</div>
     </a>
 
     <a class="op-card" href="/operator/audit">
       <div class="op-card-tag">Audit</div>
       <div class="op-card-title">Recent actions</div>
       <p class="op-card-body">Trail of every operator-initiated change.</p>
-      <div class="op-card-cta">Open →</div>
+      <div class="op-card-cta">Open</div>
     </a>
   </div>
 
   <footer class="feed-foot">
     <form method="post" action="/auth/logout">
-    {% include "_partials/csrf.html" %}
+      {% include "_partials/csrf.html" %}
       <button type="submit" class="btn btn-ghost">Sign out</button>
     </form>
   </footer>

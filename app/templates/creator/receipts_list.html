@@ -1,58 +1,52 @@
 {% extends "base.html" %}
 
-{% block title %}Content receipts · babyg{% endblock %}
+{% block title %}Content receipts - babyg{% endblock %}
 
 {% block content %}
-<section class="op">
-  <a class="back-link" href="/creator">← dashboard</a>
-
-  <header class="op-header op-header-row">
-    <div>
-      <div class="auth-tag">Receipts</div>
-      <h1 class="op-title">What you shipped</h1>
-      <p class="op-sub">
-        Log posts so we can match them back to intel and brand asks. Likes
-        and comments help babyg learn what's working.
-      </p>
+<section class="feed creator-surface">
+  <header class="feed-header surface-header">
+    <div class="feed-eyebrow">Receipts</div>
+    <h1 class="feed-title">What you shipped</h1>
+    <p class="feed-sub">
+      Log posts so babyg can connect creator output back to Hot Drops,
+      creator opportunities, and self-reported performance.
+    </p>
+    <div class="action-row action-row-inline">
+      <a class="btn btn-primary" href="/creator/receipts/new">Log a post</a>
     </div>
-    <a class="btn btn-primary" href="/creator/receipts/new">+ Log a post</a>
   </header>
 
   {% if receipts %}
-  <table class="op-table">
-    <thead>
-      <tr>
-        <th>Posted</th>
-        <th>Type</th>
-        <th>Caption</th>
-        <th>Likes</th>
-        <th>Comments</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for r in receipts %}
-      <tr>
-        <td class="op-table-meta">{{ r.posted_at|short_date or "—" }}</td>
-        <td class="op-table-meta">{{ r.post_type or "—" }}</td>
-        <td class="op-table-meta">
-          {% if r.caption_excerpt %}{{ r.caption_excerpt[:60] }}{% if r.caption_excerpt|length > 60 %}…{% endif %}{% else %}—{% endif %}
-        </td>
-        <td class="op-table-meta">{{ r.likes_count if r.likes_count is not none else "—" }}</td>
-        <td class="op-table-meta">{{ r.comments_count if r.comments_count is not none else "—" }}</td>
-        <td class="op-table-actions">
-          {% if r.post_url %}
-          <a class="link-btn" href="{{ r.post_url|safe_url }}" target="_blank" rel="noopener noreferrer">Open ↗</a>
+  <div class="record-list">
+    {% for r in receipts %}
+    <article class="record-card receipt-card">
+      <div class="record-card-main">
+        <div class="record-card-kicker">{{ r.post_type or "post" }}</div>
+        <h2>
+          {% if r.caption_excerpt %}
+            {{ r.caption_excerpt[:90] }}{% if r.caption_excerpt|length > 90 %}...{% endif %}
+          {% else %}
+            Content receipt
           {% endif %}
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+        </h2>
+        <div class="record-card-meta">
+          <span>{{ r.posted_at|short_date or "Date not set" }}</span>
+          <span>{{ r.likes_count if r.likes_count is not none else 0 }} likes</span>
+          <span>{{ r.comments_count if r.comments_count is not none else 0 }} comments</span>
+        </div>
+      </div>
+      {% if r.post_url %}
+      <div class="record-card-actions">
+        <a class="btn btn-secondary" href="{{ r.post_url|safe_url }}" target="_blank" rel="noopener noreferrer">Open post</a>
+      </div>
+      {% endif %}
+    </article>
+    {% endfor %}
+  </div>
   {% else %}
   <div class="feed-empty">
     <h2>No receipts yet.</h2>
-    <p>Log a post to start building your record.</p>
+    <p>Log a post to start building your proof trail.</p>
   </div>
   {% endif %}
 </section>

@@ -1,10 +1,15 @@
 {% extends "base.html" %}
+{% import "_partials/brand_mark.html" as brand %}
 
-{% block title %}Sign in · babyg{% endblock %}
+{% block title %}Sign in - babyg{% endblock %}
 
 {% block content %}
 <section class="auth-pane">
-  <a class="back-link" href="/get-started">← back</a>
+  <div class="auth-logo-row">
+    {{ brand.wordmark("brand-lockup-small") }}
+    {{ brand.icon() }}
+  </div>
+  <a class="back-link" href="/get-started">&larr; back</a>
   <div class="auth-tag">{{ role|capitalize }} sign-in</div>
   <h1 class="auth-title">Enter your email.</h1>
   <p class="auth-sub">

@@ -1,23 +1,26 @@
 {% extends "base.html" %}
+{% import "_partials/brand_mark.html" as brand %}
 
-{% block title %}babyg — your AI cofounder for content, collabs & connections{% endblock %}
+{% block title %}babyg - private creator ops for Miami{% endblock %}
 
 {% block content %}
 <section class="hero">
   <div class="hero-inner">
-    <div class="hero-eyebrow">Miami · Invite only</div>
-    <h1 class="hero-headline">
-      Your AI cofounder<br/>
-      for content, collabs &amp; connections.
-    </h1>
-    <p class="hero-sub">
-      babyg is the always-on operator for working creators in Miami. Daily intel,
-      creator-shared opportunities, weekly performance, and a private
-      network - invite-only and built for the way you actually work.
-    </p>
-    <div class="hero-cta">
-      <a class="btn btn-primary" href="/get-started">Get started</a>
-      <a class="btn btn-ghost" href="/auth/login?role=creator">I have an account</a>
+    <div>
+      <div class="hero-brand">{{ brand.wordmark() }}</div>
+      <div class="hero-eyebrow">Miami / invite only</div>
+      <h1 class="hero-headline">
+        Your private operator<br/>
+        for creator work.
+      </h1>
+      <p class="hero-sub">
+        Daily Hot Drops, creator-shared opportunities, bookings, receipts,
+        weekly performance, and a private network for working lifestyle creators.
+      </p>
+      <div class="hero-cta">
+        <a class="btn btn-primary" href="/get-started">Get started</a>
+        <a class="btn btn-ghost" href="/auth/login?role=creator">I have an account</a>
+      </div>
     </div>
   </div>
 </section>

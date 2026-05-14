@@ -41,7 +41,7 @@
   <div class="field">
     <label for="f-{{ name }}" class="field-label">{{ label }}</label>
     <textarea id="f-{{ name }}" name="{{ name }}" rows="{{ rows }}"
-              placeholder="{{ placeholder }}">{{ value or '' }}</textarea>
+              placeholder="{{ placeholder }}">{{ value or "" }}</textarea>
     {% if hint %}<div class="field-hint">{{ hint }}</div>{% endif %}
   </div>
 {% endmacro %}
@@ -50,7 +50,7 @@
   <div class="field">
     <label for="f-{{ name }}" class="field-label">{{ label }}</label>
     <select id="f-{{ name }}" name="{{ name }}">
-      <option value="">—</option>
+      <option value="">Select one</option>
       {% for opt in options %}
       <option value="{{ opt }}" {% if opt == selected %}selected{% endif %}>{{ opt }}</option>
       {% endfor %}

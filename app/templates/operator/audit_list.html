@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 
-{% block title %}Audit log · operator console{% endblock %}
+{% block title %}Audit log - operator console{% endblock %}
 
 {% block content %}
 <section class="op">
-  <a class="back-link" href="/operator">← console</a>
+  <a class="back-link" href="/operator">Back to console</a>
 
   <header class="op-header">
     <div class="auth-tag">Audit</div>
@@ -13,30 +13,32 @@
   </header>
 
   {% if rows %}
-  <table class="op-table">
-    <thead>
-      <tr>
-        <th>When</th>
-        <th>Actor</th>
-        <th>Action</th>
-        <th>Target</th>
-        <th>Notes</th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for r in rows %}
-      <tr>
-        <td class="op-table-meta">{{ r.created_at|short_dt }}</td>
-        <td class="op-table-meta">{{ r.actor_user_id or "system" }}</td>
-        <td>{{ r.action }}</td>
-        <td class="op-table-meta">
-          {% if r.target_type %}{{ r.target_type }}{% if r.target_id %} · {{ r.target_id }}{% endif %}{% else %}—{% endif %}
-        </td>
-        <td class="op-table-meta">{{ r.notes or "—" }}</td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <div class="table-wrap">
+    <table class="op-table">
+      <thead>
+        <tr>
+          <th>When</th>
+          <th>Actor</th>
+          <th>Action</th>
+          <th>Target</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr>
+          <td class="op-table-meta">{{ r.created_at|short_dt }}</td>
+          <td class="op-table-meta">{{ r.actor_user_id or "system" }}</td>
+          <td>{{ r.action }}</td>
+          <td class="op-table-meta">
+            {% if r.target_type %}{{ r.target_type }}{% if r.target_id %} / {{ r.target_id }}{% endif %}{% else %}-{% endif %}
+          </td>
+          <td class="op-table-meta">{{ r.notes or "-" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
   {% else %}
   <div class="feed-empty">
     <h2>No actions yet.</h2>

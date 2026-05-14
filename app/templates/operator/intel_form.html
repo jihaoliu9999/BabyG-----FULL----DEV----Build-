@@ -1,18 +1,18 @@
 {% extends "base.html" %}
 {% import "onboarding/_macros.html" as f %}
 
-{% block title %}{{ "New" if is_new else "Edit" }} intel · operator console{% endblock %}
+{% block title %}{{ "New" if is_new else "Edit" }} Hot Drop - operator console{% endblock %}
 
 {% block content %}
-<section class="onb">
-  <a class="back-link" href="/operator/intel">← intel</a>
+<section class="op op-detail op-form">
+  <a class="back-link" href="/operator/intel">Back to Hot Drops</a>
 
-  <header class="onb-header">
+  <header class="op-header">
     <div class="auth-tag">{% if is_new %}New post{% else %}Edit post{% endif %}</div>
-    <h1 class="onb-title">{% if is_new %}Publish a Hot Drop{% else %}{{ post.title }}{% endif %}</h1>
-    <p class="onb-sub">
-      Empty target niches means the post reaches every creator.
-      Set status to "active" to publish; leave as "draft" to save without going live.
+    <h1 class="op-title">{% if is_new %}Publish a Hot Drop{% else %}{{ post.title }}{% endif %}</h1>
+    <p class="op-sub">
+      Empty target niches means the post reaches every creator. Use active to publish now,
+      or draft to save without going live.
     </p>
   </header>
 
@@ -80,8 +80,8 @@
     </section>
 
     <div class="onb-actions">
-      <button type="submit" class="btn btn-primary btn-wide">
-        {% if is_new %}Publish or save as draft{% else %}Save changes{% endif %}
+      <button type="submit" class="btn btn-primary">
+        {% if is_new %}Publish or save draft{% else %}Save changes{% endif %}
       </button>
     </div>
   </form>

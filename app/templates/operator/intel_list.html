@@ -1,17 +1,18 @@
 {% extends "base.html" %}
 
-{% block title %}Intel · operator console{% endblock %}
+{% block title %}Hot Drops - operator console{% endblock %}
 
 {% block content %}
 <section class="op">
-  <a class="back-link" href="/operator">← console</a>
+  <a class="back-link" href="/operator">Back to console</a>
 
   <header class="op-header op-header-row">
     <div>
       <div class="auth-tag">Intel</div>
       <h1 class="op-title">Daily Hot Drops</h1>
+      <p class="op-sub">Draft, publish, archive, and review creator-facing intelligence.</p>
     </div>
-    <a class="btn btn-primary" href="/operator/intel/new">+ New post</a>
+    <a class="btn btn-primary" href="/operator/intel/new">New post</a>
   </header>
 
   <nav class="feed-filters" aria-label="Filter by status">
@@ -23,43 +24,43 @@
   </nav>
 
   {% if posts %}
-  <table class="op-table">
-    <thead>
-      <tr>
-        <th>Title</th>
-        <th>Category</th>
-        <th>Status</th>
-        <th>Valid until</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for p in posts %}
-      <tr>
-        <td>
-          <a class="op-table-title" href="/operator/intel/{{ p.id }}/edit">{{ p.title }}</a>
-        </td>
-        <td><span class="badge badge-{{ p.category }}">{{ p.category|capitalize }}</span></td>
-        <td><span class="status-pill status-{{ p.status }}">{{ p.status }}</span></td>
-        <td class="op-table-meta">
-          {{ p.valid_until|short_date or "—" }}
-        </td>
-        <td class="op-table-actions">
-          {% if p.status != "archived" %}
-          <form method="post" action="/operator/intel/{{ p.id }}/archive" class="inline-form">
-    {% include "_partials/csrf.html" %}
-            <button type="submit" class="link-btn">Archive</button>
-          </form>
-          {% endif %}
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <div class="table-wrap">
+    <table class="op-table">
+      <thead>
+        <tr>
+          <th>Title</th>
+          <th>Category</th>
+          <th>Status</th>
+          <th>Valid until</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in posts %}
+        <tr>
+          <td>
+            <a class="op-table-title" href="/operator/intel/{{ p.id }}/edit">{{ p.title }}</a>
+          </td>
+          <td><span class="badge badge-{{ p.category }}">{{ p.category|capitalize }}</span></td>
+          <td><span class="status-pill status-{{ p.status }}">{{ p.status }}</span></td>
+          <td class="op-table-meta">{{ p.valid_until|short_date or "-" }}</td>
+          <td class="op-table-actions">
+            {% if p.status != "archived" %}
+            <form method="post" action="/operator/intel/{{ p.id }}/archive" class="inline-form">
+              {% include "_partials/csrf.html" %}
+              <button type="submit" class="link-btn">Archive</button>
+            </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
   {% else %}
     <div class="feed-empty">
       <h2>No posts yet.</h2>
-      <p>Hit "+ New post" to publish your first drop.</p>
+      <p>Create the first operator-published Hot Drop.</p>
     </div>
   {% endif %}
 </section>

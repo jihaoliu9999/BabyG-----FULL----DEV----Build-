@@ -1,0 +1,15 @@
+{% import "_partials/brand_mark.html" as brand %}
+
+<header class="operator-topbar">
+  <a class="operator-brand" href="/operator" aria-label="babyg operator console">
+    {{ brand.icon() }}
+  </a>
+  <nav class="operator-nav" aria-label="Operator navigation">
+    <a href="/operator" {% if current_path == "/operator" %}aria-current="page"{% endif %}>Dashboard</a>
+    <a href="/operator/intel" {% if current_path.startswith("/operator/intel") %}aria-current="page"{% endif %}>Hot Drops</a>
+    <a href="/operator/abuse" {% if current_path.startswith("/operator/abuse") %}aria-current="page"{% endif %}>Moderation</a>
+    <a href="/operator/jobs" {% if current_path.startswith("/operator/jobs") %}aria-current="page"{% endif %}>Listings</a>
+    <a href="/operator/members" {% if current_path.startswith("/operator/members") %}aria-current="page"{% endif %}>Roster</a>
+    <a href="/operator/audit" {% if current_path.startswith("/operator/audit") %}aria-current="page"{% endif %}>Audit</a>
+  </nav>
+</header>

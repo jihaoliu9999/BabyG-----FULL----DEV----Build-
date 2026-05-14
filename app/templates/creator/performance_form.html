@@ -1,17 +1,17 @@
 {% extends "base.html" %}
 {% import "onboarding/_macros.html" as f %}
 
-{% block title %}Log a week · babyg{% endblock %}
+{% block title %}Log a week - babyg{% endblock %}
 
 {% block content %}
 <section class="onb">
-  <a class="back-link" href="/creator/performance">← performance</a>
+  <a class="back-link" href="/creator/performance">&larr; performance</a>
 
   <header class="onb-header">
     <div class="auth-tag">Weekly entry</div>
     <h1 class="onb-title">How was last week?</h1>
     <p class="onb-sub">
-      Submitting again for the same week overwrites the row.
+      Capture the numbers you want babyg and operators to remember.
     </p>
   </header>
 
@@ -34,7 +34,7 @@
                     placeholder="e.g. 4.2") }}
         {{ f.field("Follower delta", "follower_delta",
                     log.get("follower_delta", ""),
-                    placeholder="±whole number") }}
+                    placeholder="+120") }}
         {{ f.field("Active deals", "active_brand_deals_count",
                     log.get("active_brand_deals_count", "")) }}
       </div>
@@ -46,7 +46,7 @@
       <h2 class="onb-section-title">Notes</h2>
       <div class="field">
         <textarea name="notes" rows="3"
-                  placeholder="What went well, what didn't, what's next.">{{ log.get("notes", "") }}</textarea>
+                  placeholder="What went well, what did not, what is next.">{{ log.get("notes", "") }}</textarea>
       </div>
     </section>
 

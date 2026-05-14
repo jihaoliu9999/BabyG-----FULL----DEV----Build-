@@ -1,17 +1,15 @@
 {% extends "base.html" %}
 
-{% block title %}Messages · babyg{% endblock %}
+{% block title %}Messages - babyg{% endblock %}
 
 {% block content %}
-<section class="feed">
-  <a class="back-link" href="/creator">← dashboard</a>
-
-  <header class="feed-header">
+<section class="feed creator-surface">
+  <header class="feed-header surface-header">
     <div class="feed-eyebrow">Direct messages</div>
     <h1 class="feed-title">Conversations</h1>
     <p class="feed-sub">
-      Conversations with connected creators. Reply directly — the other side
-      will be notified.
+      Message connected creators only. Draft with babyg later, but every send
+      stays yours.
     </p>
   </header>
 
@@ -22,20 +20,29 @@
       {% set kind = peer_kinds.get(t.peer_id, "unknown") %}
       <li class="dm-thread-row">
         <a class="dm-thread-link" href="/creator/dm/{{ t.peer_id }}">
-          <div class="dm-thread-name">
-            {% if kind == "creator" %}
-              {{ peer.full_name if peer else "Creator" }}
-              {% if peer and peer.instagram_handle %}<span class="dm-thread-handle">@{{ peer.instagram_handle }}</span>{% endif %}
+          <div class="creator-avatar dm-avatar" aria-hidden="true">
+            {% if kind == "creator" and peer %}
+              {{ (peer.full_name or peer.instagram_handle or "C")[:1]|upper }}
             {% else %}
-              Conversation
+              C
             {% endif %}
           </div>
-          <div class="dm-thread-meta">
-            {% if t.last_message_at %}
-              Last message {{ t.last_message_at|short_date }}
-            {% else %}
-              No messages yet
-            {% endif %}
+          <div class="dm-thread-copy">
+            <div class="dm-thread-name">
+              {% if kind == "creator" %}
+                {{ peer.full_name if peer else "Creator" }}
+                {% if peer and peer.instagram_handle %}<span class="dm-thread-handle">@{{ peer.instagram_handle }}</span>{% endif %}
+              {% else %}
+                Conversation
+              {% endif %}
+            </div>
+            <div class="dm-thread-meta">
+              {% if t.last_message_at %}
+                Last message {{ t.last_message_at|short_date }}
+              {% else %}
+                No messages yet
+              {% endif %}
+            </div>
           </div>
         </a>
       </li>

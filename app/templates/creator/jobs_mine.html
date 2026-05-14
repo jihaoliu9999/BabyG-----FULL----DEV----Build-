@@ -1,38 +1,27 @@
 {% extends "base.html" %}
 
-{% block title %}My listings · babyg{% endblock %}
+{% block title %}My listings - babyg{% endblock %}
 
 {% block content %}
-<section class="op">
-  <a class="back-link" href="/creator/jobs">← jobs</a>
-
-  <header class="op-header op-header-row">
-    <div>
-      <div class="auth-tag">My listings</div>
-      <h1 class="op-title">Listings you posted</h1>
+<section class="feed creator-surface">
+  <header class="feed-header surface-header">
+    <div class="feed-eyebrow">My listings</div>
+    <h1 class="feed-title">Posted by you</h1>
+    <p class="feed-sub">Manage creator opportunities you have shared with the network.</p>
+    <div class="action-row action-row-inline">
+      <a class="btn btn-secondary" href="/creator/jobs">Browse</a>
+      <a class="btn btn-primary" href="/creator/jobs/new">New listing</a>
     </div>
-    <a class="btn btn-primary" href="/creator/jobs/new">+ New</a>
   </header>
 
   {% if listings %}
-  <table class="op-table">
-    <thead>
-      <tr>
-        <th>Title</th>
-        <th>Type</th>
-        <th>Status</th>
-        <th>Posted</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for l in listings %}
-      <tr>
-        <td>
-          <a class="op-table-title" href="/creator/jobs/{{ l.id }}">{{ l.title }}</a>
-        </td>
-        <td class="op-table-meta">{{ l.listing_type|replace("_", " ") }}</td>
-        <td>
+  <div class="record-list">
+    {% for l in listings %}
+    <article class="record-card">
+      <div class="record-card-main">
+        <div class="record-card-kicker">{{ l.listing_type|replace("_", " ") }}</div>
+        <h2><a href="/creator/jobs/{{ l.id }}">{{ l.title }}</a></h2>
+        <div class="record-card-meta">
           {% if l.is_taken_down %}
             <span class="status-pill status-archived">taken down</span>
           {% elif l.is_active %}
@@ -40,25 +29,25 @@
           {% else %}
             <span class="status-pill status-archived">closed</span>
           {% endif %}
-        </td>
-        <td class="op-table-meta">{{ l.created_at|short_date or "—" }}</td>
-        <td class="op-table-actions">
-          <a class="link-btn" href="/creator/jobs/{{ l.id }}/edit">Edit</a>
-          {% if l.is_active and not l.is_taken_down %}
-          <form method="post" action="/creator/jobs/{{ l.id }}/close" class="inline-form">
-    {% include "_partials/csrf.html" %}
-            <button type="submit" class="link-btn">Close</button>
-          </form>
-          {% endif %}
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+          <span>{{ l.created_at|short_date or "Not posted" }}</span>
+        </div>
+      </div>
+      <div class="record-card-actions">
+        <a class="btn btn-secondary" href="/creator/jobs/{{ l.id }}/edit">Edit</a>
+        {% if l.is_active and not l.is_taken_down %}
+        <form method="post" action="/creator/jobs/{{ l.id }}/close">
+          {% include "_partials/csrf.html" %}
+          <button type="submit" class="btn btn-secondary">Close</button>
+        </form>
+        {% endif %}
+      </div>
+    </article>
+    {% endfor %}
+  </div>
   {% else %}
   <div class="feed-empty">
     <h2>No listings yet.</h2>
-    <p>Post your first one — collab idea, UGC, or someone you're hiring.</p>
+    <p>Post your first collab idea, UGC swap, content day, or hiring ask.</p>
   </div>
   {% endif %}
 </section>

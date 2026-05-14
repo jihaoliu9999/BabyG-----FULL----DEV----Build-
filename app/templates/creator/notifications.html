@@ -1,17 +1,16 @@
 {% extends "base.html" %}
 
-{% block title %}Notifications · babyg{% endblock %}
+{% block title %}Notifications - babyg{% endblock %}
 
 {% block content %}
-<section class="feed">
-  <a class="back-link" href="/creator">← dashboard</a>
-
-  <header class="feed-header">
-    <h1 class="feed-title">Notifications</h1>
+<section class="feed creator-surface">
+  <header class="feed-header surface-header">
+    <div class="feed-eyebrow">Notifications</div>
+    <h1 class="feed-title">Alerts</h1>
     {% if rows %}
     <form method="post" action="/creator/notifications/read-all" class="inline-form">
-    {% include "_partials/csrf.html" %}
-      <button type="submit" class="btn btn-ghost">Mark all read</button>
+      {% include "_partials/csrf.html" %}
+      <button type="submit" class="btn btn-secondary">Mark all read</button>
     </form>
     {% endif %}
   </header>
@@ -22,10 +21,10 @@
     <li class="notif-item {% if not n.is_read %}notif-item-unread{% endif %}">
       <form method="post" action="/creator/notifications/{{ n.id }}/read"
             class="notif-item-form">
-    {% include "_partials/csrf.html" %}
+        {% include "_partials/csrf.html" %}
         <input type="hidden" name="target" value="{{ n.link_path or '/creator/notifications' }}" />
         <button type="submit" class="notif-item-btn" aria-label="Open notification">
-          <div class="notif-item-meta">{{ n.kind|replace("_", " ") }} · {{ n.created_at|short_date or "" }}</div>
+          <div class="notif-item-meta">{{ n.kind|replace("_", " ") }} / {{ n.created_at|short_date or "" }}</div>
           <div class="notif-item-title">{{ n.title }}</div>
           {% if n.body %}<div class="notif-item-body">{{ n.body }}</div>{% endif %}
         </button>
@@ -35,7 +34,7 @@
   </ul>
   {% else %}
   <div class="feed-empty">
-    <h2>You're caught up.</h2>
+    <h2>You are caught up.</h2>
     <p>No notifications yet.</p>
   </div>
   {% endif %}

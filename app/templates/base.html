@@ -4,15 +4,26 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#0a0a0a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>{% block title %}babyg{% endblock %}</title>
   <link rel="stylesheet" href="{{ url_for('static', path='/css/app.css') }}" />
   {% block head_extra %}{% endblock %}
 </head>
-<body class="theme-dark">
+{% set current_path = request.url.path if request is defined else "" %}
+<body class="theme-dark{% if current_path.startswith('/creator') %} creator-app-body{% endif %}{% if current_path.startswith('/operator') %} operator-app-body{% endif %}">
   {% block layout %}
-    <main class="page">
+    {% if current_path.startswith('/creator') %}
+      {% include "_partials/creator_mobile_header.html" %}
+    {% elif current_path.startswith('/operator') %}
+      {% include "_partials/operator_topbar.html" %}
+    {% endif %}
+    <main class="page{% if current_path.startswith('/creator') %} creator-app-main{% endif %}{% if current_path.startswith('/operator') %} operator-app-main{% endif %}">
       {% block content %}{% endblock %}
     </main>
+    {% if current_path.startswith('/creator') %}
+      {% include "_partials/creator_tabbar.html" %}
+    {% endif %}
   {% endblock %}
 </body>
 </html>

@@ -1,8 +1,8 @@
 {# Report form partial. Caller passes:
-     target_type    — one of profile, listing, dm_thread, message
-     target_id      — UUID
-     return_to      — same-origin path to bounce back to
-     label          — what to call the target ("this conversation", "this profile")
+     target_type    - one of profile, listing, dm_thread, message
+     target_id      - UUID
+     return_to      - same-origin path to bounce back to
+     label          - what to call the target ("this conversation", "this profile")
    The form starts collapsed via <details>; the operator-side queue picks
    it up via the abuse_reports table. #}
 <details class="report-block">

@@ -1,0 +1,24 @@
+{% import "_partials/brand_mark.html" as brand %}
+{% set path = request.url.path %}
+{% set title = "Feed" %}
+{% if path.startswith("/creator/network") or path.startswith("/creator/connections") %}
+  {% set title = "Network" %}
+{% elif path.startswith("/creator/jobs") %}
+  {% set title = "Listings" %}
+{% elif path.startswith("/creator/calendar") %}
+  {% set title = "Calendar" %}
+{% elif path.startswith("/creator/performance") or path.startswith("/creator/receipts") or path.startswith("/creator/views") %}
+  {% set title = "Stats" %}
+{% elif path.startswith("/creator/dm") %}
+  {% set title = "Messages" %}
+{% elif path.startswith("/creator/notifications") %}
+  {% set title = "Notifications" %}
+{% endif %}
+
+<header class="mobile-header creator-mobile-header" aria-label="Creator app header">
+  <a class="mobile-header-brand" href="/creator" aria-label="babyg feed">
+    {{ brand.icon("brand-lockup-small") }}
+  </a>
+  <div class="mobile-header-title">{{ title }}</div>
+  <a class="mobile-header-action" href="/creator/notifications" aria-label="Notifications">Alerts</a>
+</header>

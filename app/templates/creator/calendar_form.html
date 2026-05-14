@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 {% import "onboarding/_macros.html" as f %}
 
-{% block title %}{{ "New" if is_new else "Edit" }} booking · babyg{% endblock %}
+{% block title %}{{ "New" if is_new else "Edit" }} booking - babyg{% endblock %}
 
 {% block content %}
 <section class="onb">
-  <a class="back-link" href="/creator/calendar">← calendar</a>
+  <a class="back-link" href="/creator/calendar">&larr; calendar</a>
 
   <header class="onb-header">
     <div class="auth-tag">{% if is_new %}New booking{% else %}Edit booking{% endif %}</div>
@@ -25,7 +25,7 @@
         <label class="field-label">Type <span class="req">*</span></label>
         {{ f.radio_group("type", vocab.types, booking.get("type", "event")) }}
       </div>
-      <div class="onb-row">
+      <div class="onb-row onb-row-two">
         {{ f.field("Starts", "starts_at", booking.get("starts_at", ""),
                     type="datetime-local", required=True) }}
         {{ f.field("Ends (optional)", "ends_at", booking.get("ends_at", ""),

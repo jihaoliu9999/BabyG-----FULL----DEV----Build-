@@ -1,17 +1,24 @@
 {% extends "base.html" %}
+{% import "_partials/brand_mark.html" as brand %}
 {% import "onboarding/_macros.html" as f %}
 
-{% block title %}Set up your creator profile · babyg{% endblock %}
+{% block title %}Set up your creator profile - babyg{% endblock %}
 
 {% block content %}
 <section class="onb">
   <div class="onb-header">
-    <div class="auth-tag">Creator setup</div>
+    <div class="onb-brand">{{ brand.wordmark("brand-lockup-small") }}</div>
+    <div class="auth-tag">Private beta setup</div>
     <h1 class="onb-title">Tell us about your work.</h1>
     <p class="onb-sub">
-      This shapes the daily intel, brand briefs, and collab matches you'll see.
-      You can change any of it later from your profile.
+      This shapes the Hot Drops, creator matches, calendar nudges, and rate
+      guidance you see. You can change any of it later.
     </p>
+    <ol class="onb-progress" aria-label="Setup sections">
+      <li><span>1</span> Identity</li>
+      <li><span>2</span> Content</li>
+      <li><span>3</span> Preferences</li>
+    </ol>
   </div>
 
   {% if error %}<div class="auth-error">{{ error }}</div>{% endif %}
@@ -20,7 +27,7 @@
     {% include "_partials/csrf.html" %}
 
     <section class="onb-section">
-      <h2 class="onb-section-title">About you</h2>
+      <h2 class="onb-section-title">01 / Identity</h2>
       {{ f.field("Full name", "full_name", profile.get("full_name", ""), required=True) }}
       {{ f.field("Instagram handle", "instagram_handle",
                   profile.get("instagram_handle", ""),
@@ -34,7 +41,7 @@
     </section>
 
     <section class="onb-section">
-      <h2 class="onb-section-title">Your work</h2>
+      <h2 class="onb-section-title">02 / Content world</h2>
 
       <div class="field">
         <label class="field-label">Niches <span class="req">*</span></label>
@@ -65,11 +72,11 @@
     </section>
 
     <section class="onb-section">
-      <h2 class="onb-section-title">Preferences</h2>
+      <h2 class="onb-section-title">03 / Vibe and limits</h2>
 
       <div class="field">
         <label class="field-label">Hard limits</label>
-        <div class="field-hint">Brand types you'll never work with.</div>
+        <div class="field-hint">Categories or asks you will not promote.</div>
         {{ f.chip_group("hard_limits", vocab.hard_limits, profile.get("hard_limits", [])) }}
       </div>
 
@@ -77,7 +84,7 @@
         <label class="field-label">Tier</label>
         <div class="field-hint">
           Basic is free. Pro and VIP unlock daily intel, deeper analytics,
-          and priority brand briefs. You can change this anytime.
+          and higher-touch creator operations. You can change this anytime.
         </div>
         {{ f.radio_group("tier", vocab.tiers, profile.get("tier", "basic")) }}
       </div>

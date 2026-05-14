@@ -1,0 +1,18 @@
+{# TODO: replace these CSS-built Orbit placeholders with final monochrome SVG assets.
+   Use `wordmark()` for landing/auth/onboarding and `icon()` for compact app chrome. #}
+
+{% macro wordmark(class_name="") %}
+<span class="brand-mark brand-mark-word {{ class_name }}" aria-label="babyg">
+  <span class="brand-mark-text">babyg</span>
+  <span class="brand-orbit" aria-hidden="true"></span>
+  <span class="brand-star" aria-hidden="true"></span>
+</span>
+{% endmacro %}
+
+{% macro icon(class_name="") %}
+<span class="brand-mark brand-mark-icon {{ class_name }}" aria-label="babyg">
+  <span class="brand-mark-text">g</span>
+  <span class="brand-orbit" aria-hidden="true"></span>
+  <span class="brand-star" aria-hidden="true"></span>
+</span>
+{% endmacro %}

@@ -1,32 +1,33 @@
 {% extends "base.html" %}
+{% import "_partials/brand_mark.html" as brand %}
 
-{% block title %}Choose your account · babyg{% endblock %}
+{% block title %}Choose your account - babyg{% endblock %}
 
 {% block content %}
 <section class="choose">
-  <a class="back-link" href="/">← back</a>
+  <div class="choose-brand">{{ brand.wordmark("brand-lockup-small") }}</div>
+  <a class="back-link" href="/">&larr; back</a>
   <h1 class="choose-title">Who are you?</h1>
-  <p class="choose-sub">Pick the account that matches how you'll use babyg.</p>
+  <p class="choose-sub">Creator access is private beta. Operator access is invite-only.</p>
 
   <div class="choose-grid">
     <a class="role-card" href="/auth/login?role=creator">
       <div class="role-card-tag">Creator</div>
       <div class="role-card-title">I make content.</div>
       <p class="role-card-body">
-        Daily intel, posting reminders, bookings, and a private network of
-        working creators in Miami.
+        Daily intel, bookings, content receipts, and a private network of
+        working Miami creators.
       </p>
-      <div class="role-card-cta">Continue →</div>
+      <div class="role-card-cta">Continue &rarr;</div>
     </a>
 
     <a class="role-card role-card-muted" href="/auth/login?role=operator">
-      <div class="role-card-tag">Admin</div>
+      <div class="role-card-tag">Operator</div>
       <div class="role-card-title">I run babyg.</div>
       <p class="role-card-body">
-        Operator console: intel publishing, flagged messages, member roster.
-        Invite-only.
+        Publish Hot Drops, review reports, manage listings, and keep the roster clean.
       </p>
-      <div class="role-card-cta">Continue →</div>
+      <div class="role-card-cta">Continue &rarr;</div>
     </a>
   </div>
 </section>

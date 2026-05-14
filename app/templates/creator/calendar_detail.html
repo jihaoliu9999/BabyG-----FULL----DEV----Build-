@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 
-{% block title %}{{ booking.title }} · calendar · babyg{% endblock %}
+{% block title %}{{ booking.title }} - calendar - babyg{% endblock %}
 
 {% block content %}
-<section class="onb">
-  <a class="back-link" href="/creator/calendar">← calendar</a>
+<section class="onb creator-detail">
+  <a class="back-link" href="/creator/calendar">&larr; calendar</a>
 
   <header class="onb-header">
-    <div class="auth-tag">{{ booking.type }} · {{ booking.status }}</div>
+    <div class="auth-tag">{{ booking.type }} / {{ booking.status }}</div>
     <h1 class="onb-title">{{ booking.title }}</h1>
   </header>
 
@@ -26,11 +26,11 @@
     {% endif %}
   </section>
 
-  <div class="onb-actions" style="display:flex; gap:8px;">
-    <a class="btn btn-ghost" href="/creator/calendar/{{ booking.id }}/edit">Edit</a>
-    <form method="post" action="/creator/calendar/{{ booking.id }}/cancel" style="display:inline;">
-    {% include "_partials/csrf.html" %}
-      <button type="submit" class="btn btn-ghost">Cancel booking</button>
+  <div class="onb-actions action-row-inline">
+    <a class="btn btn-secondary" href="/creator/calendar/{{ booking.id }}/edit">Edit</a>
+    <form method="post" action="/creator/calendar/{{ booking.id }}/cancel">
+      {% include "_partials/csrf.html" %}
+      <button type="submit" class="btn btn-secondary">Cancel booking</button>
     </form>
   </div>
 </section>

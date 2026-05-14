@@ -1,17 +1,16 @@
 {% extends "base.html" %}
 
-{% block title %}Abuse reports · operator console{% endblock %}
+{% block title %}Abuse reports - operator console{% endblock %}
 
 {% block content %}
 <section class="op">
-  <a class="back-link" href="/operator">← console</a>
+  <a class="back-link" href="/operator">Back to console</a>
 
   <header class="op-header">
     <div class="auth-tag">Moderation</div>
     <h1 class="op-title">Reports</h1>
     <p class="op-sub">
-      User-submitted reports. Dismiss with no notes, or action / escalate
-      with notes that the reporter sees verbatim.
+      Review creator-submitted reports. Action notes are visible to the reporter.
     </p>
   </header>
 
@@ -23,38 +22,40 @@
   </nav>
 
   {% if reports %}
-  <table class="op-table">
-    <thead>
-      <tr>
-        <th>Submitted</th>
-        <th>Target</th>
-        <th>Reason</th>
-        <th>Status</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for r in reports %}
-      <tr>
-        <td class="op-table-meta">{{ r.created_at|short_date or "—" }}</td>
-        <td>
-          <span class="badge badge-{{ "alert" if r.target_type == "message" or r.target_type == "dm_thread" else "brand" }}">
-            {{ r.target_type|replace("_", " ") }}
-          </span>
-        </td>
-        <td>
-          <a class="op-table-title" href="/operator/abuse/{{ r.id }}">
-            {{ (r.reason or "")[:80] }}{% if r.reason and r.reason|length > 80 %}…{% endif %}
-          </a>
-        </td>
-        <td><span class="status-pill status-{{ r.status }}">{{ r.status }}</span></td>
-        <td class="op-table-actions">
-          <a class="link-btn" href="/operator/abuse/{{ r.id }}">Review →</a>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <div class="table-wrap">
+    <table class="op-table">
+      <thead>
+        <tr>
+          <th>Submitted</th>
+          <th>Target</th>
+          <th>Reason</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in reports %}
+        <tr>
+          <td class="op-table-meta">{{ r.created_at|short_date or "-" }}</td>
+          <td>
+            <span class="badge badge-{{ "alert" if r.target_type == "message" or r.target_type == "dm_thread" else "muted" }}">
+              {{ r.target_type|replace("_", " ") }}
+            </span>
+          </td>
+          <td>
+            <a class="op-table-title" href="/operator/abuse/{{ r.id }}">
+              {{ (r.reason or "")[:80] }}{% if r.reason and r.reason|length > 80 %}...{% endif %}
+            </a>
+          </td>
+          <td><span class="status-pill status-{{ r.status }}">{{ r.status }}</span></td>
+          <td class="op-table-actions">
+            <a class="link-btn" href="/operator/abuse/{{ r.id }}">Review</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
   {% else %}
   <div class="feed-empty">
     <h2>Nothing here.</h2>

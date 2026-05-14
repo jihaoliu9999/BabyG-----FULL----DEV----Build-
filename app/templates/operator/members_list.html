@@ -1,15 +1,15 @@
 {% extends "base.html" %}
 
-{% block title %}Members · operator console{% endblock %}
+{% block title %}Members - operator console{% endblock %}
 
 {% block content %}
 <section class="op">
-  <a class="back-link" href="/operator">← console</a>
+  <a class="back-link" href="/operator">Back to console</a>
 
   <header class="op-header">
     <div class="auth-tag">Members</div>
     <h1 class="op-title">Roster</h1>
-    <p class="op-sub">Everyone who's signed in. Filter by role.</p>
+    <p class="op-sub">Creators, operators, and admins who have signed in.</p>
   </header>
 
   <nav class="feed-filters" aria-label="Filter by role">
@@ -21,35 +21,35 @@
        href="/operator/members?role=operator">Operators</a>
   </nav>
 
-  <p class="op-sub" style="margin-top:6px;">
-    Showing {{ members|length }} of {{ total }}.
-  </p>
+  <p class="op-sub op-count">Showing {{ members|length }} of {{ total }}.</p>
 
   {% if members %}
-  <table class="op-table">
-    <thead>
-      <tr>
-        <th>Email</th>
-        <th>Role</th>
-        <th>Active</th>
-        <th>Joined</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-      {% for m in members %}
-      <tr>
-        <td><a class="op-table-title" href="/operator/members/{{ m.id }}">{{ m.email }}</a></td>
-        <td class="op-table-meta">{{ m.role }}</td>
-        <td class="op-table-meta">{{ "yes" if m.is_active else "no" }}</td>
-        <td class="op-table-meta">{{ m.created_at|short_date or "—" }}</td>
-        <td class="op-table-actions">
-          <a class="link-btn" href="/operator/members/{{ m.id }}">Open →</a>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  <div class="table-wrap">
+    <table class="op-table">
+      <thead>
+        <tr>
+          <th>Email</th>
+          <th>Role</th>
+          <th>Active</th>
+          <th>Joined</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in members %}
+        <tr>
+          <td><a class="op-table-title" href="/operator/members/{{ m.id }}">{{ m.email }}</a></td>
+          <td><span class="status-pill status-{{ m.role }}">{{ m.role }}</span></td>
+          <td class="op-table-meta">{{ "yes" if m.is_active else "no" }}</td>
+          <td class="op-table-meta">{{ m.created_at|short_date or "-" }}</td>
+          <td class="op-table-actions">
+            <a class="link-btn" href="/operator/members/{{ m.id }}">Open</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
   {% else %}
   <div class="feed-empty">
     <h2>No members in this view.</h2>
@@ -57,12 +57,12 @@
   {% endif %}
 
   {% set query = ("?role=" ~ active_role) if active_role else "?" %}
-  <nav class="op-pagination" aria-label="Pagination" style="margin-top:14px; display:flex; gap:8px;">
+  <nav class="op-pagination" aria-label="Pagination">
     {% if has_prev %}
-      <a class="btn btn-ghost" href="/operator/members{{ query }}{{ '&' if active_role else '' }}page={{ page - 1 }}">← Prev</a>
+      <a class="btn btn-ghost" href="/operator/members{{ query }}{{ '&' if active_role else '' }}page={{ page - 1 }}">Previous</a>
     {% endif %}
     {% if has_next %}
-      <a class="btn btn-ghost" href="/operator/members{{ query }}{{ '&' if active_role else '' }}page={{ page + 1 }}">Next →</a>
+      <a class="btn btn-ghost" href="/operator/members{{ query }}{{ '&' if active_role else '' }}page={{ page + 1 }}">Next</a>
     {% endif %}
   </nav>
 </section>
