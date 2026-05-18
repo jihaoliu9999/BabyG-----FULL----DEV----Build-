@@ -153,12 +153,14 @@ class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "Strict-Transport-Security",
             "max-age=31536000; includeSubDomains",
         )
-        # Minimal CSP. We don't load any external scripts, so default-src 'self'
-        # is enough; allow inline `style=` attributes that the templates use.
+        # Minimal CSP. We don't load external scripts or stylesheets. Linked
+        # CSS is same-origin only; inline style attributes are allowed because
+        # a few operator templates still use `style=`.
         response.headers.setdefault(
             "Content-Security-Policy",
             "default-src 'self'; img-src 'self' data:; "
-            "style-src 'self' 'unsafe-inline'; "
+            "script-src 'self'; style-src 'self' 'unsafe-inline'; "
+            "style-src-elem 'self'; "
             "form-action 'self'; frame-ancestors 'none';",
         )
         return response
