@@ -31,3 +31,11 @@ def test_csp_allows_same_origin_static_css(client: TestClient) -> None:
     assert css.status_code == 200
     assert css.headers["content-type"].startswith("text/css")
     assert "babyg - premium dark theme" in css.text
+
+
+def test_forwarded_proto_generates_https_static_url(client: TestClient) -> None:
+    response = client.get("/", headers={"x-forwarded-proto": "https"})
+
+    assert response.status_code == 200
+    assert 'href="https://testserver/static/css/app.css"' in response.text
+    assert 'href="http://testserver/static/css/app.css"' not in response.text

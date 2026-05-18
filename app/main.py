@@ -13,9 +13,11 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
+from starlette.datastructures import Headers
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.gzip import GZipMiddleware
+from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.config import get_settings
 from app.core.templating import templates
@@ -40,6 +42,10 @@ def create_app() -> FastAPI:
         docs_url="/docs" if not settings.is_production else None,
         redoc_url=None,
     )
+
+    # Railway terminates TLS before forwarding to the app. Teach Starlette's
+    # URL generation about the original scheme so `url_for(...)` emits HTTPS.
+    app.add_middleware(_ForwardedProtoMiddleware)
 
     # GZip every response over 1KB. Most HTML pages are 5-30KB → ~70% off the wire.
     app.add_middleware(GZipMiddleware, minimum_size=1024)
@@ -140,6 +146,22 @@ def create_app() -> FastAPI:
             )
 
     return app
+
+
+class _ForwardedProtoMiddleware:
+    """Apply trusted proxy scheme from Railway's X-Forwarded-Proto header."""
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] in {"http", "websocket"}:
+            proto = Headers(scope=scope).get("x-forwarded-proto", "")
+            scheme = proto.split(",", 1)[0].strip().lower()
+            if scheme in {"http", "https"}:
+                scope = dict(scope)
+                scope["scheme"] = scheme
+        await self.app(scope, receive, send)
 
 
 class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
