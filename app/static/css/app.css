@@ -1743,6 +1743,122 @@ a.chip.chip-active {
 }
 .dm-composer .btn { align-self: flex-end; }
 
+/* ---------- babyg assistant chat ---------- */
+.bot-chat {
+  flex: 1;
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 28px 18px 112px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.bot-chat-header {
+  margin-bottom: 4px;
+}
+.bot-chat-title {
+  font-family: var(--font-display);
+  font-size: clamp(40px, 12vw, 60px);
+  font-weight: 500;
+  line-height: 0.98;
+  letter-spacing: 0;
+  margin: 0 0 14px;
+}
+.bot-chat-sub {
+  color: var(--text-mute);
+  margin: 0;
+  font-size: 16px;
+}
+.bot-messages {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 260px;
+}
+.bot-message {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: 88%;
+}
+.bot-message-user {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+.bot-message-assistant {
+  align-self: flex-start;
+  align-items: flex-start;
+}
+.bot-message-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-mute);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+.bot-message-user .message-bubble {
+  background: var(--bone);
+  color: var(--obsidian);
+  border-color: transparent;
+  border-bottom-right-radius: 4px;
+}
+.bot-message-assistant .message-bubble {
+  border-bottom-left-radius: 4px;
+}
+.bot-empty {
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 36px 24px;
+}
+.bot-empty h2 {
+  margin: 0 0 8px;
+  font-size: 22px;
+}
+.bot-empty p {
+  margin: 0;
+  color: var(--text-mute);
+}
+.bot-composer {
+  position: sticky;
+  bottom: calc(72px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: rgba(17, 17, 17, 0.96);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 14px;
+  backdrop-filter: blur(18px);
+}
+.bot-composer textarea {
+  width: 100%;
+  min-height: 84px;
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 16px;
+  padding: 12px 14px;
+  outline: none;
+  resize: vertical;
+}
+.bot-composer textarea::placeholder { color: var(--text-dim); }
+.bot-composer textarea:focus {
+  border-color: rgba(245, 241, 232, 0.42);
+  background: var(--bg-card-hi);
+}
+.bot-composer .btn {
+  align-self: flex-end;
+}
+
 /* ---------- Status pills (extended) ---------- */
 .status-pending   { color: var(--text-mute); }
 .status-dismissed { color: var(--text-dim); opacity: 0.7; }
@@ -1872,7 +1988,7 @@ a.chip.chip-active {
   bottom: 0;
   z-index: 30;
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 2px;
   width: 100%;
   max-width: 560px;
@@ -1889,7 +2005,7 @@ a.chip.chip-active {
   justify-content: center;
   border-radius: 14px;
   color: var(--text-mute);
-  font-size: 11px;
+  font-size: 10px;
   letter-spacing: 0;
 }
 .mobile-tabbar a[aria-current="page"],

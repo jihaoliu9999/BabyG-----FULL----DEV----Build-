@@ -34,6 +34,10 @@ class Settings(BaseSettings):
     supabase_anon_key: str = ""
     supabase_service_role_key: str = ""
 
+    # Phase 2 assistant
+    anthropic_api_key: str = ""
+    anthropic_model: str = "claude-sonnet-4-20250514"
+
     @property
     def is_production(self) -> bool:
         return self.env == "production"

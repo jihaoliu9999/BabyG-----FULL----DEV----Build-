@@ -1,7 +1,9 @@
 {% import "_partials/brand_mark.html" as brand %}
 {% set path = request.url.path %}
 {% set title = "Feed" %}
-{% if path.startswith("/creator/network") or path.startswith("/creator/connections") %}
+{% if path.startswith("/creator/bot") %}
+  {% set title = "babyg" %}
+{% elif path.startswith("/creator/network") or path.startswith("/creator/connections") %}
   {% set title = "Network" %}
 {% elif path.startswith("/creator/jobs") %}
   {% set title = "Listings" %}

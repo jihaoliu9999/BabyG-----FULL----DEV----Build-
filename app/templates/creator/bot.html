@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+
+{% block title %}babyg chat - babyg{% endblock %}
+
+{% block content %}
+<section class="bot-chat">
+  <header class="bot-chat-header">
+    <div class="feed-eyebrow">babyg</div>
+    <h1 class="bot-chat-title">What are we making happen?</h1>
+    <p class="bot-chat-sub">
+      Ask for captions, content plans, Hot Drop ideas, offer review, or creator ops help.
+    </p>
+  </header>
+
+  {% if error %}<div class="auth-error">{{ error }}</div>{% endif %}
+
+  <ol class="bot-messages" aria-label="babyg conversation">
+    {% if messages %}
+      {% for m in messages %}
+        {% if m.role != "system" %}
+        <li class="bot-message bot-message-{{ m.role }}">
+          <div class="bot-message-label">
+            {{ "you" if m.role == "user" else "babyg" }}
+            {% if m.flagged %}<span class="status-pill status-pending">flagged</span>{% endif %}
+          </div>
+          <div class="message-bubble">{{ m.content }}</div>
+        </li>
+        {% endif %}
+      {% endfor %}
+    {% else %}
+      <li class="bot-empty">
+        <h2>babyg is ready.</h2>
+        <p>Try: "Draft three captions from this Hot Drop in my voice."</p>
+      </li>
+    {% endif %}
+  </ol>
+
+  <form class="bot-composer" method="post" action="/creator/bot">
+    {% include "_partials/csrf.html" %}
+    <label class="sr-only" for="bot-message">Message babyg</label>
+    <textarea id="bot-message" name="message" rows="3" maxlength="4000"
+              placeholder="Ask babyg for a caption, plan, reply draft, or next move..."
+              required></textarea>
+    <button class="btn btn-primary" type="submit">Send</button>
+  </form>
+</section>
+{% endblock %}

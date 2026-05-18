@@ -20,6 +20,7 @@ from app.deps import require_role
 from app.services import (
     audit,
     bookings,
+    bot,
     dms,
     intel,
     jobs,
@@ -77,6 +78,53 @@ async def dashboard(
             "unread_dms": unread_dms,
         },
     )
+
+
+@router.get("/creator/bot", response_class=HTMLResponse)
+async def bot_chat(
+    request: Request,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    profile = profiles.get_creator_profile(session["user_id"]) or {}
+    if not profile.get("onboarding_completed_at"):
+        return RedirectResponse("/onboarding/creator", status_code=302)
+
+    messages = bot.list_messages(session["user_id"])
+    return templates.TemplateResponse(
+        request,
+        "creator/bot.html",
+        {
+            "profile": profile,
+            "messages": messages,
+            "error": None,
+        },
+    )
+
+
+@router.post("/creator/bot")
+async def bot_send(
+    request: Request,
+    message: str = Form(...),
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    profile = profiles.get_creator_profile(session["user_id"]) or {}
+    if not profile.get("onboarding_completed_at"):
+        return RedirectResponse("/onboarding/creator", status_code=302)
+
+    result = bot.handle_creator_message(user_id=session["user_id"], content=message)
+    if not result.response:
+        messages = bot.list_messages(session["user_id"])
+        return templates.TemplateResponse(
+            request,
+            "creator/bot.html",
+            {
+                "profile": profile,
+                "messages": messages,
+                "error": "babyg couldn't answer that turn. Try again.",
+            },
+            status_code=400,
+        )
+    return RedirectResponse("/creator/bot", status_code=303)
 
 
 @router.post("/creator/intel/{post_id}/feedback")

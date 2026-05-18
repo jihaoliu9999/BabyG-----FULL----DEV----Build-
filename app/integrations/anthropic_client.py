@@ -1,0 +1,80 @@
+"""Narrow Anthropic Claude client for the babyg assistant.
+
+The rest of the app talks to this module instead of importing Anthropic
+directly. That keeps API-key handling server-side and gives tests a small,
+mockable surface.
+"""
+
+from __future__ import annotations
+
+import logging
+from dataclasses import dataclass
+from typing import Any, cast
+
+from app.config import get_settings
+
+logger = logging.getLogger(__name__)
+
+
+class ClaudeNotConfiguredError(RuntimeError):
+    """Raised when the app asks Claude to run without an API key."""
+
+
+class ClaudeCallError(RuntimeError):
+    """Raised when Claude is configured but the upstream call fails."""
+
+
+@dataclass(frozen=True)
+class ClaudeResponse:
+    text: str
+    input_tokens: int = 0
+    output_tokens: int = 0
+
+
+def complete_chat(
+    *,
+    system_prompt: str,
+    messages: list[dict[str, str]],
+    max_tokens: int = 900,
+) -> ClaudeResponse:
+    """Return one blocking Claude response.
+
+    Phase 2 starts with a blocking turn; SSE streaming lands after the base
+    conversation loop is stable.
+    """
+    settings = get_settings()
+    if not settings.anthropic_api_key:
+        raise ClaudeNotConfiguredError("ANTHROPIC_API_KEY is not set")
+
+    try:
+        from anthropic import Anthropic  # type: ignore[import-not-found]
+
+        client = Anthropic(api_key=settings.anthropic_api_key)
+        response = client.messages.create(
+            model=settings.anthropic_model,
+            max_tokens=max_tokens,
+            system=system_prompt,
+            messages=cast(Any, messages),
+        )
+    except ClaudeNotConfiguredError:
+        raise
+    except Exception as exc:  # pragma: no cover - exercised via service tests
+        logger.exception("anthropic messages.create failed")
+        raise ClaudeCallError("Claude request failed") from exc
+
+    return ClaudeResponse(
+        text=_extract_text(response),
+        input_tokens=int(getattr(getattr(response, "usage", None), "input_tokens", 0) or 0),
+        output_tokens=int(
+            getattr(getattr(response, "usage", None), "output_tokens", 0) or 0
+        ),
+    )
+
+
+def _extract_text(response: Any) -> str:
+    parts: list[str] = []
+    for block in getattr(response, "content", []) or []:
+        text = getattr(block, "text", None)
+        if isinstance(text, str):
+            parts.append(text)
+    return "\n".join(parts).strip()
