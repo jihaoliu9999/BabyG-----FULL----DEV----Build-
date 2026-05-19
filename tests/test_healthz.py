@@ -2,6 +2,8 @@
 
 from fastapi.testclient import TestClient
 
+from app.config import get_settings
+
 
 def test_healthz_returns_ok(client: TestClient) -> None:
     response = client.get("/healthz")
@@ -43,3 +45,18 @@ def test_forwarded_proto_keeps_static_url_root_relative(client: TestClient) -> N
     assert 'href="/static/css/app.css"' in response.text
     assert 'href="http://testserver/static/css/app.css"' not in response.text
     assert 'href="https://testserver/static/css/app.css"' not in response.text
+
+
+def test_production_csp_upgrades_insecure_subresources(
+    monkeypatch, client: TestClient
+) -> None:
+    monkeypatch.setenv("ENV", "production")
+    monkeypatch.setenv("SESSION_SECRET", "x" * 48)
+    get_settings.cache_clear()
+
+    response = client.get("/")
+
+    assert response.status_code == 200
+    csp = response.headers["content-security-policy"]
+    assert "upgrade-insecure-requests" in csp
+    assert 'href="/static/css/app.css"' in response.text

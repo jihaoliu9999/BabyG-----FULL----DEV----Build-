@@ -178,12 +178,17 @@ class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
         # Minimal CSP. We don't load external scripts or stylesheets. Linked
         # CSS is same-origin only; inline style attributes are allowed because
         # a few operator templates still use `style=`.
-        response.headers.setdefault(
-            "Content-Security-Policy",
+        csp = (
             "default-src 'self'; img-src 'self' data:; "
             "script-src 'self'; style-src 'self' 'unsafe-inline'; "
             "style-src-elem 'self'; "
-            "form-action 'self'; frame-ancestors 'none';",
+            "form-action 'self'; frame-ancestors 'none';"
+        )
+        if get_settings().env != "dev":
+            csp = f"{csp} upgrade-insecure-requests;"
+        response.headers.setdefault(
+            "Content-Security-Policy",
+            csp,
         )
         return response
 
