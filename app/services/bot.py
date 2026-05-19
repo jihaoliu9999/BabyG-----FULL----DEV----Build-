@@ -8,9 +8,10 @@ from typing import Any, Literal
 
 from postgrest.exceptions import APIError as PostgrestAPIError
 
+from app.agent.tools import read_only
 from app.core import supabase_client
 from app.integrations import anthropic_client
-from app.services import bookings, intel, performance, profiles, prompts, receipts
+from app.services import prompts
 
 logger = logging.getLogger(__name__)
 
@@ -167,32 +168,7 @@ def create_message(
 
 
 def build_context(user_id: str) -> dict[str, Any]:
-    profile = profiles.get_creator_profile(user_id) or {}
-    profile_niches = profile.get("niches") or []
-    tier = profile.get("tier") or "basic"
-    return {
-        "name": profile.get("full_name"),
-        "instagram": profile.get("instagram_handle"),
-        "city": profile.get("neighborhood") or "Miami",
-        "niches": profile_niches,
-        "formats": profile.get("content_formats"),
-        "topics": profile.get("topics"),
-        "follower_range": profile.get("follower_range"),
-        "engagement_range": profile.get("engagement_range"),
-        "years_creating": profile.get("creator_tenure"),
-        "hard_limits": profile.get("hard_limits"),
-        "writing_samples": _summarize_list(profile.get("writing_samples"), limit=3),
-        "active_hot_drops": _summarize_intel(
-            intel.feed_for_creator(niches=profile_niches, tier=tier)[:5]
-        ),
-        "upcoming_calendar": _summarize_bookings(
-            bookings.list_for_user(user_id, horizon="upcoming", limit=5)
-        ),
-        "recent_receipts": _summarize_receipts(receipts.list_for_user(user_id, limit=5)),
-        "recent_performance": _summarize_performance(
-            performance.list_for_user(user_id, limit=3)
-        ),
-    }
+    return read_only.collect_context(user_id)
 
 
 def _messages_for_claude(rows: list[dict[str, Any]]) -> list[dict[str, str]]:
@@ -213,41 +189,3 @@ def _scope_flag(content: str) -> str | None:
     if any(keyword in lowered for keyword in OUT_OF_SCOPE_KEYWORDS):
         return "scope"
     return None
-
-
-def _summarize_list(value: Any, *, limit: int) -> list[str]:
-    if not isinstance(value, list):
-        return []
-    return [str(item)[:500] for item in value[:limit] if str(item).strip()]
-
-
-def _summarize_intel(rows: list[dict[str, Any]]) -> list[str]:
-    return [
-        f"{row.get('category')}: {row.get('title')} - {str(row.get('body') or '')[:240]}"
-        for row in rows
-    ]
-
-
-def _summarize_bookings(rows: list[dict[str, Any]]) -> list[str]:
-    return [
-        f"{row.get('starts_at')}: {row.get('title')} ({row.get('type')})"
-        for row in rows
-    ]
-
-
-def _summarize_receipts(rows: list[dict[str, Any]]) -> list[str]:
-    return [
-        f"{row.get('post_type')}: {row.get('caption_excerpt') or row.get('post_url')}"
-        for row in rows
-    ]
-
-
-def _summarize_performance(rows: list[dict[str, Any]]) -> list[str]:
-    return [
-        (
-            f"{row.get('week_start_date')}: engagement={row.get('engagement_rate')}, "
-            f"followers={row.get('follower_delta')}, "
-            f"deal_value={row.get('active_brand_deals_value')}"
-        )
-        for row in rows
-    ]
