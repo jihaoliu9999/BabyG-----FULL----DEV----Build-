@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <title>{% block title %}babyg{% endblock %}</title>
-  <link rel="stylesheet" href="{{ url_for('static', path='/css/app.css') }}" />
+  <link rel="stylesheet" href="/static/css/app.css" />
   {% block head_extra %}{% endblock %}
 </head>
 {% set current_path = request.url.path if request is defined else "" %}

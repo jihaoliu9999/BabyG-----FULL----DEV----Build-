@@ -22,6 +22,9 @@ def test_robots_disallows_indexing(client: TestClient) -> None:
 def test_csp_allows_same_origin_static_css(client: TestClient) -> None:
     response = client.get("/")
     assert response.status_code == 200
+    assert 'href="/static/css/app.css"' in response.text
+    assert 'href="http://testserver/static/css/app.css"' not in response.text
+    assert 'href="https://testserver/static/css/app.css"' not in response.text
     csp = response.headers["content-security-policy"]
     assert "script-src 'self'" in csp
     assert "style-src-elem 'self'" in csp
@@ -33,9 +36,10 @@ def test_csp_allows_same_origin_static_css(client: TestClient) -> None:
     assert "babyg - premium dark theme" in css.text
 
 
-def test_forwarded_proto_generates_https_static_url(client: TestClient) -> None:
+def test_forwarded_proto_keeps_static_url_root_relative(client: TestClient) -> None:
     response = client.get("/", headers={"x-forwarded-proto": "https"})
 
     assert response.status_code == 200
-    assert 'href="https://testserver/static/css/app.css"' in response.text
+    assert 'href="/static/css/app.css"' in response.text
     assert 'href="http://testserver/static/css/app.css"' not in response.text
+    assert 'href="https://testserver/static/css/app.css"' not in response.text
