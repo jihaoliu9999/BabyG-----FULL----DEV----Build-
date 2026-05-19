@@ -16,6 +16,14 @@ from app.services import prompts
 logger = logging.getLogger(__name__)
 
 MessageRole = Literal["user", "assistant", "system"]
+DraftKind = Literal[
+    "caption",
+    "brand_reply",
+    "creator_dm",
+    "content_plan",
+    "negotiation",
+    "general",
+]
 
 MAX_USER_MESSAGE_CHARS = 4000
 MAX_HISTORY_MESSAGES = 20
@@ -100,7 +108,10 @@ def handle_creator_message(*, user_id: str, content: str) -> BotTurnResult:
 
     context = build_context(user_id)
     history = _messages_for_claude(list_messages(user_id, limit=MAX_HISTORY_MESSAGES))
-    system_prompt = prompts.babyg_system_prompt(context)
+    system_prompt = prompts.babyg_system_prompt(
+        context,
+        draft_kind=_draft_kind(user_content),
+    )
 
     try:
         claude_response = anthropic_client.complete_chat(
@@ -189,3 +200,40 @@ def _scope_flag(content: str) -> str | None:
     if any(keyword in lowered for keyword in OUT_OF_SCOPE_KEYWORDS):
         return "scope"
     return None
+
+
+def _draft_kind(content: str) -> DraftKind | None:
+    lowered = content.lower()
+    is_draft_request = any(
+        marker in lowered
+        for marker in (
+            "draft",
+            "write",
+            "caption",
+            "reply",
+            "respond",
+            "response",
+            "dm",
+            "message",
+            "content plan",
+            "weekly plan",
+            "negotiate",
+            "negotiation",
+        )
+    )
+    if not is_draft_request:
+        return None
+    if any(marker in lowered for marker in ("caption", "captions", "hook")):
+        return "caption"
+    if any(
+        marker in lowered
+        for marker in ("brand email", "brand message", "brand reply", "offer")
+    ):
+        return "brand_reply"
+    if any(marker in lowered for marker in ("negotiate", "negotiation", "rate")):
+        return "negotiation"
+    if any(marker in lowered for marker in ("dm", "creator message", "collab message")):
+        return "creator_dm"
+    if any(marker in lowered for marker in ("content plan", "weekly plan", "calendar")):
+        return "content_plan"
+    return "general"

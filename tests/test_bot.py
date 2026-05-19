@@ -114,6 +114,105 @@ def test_scope_refusal_does_not_call_claude(monkeypatch) -> None:
     assert created[1]["role"] == "assistant"
 
 
+def test_drafting_request_adds_brand_reply_guidance(monkeypatch) -> None:
+    created: list[dict] = []
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(
+        bot_service,
+        "create_message",
+        lambda **kwargs: created.append(kwargs) or "msg-1",
+    )
+    monkeypatch.setattr(bot_service, "build_context", lambda uid: {})
+    monkeypatch.setattr(
+        bot_service,
+        "list_messages",
+        lambda uid, limit=20: [
+            {
+                "role": "user",
+                "content": "Draft a reply to this brand email about usage rights.",
+            }
+        ],
+    )
+
+    def _fake_claude(**kwargs):
+        captured.update(kwargs)
+        return bot_service.anthropic_client.ClaudeResponse(
+            text="Draft: Thanks for reaching out..."
+        )
+
+    monkeypatch.setattr(bot_service.anthropic_client, "complete_chat", _fake_claude)
+
+    result = bot_service.handle_creator_message(
+        user_id="creator-1",
+        content="Draft a reply to this brand email about usage rights.",
+    )
+
+    system_prompt = str(captured["system_prompt"])
+    assert result.response.startswith("Draft:")
+    assert "Drafting mode:" in system_prompt
+    assert "Kind: brand_reply" in system_prompt
+    assert "Do not imply the reply was sent" in system_prompt
+    assert "Do not say you posted, sent, booked, updated, or completed anything" in system_prompt
+    assert created[-1]["role"] == "assistant"
+
+
+def test_drafting_request_adds_creator_dm_guidance(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(bot_service, "create_message", lambda **kwargs: "msg-1")
+    monkeypatch.setattr(bot_service, "build_context", lambda uid: {})
+    monkeypatch.setattr(
+        bot_service,
+        "list_messages",
+        lambda uid, limit=20: [
+            {"role": "user", "content": "Write a DM to a creator for a collab."}
+        ],
+    )
+
+    def _fake_claude(**kwargs):
+        captured.update(kwargs)
+        return bot_service.anthropic_client.ClaudeResponse(text="Draft DM")
+
+    monkeypatch.setattr(bot_service.anthropic_client, "complete_chat", _fake_claude)
+
+    bot_service.handle_creator_message(
+        user_id="creator-1",
+        content="Write a DM to a creator for a collab.",
+    )
+
+    system_prompt = str(captured["system_prompt"])
+    assert "Kind: creator_dm" in system_prompt
+    assert "Do not imply it was sent" in system_prompt
+
+
+def test_non_drafting_request_uses_base_prompt(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(bot_service, "create_message", lambda **kwargs: "msg-1")
+    monkeypatch.setattr(bot_service, "build_context", lambda uid: {})
+    monkeypatch.setattr(
+        bot_service,
+        "list_messages",
+        lambda uid, limit=20: [
+            {"role": "user", "content": "What should I focus on today?"}
+        ],
+    )
+
+    def _fake_claude(**kwargs):
+        captured.update(kwargs)
+        return bot_service.anthropic_client.ClaudeResponse(text="Focus here.")
+
+    monkeypatch.setattr(bot_service.anthropic_client, "complete_chat", _fake_claude)
+
+    bot_service.handle_creator_message(
+        user_id="creator-1",
+        content="What should I focus on today?",
+    )
+
+    assert "Drafting mode:" not in str(captured["system_prompt"])
+
+
 def test_build_context_uses_read_only_tool_bundle(monkeypatch) -> None:
     monkeypatch.setattr(
         bot_service.read_only,

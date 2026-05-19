@@ -14,6 +14,37 @@ from __future__ import annotations
 
 from typing import Any
 
+DRAFTING_GUIDANCE: dict[str, str] = {
+    "caption": (
+        "Draft captions in the creator's voice. Unless the creator asks for a "
+        "specific count, give 3 options with distinct angles and keep them easy "
+        "to edit from a phone."
+    ),
+    "brand_reply": (
+        "Draft a reply to the inbound brand message only. Do not imply the reply "
+        "was sent. Include negotiation language when useful and keep the creator's "
+        "hard limits in mind."
+    ),
+    "creator_dm": (
+        "Draft a creator-to-creator DM only. Do not imply it was sent. Make it "
+        "warm, concise, and easy for the creator to review before sending."
+    ),
+    "content_plan": (
+        "Draft an actionable content plan with days, formats, hooks, and any "
+        "relevant Hot Drops or calendar context. Keep it practical for a creator "
+        "operating from their phone."
+    ),
+    "negotiation": (
+        "Draft negotiation language the creator can copy, edit, and approve. "
+        "Stay practical, respectful, and clear about asks, rates, usage, timing, "
+        "and boundaries."
+    ),
+    "general": (
+        "Return draftable text or a draftable outline. Make it clear the creator "
+        "reviews, edits, and decides before anything is sent or posted."
+    ),
+}
+
 BABYG_SCOPE_REFUSAL = (
     "I can help with creator operations: content ideas, captions, Hot Drops, "
     "calendar planning, creator networking, DMs, brand-offer review, and "
@@ -22,8 +53,11 @@ BABYG_SCOPE_REFUSAL = (
 )
 
 
-def babyg_system_prompt(context: dict[str, Any]) -> str:
+def babyg_system_prompt(
+    context: dict[str, Any], *, draft_kind: str | None = None
+) -> str:
     """System prompt for the creator-facing babyg assistant."""
+    drafting_section = _drafting_section(draft_kind)
     return f"""You are babyg, the AI assistant inside babyg.
 
 Product scope:
@@ -55,6 +89,7 @@ Behavior:
 
 Creator context:
 {_format_context(context)}
+{drafting_section}
 """
 
 
@@ -65,6 +100,19 @@ def _format_context(context: dict[str, Any]) -> str:
             continue
         lines.append(f"- {key}: {value}")
     return "\n".join(lines) if lines else "- No creator context available yet."
+
+
+def _drafting_section(draft_kind: str | None) -> str:
+    if not draft_kind:
+        return ""
+    guidance = DRAFTING_GUIDANCE.get(draft_kind, DRAFTING_GUIDANCE["general"])
+    return f"""
+Drafting mode:
+- Kind: {draft_kind}
+- {guidance}
+- Do not say you posted, sent, booked, updated, or completed anything.
+- Keep the output directly usable as a draft, with minimal explanation.
+"""
 
 
 # Phase 2: persona moderation prompt
