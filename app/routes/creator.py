@@ -127,6 +127,28 @@ async def bot_send(
     return RedirectResponse("/creator/bot", status_code=303)
 
 
+@router.post("/creator/bot/actions/{message_id}/confirm")
+async def bot_action_confirm(
+    message_id: str,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    result = bot.confirm_action(user_id=session["user_id"], message_id=message_id)
+    if not result.found:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    return RedirectResponse("/creator/bot", status_code=303)
+
+
+@router.post("/creator/bot/actions/{message_id}/cancel")
+async def bot_action_cancel(
+    message_id: str,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    result = bot.cancel_action(user_id=session["user_id"], message_id=message_id)
+    if not result.found:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    return RedirectResponse("/creator/bot", status_code=303)
+
+
 @router.post("/creator/intel/{post_id}/feedback")
 async def submit_feedback(
     post_id: str,

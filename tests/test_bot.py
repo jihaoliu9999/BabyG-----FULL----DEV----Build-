@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from uuid import uuid4
+
 from fastapi import Response
 from fastapi.testclient import TestClient
 
@@ -58,6 +60,42 @@ def test_bot_page_renders_history(monkeypatch, client: TestClient) -> None:
     assert "Drafting it." in response.text
 
 
+def test_bot_page_renders_pending_action_controls(monkeypatch, client: TestClient) -> None:
+    message_id = str(uuid4())
+    _signed_in(client, role="creator")
+    monkeypatch.setattr(
+        creator_routes.profiles,
+        "get_creator_profile",
+        lambda uid: {"onboarding_completed_at": "2026-05-01T00:00:00Z"},
+    )
+    monkeypatch.setattr(
+        creator_routes.bot,
+        "list_messages",
+        lambda uid: [
+            {
+                "id": message_id,
+                "role": "assistant",
+                "content": "I can create this local calendar item after you confirm.",
+                "flagged": False,
+                "tool_calls": {
+                    "kind": "proposed_action",
+                    "status": "pending",
+                    "action_type": "create_booking",
+                    "payload": {},
+                    "preview": "Preview",
+                    "result": None,
+                },
+            }
+        ],
+    )
+
+    response = client.get("/creator/bot")
+
+    assert response.status_code == 200
+    assert f"/creator/bot/actions/{message_id}/confirm" in response.text
+    assert f"/creator/bot/actions/{message_id}/cancel" in response.text
+
+
 def test_bot_post_persists_turn_and_redirects(monkeypatch, client: TestClient) -> None:
     _signed_in(client, role="creator", user_id="creator-1")
     monkeypatch.setattr(
@@ -82,6 +120,198 @@ def test_bot_post_persists_turn_and_redirects(monkeypatch, client: TestClient) -
     assert response.status_code == 303
     assert response.headers["location"] == "/creator/bot"
     assert calls == [{"user_id": "creator-1", "content": "Draft a caption"}]
+
+
+def test_proposed_action_does_not_write_immediately(monkeypatch) -> None:
+    created: list[dict] = []
+
+    monkeypatch.setattr(
+        bot_service,
+        "create_message",
+        lambda **kwargs: created.append(kwargs) or "msg-1",
+    )
+
+    def _fail_write(**kwargs):
+        raise AssertionError("proposal should not write before confirmation")
+
+    monkeypatch.setattr(bot_service.bookings, "create", _fail_write)
+
+    result = bot_service.handle_creator_message(
+        user_id="creator-1",
+        content="Create a booking called Brand Call on 2099-05-08T10:00",
+    )
+
+    assert "Nothing has been saved yet" in result.response
+    assert len(created) == 2
+    proposal = created[1]["tool_calls"]
+    assert proposal["kind"] == "proposed_action"
+    assert proposal["status"] == "pending"
+    assert proposal["action_type"] == "create_booking"
+
+
+def test_booking_proposal_does_not_infer_restaurant_type(monkeypatch) -> None:
+    created: list[dict] = []
+
+    monkeypatch.setattr(
+        bot_service,
+        "create_message",
+        lambda **kwargs: created.append(kwargs) or "msg-1",
+    )
+
+    result = bot_service.handle_creator_message(
+        user_id="creator-1",
+        content="Add restaurant dinner to my calendar called Dinner Visit on 2099-05-08T20:00",
+    )
+
+    proposal = created[1]["tool_calls"]
+    assert "local calendar item" in result.response
+    assert proposal["action_type"] == "create_booking"
+    assert proposal["payload"]["type"] == "event"
+
+
+def test_confirm_writes_exactly_once_and_double_confirm_does_not_duplicate(
+    monkeypatch,
+) -> None:
+    message_id = str(uuid4())
+    tool_calls = {
+        "kind": "proposed_action",
+        "status": "pending",
+        "action_type": "create_booking",
+        "payload": {
+            "title": "Brand Call",
+            "type": "event",
+            "starts_at": "2099-05-08T10:00",
+            "ends_at": None,
+            "notes": None,
+            "venue_name": None,
+            "status": "confirmed",
+        },
+        "preview": "Preview",
+        "result": None,
+    }
+    row = {"id": message_id, "user_id": "creator-1", "tool_calls": tool_calls}
+    stored_status = {"value": "pending"}
+    writes: list[dict] = []
+    assistant_messages: list[dict] = []
+
+    monkeypatch.setattr(
+        bot_service,
+        "_get_message_for_user",
+        lambda *, message_id, user_id: {
+            **row,
+            "tool_calls": {**tool_calls, "status": "pending"},
+        }
+        if user_id == "creator-1"
+        else None,
+    )
+
+    def _update(*, message_id, user_id, tool_calls, expected_status=None):
+        if expected_status is not None and stored_status["value"] != expected_status:
+            return False
+        stored_status["value"] = tool_calls["status"]
+        row["tool_calls"] = tool_calls
+        return True
+
+    monkeypatch.setattr(bot_service, "_update_message_tool_calls", _update)
+
+    def _create_booking(*, user_id, payload):
+        writes.append({"user_id": user_id, "payload": payload})
+        return "booking-1"
+
+    monkeypatch.setattr(bot_service.bookings, "create", _create_booking)
+    monkeypatch.setattr(
+        bot_service,
+        "create_message",
+        lambda **kwargs: assistant_messages.append(kwargs) or "msg-2",
+    )
+
+    first = bot_service.confirm_action(user_id="creator-1", message_id=message_id)
+    second = bot_service.confirm_action(user_id="creator-1", message_id=message_id)
+
+    assert first.executed is True
+    assert second.executed is False
+    assert len(writes) == 1
+    assert row["tool_calls"]["status"] == "confirmed"
+    assert row["tool_calls"]["result"]["record_id"] == "booking-1"
+    assert assistant_messages[-1]["role"] == "assistant"
+
+
+def test_cancel_writes_nothing(monkeypatch) -> None:
+    message_id = str(uuid4())
+    row = {
+        "id": message_id,
+        "user_id": "creator-1",
+        "tool_calls": {
+            "kind": "proposed_action",
+            "status": "pending",
+            "action_type": "submit_creator_listing",
+            "payload": {"title": "Collab", "description": "Shoot", "listing_type": "collab"},
+            "preview": "Preview",
+            "result": None,
+        },
+    }
+    monkeypatch.setattr(bot_service, "_get_message_for_user", lambda **kwargs: row)
+    monkeypatch.setattr(
+        bot_service,
+        "_update_message_tool_calls",
+        lambda *, message_id, user_id, tool_calls, expected_status=None: row.update(
+            {"tool_calls": tool_calls}
+        )
+        or True,
+    )
+
+    def _fail_write(**kwargs):
+        raise AssertionError("cancel should not write")
+
+    monkeypatch.setattr(bot_service.jobs, "create", _fail_write)
+    monkeypatch.setattr(bot_service, "create_message", lambda **kwargs: "msg-2")
+
+    result = bot_service.cancel_action(user_id="creator-1", message_id=message_id)
+
+    assert result.message == "Cancelled. Nothing was saved."
+    assert row["tool_calls"]["status"] == "cancelled"
+
+
+def test_confirm_requires_owner_before_write(monkeypatch) -> None:
+    monkeypatch.setattr(
+        bot_service,
+        "_get_message_for_user",
+        lambda *, message_id, user_id: None,
+    )
+
+    def _fail_write(**kwargs):
+        raise AssertionError("unauthorized confirmation should not write")
+
+    monkeypatch.setattr(bot_service.bookings, "create", _fail_write)
+
+    result = bot_service.confirm_action(
+        user_id="creator-2",
+        message_id=str(uuid4()),
+    )
+
+    assert result.found is False
+    assert result.executed is False
+
+
+def test_unauthorized_user_cannot_confirm_another_users_action(
+    monkeypatch, client: TestClient
+) -> None:
+    _signed_in(client, role="creator", user_id="creator-2")
+    monkeypatch.setattr(
+        creator_routes.bot,
+        "confirm_action",
+        lambda *, user_id, message_id: bot_service.BotActionResult(
+            message="not found",
+            found=False,
+        ),
+    )
+
+    response = client.post(
+        f"/creator/bot/actions/{uuid4()}/confirm",
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 404
 
 
 def test_scope_refusal_does_not_call_claude(monkeypatch) -> None:

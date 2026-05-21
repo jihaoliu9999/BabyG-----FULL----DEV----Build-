@@ -24,6 +24,26 @@
             {% if m.flagged %}<span class="status-pill status-pending">flagged</span>{% endif %}
           </div>
           <div class="message-bubble">{{ m.content }}</div>
+          {% if m.tool_calls and m.tool_calls.kind == "proposed_action" %}
+            <div class="card card-compact">
+              <div class="badge badge-muted">{{ m.tool_calls.action_type }}</div>
+              <p class="muted">{{ m.tool_calls.status|capitalize }}</p>
+              {% if m.tool_calls.status == "pending" %}
+                <div class="action-row">
+                  <form method="post" action="/creator/bot/actions/{{ m.id }}/confirm">
+                    {% include "_partials/csrf.html" %}
+                    <button class="btn btn-primary" type="submit">Confirm</button>
+                  </form>
+                  <form method="post" action="/creator/bot/actions/{{ m.id }}/cancel">
+                    {% include "_partials/csrf.html" %}
+                    <button class="btn btn-secondary" type="submit">Cancel</button>
+                  </form>
+                </div>
+              {% elif m.tool_calls.result and m.tool_calls.result.record_id %}
+                <p class="muted">Saved record: {{ m.tool_calls.result.record_id }}</p>
+              {% endif %}
+            </div>
+          {% endif %}
         </li>
         {% endif %}
       {% endfor %}
