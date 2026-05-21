@@ -1,6 +1,9 @@
 {% extends "base.html" %}
 
 {% block title %}babyg chat - babyg{% endblock %}
+{% block head_extra %}
+  <script src="/static/js/bot.js" defer></script>
+{% endblock %}
 
 {% block content %}
 <section class="bot-chat">
@@ -25,11 +28,22 @@
           </div>
           <div class="message-bubble">{{ m.content }}</div>
           {% if m.tool_calls and m.tool_calls.kind == "proposed_action" %}
-            <div class="card card-compact">
-              <div class="badge badge-muted">{{ m.tool_calls.action_type }}</div>
-              <p class="muted">{{ m.tool_calls.status|capitalize }}</p>
+            <div class="bot-action-card bot-action-{{ m.tool_calls.status }}">
+              <div class="bot-action-head">
+                <span class="badge badge-muted">{{ m.tool_calls.action_type|replace("_", " ") }}</span>
+                <span class="status-pill status-{{ m.tool_calls.status }}">{{ m.tool_calls.status|capitalize }}</span>
+              </div>
+              <p class="bot-action-copy">
+                {% if m.tool_calls.status == "pending" %}
+                  Review this local babyg action. Nothing runs until you confirm.
+                {% elif m.tool_calls.status == "confirmed" %}
+                  Confirmed and saved inside babyg.
+                {% else %}
+                  Cancelled. Nothing was saved.
+                {% endif %}
+              </p>
               {% if m.tool_calls.status == "pending" %}
-                <div class="action-row">
+                <div class="bot-action-buttons">
                   <form method="post" action="/creator/bot/actions/{{ m.id }}/confirm">
                     {% include "_partials/csrf.html" %}
                     <button class="btn btn-primary" type="submit">Confirm</button>
@@ -40,7 +54,7 @@
                   </form>
                 </div>
               {% elif m.tool_calls.result and m.tool_calls.result.record_id %}
-                <p class="muted">Saved record: {{ m.tool_calls.result.record_id }}</p>
+                <p class="bot-action-record">Saved record: {{ m.tool_calls.result.record_id }}</p>
               {% endif %}
             </div>
           {% endif %}
@@ -49,19 +63,38 @@
       {% endfor %}
     {% else %}
       <li class="bot-empty">
+        <div class="brand-mark brand-mark-icon" aria-hidden="true">
+          <span class="brand-mark-text">g</span><span class="brand-orbit"></span><span class="brand-star"></span>
+        </div>
         <h2>babyg is ready.</h2>
-        <p>Try: "Draft three captions from this Hot Drop in my voice."</p>
+        <p>Start with a creator task. babyg can draft, organize, and prep the next move.</p>
+        <div class="bot-empty-prompts" aria-label="Suggested prompts">
+          <span>Draft captions from a Hot Drop</span>
+          <span>Plan my week</span>
+          <span>Review a brand offer</span>
+          <span>Add a local reminder</span>
+        </div>
       </li>
     {% endif %}
+    <li class="bot-message bot-message-assistant bot-typing" id="bot-typing" hidden>
+      <div class="bot-message-label">babyg</div>
+      <div class="message-bubble bot-typing-bubble" aria-live="polite">
+        <span>babyg is thinking</span>
+        <span class="typing-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+      </div>
+    </li>
   </ol>
 
-  <form class="bot-composer" method="post" action="/creator/bot">
+  <form class="bot-composer" method="post" action="/creator/bot" data-bot-composer>
     {% include "_partials/csrf.html" %}
     <label class="sr-only" for="bot-message">Message babyg</label>
     <textarea id="bot-message" name="message" rows="3" maxlength="4000"
               placeholder="Ask babyg for a caption, plan, reply draft, or next move..."
               required></textarea>
-    <button class="btn btn-primary" type="submit">Send</button>
+    <div class="bot-composer-foot">
+      <span class="bot-composer-hint">AI drafts. You decide.</span>
+      <button class="btn btn-primary" type="submit" data-bot-submit>Send</button>
+    </div>
   </form>
 </section>
 {% endblock %}

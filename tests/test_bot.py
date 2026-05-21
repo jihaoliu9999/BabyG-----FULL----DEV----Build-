@@ -56,6 +56,7 @@ def test_bot_page_renders_history(monkeypatch, client: TestClient) -> None:
 
     assert response.status_code == 200
     assert "What are we making happen?" in response.text
+    assert '/static/js/bot.js' in response.text
     assert "Need a caption" in response.text
     assert "Drafting it." in response.text
 
@@ -92,6 +93,7 @@ def test_bot_page_renders_pending_action_controls(monkeypatch, client: TestClien
     response = client.get("/creator/bot")
 
     assert response.status_code == 200
+    assert "bot-action-card bot-action-pending" in response.text
     assert f"/creator/bot/actions/{message_id}/confirm" in response.text
     assert f"/creator/bot/actions/{message_id}/cancel" in response.text
 
@@ -120,6 +122,104 @@ def test_bot_post_persists_turn_and_redirects(monkeypatch, client: TestClient) -
     assert response.status_code == 303
     assert response.headers["location"] == "/creator/bot"
     assert calls == [{"user_id": "creator-1", "content": "Draft a caption"}]
+
+
+def test_bot_confirm_and_cancel_routes_redirect(monkeypatch, client: TestClient) -> None:
+    message_id = str(uuid4())
+    _signed_in(client, role="creator", user_id="creator-1")
+    calls: list[dict[str, str]] = []
+
+    def _confirm(*, user_id: str, message_id: str):
+        calls.append({"action": "confirm", "user_id": user_id, "message_id": message_id})
+        return bot_service.BotActionResult(message="confirmed", found=True)
+
+    def _cancel(*, user_id: str, message_id: str):
+        calls.append({"action": "cancel", "user_id": user_id, "message_id": message_id})
+        return bot_service.BotActionResult(message="cancelled", found=True)
+
+    monkeypatch.setattr(creator_routes.bot, "confirm_action", _confirm)
+    monkeypatch.setattr(creator_routes.bot, "cancel_action", _cancel)
+
+    confirm_response = client.post(
+        f"/creator/bot/actions/{message_id}/confirm",
+        follow_redirects=False,
+    )
+    cancel_response = client.post(
+        f"/creator/bot/actions/{message_id}/cancel",
+        follow_redirects=False,
+    )
+
+    assert confirm_response.status_code == 303
+    assert cancel_response.status_code == 303
+    assert confirm_response.headers["location"] == "/creator/bot"
+    assert cancel_response.headers["location"] == "/creator/bot"
+    assert calls == [
+        {"action": "confirm", "user_id": "creator-1", "message_id": message_id},
+        {"action": "cancel", "user_id": "creator-1", "message_id": message_id},
+    ]
+
+
+def test_normal_bot_turn_persists_user_and_assistant_messages(monkeypatch) -> None:
+    created: list[dict] = []
+
+    monkeypatch.setattr(
+        bot_service,
+        "create_message",
+        lambda **kwargs: created.append(kwargs) or "msg-1",
+    )
+    monkeypatch.setattr(bot_service, "build_context", lambda uid: {})
+    monkeypatch.setattr(
+        bot_service,
+        "list_messages",
+        lambda uid, limit=20: [{"role": "user", "content": "What should I post today?"}],
+    )
+    monkeypatch.setattr(
+        bot_service.anthropic_client,
+        "complete_chat",
+        lambda **kwargs: bot_service.anthropic_client.ClaudeResponse(
+            text="Post a quick Miami reset reel."
+        ),
+    )
+
+    result = bot_service.handle_creator_message(
+        user_id="creator-1",
+        content="What should I post today?",
+    )
+
+    assert result.response == "Post a quick Miami reset reel."
+    assert [m["role"] for m in created] == ["user", "assistant"]
+    assert created[0]["content"] == "What should I post today?"
+    assert created[1]["content"] == "Post a quick Miami reset reel."
+
+
+def test_missing_anthropic_key_returns_graceful_fallback(monkeypatch) -> None:
+    created: list[dict] = []
+
+    monkeypatch.setattr(
+        bot_service,
+        "create_message",
+        lambda **kwargs: created.append(kwargs) or "msg-1",
+    )
+    monkeypatch.setattr(bot_service, "build_context", lambda uid: {})
+    monkeypatch.setattr(
+        bot_service,
+        "list_messages",
+        lambda uid, limit=20: [{"role": "user", "content": "What should I post today?"}],
+    )
+
+    def _missing_key(**kwargs):
+        raise bot_service.anthropic_client.ClaudeNotConfiguredError("missing")
+
+    monkeypatch.setattr(bot_service.anthropic_client, "complete_chat", _missing_key)
+
+    result = bot_service.handle_creator_message(
+        user_id="creator-1",
+        content="What should I post today?",
+    )
+
+    assert "Claude is not configured yet" in result.response
+    assert created[-1]["role"] == "assistant"
+    assert created[-1]["content"] == result.response
 
 
 def test_proposed_action_does_not_write_immediately(monkeypatch) -> None:
