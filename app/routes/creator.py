@@ -163,6 +163,41 @@ async def submit_feedback(
 
 
 # -----------------------------------------------------------------------------
+# Profile / settings
+# -----------------------------------------------------------------------------
+
+
+@router.get("/creator/profile", response_class=HTMLResponse)
+async def profile_page(
+    request: Request,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    profile = profiles.get_creator_profile(session["user_id"]) or {}
+    if not profile.get("onboarding_completed_at"):
+        return RedirectResponse("/onboarding/creator", status_code=302)
+    return templates.TemplateResponse(
+        request,
+        "creator/profile.html",
+        {"profile": profile},
+    )
+
+
+@router.get("/creator/profile/settings", response_class=HTMLResponse)
+async def profile_settings_page(
+    request: Request,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    profile = profiles.get_creator_profile(session["user_id"]) or {}
+    if not profile.get("onboarding_completed_at"):
+        return RedirectResponse("/onboarding/creator", status_code=302)
+    return templates.TemplateResponse(
+        request,
+        "creator/profile_settings.html",
+        {"profile": profile},
+    )
+
+
+# -----------------------------------------------------------------------------
 # Notifications
 # -----------------------------------------------------------------------------
 

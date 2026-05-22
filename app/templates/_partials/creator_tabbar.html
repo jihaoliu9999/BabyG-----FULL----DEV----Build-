@@ -1,10 +1,9 @@
 {% set path = request.url.path %}
 <nav class="mobile-tabbar creator-tabbar" aria-label="Creator app navigation">
-  <a href="/creator" {% if path == "/creator" %}aria-current="page"{% endif %}>Feed</a>
+  <a href="/creator" {% if path == "/creator" %}aria-current="page"{% endif %}>feed</a>
   <a href="/creator/bot" {% if path.startswith("/creator/bot") %}aria-current="page"{% endif %}>babyg</a>
-  <a href="/creator/network" {% if path.startswith("/creator/network") or path.startswith("/creator/connections") %}aria-current="page"{% endif %}>Network</a>
-  <a href="/creator/jobs" {% if path.startswith("/creator/jobs") %}aria-current="page"{% endif %}>Listings</a>
-  <a href="/creator/calendar" {% if path.startswith("/creator/calendar") %}aria-current="page"{% endif %}>Calendar</a>
-  <a href="/creator/performance" {% if path.startswith("/creator/performance") or path.startswith("/creator/receipts") or path.startswith("/creator/views") %}aria-current="page"{% endif %}>Stats</a>
-  <a href="/creator/dm" {% if path.startswith("/creator/dm") %}aria-current="page"{% endif %}>Inbox</a>
+  <a href="/creator/calendar" {% if path.startswith("/creator/calendar") %}aria-current="page"{% endif %}>calendar</a>
+  <a href="/creator/network" {% if path.startswith("/creator/network") or path.startswith("/creator/connections") or path.startswith("/creator/jobs") or path.startswith("/creator/dm") %}aria-current="page"{% endif %}>network</a>
+  <a href="/creator/performance" {% if path.startswith("/creator/performance") or path.startswith("/creator/receipts") or path.startswith("/creator/views") %}aria-current="page"{% endif %}>stats</a>
+  <a href="/creator/profile" {% if path.startswith("/creator/profile") %}aria-current="page"{% endif %}>profile</a>
 </nav>

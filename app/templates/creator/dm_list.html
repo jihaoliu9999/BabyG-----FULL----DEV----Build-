@@ -1,15 +1,14 @@
 {% extends "base.html" %}
 
-{% block title %}Messages - babyg{% endblock %}
+{% block title %}messages - babyg{% endblock %}
 
 {% block content %}
 <section class="feed creator-surface">
   <header class="feed-header surface-header">
-    <div class="feed-eyebrow">Direct messages</div>
-    <h1 class="feed-title">Conversations</h1>
+    <div class="feed-eyebrow">messages</div>
+    <h1 class="feed-title">inbox</h1>
     <p class="feed-sub">
-      Message connected creators only. Draft with babyg later, but every send
-      stays yours.
+      connected creators only.
     </p>
   </header>
 
@@ -40,7 +39,7 @@
               {% if t.last_message_at %}
                 Last message {{ t.last_message_at|short_date }}
               {% else %}
-                No messages yet
+                no messages yet
               {% endif %}
             </div>
           </div>
@@ -50,8 +49,8 @@
   </ul>
   {% else %}
   <div class="feed-empty">
-    <h2>No conversations yet.</h2>
-    <p>Connect with another creator from the network to start a thread.</p>
+    <h2>no conversations.</h2>
+    <p>connect first.</p>
   </div>
   {% endif %}
 </section>

@@ -1,16 +1,15 @@
 {% extends "base.html" %}
 
-{% block title %}Profile views - babyg{% endblock %}
+{% block title %}profile views - babyg{% endblock %}
 
 {% block content %}
 <section class="feed creator-surface">
   <header class="feed-header surface-header">
-    <div class="feed-eyebrow">Profile views</div>
-    <h1 class="feed-title">Who is checking you out</h1>
+    <div class="feed-eyebrow">profile views</div>
+    <h1 class="feed-title">who looked</h1>
     {% if tier == "basic" %}
     <p class="feed-sub">
-      Profile-view insights are available on Pro and VIP. Upgrade in your
-      profile settings to see your numbers.
+      profile views live in higher tiers.
     </p>
     {% elif tier == "pro" %}
     <div class="views-count-card">
@@ -19,7 +18,7 @@
     </div>
     <p class="feed-sub">
       <strong>{{ count }}</strong> distinct creator{{ "s" if count != 1 else "" }}
-      viewed your profile in the last 30 days. Upgrade to VIP to see who.
+      viewed your profile in the last 30 days.
     </p>
     {% else %}
     <div class="views-count-card">
@@ -57,8 +56,8 @@
   </ul>
   {% elif tier == "vip" %}
   <div class="feed-empty">
-    <h2>No views yet.</h2>
-    <p>You will see who viewed your profile here.</p>
+    <h2>no views yet.</h2>
+    <p>quiet for now.</p>
   </div>
   {% endif %}
 </section>

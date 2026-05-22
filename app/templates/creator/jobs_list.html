@@ -1,19 +1,18 @@
 {% extends "base.html" %}
 
-{% block title %}Listings - babyg{% endblock %}
+{% block title %}listings - babyg{% endblock %}
 
 {% block content %}
 <section class="feed creator-surface">
   <header class="feed-header surface-header">
-    <div class="feed-eyebrow">Creator listings</div>
-    <h1 class="feed-title">Collabs and gigs</h1>
+    <div class="feed-eyebrow">creator listings</div>
+    <h1 class="feed-title">work worth sharing</h1>
     <p class="feed-sub">
-      Creator-posted collabs, UGC swaps, content days, hiring help, and
-      general opportunities. Connect first, then message.
+      collabs, swaps, content days, hiring help.
     </p>
     <div class="action-row action-row-inline">
-      <a class="btn btn-secondary" href="/creator/jobs/mine">My listings</a>
-      <a class="btn btn-primary" href="/creator/jobs/new">New listing</a>
+      <a class="btn btn-secondary" href="/creator/jobs/mine">mine</a>
+      <a class="btn btn-primary" href="/creator/jobs/new">new listing</a>
     </div>
   </header>
 
@@ -27,8 +26,8 @@
   </div>
   {% else %}
   <div class="feed-empty">
-    <h2>No active listings.</h2>
-    <p>Post the first one: collabs, UGC asks, content days, or hiring help.</p>
+    <h2>no active listings.</h2>
+    <p>post the first ask.</p>
   </div>
   {% endif %}
 </section>

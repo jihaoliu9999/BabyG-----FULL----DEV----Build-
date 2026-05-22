@@ -1,20 +1,22 @@
 {% import "_partials/brand_mark.html" as brand %}
 {% set path = request.url.path %}
-{% set title = "Feed" %}
+{% set title = "feed" %}
 {% if path.startswith("/creator/bot") %}
   {% set title = "babyg" %}
 {% elif path.startswith("/creator/network") or path.startswith("/creator/connections") %}
-  {% set title = "Network" %}
+  {% set title = "network" %}
 {% elif path.startswith("/creator/jobs") %}
-  {% set title = "Listings" %}
+  {% set title = "listings" %}
 {% elif path.startswith("/creator/calendar") %}
-  {% set title = "Calendar" %}
+  {% set title = "calendar" %}
 {% elif path.startswith("/creator/performance") or path.startswith("/creator/receipts") or path.startswith("/creator/views") %}
-  {% set title = "Stats" %}
+  {% set title = "stats" %}
 {% elif path.startswith("/creator/dm") %}
-  {% set title = "Messages" %}
+  {% set title = "messages" %}
 {% elif path.startswith("/creator/notifications") %}
-  {% set title = "Notifications" %}
+  {% set title = "alerts" %}
+{% elif path.startswith("/creator/profile") %}
+  {% set title = "profile" %}
 {% endif %}
 
 <header class="mobile-header creator-mobile-header" aria-label="Creator app header">
@@ -22,5 +24,5 @@
     {{ brand.icon("brand-lockup-small") }}
   </a>
   <div class="mobile-header-title">{{ title }}</div>
-  <a class="mobile-header-action" href="/creator/notifications" aria-label="Notifications">Alerts</a>
+  <a class="mobile-header-action" href="/creator/notifications" aria-label="alerts">alerts</a>
 </header>

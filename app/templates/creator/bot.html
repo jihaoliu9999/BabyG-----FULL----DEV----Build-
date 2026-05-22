@@ -9,9 +9,9 @@
 <section class="bot-chat">
   <header class="bot-chat-header">
     <div class="feed-eyebrow">babyg</div>
-    <h1 class="bot-chat-title">What are we making happen?</h1>
+    <h1 class="bot-chat-title">what needs handling?</h1>
     <p class="bot-chat-sub">
-      Ask for captions, content plans, Hot Drop ideas, offer review, or creator ops help.
+      captions, replies, plans, decisions.
     </p>
   </header>
 
@@ -35,22 +35,22 @@
               </div>
               <p class="bot-action-copy">
                 {% if m.tool_calls.status == "pending" %}
-                  Review this local babyg action. Nothing runs until you confirm.
+                  review this. nothing runs until you confirm.
                 {% elif m.tool_calls.status == "confirmed" %}
-                  Confirmed and saved inside babyg.
+                  saved inside babyg.
                 {% else %}
-                  Cancelled. Nothing was saved.
+                  cancelled. nothing was saved.
                 {% endif %}
               </p>
               {% if m.tool_calls.status == "pending" %}
                 <div class="bot-action-buttons">
                   <form method="post" action="/creator/bot/actions/{{ m.id }}/confirm">
                     {% include "_partials/csrf.html" %}
-                    <button class="btn btn-primary" type="submit">Confirm</button>
+                    <button class="btn btn-primary" type="submit">confirm</button>
                   </form>
                   <form method="post" action="/creator/bot/actions/{{ m.id }}/cancel">
                     {% include "_partials/csrf.html" %}
-                    <button class="btn btn-secondary" type="submit">Cancel</button>
+                    <button class="btn btn-secondary" type="submit">cancel</button>
                   </form>
                 </div>
               {% elif m.tool_calls.result and m.tool_calls.result.record_id %}
@@ -67,12 +67,12 @@
           <span class="brand-mark-text">g</span><span class="brand-orbit"></span><span class="brand-star"></span>
         </div>
         <h2>babyg is ready.</h2>
-        <p>Start with a creator task. babyg can draft, organize, and prep the next move.</p>
+        <p>say what needs handling.</p>
         <div class="bot-empty-prompts" aria-label="Suggested prompts">
-          <span>Draft captions from a Hot Drop</span>
-          <span>Plan my week</span>
-          <span>Review a brand offer</span>
-          <span>Add a local reminder</span>
+          <span>draft captions</span>
+          <span>plan the week</span>
+          <span>review an offer</span>
+          <span>add a reminder</span>
         </div>
       </li>
     {% endif %}
@@ -89,11 +89,11 @@
     {% include "_partials/csrf.html" %}
     <label class="sr-only" for="bot-message">Message babyg</label>
     <textarea id="bot-message" name="message" rows="3" maxlength="4000"
-              placeholder="Ask babyg for a caption, plan, reply draft, or next move..."
+              placeholder="ask babyg..."
               required></textarea>
     <div class="bot-composer-foot">
-      <span class="bot-composer-hint">AI drafts. You decide.</span>
-      <button class="btn btn-primary" type="submit" data-bot-submit>Send</button>
+      <span class="bot-composer-hint">ai drafts. you decide.</span>
+      <button class="btn btn-primary" type="submit" data-bot-submit>send</button>
     </div>
   </form>
 </section>

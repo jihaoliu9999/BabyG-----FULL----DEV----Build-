@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% import "_partials/brand_mark.html" as brand %}
 
-{% block title %}Sign in - babyg{% endblock %}
+{% block title %}sign in - babyg{% endblock %}
 
 {% block content %}
 <section class="auth-pane">
@@ -10,12 +10,12 @@
     {{ brand.icon() }}
   </div>
   <a class="back-link" href="/get-started">&larr; back</a>
-  <div class="auth-tag">{{ role|capitalize }} sign-in</div>
-  <h1 class="auth-title">Enter your email.</h1>
+  <div class="auth-tag">{{ role }} sign-in</div>
+  <h1 class="auth-title">enter your email.</h1>
   <p class="auth-sub">
-    We'll send you a one-time link. No passwords, ever.
+    we send one private link. no password.
     {% if role == "operator" %}
-    <br/><span class="auth-warn">Operator access is invite-only.</span>
+    <br/><span class="auth-warn">operator access is controlled.</span>
     {% endif %}
   </p>
 
@@ -37,7 +37,7 @@
       autofocus
       value="{{ email or '' }}"
     />
-    <button type="submit" class="btn btn-primary btn-wide">Send my link</button>
+    <button type="submit" class="btn btn-primary btn-wide">send link</button>
   </form>
 </section>
 {% endblock %}

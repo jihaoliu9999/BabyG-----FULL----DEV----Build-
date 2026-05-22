@@ -259,7 +259,7 @@ def test_feed_empty_state_renders(client, store, fake_creator):
     _signed_in(client, role="creator")
     r = client.get("/creator")
     assert r.status_code == 200
-    assert "No drops yet today" in r.text
+    assert "nothing today" in r.text
 
 
 def test_feed_redirects_to_onboarding_when_creator_not_onboarded(
@@ -327,7 +327,7 @@ def test_console_renders_with_status_counts(client, store):
     store.add_post(status="draft")
     r = client.get("/operator")
     assert r.status_code == 200
-    assert "Console" in r.text
+    assert "console" in r.text
     # The numbers are rendered around <strong> tags; just check both appear.
     assert ">2</strong> active" in r.text
     assert ">1</strong> draft" in r.text

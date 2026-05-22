@@ -197,7 +197,7 @@ def client() -> TestClient:
 def test_landing_renders(client: TestClient) -> None:
     r = client.get("/")
     assert r.status_code == 200
-    assert "Get started" in r.text
+    assert "get started" in r.text
 
 
 def test_get_started_renders_role_cards(client: TestClient) -> None:
@@ -235,13 +235,13 @@ def test_landing_redirects_signed_in_users(client: TestClient) -> None:
 def test_login_form_renders(client: TestClient) -> None:
     r = client.get("/auth/login?role=creator")
     assert r.status_code == 200
-    assert "Creator sign-in" in r.text
+    assert "creator sign-in" in r.text
 
 
 def test_login_form_falls_back_to_creator_for_unknown_role(client: TestClient) -> None:
     r = client.get("/auth/login?role=ufo")
     assert r.status_code == 200
-    assert "Creator sign-in" in r.text
+    assert "creator sign-in" in r.text
 
 
 # -----------------------------------------------------------------------------
@@ -257,7 +257,7 @@ def test_magic_link_sends_otp_and_sets_pending_role(
         data={"email": "Anna@Example.com", "role": "creator"},
     )
     assert r.status_code == 200
-    assert "Check your email" in r.text
+    assert "check your email" in r.text
     assert "anna@example.com" in r.text  # email is lowercased
 
     assert fake_auth.last_otp_args is not None
@@ -290,7 +290,7 @@ def test_magic_link_operator_silently_skips_send_for_unknown_email(
         "/auth/magic-link", data={"email": "ghost@example.com", "role": "operator"}
     )
     assert r.status_code == 200
-    assert "Check your email" in r.text  # same UX as success — no enumeration
+    assert "check your email" in r.text  # same UX as success — no enumeration
     assert fake_auth.last_otp_args is None
 
 

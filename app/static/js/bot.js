@@ -24,8 +24,18 @@
     }
     typing.hidden = false;
     submit.setAttribute("disabled", "disabled");
-    submit.textContent = "Sending";
+    submit.textContent = "sending";
     textarea.setAttribute("readonly", "readonly");
     scrollToLatest();
+  });
+
+  textarea.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" || event.shiftKey) {
+      return;
+    }
+    event.preventDefault();
+    if (textarea.value.trim()) {
+      composer.requestSubmit();
+    }
   });
 })();
