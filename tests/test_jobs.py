@@ -263,7 +263,7 @@ def test_creator_jobs_detail_dm_gate_when_unconnected(client, world):
     listing = world.add_listing(poster="c-2", title="Open")
     r = client.get(f"/creator/jobs/{listing['id']}")
     assert r.status_code == 200
-    assert "Connect first" in r.text
+    assert "connect first" in r.text
 
 
 def test_creator_jobs_detail_dm_unlocks_when_connected(client, world):
@@ -274,7 +274,7 @@ def test_creator_jobs_detail_dm_unlocks_when_connected(client, world):
     world.connections[("c-1", "c-2")] = {"status": "accepted"}
     r = client.get(f"/creator/jobs/{listing['id']}")
     assert r.status_code == 200
-    assert "Open DM" in r.text
+    assert "open message" in r.text
 
 
 def test_creator_jobs_close(client, world):

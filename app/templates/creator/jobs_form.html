@@ -1,19 +1,19 @@
 {% extends "base.html" %}
 {% import "onboarding/_macros.html" as f %}
 
-{% block title %}{{ "New" if is_new else "Edit" }} listing - babyg{% endblock %}
+{% block title %}{{ "new" if is_new else "edit" }} opportunity - babyg{% endblock %}
 
 {% block content %}
 <section class="onb">
-  <a class="back-link" href="/creator/jobs/mine">&larr; my listings</a>
+  <a class="back-link" href="/creator/jobs/mine">my opportunities</a>
 
   <header class="onb-header">
-    <div class="auth-tag">{% if is_new %}New listing{% else %}Edit listing{% endif %}</div>
+    <div class="auth-tag">{% if is_new %}new opportunity{% else %}edit opportunity{% endif %}</div>
     <h1 class="onb-title">
-      {% if is_new %}Post a listing{% else %}{{ listing.title }}{% endif %}
+      {% if is_new %}save an opportunity{% else %}{{ listing.title }}{% endif %}
     </h1>
     <p class="onb-sub">
-      Share collabs, UGC swaps, content days, hiring help, or creator opportunities.
+      deals, partnerships, content days, production help, and real asks.
     </p>
   </header>
 
@@ -24,49 +24,49 @@
     {% include "_partials/csrf.html" %}
 
     <section class="onb-section">
-      <h2 class="onb-section-title">Basics</h2>
-      {{ f.field("Title", "title", listing.get("title", ""), required=True) }}
+      <h2 class="onb-section-title">basics</h2>
+      {{ f.field("title", "title", listing.get("title", ""), required=True) }}
 
       <div class="field">
-        <label for="f-description" class="field-label">Description <span class="req">*</span></label>
+        <label for="f-description" class="field-label">description <span class="req">*</span></label>
         <textarea id="f-description" name="description" rows="6"
-                  placeholder="What's the ask, format, timeline, comp.">{{ listing.get("description", "") }}</textarea>
+                  placeholder="what is the ask, format, timeline, and money?">{{ listing.get("description", "") }}</textarea>
       </div>
 
       <div class="field">
-        <label class="field-label">Listing type <span class="req">*</span></label>
+        <label class="field-label">opportunity type <span class="req">*</span></label>
         {{ f.radio_group("listing_type", vocab.listing_types, listing.get("listing_type")) }}
       </div>
 
-      {{ f.field("Compensation", "compensation_text",
+      {{ f.field("compensation", "compensation_text",
                   listing.get("compensation_text", ""),
-                  placeholder="$X / Y product / TFP / negotiable") }}
+                  placeholder="$x / product / trade / negotiable") }}
 
-      {{ f.field("Deadline (optional)", "deadline",
+      {{ f.field("deadline", "deadline",
                   listing.get("deadline", ""), type="datetime-local") }}
     </section>
 
     <section class="onb-section">
-      <h2 class="onb-section-title">Targeting</h2>
+      <h2 class="onb-section-title">fit</h2>
       <div class="field">
-        <label class="field-label">Niches</label>
-        <div class="field-hint">Pick everything that applies.</div>
+        <label class="field-label">niches</label>
+        <div class="field-hint">pick everything that applies.</div>
         {{ f.chip_group("target_niches", vocab.niches, listing.get("target_niches", [])) }}
       </div>
     </section>
 
     <section class="onb-section">
-      <h2 class="onb-section-title">Visibility</h2>
+      <h2 class="onb-section-title">visibility</h2>
       <label class="toggle-row">
         <input type="checkbox" name="is_active" value="on"
                {% if listing.get("is_active", True) %}checked{% endif %} />
-        <span>Active - show on the listings board</span>
+        <span>active - show on opportunities</span>
       </label>
     </section>
 
     <div class="onb-actions">
       <button type="submit" class="btn btn-primary btn-wide">
-        {% if is_new %}Post listing{% else %}Save changes{% endif %}
+        {% if is_new %}save opportunity{% else %}save changes{% endif %}
       </button>
     </div>
   </form>

@@ -13,7 +13,7 @@
     </p>
     {% elif tier == "pro" %}
     <div class="views-count-card">
-      <span>Last 30 days</span>
+      <span>last 30 days</span>
       <strong>{{ count }}</strong>
     </div>
     <p class="feed-sub">
@@ -22,7 +22,7 @@
     </p>
     {% else %}
     <div class="views-count-card">
-      <span>Last 30 days</span>
+      <span>last 30 days</span>
       <strong>{{ count }}</strong>
     </div>
     <p class="feed-sub">
@@ -39,15 +39,15 @@
       <li class="dm-thread-row">
         <a class="dm-thread-link" href="/creator/network/{{ v.viewer_id }}">
           <div class="creator-avatar dm-avatar" aria-hidden="true">
-            {{ (p.full_name if p else "C")[:1]|upper }}
+              {{ (p.full_name if p else "c")[:1]|lower }}
           </div>
           <div class="dm-thread-copy">
             <div class="dm-thread-name">
-              {{ p.full_name if p else "Creator" }}
+              {{ p.full_name if p and p.full_name else "creator" }}
               {% if p and p.instagram_handle %}<span class="dm-thread-handle">@{{ p.instagram_handle }}</span>{% endif %}
             </div>
             <div class="dm-thread-meta">
-              Viewed {{ v.viewed_at|short_date or "" }}
+              viewed {{ v.viewed_at|short_date or "" }}
             </div>
           </div>
         </a>

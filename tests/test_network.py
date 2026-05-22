@@ -268,7 +268,7 @@ def test_profile_view_renders_with_connect_cta_when_no_connection(client, world)
     world.add_creator(user_id="c-2", full_name="Anna Reyes")
     r = client.get("/creator/network/c-2")
     assert r.status_code == 200
-    assert "Send connect request" in r.text
+    assert "send connect request" in r.text
 
 
 def test_profile_view_shows_pending_when_outgoing(client, world):
@@ -277,7 +277,7 @@ def test_profile_view_shows_pending_when_outgoing(client, world):
     world.add_creator(user_id="c-2")
     world.add_connection(requester="c-1", addressee="c-2", status="pending")
     r = client.get("/creator/network/c-2")
-    assert "Request sent" in r.text
+    assert "request sent" in r.text
 
 
 def test_profile_view_shows_accept_when_incoming(client, world):
@@ -286,8 +286,8 @@ def test_profile_view_shows_accept_when_incoming(client, world):
     world.add_creator(user_id="c-2")
     world.add_connection(requester="c-2", addressee="c-1", status="pending")
     r = client.get("/creator/network/c-2")
-    assert "Accept" in r.text
-    assert "Decline" in r.text
+    assert "accept" in r.text
+    assert "decline" in r.text
 
 
 def test_profile_view_shows_connected_state(client, world):
@@ -296,7 +296,7 @@ def test_profile_view_shows_connected_state(client, world):
     world.add_creator(user_id="c-2")
     world.add_connection(requester="c-1", addressee="c-2", status="accepted")
     r = client.get("/creator/network/c-2")
-    assert "You're connected" in r.text
+    assert "you are connected" in r.text
 
 
 def test_profile_view_404_for_blocked(client, world):
@@ -441,9 +441,9 @@ def test_connections_page_groups_correctly(client, world):
     assert "Accepted Friend" in text
     assert "Incoming Request" in text
     assert "Outgoing Request" in text
-    # Accept / decline buttons appear in the incoming row
-    assert "Accept" in text
-    assert "Decline" in text
+    # accept / decline buttons appear in the incoming row
+    assert "accept" in text
+    assert "decline" in text
 
 
 def test_respond_accept_only_by_addressee(client, world):

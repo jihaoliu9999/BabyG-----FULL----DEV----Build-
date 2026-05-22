@@ -6,9 +6,9 @@
 <section class="feed creator-surface">
   <header class="feed-header surface-header">
     <div class="feed-eyebrow">performance</div>
-    <h1 class="feed-title">weekly numbers</h1>
+    <h1 class="feed-title">what is working</h1>
     <p class="feed-sub">
-      the record, week by week.
+      content performance, deal momentum, and the signal worth keeping.
     </p>
     <div class="action-row action-row-inline">
       <a class="btn btn-primary" href="/creator/performance/new">log week</a>
@@ -20,24 +20,24 @@
     {% for log in logs %}
     <article class="record-card performance-card">
       <div class="record-card-main">
-        <div class="record-card-kicker">Week of</div>
+        <div class="record-card-kicker">week of</div>
         <h2>{{ log.week_start_date }}</h2>
       </div>
       <div class="mini-stat-grid">
         <div class="mini-stat">
-          <span>Engagement</span>
+          <span>engagement</span>
           <strong>{{ log.engagement_rate if log.engagement_rate is not none else "--" }}{% if log.engagement_rate is not none %}%{% endif %}</strong>
         </div>
         <div class="mini-stat">
-          <span>Followers</span>
+          <span>followers</span>
           <strong>{{ log.follower_delta if log.follower_delta is not none else "--" }}</strong>
         </div>
         <div class="mini-stat">
-          <span>Deals</span>
+          <span>deals</span>
           <strong>{{ log.active_brand_deals_count or 0 }}</strong>
         </div>
         <div class="mini-stat">
-          <span>Value</span>
+          <span>value</span>
           <strong>${{ log.active_brand_deals_value or 0 }}</strong>
         </div>
       </div>

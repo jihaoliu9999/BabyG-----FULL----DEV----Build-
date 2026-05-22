@@ -4,35 +4,35 @@
 
 {% block content %}
 <section class="profile-page profile-settings-page">
-  <a class="back-link" href="/creator/profile">&larr; profile</a>
+  <a class="back-link" href="/creator/profile">profile</a>
 
   <header class="profile-settings-header">
     <p class="quiet-label">settings</p>
     <h1>account</h1>
-    <p>keep the basics clean.</p>
+    <p>profile, connected accounts, and session.</p>
   </header>
 
   <section class="settings-group">
-    <h2>identity</h2>
+    <h2>profile</h2>
     <div class="settings-row">
-      <span>name</span>
+      <span>creator name</span>
       <strong>{{ profile.full_name or "not set" }}</strong>
     </div>
     <div class="settings-row">
-      <span>instagram</span>
-      <strong>{% if profile.instagram_handle %}@{{ profile.instagram_handle }}{% else %}not set{% endif %}</strong>
+      <span>handle</span>
+      <strong>{% if profile.instagram_handle %}@{{ profile.instagram_handle|lower }}{% else %}not set{% endif %}</strong>
     </div>
     <div class="settings-row">
       <span>city</span>
-      <strong>{{ profile.neighborhood or "miami" }}</strong>
+      <strong>{{ (profile.neighborhood or "miami")|lower }}</strong>
     </div>
   </section>
 
   <section class="settings-group">
-    <h2>creator signal</h2>
+    <h2>basic info</h2>
     <div class="settings-row">
       <span>tier</span>
-      <strong>{{ profile.tier or "basic" }}</strong>
+      <strong>{{ (profile.tier or "basic")|lower }}</strong>
     </div>
     <div class="settings-row">
       <span>followers</span>
@@ -45,7 +45,7 @@
   </section>
 
   <section class="settings-group">
-    <h2>accounts</h2>
+    <h2>connected accounts</h2>
     <div class="settings-row">
       <span>instagram</span>
       <strong>not connected</strong>
@@ -55,7 +55,7 @@
       <strong>not connected</strong>
     </div>
     <div class="settings-row">
-      <span>calendar</span>
+      <span>google calendar</span>
       <strong>not connected</strong>
     </div>
   </section>
@@ -63,8 +63,8 @@
   <section class="settings-group">
     <h2>babyg</h2>
     <div class="settings-row">
-      <span>assistant name</span>
-      <strong>{{ profile.sub_bot_persona or "babyg" }}</strong>
+      <span>assistant</span>
+      <strong>{{ (profile.sub_bot_persona or "babyg")|lower }}</strong>
     </div>
     <div class="settings-row settings-row-stack">
       <span>voice samples</span>
@@ -74,6 +74,14 @@
         <strong>none saved</strong>
       {% endif %}
     </div>
+  </section>
+
+  <section class="settings-group settings-danger">
+    <h2>session</h2>
+    <form method="post" action="/auth/logout">
+      {% include "_partials/csrf.html" %}
+      <button type="submit" class="btn btn-secondary">sign out</button>
+    </form>
   </section>
 </section>
 {% endblock %}

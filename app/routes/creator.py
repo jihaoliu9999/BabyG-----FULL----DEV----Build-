@@ -1,5 +1,5 @@
-"""Creator dashboard, intel feedback, notifications, DMs, network,
-calendar, jobs, content receipts, and performance logs.
+"""Creator home, assistant, notifications, DMs, network, schedule,
+opportunities, content receipts, and performance logs.
 
 v1 scope is creator-only. Brand-side read views (the creator's
 read-only brand profile, brand→creator outreach notifications) shipped
@@ -34,18 +34,21 @@ from app.services import (
 
 router = APIRouter(tags=["creator"])
 
-CATEGORY_LABELS = {
-    "venue": "Venue",
-    "trend": "Trend",
-    "brand": "Brand",
-    "collab": "Collab",
-    "alert": "Alert",
-}
+TODAY_TABS = (
+    ("all", "all"),
+    ("needs_attention", "needs attention"),
+    ("messages", "messages"),
+    ("deals", "deals"),
+    ("content", "content"),
+    ("schedule", "schedule"),
+    ("opportunities", "opportunities"),
+)
 
 
 @router.get("/creator", response_class=HTMLResponse)
 async def dashboard(
     request: Request,
+    tab: str | None = Query(None),
     category: str | None = Query(None),
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
@@ -53,16 +56,28 @@ async def dashboard(
     if not profile.get("onboarding_completed_at"):
         return RedirectResponse("/onboarding/creator", status_code=302)
 
+    legacy_category = category if category in intel.CATEGORIES else None
     posts = intel.feed_for_creator(
         niches=profile.get("niches") or [],
         tier=profile.get("tier") or "basic",
-        category=category if category in intel.CATEGORIES else None,
+        category=legacy_category,
     )
     post_ids = [str(p["id"]) for p in posts]
     feedback_map = intel.feedback_for_user(session["user_id"], post_ids)
     unread_notifs = notifications.list_unread(session["user_id"], limit=4)
     unread_total = notifications.unread_count(session["user_id"])
     unread_dms = dms.unread_count_for_user(session["user_id"])
+    try:
+        schedule_items = bookings.list_for_user(
+            session["user_id"], horizon="upcoming", limit=3
+        )
+    except RuntimeError:
+        schedule_items = []
+    try:
+        opportunity_rows = jobs.list_active(limit=3)
+    except RuntimeError:
+        opportunity_rows = []
+    active_tab = tab if tab in dict(TODAY_TABS) else "all"
 
     return templates.TemplateResponse(
         request,
@@ -71,11 +86,13 @@ async def dashboard(
             "profile": profile,
             "posts": posts,
             "feedback_map": feedback_map,
-            "categories": list(CATEGORY_LABELS.items()),
-            "active_category": category if category in intel.CATEGORIES else None,
+            "today_tabs": list(TODAY_TABS),
+            "active_tab": active_tab,
             "unread_notifs": unread_notifs,
             "unread_total": unread_total,
             "unread_dms": unread_dms,
+            "schedule_items": schedule_items,
+            "opportunity_rows": opportunity_rows,
         },
     )
 
@@ -120,7 +137,7 @@ async def bot_send(
             {
                 "profile": profile,
                 "messages": messages,
-                "error": "babyg couldn't answer that turn. Try again.",
+                "error": "babyg is having trouble connecting. try again in a moment.",
             },
             status_code=400,
         )

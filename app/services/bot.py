@@ -107,7 +107,7 @@ def handle_creator_message(*, user_id: str, content: str) -> BotTurnResult:
     """Persist a creator message and return babyg's response."""
     user_content = (content or "").strip()[:MAX_USER_MESSAGE_CHARS]
     if not user_content:
-        return BotTurnResult(response="Send me a creator task and I'll help.")
+        return BotTurnResult(response="send me what needs handling.")
 
     scope_flag = _scope_flag(user_content)
     create_message(
@@ -159,22 +159,16 @@ def handle_creator_message(*, user_id: str, content: str) -> BotTurnResult:
         )
         response_text = (
             claude_response.text
-            or "I drafted a response, but it came back empty. Try me again?"
+            or "babyg is having trouble connecting. try again in a moment."
         )
         input_tokens = claude_response.input_tokens
         output_tokens = claude_response.output_tokens
     except anthropic_client.ClaudeNotConfiguredError:
-        response_text = (
-            "babyg chat is wired up, but Claude is not configured yet. "
-            "Add ANTHROPIC_API_KEY on the server and I can start drafting."
-        )
+        response_text = "babyg is having trouble connecting. try again in a moment."
         input_tokens = 0
         output_tokens = 0
     except anthropic_client.ClaudeCallError:
-        response_text = (
-            "I couldn't reach Claude for that turn. Your message is saved; "
-            "try again in a minute."
-        )
+        response_text = "babyg is having trouble connecting. try again in a moment."
         input_tokens = 0
         output_tokens = 0
 
@@ -225,20 +219,20 @@ def create_message(
 def confirm_action(*, user_id: str, message_id: str) -> BotActionResult:
     row = _get_message_for_user(message_id=message_id, user_id=user_id)
     if row is None:
-        return BotActionResult(message="I couldn't find that action.", found=False)
+        return BotActionResult(message="i could not find that action.", found=False)
     tool_calls = _proposal_from_row(row)
     if tool_calls is None:
-        return BotActionResult(message="That message is not a pending action.")
+        return BotActionResult(message="that message is not a pending action.")
 
     status = tool_calls.get("status")
     action_type = str(tool_calls.get("action_type") or "")
     if status != "pending":
         return BotActionResult(
-            message=f"That action is already {status}.",
+            message=f"that action is already {status}.",
             action_type=action_type or None,
         )
     if action_type not in ALLOWED_ACTION_TYPES:
-        return BotActionResult(message="That action is not allowed.")
+        return BotActionResult(message="that action is not allowed.")
 
     locked = {
         **tool_calls,
@@ -252,7 +246,7 @@ def confirm_action(*, user_id: str, message_id: str) -> BotActionResult:
         expected_status="pending",
     ):
         return BotActionResult(
-            message="That action was already handled.",
+            message="that action was already handled.",
             action_type=action_type,
         )
 
@@ -279,7 +273,7 @@ def confirm_action(*, user_id: str, message_id: str) -> BotActionResult:
     if record_id is not None:
         message = _success_message(action_type, record_id)
     else:
-        message = "I couldn't save that local action. Nothing external happened."
+        message = "i could not save that local action. nothing external happened."
     create_message(user_id=user_id, role="assistant", content=message)
     return BotActionResult(
         message=message,
@@ -292,15 +286,15 @@ def confirm_action(*, user_id: str, message_id: str) -> BotActionResult:
 def cancel_action(*, user_id: str, message_id: str) -> BotActionResult:
     row = _get_message_for_user(message_id=message_id, user_id=user_id)
     if row is None:
-        return BotActionResult(message="I couldn't find that action.", found=False)
+        return BotActionResult(message="i could not find that action.", found=False)
     tool_calls = _proposal_from_row(row)
     if tool_calls is None:
-        return BotActionResult(message="That message is not a pending action.")
+        return BotActionResult(message="that message is not a pending action.")
     status = tool_calls.get("status")
     action_type = str(tool_calls.get("action_type") or "")
     if status != "pending":
         return BotActionResult(
-            message=f"That action is already {status}.",
+            message=f"that action is already {status}.",
             action_type=action_type or None,
         )
     cancelled = {
@@ -314,7 +308,7 @@ def cancel_action(*, user_id: str, message_id: str) -> BotActionResult:
         tool_calls=cancelled,
         expected_status="pending",
     )
-    message = "Cancelled. Nothing was saved."
+    message = "cancelled. nothing was saved."
     create_message(user_id=user_id, role="assistant", content=message)
     return BotActionResult(message=message, action_type=action_type)
 
@@ -399,8 +393,7 @@ def _run_agent_loop(
 
     fallback = anthropic_client.ClaudeResponse(
         text=(
-            "I pulled a few babyg records, but I need a cleaner pass to answer. "
-            "Try narrowing the ask to one creator task."
+            "i pulled a few records, but this needs a cleaner pass. narrow it to one thing you want handled."
         ),
         input_tokens=input_tokens,
         output_tokens=output_tokens,
@@ -456,7 +449,7 @@ def _execute_read_tool(
             return {
                 "kind": "read_tool",
                 "ok": False,
-                "content": f"Unknown read-only tool: {name}",
+                "content": f"unknown read-only tool: {name}",
             }
     except Exception:
         logger.exception("read-only bot tool failed: %s", name)
@@ -471,7 +464,7 @@ def _stage_create_booking_tool(
         return {
             "kind": "write_tool",
             "ok": False,
-            "content": "A local action is already pending for this turn.",
+            "content": "a local action is already pending for this turn.",
         }
     payload = _booking_payload_from_tool(tool_input)
     missing = [field for field in ("title", "starts_at") if not payload.get(field)]
@@ -479,7 +472,7 @@ def _stage_create_booking_tool(
         return {
             "kind": "write_tool",
             "ok": False,
-            "content": f"Missing required booking fields: {', '.join(missing)}.",
+            "content": f"missing required schedule fields: {', '.join(missing)}.",
         }
     proposal = _proposal_for_action(action_type="create_booking", payload=payload)
     return {
@@ -489,7 +482,7 @@ def _stage_create_booking_tool(
             "status": "pending_confirmation",
             "action_type": "create_booking",
             "preview": proposal["preview"],
-            "message": "No booking was saved. The creator must confirm the action card.",
+            "message": "nothing was saved. the creator must confirm the action card.",
         },
         "pending_action": proposal,
     }
@@ -628,7 +621,7 @@ def _booking_payload(content: str) -> dict[str, Any]:
             btype = candidate
             break
     return {
-        "title": _title_from_content(content, fallback="Creator event"),
+        "title": _title_from_content(content, fallback="creator event"),
         "type": btype,
         "starts_at": _datetime_from_content(content),
         "ends_at": None,
@@ -659,7 +652,7 @@ def _booking_payload_from_tool(tool_input: dict[str, Any]) -> dict[str, Any]:
 
 
 def _reminder_payload(content: str) -> dict[str, Any]:
-    title = _title_from_content(content, fallback="Content reminder")
+    title = _title_from_content(content, fallback="content reminder")
     return {
         "kind": "content_reminder",
         "payload": {"title": title, "source": "babyg"},
@@ -676,7 +669,7 @@ def _listing_payload(content: str) -> dict[str, Any]:
         listing_type = "hiring"
     elif "brand deal" in lowered or "brand opportunity" in lowered:
         listing_type = "brand_deal"
-    title = _title_from_content(content, fallback="Creator opportunity")
+    title = _title_from_content(content, fallback="creator opportunity")
     return {
         "title": title,
         "description": _notes_from_content(content) or content[:4000],
@@ -691,25 +684,25 @@ def _listing_payload(content: str) -> dict[str, Any]:
 def _action_preview(*, action_type: str, payload: dict[str, Any]) -> str:
     if action_type == "create_booking":
         return (
-            "I can create this local calendar item after you confirm:\n\n"
-            f"Title: {payload['title']}\n"
-            f"Type: {payload['type']}\n"
-            f"Starts: {payload['starts_at']}\n\n"
-            "Nothing has been saved yet."
+            "i can add this schedule item after you confirm:\n\n"
+            f"title: {payload['title']}\n"
+            f"type: {payload['type']}\n"
+            f"starts: {payload['starts_at']}\n\n"
+            "nothing has been saved yet."
         )
     if action_type == "create_content_reminder":
         title = (payload.get("payload") or {}).get("title")
         return (
-            "I can create this local content reminder after you confirm:\n\n"
-            f"Reminder: {title}\n"
-            f"Fire at: {payload['fire_at']}\n\n"
-            "Nothing has been saved yet."
+            "i can add this content reminder after you confirm:\n\n"
+            f"reminder: {title}\n"
+            f"time: {payload['fire_at']}\n\n"
+            "nothing has been saved yet."
         )
     return (
-        "I can submit this creator listing after you confirm:\n\n"
-        f"Title: {payload['title']}\n"
-        f"Type: {payload['listing_type']}\n\n"
-        "Nothing has been saved yet."
+        "i can save this opportunity after you confirm:\n\n"
+        f"title: {payload['title']}\n"
+        f"type: {payload['listing_type']}\n\n"
+        "nothing has been saved yet."
     )
 
 
@@ -727,12 +720,12 @@ def _execute_confirmed_action(
 
 def _success_message(action_type: str, record_id: str) -> str:
     if action_type == "create_booking":
-        return f"Done. I created that local calendar item in babyg. Record: {record_id}"
+        return f"saved. the schedule item is in babyg. record: {record_id}"
     if action_type == "create_content_reminder":
-        return f"Done. I created that local content reminder in babyg. Record: {record_id}"
+        return f"saved. the content reminder is in babyg. record: {record_id}"
     if action_type == "submit_creator_listing":
-        return f"Done. I submitted that creator listing in babyg. Record: {record_id}"
-    return f"Done. I saved that local action in babyg. Record: {record_id}"
+        return f"saved. the opportunity is in babyg. record: {record_id}"
+    return f"saved. that action is in babyg. record: {record_id}"
 
 
 def _datetime_from_content(content: str, *, required: bool = True) -> str | None:

@@ -1,28 +1,28 @@
 {% import "_partials/brand_mark.html" as brand %}
 {% set path = request.url.path %}
-{% set title = "feed" %}
+{% set title = "today" %}
 {% if path.startswith("/creator/bot") %}
-  {% set title = "babyg" %}
-{% elif path.startswith("/creator/network") or path.startswith("/creator/connections") %}
-  {% set title = "network" %}
+  {% set title = "ask" %}
+{% elif path.startswith("/creator/connections") or path.startswith("/creator/network") %}
+  {% set title = "connections" %}
 {% elif path.startswith("/creator/jobs") %}
-  {% set title = "listings" %}
+  {% set title = "opportunities" %}
 {% elif path.startswith("/creator/calendar") %}
-  {% set title = "calendar" %}
+  {% set title = "schedule" %}
 {% elif path.startswith("/creator/performance") or path.startswith("/creator/receipts") or path.startswith("/creator/views") %}
-  {% set title = "stats" %}
+  {% set title = "performance" %}
 {% elif path.startswith("/creator/dm") %}
-  {% set title = "messages" %}
+  {% set title = "inbox" %}
 {% elif path.startswith("/creator/notifications") %}
-  {% set title = "alerts" %}
+  {% set title = "attention" %}
 {% elif path.startswith("/creator/profile") %}
-  {% set title = "profile" %}
+  {% set title = "settings" %}
 {% endif %}
 
-<header class="mobile-header creator-mobile-header" aria-label="Creator app header">
-  <a class="mobile-header-brand" href="/creator" aria-label="babyg feed">
-    {{ brand.icon("brand-lockup-small") }}
+<header class="mobile-header creator-mobile-header" aria-label="creator app header">
+  <a class="mobile-header-brand" href="/creator" aria-label="babyg today">
+    {{ brand.wordmark("brand-lockup-small") }}
   </a>
   <div class="mobile-header-title">{{ title }}</div>
-  <a class="mobile-header-action" href="/creator/notifications" aria-label="alerts">alerts</a>
+  <a class="mobile-header-action" href="/creator/profile/settings" aria-label="profile and settings">profile</a>
 </header>

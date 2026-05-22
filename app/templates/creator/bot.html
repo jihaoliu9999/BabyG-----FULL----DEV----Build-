@@ -1,100 +1,105 @@
 {% extends "base.html" %}
 
-{% block title %}babyg chat - babyg{% endblock %}
+{% block title %}ask - babyg{% endblock %}
 {% block head_extra %}
   <script src="/static/js/bot.js" defer></script>
 {% endblock %}
 
 {% block content %}
-<section class="bot-chat">
-  <header class="bot-chat-header">
-    <div class="feed-eyebrow">babyg</div>
-    <h1 class="bot-chat-title">what needs handling?</h1>
-    <p class="bot-chat-sub">
-      captions, replies, plans, decisions.
-    </p>
+<section class="bot-chat ask-page">
+  <header class="creator-page-hero ask-hero">
+    <div class="creator-kicker">ask</div>
+    <h1>what do you need handled?</h1>
+    <p>ask babyg to write replies, review offers, plan content, organize your schedule, or figure out your next move.</p>
   </header>
+
+  <div class="ask-quick-actions" aria-label="quick actions">
+    {% for prompt in [
+      "review this brand offer",
+      "write a reply",
+      "plan my day",
+      "clean up this message",
+      "negotiate this deal",
+      "turn this event into content",
+      "write a caption"
+    ] %}
+      <button type="button" data-bot-prompt="{{ prompt }}">{{ prompt }}</button>
+    {% endfor %}
+  </div>
 
   {% if error %}<div class="auth-error">{{ error }}</div>{% endif %}
 
-  <ol class="bot-messages" aria-label="babyg conversation">
-    {% if messages %}
-      {% for m in messages %}
-        {% if m.role != "system" %}
-        <li class="bot-message bot-message-{{ m.role }}">
-          <div class="bot-message-label">
-            {{ "you" if m.role == "user" else "babyg" }}
-            {% if m.flagged %}<span class="status-pill status-pending">flagged</span>{% endif %}
-          </div>
-          <div class="message-bubble">{{ m.content }}</div>
-          {% if m.tool_calls and m.tool_calls.kind == "proposed_action" %}
-            <div class="bot-action-card bot-action-{{ m.tool_calls.status }}">
-              <div class="bot-action-head">
-                <span class="badge badge-muted">{{ m.tool_calls.action_type|replace("_", " ") }}</span>
-                <span class="status-pill status-{{ m.tool_calls.status }}">{{ m.tool_calls.status|capitalize }}</span>
-              </div>
-              <p class="bot-action-copy">
-                {% if m.tool_calls.status == "pending" %}
-                  review this. nothing runs until you confirm.
-                {% elif m.tool_calls.status == "confirmed" %}
-                  saved inside babyg.
-                {% else %}
-                  cancelled. nothing was saved.
-                {% endif %}
-              </p>
-              {% if m.tool_calls.status == "pending" %}
-                <div class="bot-action-buttons">
-                  <form method="post" action="/creator/bot/actions/{{ m.id }}/confirm">
-                    {% include "_partials/csrf.html" %}
-                    <button class="btn btn-primary" type="submit">confirm</button>
-                  </form>
-                  <form method="post" action="/creator/bot/actions/{{ m.id }}/cancel">
-                    {% include "_partials/csrf.html" %}
-                    <button class="btn btn-secondary" type="submit">cancel</button>
-                  </form>
-                </div>
-              {% elif m.tool_calls.result and m.tool_calls.result.record_id %}
-                <p class="bot-action-record">Saved record: {{ m.tool_calls.result.record_id }}</p>
-              {% endif %}
+  <section class="chat-frame" aria-label="babyg conversation">
+    <ol class="bot-messages">
+      {% if messages %}
+        {% for m in messages %}
+          {% if m.role != "system" %}
+          <li class="bot-message bot-message-{{ m.role }}">
+            <div class="bot-message-label">
+              {{ "you" if m.role == "user" else "babyg" }}
+              {% if m.flagged %}<span class="status-pill status-pending">needs review</span>{% endif %}
             </div>
+            <div class="message-bubble">{{ m.content }}</div>
+            {% if m.tool_calls and m.tool_calls.kind == "proposed_action" %}
+              <div class="bot-action-card bot-action-{{ m.tool_calls.status }}">
+                <div class="bot-action-head">
+                  <span class="badge badge-muted">{{ m.tool_calls.action_type|replace("_", " ") }}</span>
+                  <span class="status-pill status-{{ m.tool_calls.status }}">{{ m.tool_calls.status }}</span>
+                </div>
+                <p class="bot-action-copy">
+                  {% if m.tool_calls.status == "pending" %}
+                    review this. nothing runs until you confirm.
+                  {% elif m.tool_calls.status == "confirmed" %}
+                    saved inside babyg.
+                  {% else %}
+                    cancelled. nothing was saved.
+                  {% endif %}
+                </p>
+                {% if m.tool_calls.status == "pending" %}
+                  <div class="bot-action-buttons">
+                    <form method="post" action="/creator/bot/actions/{{ m.id }}/confirm">
+                      {% include "_partials/csrf.html" %}
+                      <button class="btn btn-primary" type="submit">confirm</button>
+                    </form>
+                    <form method="post" action="/creator/bot/actions/{{ m.id }}/cancel">
+                      {% include "_partials/csrf.html" %}
+                      <button class="btn btn-secondary" type="submit">cancel</button>
+                    </form>
+                  </div>
+                {% elif m.tool_calls.result and m.tool_calls.result.record_id %}
+                  <p class="bot-action-record">record {{ m.tool_calls.result.record_id }}</p>
+                {% endif %}
+              </div>
+            {% endif %}
+          </li>
           {% endif %}
+        {% endfor %}
+      {% else %}
+        <li class="bot-empty">
+          <h2>babyg is ready.</h2>
+          <p>say what needs handling. keep it rough if you need to.</p>
         </li>
-        {% endif %}
-      {% endfor %}
-    {% else %}
-      <li class="bot-empty">
-        <div class="brand-mark brand-mark-icon" aria-hidden="true">
-          <span class="brand-mark-text">g</span><span class="brand-orbit"></span><span class="brand-star"></span>
-        </div>
-        <h2>babyg is ready.</h2>
-        <p>say what needs handling.</p>
-        <div class="bot-empty-prompts" aria-label="Suggested prompts">
-          <span>draft captions</span>
-          <span>plan the week</span>
-          <span>review an offer</span>
-          <span>add a reminder</span>
+      {% endif %}
+      <li class="bot-message bot-message-assistant bot-typing" id="bot-typing" hidden>
+        <div class="bot-message-label">babyg</div>
+        <div class="message-bubble bot-typing-bubble" aria-live="polite">
+          <span>thinking</span>
+          <span class="typing-dots" aria-hidden="true"><i></i><i></i><i></i></span>
         </div>
       </li>
-    {% endif %}
-    <li class="bot-message bot-message-assistant bot-typing" id="bot-typing" hidden>
-      <div class="bot-message-label">babyg</div>
-      <div class="message-bubble bot-typing-bubble" aria-live="polite">
-        <span>babyg is thinking</span>
-        <span class="typing-dots" aria-hidden="true"><i></i><i></i><i></i></span>
-      </div>
-    </li>
-  </ol>
+    </ol>
 
-  <form class="bot-composer" method="post" action="/creator/bot" data-bot-composer>
-    {% include "_partials/csrf.html" %}
-    <label class="sr-only" for="bot-message">Message babyg</label>
-    <textarea id="bot-message" name="message" rows="3" maxlength="4000"
-              placeholder="ask babyg..."
-              required></textarea>
-    <div class="bot-composer-foot">
-      <span class="bot-composer-hint">ai drafts. you decide.</span>
-      <button class="btn btn-primary" type="submit" data-bot-submit>send</button>
-    </div>
-  </form>
+    <form class="bot-composer" method="post" action="/creator/bot" data-bot-composer>
+      {% include "_partials/csrf.html" %}
+      <label class="sr-only" for="bot-message">message babyg</label>
+      <textarea id="bot-message" name="message" rows="3" maxlength="4000"
+                placeholder="tell babyg what you need handled..."
+                required></textarea>
+      <div class="bot-composer-foot">
+        <span class="bot-composer-hint">babyg drafts. you decide.</span>
+        <button class="btn btn-primary" type="submit" data-bot-submit>send</button>
+      </div>
+    </form>
+  </section>
 </section>
 {% endblock %}

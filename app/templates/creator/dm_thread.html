@@ -1,21 +1,21 @@
 {% extends "base.html" %}
 
-{% block title %}{{ peer.full_name or "Creator" }} - messages - babyg{% endblock %}
+{% block title %}{{ peer.full_name or "creator" }} - inbox - babyg{% endblock %}
 
 {% block content %}
 <section class="dm">
-  <a class="back-link" href="/creator/dm">&larr; all conversations</a>
+  <a class="back-link" href="/creator/dm">all conversations</a>
 
   <header class="dm-header">
     <div class="profile-avatar profile-avatar-small" aria-hidden="true">
-      {{ (peer.full_name or peer.instagram_handle or "C")[:1]|upper }}
+      {{ (peer.full_name or peer.instagram_handle or "c")[:1]|lower }}
     </div>
     <div>
-      <div class="auth-tag">Creator / Connected</div>
-      <h1 class="dm-title">{{ peer.full_name or "Creator" }}</h1>
+      <div class="auth-tag">connected</div>
+      <h1 class="dm-title">{{ peer.full_name or "creator" }}</h1>
       <p class="dm-sub">
-        {% if peer.instagram_handle %}@{{ peer.instagram_handle }} / {% endif %}
-        <a href="/creator/network/{{ peer_id }}">View profile</a>
+        {% if peer.instagram_handle %}@{{ peer.instagram_handle|lower }} / {% endif %}
+        <a href="/creator/network/{{ peer_id }}">view profile</a>
       </p>
     </div>
   </header>
@@ -24,22 +24,22 @@
     {% include "_partials/dm_thread_messages.html" %}
   {% else %}
     <div class="feed-empty dm-empty">
-      <h2>Say hello.</h2>
-      <p>This is the start of your conversation.</p>
+      <h2>say hello.</h2>
+      <p>this is the start of your conversation.</p>
     </div>
   {% endif %}
 
   <form class="dm-composer" method="post" action="/creator/dm/{{ peer_id }}/send">
     {% include "_partials/csrf.html" %}
     <textarea name="body" rows="3" required maxlength="4000"
-              placeholder="Reply..."></textarea>
-    <button type="submit" class="btn btn-primary">Send</button>
+              placeholder="reply..."></textarea>
+    <button type="submit" class="btn btn-primary">send</button>
   </form>
 
   {% if request.query_params.get("reported") == "1" %}
-  <div class="auth-success">Thanks - an operator will review.</div>
+  <div class="auth-success">thanks. the report was received.</div>
   {% elif request.query_params.get("reported") == "fail" %}
-  <div class="auth-error">Couldn't submit your report. Try again.</div>
+  <div class="auth-error">could not submit your report. try again.</div>
   {% endif %}
 
   {% set target_type = "dm_thread" %}

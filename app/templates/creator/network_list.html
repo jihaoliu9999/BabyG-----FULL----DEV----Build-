@@ -5,16 +5,16 @@
 {% block content %}
 <section class="feed creator-surface">
   <header class="feed-header surface-header">
-    <div class="feed-eyebrow">network</div>
-    <h1 class="feed-title">miami creators</h1>
+    <div class="feed-eyebrow">connections</div>
+    <h1 class="feed-title">who matters</h1>
     <p class="feed-sub">
-      the room. keep it intentional.
+      the room, kept intentional.
     </p>
     <div class="action-row action-row-inline">
       <a class="btn btn-secondary" href="/creator/connections">
         connections{% if pending_in %} <span class="badge badge-alert">{{ pending_in }}</span>{% endif %}
       </a>
-      <a class="btn btn-secondary" href="/creator/jobs">listings</a>
+      <a class="btn btn-secondary" href="/creator/jobs">opportunities</a>
       <a class="btn btn-secondary" href="/creator/dm">inbox</a>
     </div>
   </header>
@@ -27,7 +27,7 @@
   </div>
   {% else %}
   <div class="feed-empty">
-    <h2>no creators yet.</h2>
+    <h2>no connections yet.</h2>
     <p>the room is still quiet.</p>
   </div>
   {% endif %}
