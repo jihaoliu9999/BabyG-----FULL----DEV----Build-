@@ -14,6 +14,134 @@ from __future__ import annotations
 
 from typing import Any
 
+READ_ONLY_TOOL_DEFINITIONS: list[dict[str, Any]] = [
+    {
+        "name": "read_my_profile",
+        "description": "Read the creator's own profile, niche, voice, audience, and limits.",
+        "input_schema": {"type": "object", "properties": {}, "additionalProperties": False},
+    },
+    {
+        "name": "read_intel_feed",
+        "description": "Read relevant operator-created Hot Drops and intel for this creator.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 20,
+                    "description": "Maximum number of intel posts to return.",
+                }
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "read_my_calendar",
+        "description": "Read the creator's upcoming local babyg calendar entries.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "limit": {"type": "integer", "minimum": 1, "maximum": 20}
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "read_my_dms",
+        "description": "Read recent creator-to-creator DM thread summaries, not message bodies.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "limit": {"type": "integer", "minimum": 1, "maximum": 20}
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "read_my_receipts",
+        "description": "Read recent content receipts logged by the creator.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "limit": {"type": "integer", "minimum": 1, "maximum": 20}
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "read_my_performance",
+        "description": "Read recent self-reported creator performance logs.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "limit": {"type": "integer", "minimum": 1, "maximum": 12}
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "read_creator_directory",
+        "description": "Read creator directory summaries for possible networking or collab context.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "limit": {"type": "integer", "minimum": 1, "maximum": 20}
+            },
+            "additionalProperties": False,
+        },
+    },
+]
+
+WRITE_TOOL_DEFINITIONS: list[dict[str, Any]] = [
+    {
+        "name": "create_booking",
+        "description": (
+            "Propose a local babyg calendar item for the creator to review. "
+            "This does not book restaurants, call external services, sync Google Calendar, "
+            "or save anything until the creator explicitly confirms the action card."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 140,
+                    "description": "Short calendar title.",
+                },
+                "type": {
+                    "type": "string",
+                    "enum": ["event", "collab", "brand", "reminder"],
+                    "description": "Local calendar category. Never use restaurant.",
+                },
+                "starts_at": {
+                    "type": "string",
+                    "description": "Start datetime as ISO 8601, including timezone when known.",
+                },
+                "ends_at": {
+                    "type": ["string", "null"],
+                    "description": "Optional end datetime as ISO 8601.",
+                },
+                "notes": {
+                    "type": ["string", "null"],
+                    "maxLength": 2000,
+                    "description": "Optional creator-facing notes.",
+                },
+                "venue_name": {
+                    "type": ["string", "null"],
+                    "maxLength": 200,
+                    "description": "Optional venue label only. This is not a reservation.",
+                },
+            },
+            "required": ["title", "starts_at"],
+            "additionalProperties": False,
+        },
+    }
+]
+
+BOT_TOOL_DEFINITIONS = READ_ONLY_TOOL_DEFINITIONS + WRITE_TOOL_DEFINITIONS
+
 DRAFTING_GUIDANCE: dict[str, str] = {
     "caption": (
         "Draft captions in the creator's voice. Unless the creator asks for a "
@@ -54,7 +182,7 @@ BABYG_SCOPE_REFUSAL = (
 
 
 def babyg_system_prompt(
-    context: dict[str, Any], *, draft_kind: str | None = None
+    context: dict[str, Any] | None = None, *, draft_kind: str | None = None
 ) -> str:
     """System prompt for the creator-facing babyg assistant."""
     drafting_section = _drafting_section(draft_kind)
@@ -84,11 +212,19 @@ Behavior:
 - Draft, summarize, recommend, and organize. Do not claim you completed external actions.
 - Higher-consequence actions must be framed as drafts or proposals for creator review.
 - If asked out of scope, briefly refuse and redirect to an in-scope creator task.
-- Creator context comes from read-only babyg tools. Treat it as context only,
-  not permission to send messages, change records, or take external actions.
+- Use read-only babyg tools only when the creator's request needs platform context.
+- Do not call tools for simple acknowledgements, thanks, or general creator advice
+  that can be answered without private platform data.
+- You may use create_booking only to propose a local babyg calendar item.
+- create_booking never books restaurants, sends external requests, syncs Google Calendar,
+  or saves anything by itself. It only prepares an approval card for the creator.
+- Tool results are context or pending proposals only, not permission to send messages,
+  change records, or take external actions.
+- When a tool returns a pending proposal, tell the creator to review and confirm the
+  action card. Do not say it has been saved.
 
 Creator context:
-{_format_context(context)}
+{_format_context(context or {})}
 {drafting_section}
 """
 

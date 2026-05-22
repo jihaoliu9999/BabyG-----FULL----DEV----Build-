@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 from dataclasses import dataclass
@@ -34,6 +35,7 @@ DraftKind = Literal[
 
 MAX_USER_MESSAGE_CHARS = 4000
 MAX_HISTORY_MESSAGES = 20
+MAX_TOOL_ITERATIONS = 4
 ALLOWED_ACTION_TYPES = (
     "create_booking",
     "create_content_reminder",
@@ -131,7 +133,7 @@ def handle_creator_message(*, user_id: str, content: str) -> BotTurnResult:
             flag_category=scope_flag,
         )
 
-    proposal = _build_action_proposal(user_content)
+    proposal = None if _should_use_agent_for_action(user_content) else _build_action_proposal(user_content)
     if proposal is not None:
         response_text = proposal["preview"]
         create_message(
@@ -142,15 +144,16 @@ def handle_creator_message(*, user_id: str, content: str) -> BotTurnResult:
         )
         return BotTurnResult(response=response_text)
 
-    context = build_context(user_id)
     history = _messages_for_claude(list_messages(user_id, limit=MAX_HISTORY_MESSAGES))
     system_prompt = prompts.babyg_system_prompt(
-        context,
         draft_kind=_draft_kind(user_content),
     )
 
+    tool_calls: list[dict[str, Any]] = []
+    pending_action: dict[str, Any] | None = None
     try:
-        claude_response = anthropic_client.complete_chat(
+        claude_response, tool_calls, pending_action = _run_agent_loop(
+            user_id=user_id,
             system_prompt=system_prompt,
             messages=history,
         )
@@ -175,7 +178,12 @@ def handle_creator_message(*, user_id: str, content: str) -> BotTurnResult:
         input_tokens = 0
         output_tokens = 0
 
-    create_message(user_id=user_id, role="assistant", content=response_text)
+    create_message(
+        user_id=user_id,
+        role="assistant",
+        content=response_text,
+        tool_calls=pending_action or tool_calls or None,
+    )
     return BotTurnResult(
         response=response_text,
         input_tokens=input_tokens,
@@ -315,6 +323,184 @@ def build_context(user_id: str) -> dict[str, Any]:
     return read_only.collect_context(user_id)
 
 
+def _run_agent_loop(
+    *,
+    user_id: str,
+    system_prompt: str,
+    messages: list[dict[str, Any]],
+) -> tuple[
+    anthropic_client.ClaudeResponse,
+    list[dict[str, Any]],
+    dict[str, Any] | None,
+]:
+    tool_calls: list[dict[str, Any]] = []
+    pending_action: dict[str, Any] | None = None
+    working_messages = list(messages)
+    input_tokens = 0
+    output_tokens = 0
+
+    for _iteration in range(MAX_TOOL_ITERATIONS):
+        response = anthropic_client.complete_chat(
+            system_prompt=system_prompt,
+            messages=working_messages,
+            tools=prompts.BOT_TOOL_DEFINITIONS,
+        )
+        input_tokens += response.input_tokens
+        output_tokens += response.output_tokens
+        content = response.content or []
+        tool_uses = [block for block in content if block.get("type") == "tool_use"]
+        if response.stop_reason != "tool_use" or not tool_uses:
+            return (
+                anthropic_client.ClaudeResponse(
+                    text=response.text,
+                    content=response.content,
+                    stop_reason=response.stop_reason,
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
+                ),
+                tool_calls,
+                pending_action,
+            )
+
+        working_messages.append({"role": "assistant", "content": content})
+        results: list[dict[str, Any]] = []
+        for tool_use in tool_uses:
+            tool_name = str(tool_use.get("name") or "")
+            tool_input = tool_use.get("input")
+            if not isinstance(tool_input, dict):
+                tool_input = {}
+            result = _execute_agent_tool(
+                user_id=user_id,
+                name=tool_name,
+                tool_input=tool_input,
+                pending_action=pending_action,
+            )
+            if result.get("pending_action") and pending_action is None:
+                candidate = result["pending_action"]
+                if isinstance(candidate, dict):
+                    pending_action = candidate
+            tool_calls.append(
+                {
+                    "kind": result["kind"],
+                    "name": tool_name,
+                    "input": tool_input,
+                    "ok": result["ok"],
+                }
+            )
+            results.append(
+                {
+                    "type": "tool_result",
+                    "tool_use_id": tool_use.get("id"),
+                    "content": json.dumps(result["content"], default=str),
+                    "is_error": not result["ok"],
+                }
+            )
+        working_messages.append({"role": "user", "content": results})
+
+    fallback = anthropic_client.ClaudeResponse(
+        text=(
+            "I pulled a few babyg records, but I need a cleaner pass to answer. "
+            "Try narrowing the ask to one creator task."
+        ),
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+    )
+    return fallback, tool_calls, pending_action
+
+
+def _execute_agent_tool(
+    *,
+    user_id: str,
+    name: str,
+    tool_input: dict[str, Any],
+    pending_action: dict[str, Any] | None,
+) -> dict[str, Any]:
+    if name == "create_booking":
+        return _stage_create_booking_tool(tool_input, pending_action=pending_action)
+    return _execute_read_tool(user_id=user_id, name=name, tool_input=tool_input)
+
+
+def _execute_read_tool(
+    *, user_id: str, name: str, tool_input: dict[str, Any]
+) -> dict[str, Any]:
+    content: Any
+    try:
+        if name == "read_my_profile":
+            content = read_only.read_my_profile(user_id)
+        elif name == "read_intel_feed":
+            profile = read_only.read_my_profile(user_id)
+            content = read_only.read_intel_feed(
+                niches=_as_tool_list(profile.get("niches")),
+                tier=str(profile.get("tier") or "basic"),
+                limit=tool_input.get("limit", 5),
+            )
+        elif name == "read_my_calendar":
+            content = read_only.read_my_calendar(
+                user_id, limit=tool_input.get("limit", 5)
+            )
+        elif name == "read_my_dms":
+            content = read_only.read_my_dms(user_id, limit=tool_input.get("limit", 5))
+        elif name == "read_my_receipts":
+            content = read_only.read_my_receipts(
+                user_id, limit=tool_input.get("limit", 5)
+            )
+        elif name == "read_my_performance":
+            content = read_only.read_my_performance(
+                user_id, limit=tool_input.get("limit", 3)
+            )
+        elif name == "read_creator_directory":
+            content = read_only.read_creator_directory(
+                user_id, limit=tool_input.get("limit", 6)
+            )
+        else:
+            return {
+                "kind": "read_tool",
+                "ok": False,
+                "content": f"Unknown read-only tool: {name}",
+            }
+    except Exception:
+        logger.exception("read-only bot tool failed: %s", name)
+        return {"kind": "read_tool", "ok": False, "content": f"{name} failed."}
+    return {"kind": "read_tool", "ok": True, "content": content}
+
+
+def _stage_create_booking_tool(
+    tool_input: dict[str, Any], *, pending_action: dict[str, Any] | None
+) -> dict[str, Any]:
+    if pending_action is not None:
+        return {
+            "kind": "write_tool",
+            "ok": False,
+            "content": "A local action is already pending for this turn.",
+        }
+    payload = _booking_payload_from_tool(tool_input)
+    missing = [field for field in ("title", "starts_at") if not payload.get(field)]
+    if missing:
+        return {
+            "kind": "write_tool",
+            "ok": False,
+            "content": f"Missing required booking fields: {', '.join(missing)}.",
+        }
+    proposal = _proposal_for_action(action_type="create_booking", payload=payload)
+    return {
+        "kind": "write_tool",
+        "ok": True,
+        "content": {
+            "status": "pending_confirmation",
+            "action_type": "create_booking",
+            "preview": proposal["preview"],
+            "message": "No booking was saved. The creator must confirm the action card.",
+        },
+        "pending_action": proposal,
+    }
+
+
+def _as_tool_list(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value if str(item).strip()]
+
+
 def _get_message_for_user(*, message_id: str, user_id: str) -> dict[str, Any] | None:
     mid = safe_uuid(message_id)
     if not mid:
@@ -372,8 +558,8 @@ def _proposal_from_row(row: dict[str, Any]) -> dict[str, Any] | None:
     return tool_calls
 
 
-def _messages_for_claude(rows: list[dict[str, Any]]) -> list[dict[str, str]]:
-    messages: list[dict[str, str]] = []
+def _messages_for_claude(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    messages: list[dict[str, Any]] = []
     for row in rows:
         role = row.get("role")
         if role not in ("user", "assistant"):
@@ -385,11 +571,19 @@ def _messages_for_claude(rows: list[dict[str, Any]]) -> list[dict[str, str]]:
     return messages
 
 
+def _should_use_agent_for_action(content: str) -> bool:
+    return _action_type(content) == "create_booking"
+
+
 def _build_action_proposal(content: str) -> dict[str, Any] | None:
     action_type = _action_type(content)
     if action_type is None:
         return None
     payload = _action_payload(action_type=action_type, content=content)
+    return _proposal_for_action(action_type=action_type, payload=payload)
+
+
+def _proposal_for_action(*, action_type: str, payload: dict[str, Any]) -> dict[str, Any]:
     preview = _action_preview(action_type=action_type, payload=payload)
     return {
         "kind": "proposed_action",
@@ -440,6 +634,26 @@ def _booking_payload(content: str) -> dict[str, Any]:
         "ends_at": None,
         "notes": _notes_from_content(content),
         "venue_name": None,
+        "status": "confirmed",
+    }
+
+
+def _booking_payload_from_tool(tool_input: dict[str, Any]) -> dict[str, Any]:
+    booking_type = str(tool_input.get("type") or "event").strip().lower()
+    if booking_type not in ("event", "collab", "brand", "reminder"):
+        booking_type = "event"
+    title = str(tool_input.get("title") or "").strip()[:140]
+    starts_at = str(tool_input.get("starts_at") or "").strip()
+    ends_at = tool_input.get("ends_at")
+    notes = tool_input.get("notes")
+    venue_name = tool_input.get("venue_name")
+    return {
+        "title": title,
+        "type": booking_type,
+        "starts_at": starts_at,
+        "ends_at": str(ends_at).strip() if ends_at else None,
+        "notes": str(notes).strip()[:2000] if notes else None,
+        "venue_name": str(venue_name).strip()[:200] if venue_name else None,
         "status": "confirmed",
     }
 

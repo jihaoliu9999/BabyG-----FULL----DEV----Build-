@@ -192,6 +192,130 @@ def test_normal_bot_turn_persists_user_and_assistant_messages(monkeypatch) -> No
     assert created[1]["content"] == "Post a quick Miami reset reel."
 
 
+def test_normal_bot_turn_does_not_collect_full_context(monkeypatch) -> None:
+    created: list[dict] = []
+
+    monkeypatch.setattr(
+        bot_service,
+        "create_message",
+        lambda **kwargs: created.append(kwargs) or "msg-1",
+    )
+    monkeypatch.setattr(
+        bot_service,
+        "list_messages",
+        lambda uid, limit=20: [{"role": "user", "content": "thanks"}],
+    )
+
+    def _fail_collect_context(user_id: str):
+        raise AssertionError("normal turns should not prefetch every read tool")
+
+    monkeypatch.setattr(bot_service.read_only, "collect_context", _fail_collect_context)
+
+    captured: dict[str, object] = {}
+
+    def _fake_claude(**kwargs):
+        captured.update(kwargs)
+        return bot_service.anthropic_client.ClaudeResponse(
+            text="Anytime.",
+            stop_reason="end_turn",
+        )
+
+    monkeypatch.setattr(bot_service.anthropic_client, "complete_chat", _fake_claude)
+
+    result = bot_service.handle_creator_message(user_id="creator-1", content="thanks")
+
+    assert result.response == "Anytime."
+    assert captured["tools"] == bot_service.prompts.BOT_TOOL_DEFINITIONS
+    assert created[-1]["tool_calls"] is None
+
+
+def test_agent_loop_executes_read_tool_only_when_requested(monkeypatch) -> None:
+    created: list[dict] = []
+    captured_calls: list[dict] = []
+
+    monkeypatch.setattr(
+        bot_service,
+        "create_message",
+        lambda **kwargs: created.append(kwargs) or "msg-1",
+    )
+    monkeypatch.setattr(
+        bot_service,
+        "list_messages",
+        lambda uid, limit=20: [
+            {"role": "user", "content": "What's hot in food this week?"}
+        ],
+    )
+    monkeypatch.setattr(
+        bot_service.read_only,
+        "read_my_profile",
+        lambda uid: {"niches": ["food"], "tier": "pro"},
+    )
+
+    intel_calls: list[dict] = []
+
+    def _read_intel_feed(*, niches, tier, limit=5):
+        intel_calls.append({"niches": niches, "tier": tier, "limit": limit})
+        return [{"title": "New dinner room", "category": "venue"}]
+
+    monkeypatch.setattr(bot_service.read_only, "read_intel_feed", _read_intel_feed)
+
+    responses = [
+        bot_service.anthropic_client.ClaudeResponse(
+            text="",
+            content=[
+                {
+                    "type": "tool_use",
+                    "id": "toolu_1",
+                    "name": "read_intel_feed",
+                    "input": {"limit": 7},
+                }
+            ],
+            stop_reason="tool_use",
+            input_tokens=20,
+            output_tokens=5,
+        ),
+        bot_service.anthropic_client.ClaudeResponse(
+            text="New dinner room is the one to watch.",
+            content=[
+                {"type": "text", "text": "New dinner room is the one to watch."}
+            ],
+            stop_reason="end_turn",
+            input_tokens=30,
+            output_tokens=8,
+        ),
+    ]
+
+    def _fake_claude(**kwargs):
+        captured_calls.append(kwargs)
+        return responses.pop(0)
+
+    monkeypatch.setattr(bot_service.anthropic_client, "complete_chat", _fake_claude)
+
+    result = bot_service.handle_creator_message(
+        user_id="creator-1",
+        content="What's hot in food this week?",
+    )
+
+    assert result.response == "New dinner room is the one to watch."
+    assert result.input_tokens == 50
+    assert result.output_tokens == 13
+    assert intel_calls == [{"niches": ["food"], "tier": "pro", "limit": 7}]
+    assert len(captured_calls) == 2
+    tool_result_message = captured_calls[1]["messages"][-1]
+    assert tool_result_message["role"] == "user"
+    assert tool_result_message["content"][0]["type"] == "tool_result"
+    assert "New dinner room" in tool_result_message["content"][0]["content"]
+    assistant_tool_calls = created[-1]["tool_calls"]
+    assert assistant_tool_calls == [
+        {
+            "kind": "read_tool",
+            "name": "read_intel_feed",
+            "input": {"limit": 7},
+            "ok": True,
+        }
+    ]
+
+
 def test_missing_anthropic_key_returns_graceful_fallback(monkeypatch) -> None:
     created: list[dict] = []
 
@@ -235,13 +359,49 @@ def test_proposed_action_does_not_write_immediately(monkeypatch) -> None:
         raise AssertionError("proposal should not write before confirmation")
 
     monkeypatch.setattr(bot_service.bookings, "create", _fail_write)
+    monkeypatch.setattr(
+        bot_service,
+        "list_messages",
+        lambda uid, limit=20: [
+            {"role": "user", "content": "Create a booking called Brand Call"}
+        ],
+    )
+    responses = [
+        bot_service.anthropic_client.ClaudeResponse(
+            text="",
+            content=[
+                {
+                    "type": "tool_use",
+                    "id": "toolu_booking",
+                    "name": "create_booking",
+                    "input": {
+                        "title": "Brand Call",
+                        "type": "event",
+                        "starts_at": "2099-05-08T10:00:00Z",
+                        "notes": "Creator-provided local calendar item.",
+                    },
+                }
+            ],
+            stop_reason="tool_use",
+        ),
+        bot_service.anthropic_client.ClaudeResponse(
+            text="Review the booking card below.",
+            content=[{"type": "text", "text": "Review the booking card below."}],
+            stop_reason="end_turn",
+        ),
+    ]
+    monkeypatch.setattr(
+        bot_service.anthropic_client,
+        "complete_chat",
+        lambda **kwargs: responses.pop(0),
+    )
 
     result = bot_service.handle_creator_message(
         user_id="creator-1",
         content="Create a booking called Brand Call on 2099-05-08T10:00",
     )
 
-    assert "Nothing has been saved yet" in result.response
+    assert result.response == "Review the booking card below."
     assert len(created) == 2
     proposal = created[1]["tool_calls"]
     assert proposal["kind"] == "proposed_action"
@@ -257,6 +417,44 @@ def test_booking_proposal_does_not_infer_restaurant_type(monkeypatch) -> None:
         "create_message",
         lambda **kwargs: created.append(kwargs) or "msg-1",
     )
+    monkeypatch.setattr(
+        bot_service,
+        "list_messages",
+        lambda uid, limit=20: [
+            {"role": "user", "content": "Add restaurant dinner to my calendar"}
+        ],
+    )
+    responses = [
+        bot_service.anthropic_client.ClaudeResponse(
+            text="",
+            content=[
+                {
+                    "type": "tool_use",
+                    "id": "toolu_booking",
+                    "name": "create_booking",
+                    "input": {
+                        "title": "Dinner Visit",
+                        "type": "restaurant",
+                        "starts_at": "2099-05-08T20:00:00Z",
+                        "venue_name": "Dinner spot",
+                    },
+                }
+            ],
+            stop_reason="tool_use",
+        ),
+        bot_service.anthropic_client.ClaudeResponse(
+            text="Review the local calendar card below.",
+            content=[
+                {"type": "text", "text": "Review the local calendar card below."}
+            ],
+            stop_reason="end_turn",
+        ),
+    ]
+    monkeypatch.setattr(
+        bot_service.anthropic_client,
+        "complete_chat",
+        lambda **kwargs: responses.pop(0),
+    )
 
     result = bot_service.handle_creator_message(
         user_id="creator-1",
@@ -264,7 +462,7 @@ def test_booking_proposal_does_not_infer_restaurant_type(monkeypatch) -> None:
     )
 
     proposal = created[1]["tool_calls"]
-    assert "local calendar item" in result.response
+    assert "local calendar card" in result.response
     assert proposal["action_type"] == "create_booking"
     assert proposal["payload"]["type"] == "event"
 
