@@ -1,34 +1,54 @@
 {% extends "base.html" %}
 
-{% block title %}listings - babyg{% endblock %}
+{% block title %}listings — babyg{% endblock %}
 
 {% block content %}
-<section class="feed creator-surface">
-  <header class="feed-header surface-header">
-    <div class="feed-eyebrow">creator listings</div>
-    <h1 class="feed-title">work worth sharing</h1>
-    <p class="feed-sub">
-      collabs, swaps, content days, hiring help.
-    </p>
-    <div class="action-row action-row-inline">
-      <a class="btn btn-secondary" href="/creator/jobs/mine">mine</a>
-      <a class="btn btn-primary" href="/creator/jobs/new">new listing</a>
+<div class="wrap">
+  <div class="page-header">
+    <div class="title-block">
+      <span class="mono eyebrow">creator listings</span>
+      <p class="sub">collabs, swaps, content days, hiring help.</p>
     </div>
-  </header>
+    <div class="actions">
+      <a class="btn btn-ghost btn-sm" href="/creator/jobs/mine">mine</a>
+      <a class="btn btn-lime btn-sm" href="/creator/jobs/new">new listing
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 9L9 3M9 3H4M9 3V8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </a>
+    </div>
+  </div>
 
   {% if listings %}
-  <div class="creator-grid listing-grid">
+  <div class="grid-2">
     {% for listing in listings %}
-      {% set poster = poster_profiles.get(listing.poster_user_id) %}
-      {% set view_path = "/creator/jobs" %}
-      {% include "_partials/job_card.html" %}
+    {% set poster = poster_profiles.get(listing.poster_user_id) %}
+    <a href="/creator/jobs/{{ listing.id }}" class="listing-card">
+      <div class="head">
+        <span class="badge badge-muted">{{ listing.listing_type or 'listing' }}</span>
+        {% if listing.is_active %}<span class="badge badge-coral">new</span>{% endif %}
+      </div>
+      <h3>{{ listing.title }}</h3>
+      {% if listing.compensation_text %}
+      <div class="comp">{{ listing.compensation_text }}</div>
+      {% endif %}
+      {% if listing.target_niches %}
+      <div style="display:flex;gap:6px;flex-wrap:wrap;">
+        {% for n in listing.target_niches[:3] %}
+        <span class="tag">{{ n }}</span>
+        {% endfor %}
+      </div>
+      {% endif %}
+      <div class="foot">
+        <span>from {{ poster.full_name or poster.instagram_handle or 'creator' if poster else 'creator' }}</span>
+        <span class="open">open →</span>
+      </div>
+    </a>
     {% endfor %}
   </div>
   {% else %}
-  <div class="feed-empty">
-    <h2>no active listings.</h2>
-    <p>post the first ask.</p>
+  <div style="text-align:center;padding:60px 0;color:var(--ink-dim);">
+    <span class="mono">no active listings.</span>
+    <p style="margin:12px 0 0;font-size:13.5px;">post the first ask.</p>
   </div>
   {% endif %}
-</section>
+</div>
 {% endblock %}

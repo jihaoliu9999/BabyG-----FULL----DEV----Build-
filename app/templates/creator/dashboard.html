@@ -1,77 +1,81 @@
 {% extends "base.html" %}
 
-{% block title %}feed - babyg{% endblock %}
+{% block title %}feed — babyg{% endblock %}
 
 {% block content %}
-<section class="feed">
-  <header class="feed-header">
-    <div class="feed-eyebrow">today / {{ profile.full_name or "creator" }}</div>
-    <h1 class="feed-title">today</h1>
-    <p class="feed-sub">
-      things worth your attention.
-    </p>
-
-    <div class="feed-status-row" aria-label="Creator inbox summary">
-      <a class="feed-status-card" href="/creator/dm">
-        <span>inbox</span>
-        <strong>{{ unread_dms or 0 }}</strong>
-      </a>
-      <a class="feed-status-card" href="/creator/notifications">
-        <span>alerts</span>
-        <strong>{{ unread_total or 0 }}</strong>
+<div class="wrap">
+  <div class="page-header">
+    <div class="title-block">
+      <span class="mono eyebrow">welcome back, {{ (profile.full_name or 'creator').split(' ')[0].lower() if profile is defined and profile is not none else 'creator' }}</span>
+      <p class="sub">things worth your attention.</p>
+    </div>
+    <div class="actions">
+      <a href="/creator/notifications" class="btn btn-ghost btn-sm">alerts · {{ unread_total or 0 }}</a>
+      <a href="/creator/bot" class="btn btn-lime btn-sm">ask babyg
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 9L9 3M9 3H4M9 3V8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </a>
     </div>
+  </div>
 
-    <nav class="feed-filters" aria-label="Filter intel by category">
-      <a class="chip {% if not active_category %}chip-active{% endif %}" href="/creator">all</a>
-      {% for slug, label in categories %}
-      <a class="chip {% if active_category == slug %}chip-active{% endif %}"
-         href="/creator?category={{ slug }}">{{ label }}</a>
-      {% endfor %}
-    </nav>
-  </header>
+  <div class="stat-row" style="margin-bottom:22px;">
+    <a href="/creator/dms" class="stat-card"><span class="l">inbox</span><span class="v">{{ unread_dms or 0 }}</span></a>
+    <a href="/creator/notifications" class="stat-card {{ 'alert' if unread_total and unread_total > 0 }}"><span class="l">needs you</span><span class="v">{{ unread_total or 0 }}</span></a>
+  </div>
 
-  {% if unread_total %}
-  <aside class="notif-strip" aria-label="Unread notifications">
-    <div class="notif-strip-head">
-      <div class="notif-strip-eyebrow">
-        {{ unread_total }} unread
-      </div>
-      <a class="notif-strip-link" href="/creator/notifications">open</a>
+  {% if unread_total and unread_total > 0 and unread_notifs %}
+  <div class="attention-strip">
+    <div class="top">
+      <span class="l">{{ unread_total }} unread · needs you</span>
+      <a href="/creator/notifications" class="r">open all</a>
     </div>
-    <ul class="notif-list">
-      {% for n in unread_notifs %}
-      <li class="notif-item">
-        <form method="post" action="/creator/notifications/{{ n.id }}/read"
-              class="notif-item-form">
-          {% include "_partials/csrf.html" %}
-          <input type="hidden" name="target" value="{{ n.link_path or '/creator' }}" />
-          <button type="submit" class="notif-item-btn" aria-label="Open notification">
-            <div class="notif-item-title">{{ n.title }}</div>
-            {% if n.body %}
-              <div class="notif-item-body">
-                {{ n.body[:160] }}{% if n.body|length > 160 %}...{% endif %}
-              </div>
-            {% endif %}
-          </button>
-        </form>
-      </li>
-      {% endfor %}
-    </ul>
-  </aside>
+    {% set n = unread_notifs[0] %}
+    <p>{{ n.title }}{% if n.body %} — {{ n.body[:120] }}{% if n.body|length > 120 %}…{% endif %}{% endif %}</p>
+  </div>
   {% endif %}
+
+  <div class="filter-row">
+    <a href="/creator" class="chip {{ 'chip-active' if not active_category }}">all</a>
+    {% for slug, label in categories %}
+    <a href="/creator?category={{ slug }}" class="chip {{ 'chip-active' if active_category == slug }}">{{ label }}</a>
+    {% endfor %}
+  </div>
 
   {% if posts %}
-    <div class="intel-list">
-      {% for post in posts %}
-        {% include "_partials/intel_card.html" %}
-      {% endfor %}
-    </div>
+  <div class="stack-lg">
+    {% for post in posts %}
+    <article class="intel-card">
+      <div class="head">
+        <div class="tags">
+          <span class="badge badge-muted">{{ post.kind or post.category or 'intel' }}</span>
+          {% if post.confidence == 'high' or post.is_high_confidence %}<span class="badge badge-chrome">high confidence</span>{% endif %}
+        </div>
+        {% if post.valid_until %}<span class="mono">{{ post.valid_until }}</span>{% endif %}
+      </div>
+      <h3>{{ post.title }}</h3>
+      <p>{{ post.body or post.description or '' }}</p>
+      {% if post.source_url %}<span class="source">source ↗</span>{% endif %}
+      <div class="feedback">
+        {% if post.id %}
+        <form method="post" action="/creator/intel/{{ post.id }}/feedback" style="display:contents;">
+          {% include "_partials/csrf.html" %}
+          <button class="feedback-btn" name="rating" value="useful">useful</button>
+          <button class="feedback-btn" name="rating" value="not_useful">not useful</button>
+          <button class="feedback-btn" name="rating" value="acted_on">acted on</button>
+        </form>
+        {% else %}
+        <button class="feedback-btn">useful</button>
+        <button class="feedback-btn">not useful</button>
+        <button class="feedback-btn">acted on</button>
+        {% endif %}
+      </div>
+    </article>
+    {% endfor %}
+  </div>
   {% else %}
-    <div class="feed-empty">
-      <h2>nothing today.</h2>
-      <p>your feed is clear.</p>
-    </div>
+  <div style="text-align:center;padding:60px 0;color:var(--ink-dim);">
+    <span class="mono">nothing today.</span>
+    <p style="margin:12px 0 0;font-size:13.5px;">your feed is clear. check back soon.</p>
+  </div>
   {% endif %}
-</section>
+</div>
 {% endblock %}

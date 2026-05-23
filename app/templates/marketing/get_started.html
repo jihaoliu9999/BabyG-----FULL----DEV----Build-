@@ -1,32 +1,29 @@
 {% extends "base.html" %}
-{% import "_partials/brand_mark.html" as brand %}
 
-{% block title %}choose your account - babyg{% endblock %}
+{% block title %}get started — babyg{% endblock %}
 
 {% block content %}
-<section class="choose">
-  <div class="choose-brand">{{ brand.wordmark("brand-lockup-small") }}</div>
-  <a class="back-link" href="/">&larr; back</a>
-  <h1 class="choose-title">sign in.</h1>
-  <p class="choose-sub">creator accounts are invite-only. operator access is managed.</p>
+<section class="auth-pane">
+  <div class="brand-lockup" style="justify-content:center;margin-bottom:32px;">
+    <span class="brand-mark"><img src="/static/assets/logo-bg.png" alt="" /></span>
+    <span class="logo-text">babyg</span>
+  </div>
+  <a class="back-link" href="/">← back</a>
+  <h1 class="display"><span class="chrome">sign in.</span></h1>
+  <p class="sub">creator accounts are invite-only. operator access is managed.</p>
 
-  <div class="choose-grid">
-    <a class="role-card" href="/auth/login?role=creator">
-      <div class="role-card-tag">creator</div>
-      <div class="role-card-title">i'm a creator.</div>
-      <p class="role-card-body">
-        see what needs attention and keep work moving.
-      </p>
-      <div class="role-card-cta">continue</div>
+  <div class="role-grid">
+    <a href="/auth/login?role=creator" class="role-card">
+      <span class="mono role-tag" style="color:var(--lime);">creator</span>
+      <h3>i'm a creator.</h3>
+      <p>see what needs attention and keep work moving.</p>
+      <span class="cta">continue →</span>
     </a>
-
-    <a class="role-card role-card-muted" href="/auth/login?role=operator">
-      <div class="role-card-tag">operator</div>
-      <div class="role-card-title">i manage babyg.</div>
-      <p class="role-card-body">
-        manage updates, reports, notes, and roster health.
-      </p>
-      <div class="role-card-cta">continue</div>
+    <a href="/auth/login?role=operator" class="role-card">
+      <span class="mono role-tag">operator</span>
+      <h3>i manage babyg.</h3>
+      <p>manage updates, reports, notes, and roster health.</p>
+      <span class="cta">continue →</span>
     </a>
   </div>
 </section>

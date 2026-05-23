@@ -1,52 +1,56 @@
 {% extends "base.html" %}
 
-{% block title %}content receipts - babyg{% endblock %}
+{% block title %}receipts — babyg{% endblock %}
 
 {% block content %}
-<section class="feed creator-surface">
-  <header class="feed-header surface-header">
-    <div class="feed-eyebrow">receipts</div>
-    <h1 class="feed-title">what shipped</h1>
-    <p class="feed-sub">
-      proof of work, kept clean.
-    </p>
-    <div class="action-row action-row-inline">
-      <a class="btn btn-primary" href="/creator/receipts/new">log post</a>
+<div class="wrap">
+  <div class="page-header">
+    <div class="title-block">
+      <span class="mono eyebrow">receipts</span>
+      <p class="sub">proof of work, kept clean.</p>
     </div>
-  </header>
+    <div class="actions">
+      <a class="btn btn-lime btn-sm" href="/creator/receipts/new">log post
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 9L9 3M9 3H4M9 3V8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </a>
+    </div>
+  </div>
 
   {% if receipts %}
-  <div class="record-list">
+  <div class="stack">
     {% for r in receipts %}
-    <article class="record-card receipt-card">
-      <div class="record-card-main">
-        <div class="record-card-kicker">{{ r.post_type or "post" }}</div>
-        <h2>
-          {% if r.caption_excerpt %}
-            {{ r.caption_excerpt[:90] }}{% if r.caption_excerpt|length > 90 %}...{% endif %}
-          {% else %}
-            content receipt
-          {% endif %}
-        </h2>
-        <div class="record-card-meta">
-          <span>{{ r.posted_at|short_date or "date not set" }}</span>
-          <span>{{ r.likes_count if r.likes_count is not none else 0 }} likes</span>
-          <span>{{ r.comments_count if r.comments_count is not none else 0 }} comments</span>
+    <div class="card" style="margin-bottom:12px;">
+      <div style="display:flex;align-items:flex-start;gap:12px;">
+        <div style="flex:1;min-width:0;">
+          <div style="margin-bottom:8px;">
+            <span class="badge badge-muted">{{ r.post_type or 'post' }}</span>
+          </div>
+          <p style="font-size:14.5px;color:var(--ink);line-height:1.45;margin:0 0 8px;">
+            {% if r.caption_excerpt %}
+              {{ r.caption_excerpt[:90] }}{% if r.caption_excerpt|length > 90 %}…{% endif %}
+            {% else %}
+              content receipt
+            {% endif %}
+          </p>
+          <div style="display:flex;gap:14px;font-size:12px;color:var(--ink-dim);flex-wrap:wrap;">
+            <span>{{ r.posted_at|short_date or 'date not set' }}</span>
+            <span>{{ r.likes_count if r.likes_count is not none else 0 }} likes</span>
+            <span>{{ r.comments_count if r.comments_count is not none else 0 }} comments</span>
+          </div>
         </div>
+        {% if r.post_url %}
+        <a href="{{ r.post_url }}" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sm" style="flex-shrink:0;">open →</a>
+        {% endif %}
       </div>
-      {% if r.post_url %}
-      <div class="record-card-actions">
-        <a class="btn btn-secondary" href="{{ r.post_url|safe_url }}" target="_blank" rel="noopener noreferrer">open post</a>
-      </div>
-      {% endif %}
-    </article>
+    </div>
     {% endfor %}
   </div>
   {% else %}
-  <div class="feed-empty">
-    <h2>no receipts.</h2>
-    <p>log what shipped.</p>
+  <div style="text-align:center;padding:60px 0;color:var(--ink-dim);">
+    <span class="mono">no receipts.</span>
+    <p style="margin:12px 0 0;font-size:13.5px;">log what shipped.</p>
+    <a href="/creator/receipts/new" class="btn btn-ghost btn-sm" style="margin-top:16px;">log first post</a>
   </div>
   {% endif %}
-</section>
+</div>
 {% endblock %}

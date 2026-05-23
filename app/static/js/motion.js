@@ -5,28 +5,17 @@
     window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   var REVEAL_SELECTORS = [
-    ".marketing-feature",
     ".intel-card",
-    ".op-card",
-    ".role-card",
+    ".listing-card",
     ".creator-card",
-    ".record-card",
-    ".dm-thread-row",
-    ".notif-item",
-    ".feed-status-card",
-    ".onb-section",
-    ".mini-stat",
-    ".views-count-card",
     ".event-card",
-    ".receipt-card",
-    ".performance-card",
-    ".connection-card",
-    ".connection-section",
-    ".bot-empty",
-    ".feed-empty",
-    ".dm-empty",
-    ".notif-strip",
-    ".op-table tbody tr"
+    ".thread-row",
+    ".alert-item",
+    ".role-card",
+    ".card",
+    ".onb-section",
+    ".chip-group",
+    ".kv-list"
   ];
 
   function tagReveal(el, idx) {
@@ -38,7 +27,6 @@
 
   function init() {
     if (prefersReducedMotion || !("IntersectionObserver" in window)) {
-      // Reveal immediately for accessibility / older browsers
       REVEAL_SELECTORS.forEach(function (sel) {
         document.querySelectorAll(sel).forEach(function (el) {
           el.classList.add("reveal", "is-visible");
@@ -57,7 +45,7 @@
     }, {
       root: null,
       rootMargin: "0px 0px -8% 0px",
-      threshold: 0.06
+      threshold: 0.04
     });
 
     REVEAL_SELECTORS.forEach(function (sel) {
@@ -69,7 +57,6 @@
     });
   }
 
-  // Smooth scroll to bottom of message/chat threads on initial paint
   function pinToLatest() {
     var lists = document.querySelectorAll(".bot-messages, .dm-messages");
     lists.forEach(function (list) {
@@ -80,9 +67,8 @@
     });
   }
 
-  // Auto-grow textareas in composers
   function bindAutogrow() {
-    var areas = document.querySelectorAll(".bot-composer textarea, .dm-composer textarea");
+    var areas = document.querySelectorAll(".bot-composer textarea, .dm-composer textarea, [data-bot-composer] textarea");
     areas.forEach(function (ta) {
       function grow() {
         ta.style.height = "auto";
@@ -93,13 +79,12 @@
     });
   }
 
-  // Ripple-ish feedback on primary buttons
   function bindButtonPress() {
     if (prefersReducedMotion) return;
     document.addEventListener("pointerdown", function (e) {
       var t = e.target;
       if (!t || !t.closest) return;
-      var btn = t.closest(".btn, .chip, .feedback-btn, .role-card, .op-card, .creator-card, .dm-thread-link");
+      var btn = t.closest(".btn, .chip, .intel-card, .listing-card, .creator-card, .thread-row, .role-card");
       if (!btn) return;
       btn.style.transition = "transform 80ms cubic-bezier(0.22, 1, 0.36, 1)";
       btn.style.transform = (btn.style.transform || "") + " scale(0.985)";

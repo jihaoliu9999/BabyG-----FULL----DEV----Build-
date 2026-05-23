@@ -1,42 +1,47 @@
 {% extends "base.html" %}
 
-{% block title %}alerts - babyg{% endblock %}
+{% block title %}notifications — babyg{% endblock %}
 
 {% block content %}
-<section class="feed creator-surface">
-  <header class="feed-header surface-header">
-    <div class="feed-eyebrow">alerts</div>
-    <h1 class="feed-title">attention</h1>
+<div class="wrap">
+  <div class="page-header">
+    <div class="title-block">
+      <span class="mono eyebrow">notifications</span>
+    </div>
     {% if rows %}
-    <form method="post" action="/creator/notifications/read-all" class="inline-form">
-      {% include "_partials/csrf.html" %}
-      <button type="submit" class="btn btn-secondary">mark read</button>
-    </form>
+    <div class="actions">
+      <form method="post" action="/creator/notifications/read-all">
+        {% include "_partials/csrf.html" %}
+        <button type="submit" class="btn btn-ghost btn-sm">mark all read</button>
+      </form>
+    </div>
     {% endif %}
-  </header>
+  </div>
 
   {% if rows %}
-  <ul class="notif-list notif-list-full">
+  <div class="stack">
     {% for n in rows %}
-    <li class="notif-item {% if not n.is_read %}notif-item-unread{% endif %}">
-      <form method="post" action="/creator/notifications/{{ n.id }}/read"
-            class="notif-item-form">
-        {% include "_partials/csrf.html" %}
-        <input type="hidden" name="target" value="{{ n.link_path or '/creator/notifications' }}" />
-        <button type="submit" class="notif-item-btn" aria-label="Open notification">
-          <div class="notif-item-meta">{{ n.kind|replace("_", " ") }} / {{ n.created_at|short_date or "" }}</div>
-          <div class="notif-item-title">{{ n.title }}</div>
-          {% if n.body %}<div class="notif-item-body">{{ n.body }}</div>{% endif %}
-        </button>
-      </form>
-    </li>
+    <form method="post" action="/creator/notifications/{{ n.id }}/read">
+      {% include "_partials/csrf.html" %}
+      <input type="hidden" name="target" value="{{ n.link_path or '/creator/notifications' }}" />
+      <button type="submit" class="alert-item{% if not n.is_read %} unread{% endif %}" style="width:100%;text-align:left;background:none;border:0;padding:0;cursor:pointer;display:block;">
+        <div style="display:flex;align-items:flex-start;gap:12px;">
+          <div style="flex:1;min-width:0;">
+            <span class="mono" style="font-size:11px;color:var(--ink-dim);display:block;margin-bottom:4px;">{{ n.kind|replace('_', ' ') }} · {{ n.created_at|short_date or '' }}</span>
+            <span style="font-size:14.5px;color:var(--ink);display:block;{% if n.body %}margin-bottom:4px;{% endif %}">{{ n.title }}</span>
+            {% if n.body %}<span style="font-size:13px;color:var(--ink-mid);display:block;line-height:1.45;">{{ n.body }}</span>{% endif %}
+          </div>
+          {% if not n.is_read %}<span style="width:7px;height:7px;border-radius:50%;background:var(--lime);flex-shrink:0;margin-top:5px;"></span>{% endif %}
+        </div>
+      </button>
+    </form>
     {% endfor %}
-  </ul>
+  </div>
   {% else %}
-  <div class="feed-empty">
-    <h2>nothing needs you.</h2>
-    <p>all clear.</p>
+  <div style="text-align:center;padding:60px 0;color:var(--ink-dim);">
+    <span class="mono">all clear.</span>
+    <p style="margin:12px 0 0;font-size:13.5px;">nothing needs your attention.</p>
   </div>
   {% endif %}
-</section>
+</div>
 {% endblock %}

@@ -1,113 +1,74 @@
 {% extends "base.html" %}
 
-{% block title %}profile - babyg{% endblock %}
-{% block head_extra %}
-  <script src="/static/js/profile.js" defer></script>
-{% endblock %}
+{% block title %}profile — babyg{% endblock %}
+{% block head_extra %}<script src="/static/js/profile.js" defer></script>{% endblock %}
 
-{% set initials = (profile.full_name or profile.instagram_handle or "creator")[:2]|upper %}
+{% set initials = (profile.full_name or profile.instagram_handle or 'creator')[:2]|upper %}
 
 {% block content %}
-<section class="profile-page">
-  <header class="profile-own-hero">
-    <form class="profile-photo-control" data-profile-photo-form>
-      <!-- TODO: wire to Supabase Storage upload endpoint when the backend bucket exists. -->
-      <label class="profile-photo-label" for="profile-photo-input">
-        <span class="sr-only">profile photo</span>
-        {% if profile.profile_photo_url %}
-          <img
-            class="profile-photo-preview"
-            data-profile-photo-preview
-            src="{{ profile.profile_photo_url|safe_url }}"
-            alt=""
-          />
-        {% else %}
-          <span class="profile-photo-empty" data-profile-photo-empty>{{ initials }}</span>
-          <img class="profile-photo-preview" data-profile-photo-preview alt="" hidden />
-        {% endif %}
-      </label>
-      <input
-        id="profile-photo-input"
-        class="profile-photo-input"
-        type="file"
-        accept="image/*"
-        data-profile-photo-input
-      />
-      <div class="profile-photo-copy">photo</div>
-    </form>
-
-    <div class="profile-own-copy">
-      <p class="quiet-label">profile</p>
-      <h1>{{ profile.full_name or "creator" }}</h1>
+<div class="wrap">
+  <div style="display:flex;align-items:center;gap:18px;margin-bottom:22px;flex-wrap:wrap;">
+    <span class="avatar av-g3 xl">{{ initials[0] }}</span>
+    <div>
+      <span class="mono eyebrow">your profile</span>
+      <h1 style="font-size:28px;margin-top:6px;line-height:1;">{{ profile.full_name or 'creator' }}</h1>
       {% if profile.instagram_handle %}
-        <p class="profile-handle">@{{ profile.instagram_handle }}</p>
-      {% else %}
-        <p class="profile-handle">handle not set</p>
+      <div style="color:var(--ink-mid);margin-top:4px;font-size:13.5px;">@{{ profile.instagram_handle }}{% if profile.primary_platform %} · {{ profile.primary_platform }}{% endif %}</div>
       {% endif %}
     </div>
-  </header>
+  </div>
 
-  <div class="profile-action-row">
-    <a class="btn btn-primary" href="/creator/profile/settings">settings</a>
-    <form method="post" action="/auth/logout">
+  <div style="display:flex;gap:8px;margin-bottom:26px;flex-wrap:wrap;">
+    <a href="/creator/profile/settings" class="btn btn-ghost btn-sm">settings</a>
+    <form method="post" action="/auth/logout" style="display:inline;">
       {% include "_partials/csrf.html" %}
-      <button type="submit" class="btn btn-secondary">sign out</button>
+      <button type="submit" class="btn btn-ghost btn-sm">sign out</button>
     </form>
   </div>
 
-  <section class="profile-section">
-    <h2>details</h2>
-    <dl class="profile-detail-list">
-      <div>
-        <dt>city</dt>
-        <dd>{{ profile.neighborhood or "miami" }}</dd>
-      </div>
-      <div>
-        <dt>platform</dt>
-        <dd>{{ profile.primary_platform or "instagram" }}</dd>
-      </div>
-      <div>
-        <dt>followers</dt>
-        <dd>{{ profile.follower_range or "not set" }}</dd>
-      </div>
-      <div>
-        <dt>engagement</dt>
-        <dd>{{ profile.engagement_range or "not set" }}</dd>
-      </div>
-    </dl>
-  </section>
+  <span class="mono" style="display:block;margin-bottom:10px;">details</span>
+  <div class="kv-list" style="margin-bottom:22px;">
+    <div class="row"><span class="l">neighborhood</span><span class="v">{{ profile.neighborhood or 'not set' }}</span></div>
+    <div class="row"><span class="l">platform</span><span class="v">{{ profile.primary_platform or 'not set' }}</span></div>
+    <div class="row"><span class="l">followers</span><span class="v">{{ profile.follower_range or 'not set' }}</span></div>
+    <div class="row"><span class="l">engagement</span><span class="v">{{ profile.engagement_range or 'not set' }}</span></div>
+    <div class="row"><span class="l">tenure</span><span class="v">{{ profile.creator_tenure or 'not set' }}</span></div>
+  </div>
 
-  <section class="profile-section">
-    <h2>world</h2>
-    {% if profile.niches %}
-      <div class="profile-chip-row">
-        {% for niche in profile.niches %}
-          <span class="profile-chip">{{ niche }}</span>
-        {% endfor %}
-      </div>
-    {% else %}
-      <p class="profile-muted">no niches set.</p>
-    {% endif %}
-    {% if profile.bio %}
-      <p class="profile-bio">{{ profile.bio }}</p>
-    {% endif %}
-  </section>
+  {% if profile.niches %}
+  <span class="mono" style="display:block;margin-bottom:10px;">niches</span>
+  <div class="chip-group" style="margin-bottom:22px;">
+    {% for n in profile.niches %}
+    <span class="chip chip-active">{{ n }}</span>
+    {% endfor %}
+  </div>
+  {% endif %}
 
-  <section class="profile-section">
-    <h2>limits</h2>
-    {% if profile.hard_limits %}
-      {% if profile.hard_limits is string %}
-        <p class="profile-bio">{{ profile.hard_limits }}</p>
-      {% else %}
-        <div class="profile-chip-row">
-          {% for limit in profile.hard_limits %}
-            <span class="profile-chip">{{ limit }}</span>
-          {% endfor %}
-        </div>
-      {% endif %}
+  {% if profile.content_formats %}
+  <span class="mono" style="display:block;margin-bottom:10px;">formats</span>
+  <div class="chip-group" style="margin-bottom:22px;">
+    {% for f in profile.content_formats %}
+    <span class="chip chip-active">{{ f }}</span>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if profile.bio %}
+  <span class="mono" style="display:block;margin-bottom:10px;">bio</span>
+  <p style="color:var(--ink-mid);font-size:14.5px;line-height:1.55;margin:0 0 22px;">{{ profile.bio }}</p>
+  {% endif %}
+
+  {% if profile.hard_limits %}
+  <span class="mono" style="display:block;margin-bottom:10px;">limits</span>
+  <div class="chip-group" style="margin-bottom:22px;">
+    {% if profile.hard_limits is string %}
+    <span class="chip chip-active">{{ profile.hard_limits }}</span>
     {% else %}
-      <p class="profile-muted">no limits set.</p>
+    {% for limit in profile.hard_limits %}
+    <span class="chip chip-active">{{ limit }}</span>
+    {% endfor %}
     {% endif %}
-  </section>
-</section>
+  </div>
+  {% endif %}
+</div>
 {% endblock %}

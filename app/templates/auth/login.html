@@ -1,20 +1,20 @@
 {% extends "base.html" %}
 {% import "_partials/brand_mark.html" as brand %}
 
-{% block title %}sign in - babyg{% endblock %}
+{% block title %}sign in — babyg{% endblock %}
 
 {% block content %}
-<section class="auth-pane">
+<div class="auth-pane">
   <div class="auth-logo-row">
     {{ brand.wordmark("brand-lockup-small") }}
   </div>
-  <a class="back-link" href="/get-started">&larr; back</a>
+  <a class="back-link" href="/get-started">← back</a>
   <div class="auth-tag">{{ role }} sign in</div>
   <h1 class="auth-title">we'll send the link.</h1>
   <p class="auth-sub">
     use the email tied to your babyg invite.
     {% if role == "operator" %}
-    <br/><span class="auth-warn">operator access is controlled.</span>
+    <span class="auth-warn">operator access is controlled.</span>
     {% endif %}
   </p>
 
@@ -25,7 +25,7 @@
   <form class="auth-form" method="post" action="/auth/magic-link">
     {% include "_partials/csrf.html" %}
     <input type="hidden" name="role" value="{{ role }}" />
-    <label for="email" class="sr-only">Email</label>
+    <label for="email" class="sr-only">email</label>
     <input
       type="email"
       id="email"
@@ -36,7 +36,9 @@
       autofocus
       value="{{ email or '' }}"
     />
-    <button type="submit" class="btn btn-primary btn-wide">send link</button>
+    <button type="submit" class="btn btn-lime btn-wide">send link
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 9L9 3M9 3H4M9 3V8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
   </form>
-</section>
+</div>
 {% endblock %}

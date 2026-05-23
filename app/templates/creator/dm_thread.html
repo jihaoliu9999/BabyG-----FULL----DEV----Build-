@@ -1,51 +1,59 @@
 {% extends "base.html" %}
 
-{% block title %}{{ peer.full_name or "Creator" }} - messages - babyg{% endblock %}
+{% block title %}{{ peer.full_name or "creator" }} — babyg{% endblock %}
 
 {% block content %}
-<section class="dm">
-  <a class="back-link" href="/creator/dm">&larr; all conversations</a>
+<div class="wrap">
+  <a href="/creator/dms" class="back-link">← inbox</a>
 
-  <header class="dm-header">
-    <div class="profile-avatar profile-avatar-small" aria-hidden="true">
-      {{ (peer.full_name or peer.instagram_handle or "C")[:1]|upper }}
-    </div>
+  <div style="display:flex;align-items:center;gap:14px;margin-bottom:24px;">
+    <span class="avatar av-g2 lg">{{ (peer.full_name or peer.instagram_handle or 'C')[0].upper() }}</span>
     <div>
-      <div class="auth-tag">Creator / Connected</div>
-      <h1 class="dm-title">{{ peer.full_name or "Creator" }}</h1>
-      <p class="dm-sub">
-        {% if peer.instagram_handle %}@{{ peer.instagram_handle }} / {% endif %}
-        <a href="/creator/network/{{ peer_id }}">View profile</a>
+      <span class="mono eyebrow">creator · connected</span>
+      <h2 style="font-size:24px;margin-top:6px;">{{ peer.full_name or "Creator" }}</h2>
+      {% if peer.instagram_handle %}
+      <p style="margin:4px 0 0;color:var(--ink-dim);font-size:13px;">
+        @{{ peer.instagram_handle }} ·
+        <a href="/creator/network/{{ peer_id }}" style="color:var(--ink-mid);">view profile</a>
       </p>
+      {% endif %}
     </div>
-  </header>
+  </div>
 
   {% if messages %}
+  <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:24px;">
     {% include "_partials/dm_thread_messages.html" %}
+  </div>
   {% else %}
-    <div class="feed-empty dm-empty">
-      <h2>Say hello.</h2>
-      <p>This is the start of your conversation.</p>
-    </div>
+  <div style="text-align:center;padding:40px 0 24px;color:var(--ink-dim);">
+    <p class="mono" style="font-size:11px;">start of your conversation.</p>
+  </div>
   {% endif %}
-
-  <form class="dm-composer" method="post" action="/creator/dm/{{ peer_id }}/send">
-    {% include "_partials/csrf.html" %}
-    <textarea name="body" rows="3" required maxlength="4000"
-              placeholder="Reply..."></textarea>
-    <button type="submit" class="btn btn-primary">Send</button>
-  </form>
 
   {% if request.query_params.get("reported") == "1" %}
-  <div class="auth-success">Thanks - an operator will review.</div>
+  <div style="margin-bottom:16px;padding:12px 16px;background:rgba(255,77,109,0.08);border:1px solid var(--lime);border-radius:12px;color:var(--lime);font-size:13px;">thanks — an operator will review.</div>
   {% elif request.query_params.get("reported") == "fail" %}
-  <div class="auth-error">Couldn't submit your report. Try again.</div>
+  <div style="margin-bottom:16px;padding:12px 16px;background:rgba(255,77,109,0.08);border:1px solid var(--lime);border-radius:12px;color:var(--lime);font-size:13px;">couldn't submit your report. try again.</div>
   {% endif %}
+
+  <div style="position:sticky;bottom:0;background:rgba(8,8,8,0.92);backdrop-filter:blur(20px);padding:12px 0 max(env(safe-area-inset-bottom,18px),18px);margin:0 -24px;border-top:1px solid var(--hairline);">
+    <div class="wrap">
+      <form method="post" action="/creator/dms/{{ peer_id }}/send">
+        {% include "_partials/csrf.html" %}
+        <div style="display:flex;gap:8px;background:var(--surface-2);border:1px solid var(--hairline);border-radius:999px;padding:6px 6px 6px 16px;align-items:center;">
+          <input name="body" required maxlength="4000" placeholder="reply…" style="flex:1;background:transparent;border:0;outline:none;color:var(--ink);font-size:14px;padding:8px 0;font-family:inherit;" />
+          <button type="submit" class="send" style="width:38px;height:38px;border-radius:50%;background:var(--lime);border:0;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;color:#fff;cursor:pointer;">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
 
   {% set target_type = "dm_thread" %}
   {% set target_id = thread.id %}
-  {% set return_to = "/creator/dm/" ~ peer_id %}
+  {% set return_to = "/creator/dms/" ~ peer_id %}
   {% set label = "this conversation" %}
   {% include "_partials/report_form.html" %}
-</section>
+</div>
 {% endblock %}

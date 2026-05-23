@@ -1,64 +1,53 @@
 {% extends "base.html" %}
 
-{% block title %}profile views - babyg{% endblock %}
+{% block title %}profile views — babyg{% endblock %}
 
 {% block content %}
-<section class="feed creator-surface">
-  <header class="feed-header surface-header">
-    <div class="feed-eyebrow">profile views</div>
-    <h1 class="feed-title">who looked</h1>
-    {% if tier == "basic" %}
-    <p class="feed-sub">
-      profile views live in higher tiers.
-    </p>
-    {% elif tier == "pro" %}
-    <div class="views-count-card">
-      <span>Last 30 days</span>
-      <strong>{{ count }}</strong>
+<div class="wrap">
+  <div class="page-header">
+    <div class="title-block">
+      <span class="mono eyebrow">profile views</span>
+      <p class="sub">who looked.</p>
     </div>
-    <p class="feed-sub">
-      <strong>{{ count }}</strong> distinct creator{{ "s" if count != 1 else "" }}
-      viewed your profile in the last 30 days.
-    </p>
-    {% else %}
-    <div class="views-count-card">
-      <span>Last 30 days</span>
-      <strong>{{ count }}</strong>
-    </div>
-    <p class="feed-sub">
-      <strong>{{ count }}</strong> distinct creator{{ "s" if count != 1 else "" }}
-      viewed your profile in the last 30 days.
-    </p>
-    {% endif %}
-  </header>
+  </div>
+
+  {% if tier == "basic" %}
+  <div class="card" style="text-align:center;padding:32px;">
+    <span class="mono" style="font-size:11px;color:var(--lime);display:block;margin-bottom:10px;">pro feature</span>
+    <p style="color:var(--ink-mid);font-size:14px;margin:0;">profile views are available on pro and VIP tiers.</p>
+  </div>
+  {% else %}
+  <div class="views-count-card">
+    <span>last 30 days</span>
+    <strong>{{ count }}</strong>
+  </div>
+  <p style="color:var(--ink-mid);font-size:13.5px;margin:0 0 24px;">
+    <strong style="color:var(--ink);">{{ count }}</strong> distinct creator{{ 's' if count != 1 else '' }} viewed your profile in the last 30 days.
+  </p>
 
   {% if tier == "vip" and viewers %}
-  <ul class="dm-thread-list">
+  <span class="mono" style="display:block;margin-bottom:10px;">viewers</span>
+  <div class="stack">
     {% for v in viewers %}
-      {% set p = viewer_profiles.get(v.viewer_id) %}
-      <li class="dm-thread-row">
-        <a class="dm-thread-link" href="/creator/network/{{ v.viewer_id }}">
-          <div class="creator-avatar dm-avatar" aria-hidden="true">
-            {{ (p.full_name if p else "C")[:1]|upper }}
-          </div>
-          <div class="dm-thread-copy">
-            <div class="dm-thread-name">
-              {{ p.full_name if p else "Creator" }}
-              {% if p and p.instagram_handle %}<span class="dm-thread-handle">@{{ p.instagram_handle }}</span>{% endif %}
-            </div>
-            <div class="dm-thread-meta">
-              Viewed {{ v.viewed_at|short_date or "" }}
-            </div>
-          </div>
-        </a>
-      </li>
+    {% set p = viewer_profiles.get(v.viewer_id) %}
+    <a href="/creator/network/{{ v.viewer_id }}" class="thread-row">
+      <span class="avatar av-g2">{{ (p.full_name if p else 'C')[:1]|upper }}</span>
+      <div class="body">
+        <div class="top">
+          <span class="name">{{ p.full_name if p else 'Creator' }}{% if p and p.instagram_handle %}<span style="font-size:12px;color:var(--ink-dim);font-weight:400;margin-left:6px;">@{{ p.instagram_handle }}</span>{% endif %}</span>
+          <span class="when">{{ v.viewed_at|short_date or '' }}</span>
+        </div>
+        <div class="preview">viewed your profile</div>
+      </div>
+    </a>
     {% endfor %}
-  </ul>
+  </div>
   {% elif tier == "vip" %}
-  <div class="feed-empty">
-    <h2>no views yet.</h2>
-    <p>quiet for now.</p>
+  <div style="text-align:center;padding:40px 0;color:var(--ink-dim);">
+    <span class="mono">no views yet.</span>
+    <p style="margin:12px 0 0;font-size:13.5px;">quiet for now.</p>
   </div>
   {% endif %}
-</section>
+  {% endif %}
+</div>
 {% endblock %}

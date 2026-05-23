@@ -1,60 +1,68 @@
 {% extends "base.html" %}
 
-{% block title %}{{ listing.title }} - listings - babyg{% endblock %}
+{% block title %}{{ listing.title }} — babyg{% endblock %}
 
 {% block content %}
-<section class="onb creator-detail">
-  <a class="back-link" href="/creator/jobs">&larr; listings</a>
+<div class="wrap">
+  <a href="/creator/jobs" class="back-link">← listings</a>
 
-  <header class="onb-header">
-    <div class="auth-tag">
-      {{ listing.listing_type|replace("_", " ") }}
-      {% if not listing.is_active %} / <span class="status-pill status-archived">closed</span>{% endif %}
+  <div style="margin-bottom:22px;">
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+      <span class="badge badge-muted">{{ listing.listing_type|replace('_', ' ') or 'listing' }}</span>
+      {% if listing.is_active %}<span class="badge badge-coral">active</span>{% else %}<span class="badge badge-muted">closed</span>{% endif %}
     </div>
-    <h1 class="onb-title">{{ listing.title }}</h1>
+    <h1 style="font-size:28px;line-height:1.1;margin:0 0 10px;">{{ listing.title }}</h1>
     {% if poster %}
-    <p class="onb-sub">
-      Posted by
-      <a href="/creator/network/{{ listing.poster_user_id }}">{{ poster.full_name or "Creator" }}</a>
-      {% if poster.instagram_handle %} / @{{ poster.instagram_handle }}{% endif %}
-    </p>
-    {% endif %}
-  </header>
-
-  <section class="onb-section">
-    <h2 class="onb-section-title">Description</h2>
-    <p class="kv-prose detail-prose">{{ listing.description }}</p>
-    <dl class="kv">
-      {% if listing.compensation_text %}<dt>Comp</dt><dd>{{ listing.compensation_text }}</dd>{% endif %}
-      {% if listing.deadline %}<dt>Deadline</dt><dd>{{ listing.deadline|short_dt }}</dd>{% endif %}
-    </dl>
-    <div class="tag-row">
-      <span class="tag-row-label">Niches</span>
-      {% for n in listing.target_niches or [] %}<span class="tag">{{ n }}</span>{% else %}<span class="tag-empty">any</span>{% endfor %}
+    <div style="color:var(--ink-mid);font-size:13.5px;">
+      from <a href="/creator/network/{{ listing.poster_user_id }}" style="color:var(--ink);">{{ poster.full_name or poster.instagram_handle or 'creator' }}</a>
+      {% if poster.instagram_handle %} · @{{ poster.instagram_handle }}{% endif %}
     </div>
-  </section>
+    {% endif %}
+  </div>
+
+  {% if listing.description %}
+  <span class="mono" style="display:block;margin-bottom:8px;">about</span>
+  <p style="color:var(--ink-mid);font-size:14.5px;line-height:1.55;margin:0 0 22px;">{{ listing.description }}</p>
+  {% endif %}
+
+  <span class="mono" style="display:block;margin-bottom:8px;">details</span>
+  <div class="kv-list" style="margin-bottom:22px;">
+    {% if listing.compensation_text %}
+    <div class="row"><span class="l">comp</span><span class="v">{{ listing.compensation_text }}</span></div>
+    {% endif %}
+    {% if listing.deadline %}
+    <div class="row"><span class="l">deadline</span><span class="v">{{ listing.deadline|short_dt }}</span></div>
+    {% endif %}
+  </div>
+
+  {% if listing.target_niches %}
+  <span class="mono" style="display:block;margin-bottom:8px;">niches</span>
+  <div class="chip-group" style="margin-bottom:22px;">
+    {% for n in listing.target_niches %}
+    <span class="chip chip-active">{{ n }}</span>
+    {% endfor %}
+  </div>
+  {% endif %}
 
   {% if is_mine %}
-    <div class="onb-actions">
-      <a class="btn btn-secondary btn-wide" href="/creator/jobs/{{ listing.id }}/edit">Edit listing</a>
-    </div>
+  <a href="/creator/jobs/{{ listing.id }}/edit" class="btn btn-ghost btn-sm">edit listing</a>
   {% else %}
-    <section class="onb-section">
-      <h2 class="onb-section-title">Reach out</h2>
-      {% if can_dm %}
-        <p class="field-hint">You're connected. Send a DM directly.</p>
-        <a class="btn btn-primary btn-wide" href="/creator/dm/{{ listing.poster_user_id }}">Open DM</a>
-      {% else %}
-        <p class="field-hint">Connect first to message this creator.</p>
-        <a class="btn btn-primary btn-wide" href="/creator/network/{{ listing.poster_user_id }}">Open profile</a>
-      {% endif %}
-    </section>
-
-    {% set target_type = "listing" %}
-    {% set target_id = listing.id %}
-    {% set return_to = "/creator/jobs/" ~ listing.id %}
-    {% set label = "this listing" %}
-    {% include "_partials/report_form.html" %}
+  <span class="mono" style="display:block;margin-bottom:8px;">reach out</span>
+  {% if can_dm %}
+  <p style="color:var(--ink-dim);font-size:13.5px;margin:0 0 12px;">you're connected. send a DM directly.</p>
+  <a href="/creator/dms/{{ listing.poster_user_id }}" class="btn btn-lime btn-sm">open DM
+    <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 9L9 3M9 3H4M9 3V8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </a>
+  {% else %}
+  <p style="color:var(--ink-dim);font-size:13.5px;margin:0 0 12px;">connect first to message this creator.</p>
+  <a href="/creator/network/{{ listing.poster_user_id }}" class="btn btn-lime btn-sm">view profile →</a>
   {% endif %}
-</section>
+
+  {% set target_type = "listing" %}
+  {% set target_id = listing.id %}
+  {% set return_to = "/creator/jobs/" ~ listing.id %}
+  {% set label = "this listing" %}
+  {% include "_partials/report_form.html" %}
+  {% endif %}
+</div>
 {% endblock %}

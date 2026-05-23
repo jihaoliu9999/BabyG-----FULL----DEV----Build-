@@ -1,9 +1,31 @@
 {% set path = request.url.path %}
-<nav class="mobile-tabbar creator-tabbar" aria-label="Creator app navigation">
-  <a href="/creator" {% if path == "/creator" %}aria-current="page"{% endif %}>feed</a>
-  <a href="/creator/bot" {% if path.startswith("/creator/bot") %}aria-current="page"{% endif %}>babyg</a>
-  <a href="/creator/calendar" {% if path.startswith("/creator/calendar") %}aria-current="page"{% endif %}>calendar</a>
-  <a href="/creator/network" {% if path.startswith("/creator/network") or path.startswith("/creator/connections") or path.startswith("/creator/jobs") or path.startswith("/creator/dm") %}aria-current="page"{% endif %}>network</a>
-  <a href="/creator/performance" {% if path.startswith("/creator/performance") or path.startswith("/creator/receipts") or path.startswith("/creator/views") %}aria-current="page"{% endif %}>stats</a>
-  <a href="/creator/profile" {% if path.startswith("/creator/profile") %}aria-current="page"{% endif %}>profile</a>
+<nav class="app-tabbar" id="tabbar">
+  <a href="/creator" data-tab="feed" class="{{ 'active' if path == '/creator' }}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 12h4l3-9 4 18 3-9h4"/></svg>
+    feed
+  </a>
+  <a href="/creator/bot" data-tab="chat" class="{{ 'active' if path.startswith('/creator/bot') }}">
+    <img src="/static/assets/logo-bg.png" alt="" class="nav-bg-icon" />
+    babyg
+  </a>
+  <a href="/creator/calendar" data-tab="calendar" class="{{ 'active' if path.startswith('/creator/calendar') }}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></svg>
+    calendar
+  </a>
+  <a href="/creator/dms" data-tab="inbox" class="{{ 'active' if path.startswith('/creator/dms') }}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M22 12V6a2 2 0 00-2-2H4a2 2 0 00-2 2v12a2 2 0 002 2h10"/><path d="M2 6l10 7 10-7"/></svg>
+    inbox
+  </a>
+  <a href="/creator/network" data-tab="network" class="{{ 'active' if path.startswith('/creator/network') or path.startswith('/creator/connections') }}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="16" r="3"/><path d="M3 21c0-3.3 2.7-6 6-6M21 21c0-1.7-.7-3.2-1.8-4.3"/></svg>
+    network
+  </a>
+  <a href="/creator/performance" data-tab="stats" class="{{ 'active' if path.startswith('/creator/performance') or path.startswith('/creator/receipts') or path.startswith('/creator/views') }}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 21V10M9 21V3M15 21v-8M21 21V14"/></svg>
+    stats
+  </a>
+  <a href="/creator/profile" data-tab="profile" class="{{ 'active' if path.startswith('/creator/profile') or path.startswith('/creator/settings') }}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>
+    profile
+  </a>
 </nav>

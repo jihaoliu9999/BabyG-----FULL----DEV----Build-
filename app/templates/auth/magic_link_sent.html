@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 {% import "_partials/brand_mark.html" as brand %}
 
-{% block title %}check your email - babyg{% endblock %}
+{% block title %}check your email — babyg{% endblock %}
 
 {% block content %}
-<section class="auth-pane">
+<div class="auth-pane">
   <div class="auth-logo-row">
     {{ brand.wordmark("brand-lockup-small") }}
   </div>
@@ -16,5 +16,5 @@
   <p class="auth-foot">
     no link? <a href="/auth/login?role={{ role }}">send another</a>.
   </p>
-</section>
+</div>
 {% endblock %}

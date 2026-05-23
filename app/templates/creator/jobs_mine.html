@@ -1,54 +1,57 @@
 {% extends "base.html" %}
 
-{% block title %}My listings - babyg{% endblock %}
+{% block title %}my listings — babyg{% endblock %}
 
 {% block content %}
-<section class="feed creator-surface">
-  <header class="feed-header surface-header">
-    <div class="feed-eyebrow">My listings</div>
-    <h1 class="feed-title">Posted by you</h1>
-    <p class="feed-sub">Manage creator opportunities you have shared with the network.</p>
-    <div class="action-row action-row-inline">
-      <a class="btn btn-secondary" href="/creator/jobs">Browse</a>
-      <a class="btn btn-primary" href="/creator/jobs/new">New listing</a>
+<div class="wrap">
+  <div class="page-header">
+    <div class="title-block">
+      <span class="mono eyebrow">my listings</span>
+      <p class="sub">posted by you.</p>
     </div>
-  </header>
+    <div class="actions">
+      <a class="btn btn-ghost btn-sm" href="/creator/jobs">browse</a>
+      <a class="btn btn-lime btn-sm" href="/creator/jobs/new">new listing
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 9L9 3M9 3H4M9 3V8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </a>
+    </div>
+  </div>
 
   {% if listings %}
-  <div class="record-list">
+  <div class="stack">
     {% for l in listings %}
-    <article class="record-card">
-      <div class="record-card-main">
-        <div class="record-card-kicker">{{ l.listing_type|replace("_", " ") }}</div>
-        <h2><a href="/creator/jobs/{{ l.id }}">{{ l.title }}</a></h2>
-        <div class="record-card-meta">
-          {% if l.is_taken_down %}
-            <span class="status-pill status-archived">taken down</span>
-          {% elif l.is_active %}
-            <span class="status-pill status-active">active</span>
-          {% else %}
-            <span class="status-pill status-archived">closed</span>
+    <div class="card" style="margin-bottom:12px;">
+      <div style="display:flex;align-items:flex-start;gap:12px;">
+        <div style="flex:1;min-width:0;">
+          <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+            <span class="badge badge-muted">{{ l.listing_type|replace('_', ' ') }}</span>
+            {% if l.is_taken_down %}<span class="badge badge-muted">taken down</span>
+            {% elif l.is_active %}<span class="badge badge-coral">active</span>
+            {% else %}<span class="badge badge-muted">closed</span>
+            {% endif %}
+          </div>
+          <a href="/creator/jobs/{{ l.id }}" style="font-size:15px;color:var(--ink);font-weight:600;display:block;margin-bottom:4px;">{{ l.title }}</a>
+          <span style="font-size:12px;color:var(--ink-dim);">{{ l.created_at|short_date or '' }}</span>
+        </div>
+        <div style="display:flex;gap:8px;flex-shrink:0;">
+          <a href="/creator/jobs/{{ l.id }}/edit" class="btn btn-ghost btn-sm">edit</a>
+          {% if l.is_active and not l.is_taken_down %}
+          <form method="post" action="/creator/jobs/{{ l.id }}/close">
+            {% include "_partials/csrf.html" %}
+            <button type="submit" class="btn btn-ghost btn-sm">close</button>
+          </form>
           {% endif %}
-          <span>{{ l.created_at|short_date or "Not posted" }}</span>
         </div>
       </div>
-      <div class="record-card-actions">
-        <a class="btn btn-secondary" href="/creator/jobs/{{ l.id }}/edit">Edit</a>
-        {% if l.is_active and not l.is_taken_down %}
-        <form method="post" action="/creator/jobs/{{ l.id }}/close">
-          {% include "_partials/csrf.html" %}
-          <button type="submit" class="btn btn-secondary">Close</button>
-        </form>
-        {% endif %}
-      </div>
-    </article>
+    </div>
     {% endfor %}
   </div>
   {% else %}
-  <div class="feed-empty">
-    <h2>No listings yet.</h2>
-    <p>Post your first collab idea, UGC swap, content day, or hiring ask.</p>
+  <div style="text-align:center;padding:60px 0;color:var(--ink-dim);">
+    <span class="mono">no listings yet.</span>
+    <p style="margin:12px 0 0;font-size:13.5px;">post your first collab, swap, or hiring ask.</p>
+    <a href="/creator/jobs/new" class="btn btn-ghost btn-sm" style="margin-top:16px;">post first listing</a>
   </div>
   {% endif %}
-</section>
+</div>
 {% endblock %}

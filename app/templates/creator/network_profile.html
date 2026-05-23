@@ -1,89 +1,94 @@
 {% extends "base.html" %}
 
-{% block title %}{{ peer.full_name or "Creator" }} - network - babyg{% endblock %}
+{% block title %}{{ peer.full_name or "creator" }} — babyg{% endblock %}
 
 {% block content %}
-<section class="onb creator-detail">
-  <a class="back-link" href="/creator/network">&larr; network</a>
+<div class="wrap">
+  <a href="/creator/network" class="back-link">← network</a>
 
-  <header class="profile-hero">
-    <div class="profile-avatar" aria-hidden="true">
-      {{ (peer.full_name or peer.instagram_handle or "C")[:1]|upper }}
+  <div style="display:flex;align-items:center;gap:18px;margin-bottom:20px;flex-wrap:wrap;">
+    <span class="avatar av-g2 xl">{{ (peer.full_name or peer.instagram_handle or 'C')[0].upper() }}</span>
+    <div>
+      <span class="mono eyebrow">creator</span>
+      <h1 style="font-size:32px;margin-top:8px;line-height:1;">{{ peer.full_name or "Creator" }}</h1>
+      {% if peer.instagram_handle %}
+      <div style="color:var(--ink-mid);margin-top:6px;">@{{ peer.instagram_handle }}{% if peer.primary_platform %} · {{ peer.primary_platform }}{% endif %}</div>
+      {% endif %}
     </div>
-    <div class="auth-tag">Creator</div>
-    <h1 class="onb-title">{{ peer.full_name or "Creator" }}</h1>
-    {% if peer.instagram_handle %}
-    <p class="onb-sub">
-      @{{ peer.instagram_handle }}
-      {% if peer.primary_platform %} / {{ peer.primary_platform }}{% endif %}
-    </p>
-    {% endif %}
-  </header>
+  </div>
 
-  <section class="onb-section">
-    <h2 class="onb-section-title">Profile</h2>
-    <dl class="kv">
-      <dt>Neighborhood</dt><dd>{{ peer.neighborhood or "Not set" }}</dd>
-      <dt>Followers</dt><dd>{{ peer.follower_range or "Not set" }}</dd>
-      <dt>Engagement</dt><dd>{{ peer.engagement_range or "Not set" }}</dd>
-      <dt>Tenure</dt><dd>{{ peer.creator_tenure or "Not set" }}</dd>
-    </dl>
-    <div class="tag-row">
-      <span class="tag-row-label">Niches</span>
-      {% for n in peer.niches or [] %}<span class="tag">{{ n }}</span>{% endfor %}
+  {% if state == "connected" %}
+  <div class="card" style="border-color:var(--lime);display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:18px;">
+    <div>
+      <span class="status-pill"><span class="pulse-dot"></span> connected</span>
     </div>
-    <div class="tag-row">
-      <span class="tag-row-label">Formats</span>
-      {% for c in peer.content_formats or [] %}<span class="tag">{{ c }}</span>{% endfor %}
-    </div>
-    {% if peer.bio %}
-    <div class="kv-prose">
-      <h3>Bio</h3>
-      <p>{{ peer.bio }}</p>
-    </div>
-    {% endif %}
-  </section>
-
-  <section class="onb-section">
-    <h2 class="onb-section-title">Connection</h2>
-    {% if state == "none" %}
-      <form method="post" action="/creator/connections/request">
+    <a href="/creator/dms/{{ peer_id }}" class="btn btn-lime btn-sm">message
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 9L9 3M9 3H4M9 3V8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </a>
+  </div>
+  {% elif state == "incoming_pending" %}
+  <div class="card" style="margin-bottom:18px;">
+    <p style="color:var(--ink-mid);font-size:13.5px;margin:0 0 12px;">this creator wants to connect with you.</p>
+    <div style="display:flex;gap:8px;">
+      <form method="post" action="/creator/connections/{{ connection.id }}/accept">
         {% include "_partials/csrf.html" %}
-        <input type="hidden" name="peer_user_id" value="{{ peer_id }}" />
-        <button type="submit" class="btn btn-primary btn-wide">Send connect request</button>
+        <button type="submit" class="btn btn-lime btn-sm">accept</button>
       </form>
-    {% elif state == "outgoing_pending" %}
-      <p class="field-hint">Your request is waiting on a response.</p>
-      <button class="btn btn-secondary btn-wide" disabled>Request sent</button>
-    {% elif state == "incoming_pending" %}
-      <p class="field-hint">This creator wants to connect with you.</p>
-      <div class="decision-form decision-form-inline">
-        <form method="post" action="/creator/connections/{{ connection.id }}/accept">
-          {% include "_partials/csrf.html" %}
-          <button type="submit" class="btn btn-primary">Accept</button>
-        </form>
-        <form method="post" action="/creator/connections/{{ connection.id }}/decline">
-          {% include "_partials/csrf.html" %}
-          <button type="submit" class="btn btn-secondary">Decline</button>
-        </form>
-      </div>
-    {% elif state == "connected" %}
-      <p class="field-hint">You're connected.</p>
-      <a class="btn btn-primary btn-wide" href="/creator/dm/{{ peer_id }}">Message</a>
-    {% elif state == "declined" %}
-      <p class="field-hint">A previous request between you was declined. You can try again.</p>
-      <form method="post" action="/creator/connections/request">
+      <form method="post" action="/creator/connections/{{ connection.id }}/decline">
         {% include "_partials/csrf.html" %}
-        <input type="hidden" name="peer_user_id" value="{{ peer_id }}" />
-        <button type="submit" class="btn btn-secondary btn-wide">Send another request</button>
+        <button type="submit" class="btn btn-ghost btn-sm">decline</button>
       </form>
-    {% endif %}
-  </section>
+    </div>
+  </div>
+  {% elif state == "outgoing_pending" %}
+  <div class="card" style="margin-bottom:18px;">
+    <span class="status-pill">request sent · waiting</span>
+  </div>
+  {% elif state == "none" or state == "declined" %}
+  <div style="margin-bottom:18px;">
+    <form method="post" action="/creator/connections/request">
+      {% include "_partials/csrf.html" %}
+      <input type="hidden" name="peer_user_id" value="{{ peer_id }}" />
+      <button type="submit" class="btn btn-lime btn-sm">send connect request</button>
+    </form>
+  </div>
+  {% endif %}
+
+  <span class="mono" style="display:block;margin-bottom:10px;">profile</span>
+  <div class="kv-list" style="margin-bottom:18px;">
+    <div class="row"><span class="l">neighborhood</span><span class="v">{{ peer.neighborhood or 'not set' }}</span></div>
+    <div class="row"><span class="l">followers</span><span class="v">{{ peer.follower_range or 'not set' }}</span></div>
+    <div class="row"><span class="l">engagement</span><span class="v">{{ peer.engagement_range or 'not set' }}</span></div>
+    <div class="row"><span class="l">tenure</span><span class="v">{{ peer.creator_tenure or 'not set' }}</span></div>
+  </div>
+
+  {% if peer.niches %}
+  <span class="mono" style="display:block;margin-bottom:10px;">niches</span>
+  <div class="chip-group" style="margin-bottom:18px;">
+    {% for n in peer.niches %}
+    <span class="chip chip-active">{{ n }}</span>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if peer.content_formats %}
+  <span class="mono" style="display:block;margin-bottom:10px;">formats</span>
+  <div class="chip-group" style="margin-bottom:18px;">
+    {% for f in peer.content_formats %}
+    <span class="chip chip-active">{{ f }}</span>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if peer.bio %}
+  <span class="mono" style="display:block;margin-bottom:10px;">bio</span>
+  <p style="color:var(--ink-mid);font-size:14.5px;line-height:1.55;margin:0 0 24px;">{{ peer.bio }}</p>
+  {% endif %}
 
   {% set target_type = "profile" %}
   {% set target_id = peer_id %}
   {% set return_to = "/creator/network/" ~ peer_id %}
   {% set label = "this profile" %}
   {% include "_partials/report_form.html" %}
-</section>
+</div>
 {% endblock %}

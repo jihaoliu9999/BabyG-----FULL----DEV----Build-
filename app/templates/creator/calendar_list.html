@@ -1,102 +1,99 @@
 {% extends "base.html" %}
 
-{% block title %}calendar - babyg{% endblock %}
+{% block title %}calendar — babyg{% endblock %}
 
 {% block content %}
-<section class="feed creator-surface">
-  <header class="feed-header surface-header">
-    <div class="feed-eyebrow">calendar</div>
-    <h1 class="feed-title">your schedule</h1>
-    <p class="feed-sub">
-      google events, local bookings, and creator deadlines live here.
-    </p>
-    <div class="action-row action-row-inline">
-      <a class="btn btn-primary" href="/creator/calendar/new">add item</a>
-      {% if google_configured and not google_connected %}
-        <a class="btn btn-secondary" href="/creator/google/calendar/connect">connect google</a>
-      {% endif %}
+<div class="wrap">
+  <div class="page-header">
+    <div class="title-block">
+      <span class="mono eyebrow">calendar</span>
+      <p class="sub">google events, local bookings, and creator deadlines.</p>
     </div>
-  </header>
+    <div class="actions">
+      {% if google_connected %}
+      <span class="status-pill"><span class="pulse-dot"></span> google synced</span>
+      {% endif %}
+      <a class="btn btn-lime btn-sm" href="/creator/calendar/new">add item
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 9L9 3M9 3H4M9 3V8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </a>
+    </div>
+  </div>
 
   {% if calendar_notice %}
-    <div class="calendar-sync-card calendar-sync-notice">
-      <p>{{ calendar_notice }}</p>
-    </div>
+  <div style="margin-bottom:16px;padding:12px 16px;background:rgba(255,77,109,0.08);border:1px solid var(--lime);border-radius:12px;color:var(--ink-mid);font-size:13.5px;">{{ calendar_notice }}</div>
   {% endif %}
 
-  <section class="calendar-sync-card">
+  {% if not google_connected %}
+  <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:22px;">
     <div>
-      <p class="record-card-kicker">google calendar</p>
-      {% if google_connected %}
-        <h2>connected.</h2>
-        <p>pull your upcoming google calendar events into babyg.</p>
-      {% elif google_configured %}
-        <h2>connect your calendar.</h2>
-        <p>babyg will show your real schedule here.</p>
-      {% else %}
-        <h2>calendar keys missing.</h2>
-        <p>add google oauth variables in production, then connect.</p>
-      {% endif %}
+      <span class="mono eyebrow">google calendar</span>
+      <p style="margin:8px 0 0;color:var(--ink-mid);font-size:13.5px;">
+        {% if google_configured %}connect to pull your real schedule into babyg.
+        {% else %}google calendar not configured yet.{% endif %}
+      </p>
     </div>
-    <div class="calendar-sync-actions">
-      {% if google_connected %}
-        <form method="post" action="/creator/google/calendar/sync">
-          {% include "_partials/csrf.html" %}
-          <button type="submit" class="btn btn-primary">sync now</button>
-        </form>
-        <form method="post" action="/creator/google/calendar/disconnect">
-          {% include "_partials/csrf.html" %}
-          <button type="submit" class="btn btn-secondary">disconnect</button>
-        </form>
-      {% elif google_configured %}
-        <a class="btn btn-primary" href="/creator/google/calendar/connect">connect google</a>
-      {% else %}
-        <span class="status-pill status-draft">not configured</span>
-      {% endif %}
-    </div>
-  </section>
+    {% if google_configured %}
+    <a class="btn btn-ghost btn-sm" href="/creator/google/calendar/connect">connect google</a>
+    {% else %}
+    <span class="badge badge-muted">not configured</span>
+    {% endif %}
+  </div>
+  {% endif %}
 
-  <nav class="feed-filters" aria-label="Filter by horizon">
-    <a class="chip {% if horizon == 'upcoming' %}chip-active{% endif %}"
-       href="/creator/calendar?horizon=upcoming">upcoming</a>
-    <a class="chip {% if horizon == 'past' %}chip-active{% endif %}"
-       href="/creator/calendar?horizon=past">past</a>
-    <a class="chip {% if horizon == 'all' %}chip-active{% endif %}"
-       href="/creator/calendar?horizon=all">all</a>
-  </nav>
+  <div class="filter-row">
+    <a class="chip {{ 'chip-active' if horizon == 'upcoming' or not horizon }}" href="/creator/calendar?horizon=upcoming">upcoming</a>
+    <a class="chip {{ 'chip-active' if horizon == 'past' }}" href="/creator/calendar?horizon=past">past</a>
+    <a class="chip {{ 'chip-active' if horizon == 'all' }}" href="/creator/calendar?horizon=all">all</a>
+  </div>
 
   {% if bookings %}
-  <div class="record-list calendar-list">
+  <div class="stack">
     {% for b in bookings %}
-    <article class="record-card event-card">
-      <a class="record-card-main" href="/creator/calendar/{{ b.id }}">
-        <div class="record-card-kicker">{{ b.type }}</div>
-        <h2>{{ b.title }}</h2>
-        <div class="record-card-meta">
-          <span>{{ b.starts_at|short_dt }}</span>
-          {% if b.venue_name %}<span>{{ b.venue_name }}</span>{% endif %}
-          {% if b.google_event_id %}<span>google</span>{% endif %}
+    <article class="event-card">
+      <div class="bar" style="background:var(--lime);"></div>
+      <div class="body">
+        <div class="head">
+          <span class="badge badge-muted">{{ b.type }}</span>
+          {% if b.google_event_id %}<span class="mono" style="font-size:9px;">google</span>{% endif %}
         </div>
-      </a>
-      <div class="record-card-actions">
-        <a class="btn btn-secondary" href="/creator/calendar/{{ b.id }}/edit">edit</a>
-        <form method="post" action="/creator/calendar/{{ b.id }}/cancel">
-          {% include "_partials/csrf.html" %}
-          <button type="submit" class="btn btn-secondary">cancel</button>
-        </form>
+        <h3>{{ b.title }}</h3>
+        <div class="meta">
+          <span>{{ b.starts_at|short_dt }}</span>
+          {% if b.venue_name %}<span>·</span><span>{{ b.venue_name }}</span>{% endif %}
+        </div>
+        <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+          <a class="btn btn-ghost btn-sm" href="/creator/calendar/{{ b.id }}/edit">edit</a>
+          <form method="post" action="/creator/calendar/{{ b.id }}/cancel">
+            {% include "_partials/csrf.html" %}
+            <button type="submit" class="btn btn-ghost btn-sm">cancel</button>
+          </form>
+        </div>
       </div>
+      <a href="/creator/calendar/{{ b.id }}" style="color:var(--ink-dim);font-size:18px;text-decoration:none;align-self:center;">›</a>
     </article>
     {% endfor %}
   </div>
   {% else %}
-  <div class="feed-empty">
-    <h2>nothing scheduled.</h2>
-    {% if google_connected %}
-      <p>sync google calendar or add a local item.</p>
-    {% else %}
-      <p>connect google calendar or add a local item.</p>
-    {% endif %}
+  <div style="text-align:center;padding:60px 0;color:var(--ink-dim);">
+    <span class="mono">nothing scheduled.</span>
+    <p style="margin:12px 0 0;font-size:13.5px;">
+      {% if google_connected %}sync google calendar or add a local item.
+      {% else %}connect google calendar or add a local item.{% endif %}
+    </p>
   </div>
   {% endif %}
-</section>
+
+  {% if google_connected %}
+  <div style="margin-top:22px;display:flex;gap:8px;flex-wrap:wrap;">
+    <form method="post" action="/creator/google/calendar/sync">
+      {% include "_partials/csrf.html" %}
+      <button type="submit" class="btn btn-ghost btn-sm">sync google now</button>
+    </form>
+    <form method="post" action="/creator/google/calendar/disconnect">
+      {% include "_partials/csrf.html" %}
+      <button type="submit" class="btn btn-ghost btn-sm">disconnect</button>
+    </form>
+  </div>
+  {% endif %}
+</div>
 {% endblock %}

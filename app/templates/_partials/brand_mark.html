@@ -1,19 +1,12 @@
-{# CSS-built placeholder marks until final brand assets exist.
-   Direction: abstract manager mark + quiet babyg label. #}
-
 {% macro wordmark(class_name="") %}
-<span class="brand-mark brand-mark-lockup {{ class_name }}" aria-label="babyg">
-  {{ icon("brand-mark-symbol-inline") }}
-  <span class="brand-mark-name">babyg</span>
-</span>
+<a href="/" class="brand-lockup {{ class_name }}" aria-label="babyg">
+  <span class="brand-mark sm"><img src="/static/assets/logo-bg.png" alt="babyg" /></span>
+  <span class="logo-text">babyg</span>
+</a>
 {% endmacro %}
 
 {% macro icon(class_name="") %}
-<span class="brand-mark brand-mark-symbol {{ class_name }}" aria-label="babyg">
-  <span class="brand-symbol-frame" aria-hidden="true">
-    <span class="brand-symbol-stem"></span>
-    <span class="brand-symbol-dot brand-symbol-dot-a"></span>
-    <span class="brand-symbol-dot brand-symbol-dot-b"></span>
-  </span>
+<span class="{{ class_name }}" aria-label="babyg">
+  <img src="/static/assets/logo-bg.png" alt="babyg" style="width:28px;height:28px;object-fit:contain;filter:drop-shadow(0 0 4px rgba(160,200,255,0.45));" />
 </span>
 {% endmacro %}

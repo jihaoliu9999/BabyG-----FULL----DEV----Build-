@@ -1,57 +1,52 @@
 {% extends "base.html" %}
 
-{% block title %}weekly performance - babyg{% endblock %}
+{% block title %}performance — babyg{% endblock %}
 
 {% block content %}
-<section class="feed creator-surface">
-  <header class="feed-header surface-header">
-    <div class="feed-eyebrow">performance</div>
-    <h1 class="feed-title">weekly numbers</h1>
-    <p class="feed-sub">
-      the record, week by week.
-    </p>
-    <div class="action-row action-row-inline">
-      <a class="btn btn-primary" href="/creator/performance/new">log week</a>
+<div class="wrap">
+  <div class="page-header">
+    <div class="title-block">
+      <span class="mono eyebrow">performance</span>
+      <p class="sub">weekly snapshots.</p>
     </div>
-  </header>
+    <div class="actions">
+      <a class="btn btn-lime btn-sm" href="/creator/performance/new">log week
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 9L9 3M9 3H4M9 3V8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </a>
+    </div>
+  </div>
 
   {% if logs %}
-  <div class="record-list">
+  <div class="stack">
     {% for log in logs %}
-    <article class="record-card performance-card">
-      <div class="record-card-main">
-        <div class="record-card-kicker">Week of</div>
-        <h2>{{ log.week_start_date }}</h2>
-      </div>
-      <div class="mini-stat-grid">
-        <div class="mini-stat">
-          <span>Engagement</span>
-          <strong>{{ log.engagement_rate if log.engagement_rate is not none else "--" }}{% if log.engagement_rate is not none %}%{% endif %}</strong>
-        </div>
-        <div class="mini-stat">
-          <span>Followers</span>
-          <strong>{{ log.follower_delta if log.follower_delta is not none else "--" }}</strong>
-        </div>
-        <div class="mini-stat">
-          <span>Deals</span>
-          <strong>{{ log.active_brand_deals_count or 0 }}</strong>
-        </div>
-        <div class="mini-stat">
-          <span>Value</span>
-          <strong>${{ log.active_brand_deals_value or 0 }}</strong>
-        </div>
+    <div class="card" style="margin-bottom:12px;">
+      <span class="mono" style="font-size:11px;color:var(--ink-dim);display:block;margin-bottom:12px;">week of {{ log.week_start_date|short_date }}</span>
+      <div class="kv-list" style="border:0;padding:0;gap:0;">
+        {% if log.engagement_rate is not none %}
+        <div class="row" style="padding:5px 0;"><span class="l">engagement</span><span class="v">{{ log.engagement_rate }}%</span></div>
+        {% endif %}
+        {% if log.follower_delta is not none %}
+        <div class="row" style="padding:5px 0;"><span class="l">followers</span><span class="v">{% if log.follower_delta > 0 %}+{% endif %}{{ log.follower_delta }}</span></div>
+        {% endif %}
+        {% if log.active_brand_deals_count is not none %}
+        <div class="row" style="padding:5px 0;"><span class="l">brand deals</span><span class="v">{{ log.active_brand_deals_count }}</span></div>
+        {% endif %}
+        {% if log.active_brand_deals_value is not none %}
+        <div class="row" style="padding:5px 0;"><span class="l">deal value</span><span class="v">${{ log.active_brand_deals_value }}</span></div>
+        {% endif %}
       </div>
       {% if log.notes %}
-      <p class="record-note">{{ log.notes }}</p>
+      <p style="color:var(--ink-dim);font-size:13px;margin:10px 0 0;line-height:1.5;border-top:1px solid var(--hairline);padding-top:10px;">{{ log.notes }}</p>
       {% endif %}
-    </article>
+    </div>
     {% endfor %}
   </div>
   {% else %}
-  <div class="feed-empty">
-    <h2>no weeks logged.</h2>
-    <p>start the record.</p>
+  <div style="text-align:center;padding:60px 0;color:var(--ink-dim);">
+    <span class="mono">no data yet.</span>
+    <p style="margin:12px 0 0;font-size:13.5px;">start logging your weekly numbers.</p>
+    <a href="/creator/performance/new" class="btn btn-ghost btn-sm" style="margin-top:16px;">log first week</a>
   </div>
   {% endif %}
-</section>
+</div>
 {% endblock %}

@@ -1,96 +1,165 @@
 {% extends "base.html" %}
-{% import "_partials/brand_mark.html" as brand %}
 
-{% block title %}babyg - private creator ops for Miami{% endblock %}
+{% block title %}babyg — your AI manager{% endblock %}
 
 {% block content %}
 <section class="hero">
-  <div class="hero-inner">
-    <div class="hero-copy">
-      <div class="hero-brand">{{ brand.wordmark() }}</div>
-      <div class="hero-eyebrow">miami / private beta</div>
-      <h1 class="hero-headline">
-        a sharper way<br/>
-        to run creator work.
-      </h1>
-      <p class="hero-sub">
-        babyg tracks the replies, plans, places, and decisions that need your attention.
-      </p>
-      <div class="hero-cta">
-        <a class="btn btn-primary" href="/get-started">get access</a>
-        <a class="btn btn-ghost" href="/auth/login?role=creator">sign in</a>
-      </div>
+  <div class="wrap">
+    <span class="hero-eyebrow"><span class="pulse-dot"></span> live · private beta</span>
+    <div class="hero-mark">
+      <img src="/static/assets/logo-bg.png" alt="babyg" />
     </div>
-    <aside class="hero-visual" aria-label="babyg manager preview">
-      <div class="hero-visual-photo" aria-hidden="true"></div>
-      <div class="manager-card manager-card-main">
-        <span>today</span>
-        <strong>three things need your attention.</strong>
-        <p>reply to the offer, confirm tonight, post the receipt.</p>
-      </div>
-      <div class="manager-card manager-card-small">
-        <span>reply</span>
-        <strong>usage rights need a cleaner ask.</strong>
-      </div>
-      <div class="manager-card manager-card-small manager-card-offset">
-        <span>schedule</span>
-        <strong>7:30 pm / design district</strong>
-      </div>
-    </aside>
+    <h1 class="display"><span class="chrome">your AI manager.</span></h1>
+    <p class="lede" style="margin-left:auto;margin-right:auto;">
+      text babyg or use the platform to manage deals, replies, content, schedule, and everything around being a creator.
+    </p>
+    <div style="display:inline-flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:36px;">
+      <a class="btn btn-lime" href="/get-started">get started
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 9L9 3M9 3H4M9 3V8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </a>
+      <a class="btn btn-ghost" href="/auth/login?role=creator">i have an account</a>
+    </div>
   </div>
 </section>
 
-<section class="marketing-features" aria-label="What babyg does">
-  <div class="marketing-features-inner">
-    <div class="marketing-features-head">
-      <div class="hero-eyebrow">What babyg does</div>
-      <h2 class="marketing-features-title">A creator workflow that actually moves.</h2>
+<section class="marquee" aria-hidden="true">
+  <div class="marquee-track">
+    <span class="marquee-item">
+      <span>deals</span><span class="dot"></span>
+      <span>messages</span><span class="dot"></span>
+      <span>schedule</span><span class="dot"></span>
+      <span>content</span><span class="dot"></span>
+      <span>negotiation</span><span class="dot"></span>
+      <span>always on</span><span class="dot"></span>
+    </span>
+    <span class="marquee-item" aria-hidden="true">
+      <span>deals</span><span class="dot"></span>
+      <span>messages</span><span class="dot"></span>
+      <span>schedule</span><span class="dot"></span>
+      <span>content</span><span class="dot"></span>
+      <span>negotiation</span><span class="dot"></span>
+      <span>always on</span><span class="dot"></span>
+    </span>
+  </div>
+</section>
+
+<section class="section">
+  <div class="wrap-wide">
+    <div class="section-head">
+      <h2>for creators.<br/>only creators.</h2>
+      <p class="right">two ways in — one for the big moves, one for the day-to-day.</p>
     </div>
-    <div class="marketing-features-grid">
-      <article class="marketing-feature">
-        <div class="marketing-feature-tag">Intel</div>
-        <h3 class="marketing-feature-title">Daily Hot Drops</h3>
-        <p class="marketing-feature-body">
-          Miami venue openings, trend windows, brand calls, and collab leads.
-          Curated by humans, sorted by your niche.
-        </p>
+    <div class="grid-2">
+      <article class="card" style="padding:32px;min-height:320px;display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden;">
+        <div>
+          <span class="mono">for the deals</span>
+          <h3 style="font-size:clamp(28px,3vw,40px);margin-top:14px;line-height:1;">handle the deal.<br/>not the drama.</h3>
+        </div>
+        <div aria-hidden style="position:absolute;right:-60px;bottom:-40px;width:260px;height:260px;background:url(/static/assets/logo-bg.png) center / contain no-repeat;opacity:0.10;transform:rotate(-8deg);filter:drop-shadow(0 0 30px rgba(160,200,255,0.4));"></div>
+        <p style="margin:24px 0 0;color:var(--ink-mid);font-size:14px;position:relative;">negotiate, reply, schedule — without losing your voice.</p>
       </article>
-      <article class="marketing-feature">
-        <div class="marketing-feature-tag">Listings</div>
-        <h3 class="marketing-feature-title">Creator-shared gigs</h3>
-        <p class="marketing-feature-body">
-          Post a gig you can't take. Tap into work other creators surfaced.
-          No middlemen, no ghosting.
-        </p>
-      </article>
-      <article class="marketing-feature">
-        <div class="marketing-feature-tag">Ops</div>
-        <h3 class="marketing-feature-title">Bookings & receipts</h3>
-        <p class="marketing-feature-body">
-          Schedule shoots, track posts, log earnings, see weekly performance
-          across every platform you publish on.
-        </p>
-      </article>
-      <article class="marketing-feature">
-        <div class="marketing-feature-tag">Network</div>
-        <h3 class="marketing-feature-title">Trusted peers only</h3>
-        <p class="marketing-feature-body">
-          Connect, DM, and collab with verified Miami creators. Private by
-          default. Yours when you want it.
-        </p>
+      <article class="card" style="padding:32px;min-height:320px;display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden;">
+        <div>
+          <span class="mono">for the day-to-day</span>
+          <h3 style="font-size:clamp(28px,3vw,40px);margin-top:14px;line-height:1;">negotiates while<br/>you create.</h3>
+        </div>
+        <div style="padding:14px;background:var(--surface-2);border:1px solid var(--hairline);border-radius:12px;font-size:12.5px;line-height:1.5;color:var(--ink-mid);position:relative;">
+          <div style="margin-bottom:8px;">nike countered at $4.2k for 3 videos. i'm holding at $5.8k + 6mo cap. they'll come back — want me to keep pushing?</div>
+          <div style="background:var(--lime);color:#fff;padding:8px 12px;border-radius:10px;display:inline-block;font-size:12px;">yes. push. lock 6mo.</div>
+        </div>
+        <p style="margin:0;color:var(--ink-mid);font-size:14px;">drafts the move, holds the line, lets you decide.</p>
       </article>
     </div>
   </div>
 </section>
 
-<section class="marketing-foot" aria-label="Get started">
-  <div class="marketing-foot-inner">
-    <h2 class="marketing-foot-title">Ready when you are.</h2>
-    <p class="marketing-foot-sub">Apply for a creator seat or sign in if you already have one.</p>
-    <div class="hero-cta">
-      <a class="btn btn-primary" href="/get-started">Get started</a>
-      <a class="btn btn-ghost" href="/auth/login?role=creator">I have an account</a>
+<section class="section" id="features">
+  <div class="wrap-wide">
+    <div class="section-head">
+      <h2>what it handles.</h2>
+      <p class="right">four parts of the job you'll never have to think about again.</p>
+    </div>
+    <div class="grid-2">
+      <div class="feature">
+        <span class="mono" style="display:block;margin-bottom:14px;">01 · deals</span>
+        <h3>deals</h3>
+        <p>negotiate offers, usage rights, rates, and payment terms. babyg holds the line on your value.</p>
+        <div class="feature-preview">
+          <div class="fp-row"><span class="fp-mono">brand · nike</span><span class="fp-tag">holding</span></div>
+          <div class="fp-rate"><span>$5.8k</span><span class="fp-strike">$4.2k</span><span class="fp-mono">+6mo cap</span></div>
+          <div class="fp-foot"><span>countered · 14m ago</span></div>
+        </div>
+        <span class="learn">learn more →</span>
+      </div>
+      <div class="feature">
+        <span class="mono" style="display:block;margin-bottom:14px;">02 · messages</span>
+        <h3>messages</h3>
+        <p>clean up dms, replies, follow-ups, and brand conversations.</p>
+        <div class="feature-preview">
+          <div class="fp-msg-row"><span class="fp-avatar fp-av-s">S</span><div class="fp-msg-in">you in for tonight?</div></div>
+          <div class="fp-msg-row out"><div class="fp-msg-out">yes. babyg's on it.</div></div>
+          <div class="fp-foot"><span>3 drafted · 0 unsent</span></div>
+        </div>
+        <span class="learn">learn more →</span>
+      </div>
+      <div class="feature">
+        <span class="mono" style="display:block;margin-bottom:14px;">03 · schedule</span>
+        <h3>schedule</h3>
+        <p>track shoots, dinners, deadlines, calls, and everything on your plate.</p>
+        <div class="feature-preview">
+          <div class="fp-event"><span class="fp-bar"></span><div><div class="fp-mono">thu · oct 9</div><div class="fp-event-title">pop-up content day</div></div></div>
+          <div class="fp-event"><span class="fp-bar fp-bar-blue"></span><div><div class="fp-mono">fri · oct 10</div><div class="fp-event-title">agency review</div></div></div>
+        </div>
+        <span class="learn">learn more →</span>
+      </div>
+      <div class="feature">
+        <span class="mono" style="display:block;margin-bottom:14px;">04 · content</span>
+        <h3>content</h3>
+        <p>turn moments into posts, captions, ideas, and your next move.</p>
+        <div class="feature-preview">
+          <div class="fp-caption">"slow tuesday in wynwood — third coffee, second roll, first cool morning of the season."</div>
+          <div class="fp-foot"><span>caption · draft 2</span><span>·</span><span>189 chars</span></div>
+        </div>
+        <span class="learn">learn more →</span>
+      </div>
     </div>
   </div>
 </section>
+
+<section class="section" style="text-align:center;padding-bottom:120px;">
+  <div class="wrap">
+    <div style="width:120px;height:120px;margin:0 auto 32px;position:relative;">
+      <img src="/static/assets/logo-bg.png" alt="" style="width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 0 30px rgba(255,77,109,0.3)) drop-shadow(0 0 16px rgba(160,200,255,0.3));"/>
+    </div>
+    <h2 class="display"><span class="chrome">stop managing</span><br/><span class="quiet">everything alone.</span></h2>
+    <p class="lede" style="margin:32px auto;">babyg handles what surrounds the creator so you can focus on what matters.</p>
+    <div style="display:inline-flex;gap:12px;flex-wrap:wrap;justify-content:center;">
+      <a class="btn btn-lime btn-lg" href="/get-started">try babyg
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 9L9 3M9 3H4M9 3V8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </a>
+      <a class="btn btn-ghost btn-lg" href="/auth/login?role=creator">i have an account</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap-wide">
+    <div class="foot-top">
+      <div class="foot-brand">
+        <span class="brand-lockup">
+          <span class="brand-mark"><img src="/static/assets/logo-bg.png" alt="" /></span>
+          <span class="logo-text">babyg</span>
+        </span>
+        <p>your AI manager. miami, private beta.</p>
+      </div>
+      <div class="foot-col"><h5>product</h5><ul><li><a href="#features">features</a></li><li><a href="/get-started">get access</a></li></ul></div>
+      <div class="foot-col"><h5>creators</h5><ul><li><a href="/get-started">apply</a></li><li><a href="/auth/login?role=creator">sign in</a></li></ul></div>
+      <div class="foot-col"><h5>company</h5><ul><li><a href="#">about</a></li><li><a href="#">privacy</a></li><li><a href="#">terms</a></li></ul></div>
+    </div>
+    <div class="foot-bot">
+      <span>© 2026 babyg · all rights reserved</span>
+      <span>miami, fl</span>
+    </div>
+  </div>
+</footer>
 {% endblock %}

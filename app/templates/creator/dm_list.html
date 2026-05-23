@@ -1,57 +1,47 @@
 {% extends "base.html" %}
 
-{% block title %}messages - babyg{% endblock %}
+{% block title %}inbox — babyg{% endblock %}
 
 {% block content %}
-<section class="feed creator-surface">
-  <header class="feed-header surface-header">
-    <div class="feed-eyebrow">messages</div>
-    <h1 class="feed-title">inbox</h1>
-    <p class="feed-sub">
-      connected creators only.
-    </p>
-  </header>
+<div class="wrap">
+  <div class="page-header">
+    <div class="title-block">
+      <span class="mono eyebrow">messages</span>
+      <p class="sub">connected creators only.</p>
+    </div>
+  </div>
 
   {% if threads %}
-  <ul class="dm-thread-list">
+  <div class="stack">
     {% for t in threads %}
-      {% set peer = peers.get(t.peer_id) %}
-      {% set kind = peer_kinds.get(t.peer_id, "unknown") %}
-      <li class="dm-thread-row">
-        <a class="dm-thread-link" href="/creator/dm/{{ t.peer_id }}">
-          <div class="creator-avatar dm-avatar" aria-hidden="true">
-            {% if kind == "creator" and peer %}
-              {{ (peer.full_name or peer.instagram_handle or "C")[:1]|upper }}
-            {% else %}
-              C
-            {% endif %}
-          </div>
-          <div class="dm-thread-copy">
-            <div class="dm-thread-name">
-              {% if kind == "creator" %}
-                {{ peer.full_name if peer else "Creator" }}
-                {% if peer and peer.instagram_handle %}<span class="dm-thread-handle">@{{ peer.instagram_handle }}</span>{% endif %}
-              {% else %}
-                Conversation
-              {% endif %}
-            </div>
-            <div class="dm-thread-meta">
-              {% if t.last_message_at %}
-                Last message {{ t.last_message_at|short_date }}
-              {% else %}
-                no messages yet
-              {% endif %}
-            </div>
-          </div>
-        </a>
-      </li>
+    {% set peer = peers.get(t.peer_id) %}
+    {% set kind = peer_kinds.get(t.peer_id, "unknown") %}
+    {% set peer_name = peer.full_name if peer and peer.full_name else (peer.instagram_handle if peer and peer.instagram_handle else 'Creator') %}
+    {% set peer_initial = peer_name[0].upper() %}
+    <a href="/creator/dms/{{ t.peer_id }}" class="thread-row">
+      <span class="avatar av-g1">{{ peer_initial }}</span>
+      <div class="body">
+        <div class="top">
+          <span class="name">{{ peer_name }}</span>
+          {% if t.last_message_at %}
+          <span class="when">{{ t.last_message_at|short_date }}</span>
+          {% endif %}
+        </div>
+        {% if peer and peer.instagram_handle %}
+        <div class="preview">@{{ peer.instagram_handle }}</div>
+        {% else %}
+        <div class="preview">connected creator</div>
+        {% endif %}
+      </div>
+    </a>
     {% endfor %}
-  </ul>
+  </div>
   {% else %}
-  <div class="feed-empty">
-    <h2>no conversations.</h2>
-    <p>connect first.</p>
+  <div style="text-align:center;padding:60px 0;color:var(--ink-dim);">
+    <span class="mono">no conversations.</span>
+    <p style="margin:12px 0 0;font-size:13.5px;">connect with creators in your network first.</p>
+    <a href="/creator/network" class="btn btn-ghost btn-sm" style="margin-top:16px;">browse network</a>
   </div>
   {% endif %}
-</section>
+</div>
 {% endblock %}
