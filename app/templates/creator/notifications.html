@@ -1,11 +1,11 @@
 {% extends "base.html" %}
 
-{% block title %}attention - babyg{% endblock %}
+{% block title %}alerts - babyg{% endblock %}
 
 {% block content %}
 <section class="feed creator-surface">
   <header class="feed-header surface-header">
-    <div class="feed-eyebrow">attention</div>
+    <div class="feed-eyebrow">alerts</div>
     <h1 class="feed-title">attention</h1>
     {% if rows %}
     <form method="post" action="/creator/notifications/read-all" class="inline-form">
@@ -25,8 +25,8 @@
         <input type="hidden" name="target" value="{{ n.link_path or '/creator/notifications' }}" />
         <button type="submit" class="notif-item-btn" aria-label="Open notification">
           <div class="notif-item-meta">{{ n.kind|replace("_", " ") }} / {{ n.created_at|short_date or "" }}</div>
-          <div class="notif-item-title">message needs review</div>
-          <div class="notif-item-body">babyg can help you decide whether to reply, pass, or follow up.</div>
+          <div class="notif-item-title">{{ n.title }}</div>
+          {% if n.body %}<div class="notif-item-body">{{ n.body }}</div>{% endif %}
         </button>
       </form>
     </li>

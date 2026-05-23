@@ -3,7 +3,6 @@
   const typing = document.getElementById("bot-typing");
   const submit = document.querySelector("[data-bot-submit]");
   const textarea = document.getElementById("bot-message");
-  const promptButtons = document.querySelectorAll("[data-bot-prompt]");
 
   const scrollToLatest = () => {
     const target = typing && !typing.hidden ? typing : composer;
@@ -38,13 +37,5 @@
     if (textarea.value.trim()) {
       composer.requestSubmit();
     }
-  });
-
-  promptButtons.forEach((button) => {
-    button.addEventListener("click", () => {
-      const prompt = button.getAttribute("data-bot-prompt") || "";
-      textarea.value = prompt;
-      textarea.focus();
-    });
   });
 })();

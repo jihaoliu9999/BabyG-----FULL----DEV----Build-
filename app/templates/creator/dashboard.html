@@ -1,172 +1,77 @@
 {% extends "base.html" %}
 
-{% block title %}today - babyg{% endblock %}
+{% block title %}hot drops - babyg{% endblock %}
 
 {% block content %}
-<section class="creator-home">
-  <header class="creator-page-hero">
-    <div class="creator-kicker">today</div>
-    <h1>today</h1>
-    <p>what needs attention: replies, deals, schedule, content, and opportunities.</p>
+<section class="feed">
+  <header class="feed-header">
+    <div class="feed-eyebrow">today / {{ profile.full_name or "creator" }}</div>
+    <h1 class="feed-title">hot drops</h1>
+    <p class="feed-sub">
+      miami intel worth acting on.
+    </p>
+
+    <div class="feed-status-row" aria-label="Creator inbox summary">
+      <a class="feed-status-card" href="/creator/dm">
+        <span>inbox</span>
+        <strong>{{ unread_dms or 0 }}</strong>
+      </a>
+      <a class="feed-status-card" href="/creator/notifications">
+        <span>alerts</span>
+        <strong>{{ unread_total or 0 }}</strong>
+      </a>
+    </div>
+
+    <nav class="feed-filters" aria-label="Filter intel by category">
+      <a class="chip {% if not active_category %}chip-active{% endif %}" href="/creator">all</a>
+      {% for slug, label in categories %}
+      <a class="chip {% if active_category == slug %}chip-active{% endif %}"
+         href="/creator?category={{ slug }}">{{ label }}</a>
+      {% endfor %}
+    </nav>
   </header>
 
-  <nav class="creator-tabs" aria-label="today filters">
-    {% for slug, label in today_tabs %}
-    <a class="{% if active_tab == slug %}is-active{% endif %}"
-       href="/creator{% if slug != 'all' %}?tab={{ slug }}{% endif %}">
-      {{ label }}
-    </a>
-    {% endfor %}
-  </nav>
-
-  <section class="today-focus-grid" aria-label="today summary">
-    <a class="today-focus-card is-urgent" href="/creator/notifications">
-      <span>needs attention</span>
-      <strong>{{ unread_total or 0 }}</strong>
-      <small>items waiting</small>
-    </a>
-    <a class="today-focus-card" href="/creator/dm">
-      <span>messages</span>
-      <strong>{{ unread_dms or 0 }}</strong>
-      <small>unread</small>
-    </a>
-    <a class="today-focus-card" href="/creator/calendar">
-      <span>schedule</span>
-      <strong>{{ schedule_items|length }}</strong>
-      <small>upcoming</small>
-    </a>
-  </section>
-
-  <section class="manager-panel manager-panel-featured">
-    <div class="manager-panel-copy">
-      <span class="creator-kicker">what babyg recommends next</span>
-      <h2>start with the thing that can change today.</h2>
-      <p>review the open messages, then move through follow-ups, schedule, and content while the context is still fresh.</p>
+  {% if unread_total %}
+  <aside class="notif-strip" aria-label="Unread notifications">
+    <div class="notif-strip-head">
+      <div class="notif-strip-eyebrow">
+        {{ unread_total }} unread
+      </div>
+      <a class="notif-strip-link" href="/creator/notifications">open</a>
     </div>
-    <a class="btn btn-primary" href="/creator/bot">ask babyg</a>
-  </section>
+    <ul class="notif-list">
+      {% for n in unread_notifs %}
+      <li class="notif-item">
+        <form method="post" action="/creator/notifications/{{ n.id }}/read"
+              class="notif-item-form">
+          {% include "_partials/csrf.html" %}
+          <input type="hidden" name="target" value="{{ n.link_path or '/creator' }}" />
+          <button type="submit" class="notif-item-btn" aria-label="Open notification">
+            <div class="notif-item-title">{{ n.title }}</div>
+            {% if n.body %}
+              <div class="notif-item-body">
+                {{ n.body[:160] }}{% if n.body|length > 160 %}...{% endif %}
+              </div>
+            {% endif %}
+          </button>
+        </form>
+      </li>
+      {% endfor %}
+    </ul>
+  </aside>
+  {% endif %}
 
-  <section class="manager-grid">
-    <article class="manager-panel">
-      <div class="panel-head">
-        <span class="creator-kicker">messages that need replies</span>
-        <a href="/creator/dm">open</a>
-      </div>
-      {% if unread_notifs %}
-      <ul class="attention-list">
-        {% for n in unread_notifs %}
-        <li>
-          <form method="post" action="/creator/notifications/{{ n.id }}/read">
-            {% include "_partials/csrf.html" %}
-            <input type="hidden" name="target" value="{{ n.link_path or '/creator' }}" />
-            <button type="submit">
-              <span>message needs review</span>
-              <strong>babyg can help you decide whether to reply, pass, or follow up.</strong>
-            </button>
-          </form>
-        </li>
-        {% endfor %}
-      </ul>
-      {% else %}
-      <div class="quiet-empty">
-        <h3>inbox is clear.</h3>
-        <p>new conversations and follow-ups will land here.</p>
-      </div>
-      {% endif %}
-    </article>
-
-    <article class="manager-panel">
-      <div class="panel-head">
-        <span class="creator-kicker">brand follow-ups</span>
-        <a href="/creator/jobs">open</a>
-      </div>
-      {% if opportunity_rows %}
-      <ul class="attention-list">
-        {% for item in opportunity_rows %}
-        <li>
-          <a href="/creator/jobs/{{ item.id }}">
-            <span>{{ item.listing_type|replace("_", " ") }}</span>
-            <strong>{{ item.title }}</strong>
-          </a>
-        </li>
-        {% endfor %}
-      </ul>
-      {% else %}
-      <div class="quiet-empty">
-        <h3>no open follow-ups.</h3>
-        <p>deals, partnerships, and shared asks will appear here.</p>
-      </div>
-      {% endif %}
-    </article>
-  </section>
-
-  <section class="manager-grid">
-    <article class="manager-panel">
-      <div class="panel-head">
-        <span class="creator-kicker">upcoming schedule items</span>
-        <a href="/creator/calendar">open</a>
-      </div>
-      {% if schedule_items %}
-      <ul class="attention-list">
-        {% for item in schedule_items %}
-        <li>
-          <a href="/creator/calendar/{{ item.id }}">
-            <span>{{ item.starts_at|short_dt }}</span>
-            <strong>{{ item.title }}</strong>
-          </a>
-        </li>
-        {% endfor %}
-      </ul>
-      {% else %}
-      <div class="quiet-empty">
-        <h3>nothing scheduled.</h3>
-        <p>local events and deadlines will appear here. google calendar is not connected yet.</p>
-      </div>
-      {% endif %}
-    </article>
-
-    <article class="manager-panel">
-      <div class="panel-head">
-        <span class="creator-kicker">content ideas</span>
-        <a href="/creator/bot">draft</a>
-      </div>
-      <ul class="attention-list">
-        <li><a href="/creator/bot"><span>content</span><strong>turn this week into three clean posts.</strong></a></li>
-        <li><a href="/creator/bot"><span>caption</span><strong>write the version that sounds like you.</strong></a></li>
-        <li><a href="/creator/receipts"><span>record</span><strong>log what shipped so performance has context.</strong></a></li>
-      </ul>
-    </article>
-  </section>
-
-  <section class="manager-panel">
-    <div class="panel-head">
-      <span class="creator-kicker">opportunities</span>
-      <a href="/creator/jobs">open</a>
-    </div>
-    {% if posts %}
-    <div class="opportunity-stack">
-      {% for post in posts[:4] %}
+  {% if posts %}
+    <div class="intel-list">
+      {% for post in posts %}
         {% include "_partials/intel_card.html" %}
       {% endfor %}
     </div>
-    {% else %}
-    <div class="quiet-empty">
-      <h3>no opportunities yet.</h3>
-      <p>when something useful appears, babyg will keep it restrained and actionable.</p>
+  {% else %}
+    <div class="feed-empty">
+      <h2>nothing today.</h2>
+      <p>your feed is clear.</p>
     </div>
-    {% endif %}
-  </section>
-
-  <section class="quick-action-panel" aria-label="quick actions">
-    <span class="creator-kicker">quick actions</span>
-    <div class="quick-action-grid">
-      <a href="/creator/bot">review an offer</a>
-      <a href="/creator/bot">write a reply</a>
-      <a href="/creator/calendar/new">add schedule item</a>
-      <a href="/creator/receipts/new">log content</a>
-      <a href="/creator/jobs/new">save opportunity</a>
-      <a href="/creator/performance/new">log performance</a>
-    </div>
-  </section>
+  {% endif %}
 </section>
 {% endblock %}

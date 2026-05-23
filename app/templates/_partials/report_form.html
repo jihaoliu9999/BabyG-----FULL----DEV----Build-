@@ -3,24 +3,24 @@
      target_id      - UUID
      return_to      - same-origin path to bounce back to
      label          - what to call the target ("this conversation", "this profile")
-   The form starts collapsed via <details>; the protected review queue picks
+   The form starts collapsed via <details>; the operator-side queue picks
    it up via the abuse_reports table. #}
 <details class="report-block">
-  <summary class="report-summary">report {{ label }}</summary>
+  <summary class="report-summary">Report {{ label }}</summary>
   <form class="report-form" method="post" action="/report">
     {% include "_partials/csrf.html" %}
     <input type="hidden" name="target_type" value="{{ target_type }}" />
     <input type="hidden" name="target_id" value="{{ target_id }}" />
     <input type="hidden" name="return_to" value="{{ return_to }}" />
     <label for="report-reason-{{ target_id }}" class="field-label">
-      reason <span class="req">*</span>
+      Reason <span class="req">*</span>
     </label>
     <div class="field-hint">
-      what needs review?
+      What's the issue? An operator will review.
     </div>
     <textarea id="report-reason-{{ target_id }}" name="reason"
               rows="3" required minlength="10" maxlength="1000"
-              placeholder="be specific."></textarea>
-    <button type="submit" class="btn btn-ghost">submit report</button>
+              placeholder="Be specific. Operators see this verbatim."></textarea>
+    <button type="submit" class="btn btn-ghost">Submit report</button>
   </form>
 </details>

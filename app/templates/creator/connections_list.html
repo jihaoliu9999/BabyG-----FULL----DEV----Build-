@@ -1,20 +1,20 @@
 {% extends "base.html" %}
 
-{% block title %}connections - babyg{% endblock %}
+{% block title %}Connections - babyg{% endblock %}
 
 {% block content %}
 <section class="feed creator-surface">
   <header class="feed-header surface-header">
-    <div class="feed-eyebrow">connections</div>
-    <h1 class="feed-title">who matters</h1>
+    <div class="feed-eyebrow">Connections</div>
+    <h1 class="feed-title">Your network</h1>
     <p class="feed-sub">
-      creators, partners, and people waiting on your reply.
+      Accepted connections, incoming requests, and people waiting on your reply.
     </p>
   </header>
 
   {% if incoming %}
   <section class="onb-section connection-section">
-    <h2 class="onb-section-title">incoming / {{ incoming|length }}</h2>
+    <h2 class="onb-section-title">Incoming / {{ incoming|length }}</h2>
     <ul class="dm-thread-list">
       {% for c in incoming %}
         {% set peer = peers.get(c.peer_id) %}
@@ -26,20 +26,20 @@
               </div>
               <div class="dm-thread-copy">
                 <div class="dm-thread-name">
-                  {{ peer.full_name if peer and peer.full_name else "creator" }}
+                  {{ peer.full_name if peer else "Creator" }}
                   {% if peer and peer.instagram_handle %}<span class="dm-thread-handle">@{{ peer.instagram_handle }}</span>{% endif %}
                 </div>
-                <div class="dm-thread-meta">requested {{ c.requested_at|short_date or "" }}</div>
+                <div class="dm-thread-meta">Requested {{ c.requested_at|short_date or "" }}</div>
               </div>
             </a>
             <div class="connection-actions">
               <form method="post" action="/creator/connections/{{ c.id }}/accept">
                 {% include "_partials/csrf.html" %}
-                <button type="submit" class="btn btn-primary">accept</button>
+                <button type="submit" class="btn btn-primary">Accept</button>
               </form>
               <form method="post" action="/creator/connections/{{ c.id }}/decline">
                 {% include "_partials/csrf.html" %}
-                <button type="submit" class="btn btn-secondary">decline</button>
+                <button type="submit" class="btn btn-secondary">Decline</button>
               </form>
             </div>
           </div>
@@ -50,7 +50,7 @@
   {% endif %}
 
   <section class="onb-section connection-section">
-    <h2 class="onb-section-title">connected / {{ accepted|length }}</h2>
+    <h2 class="onb-section-title">Connected / {{ accepted|length }}</h2>
     {% if accepted %}
     <ul class="dm-thread-list">
       {% for c in accepted %}
@@ -62,23 +62,23 @@
             </div>
             <div class="dm-thread-copy">
               <div class="dm-thread-name">
-                {{ peer.full_name if peer and peer.full_name else "creator" }}
+                {{ peer.full_name if peer else "Creator" }}
                 {% if peer and peer.instagram_handle %}<span class="dm-thread-handle">@{{ peer.instagram_handle }}</span>{% endif %}
               </div>
-              <div class="dm-thread-meta">connected {{ c.responded_at|short_date or "" }}</div>
+              <div class="dm-thread-meta">Connected {{ c.responded_at|short_date or "" }}</div>
             </div>
           </a>
         </li>
       {% endfor %}
     </ul>
     {% else %}
-    <p class="field-hint">no accepted connections yet.</p>
+    <p class="field-hint">You have not accepted any connections yet.</p>
     {% endif %}
   </section>
 
   {% if outgoing %}
   <section class="onb-section connection-section">
-    <h2 class="onb-section-title">sent / {{ outgoing|length }}</h2>
+    <h2 class="onb-section-title">Sent / {{ outgoing|length }}</h2>
     <ul class="dm-thread-list">
       {% for c in outgoing %}
         {% set peer = peers.get(c.peer_id) %}
@@ -89,10 +89,10 @@
             </div>
             <div class="dm-thread-copy">
               <div class="dm-thread-name">
-                {{ peer.full_name if peer and peer.full_name else "creator" }}
+                {{ peer.full_name if peer else "Creator" }}
                 {% if peer and peer.instagram_handle %}<span class="dm-thread-handle">@{{ peer.instagram_handle }}</span>{% endif %}
               </div>
-              <div class="dm-thread-meta">awaiting response / sent {{ c.requested_at|short_date or "" }}</div>
+              <div class="dm-thread-meta">Awaiting response / sent {{ c.requested_at|short_date or "" }}</div>
             </div>
           </a>
         </li>

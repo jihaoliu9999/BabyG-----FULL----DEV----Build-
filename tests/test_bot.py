@@ -55,7 +55,7 @@ def test_bot_page_renders_history(monkeypatch, client: TestClient) -> None:
     response = client.get("/creator/bot")
 
     assert response.status_code == 200
-    assert "what do you need handled?" in response.text
+    assert "what needs handling?" in response.text
     assert '/static/js/bot.js' in response.text
     assert "Need a caption" in response.text
     assert "Drafting it." in response.text
@@ -341,7 +341,7 @@ def test_missing_anthropic_key_returns_graceful_fallback(monkeypatch) -> None:
         content="What should I post today?",
     )
 
-    assert "babyg is having trouble connecting. try again in a moment." in result.response
+    assert "Claude is not configured yet" in result.response
     assert created[-1]["role"] == "assistant"
     assert created[-1]["content"] == result.response
 
@@ -566,7 +566,7 @@ def test_cancel_writes_nothing(monkeypatch) -> None:
 
     result = bot_service.cancel_action(user_id="creator-1", message_id=message_id)
 
-    assert result.message == "cancelled. nothing was saved."
+    assert result.message == "Cancelled. Nothing was saved."
     assert row["tool_calls"]["status"] == "cancelled"
 
 
@@ -635,7 +635,7 @@ def test_scope_refusal_does_not_call_claude(monkeypatch) -> None:
 
     assert result.flagged is True
     assert result.flag_category == "scope"
-    assert "content, replies, offers, schedule, connections, inbox, and next moves" in result.response
+    assert "creator operations" in result.response
     assert len(created) == 2
     assert created[0]["role"] == "user"
     assert created[0]["flagged"] is True
@@ -678,10 +678,10 @@ def test_drafting_request_adds_brand_reply_guidance(monkeypatch) -> None:
 
     system_prompt = str(captured["system_prompt"])
     assert result.response.startswith("Draft:")
-    assert "drafting mode:" in system_prompt
-    assert "kind: brand_reply" in system_prompt
+    assert "Drafting mode:" in system_prompt
+    assert "Kind: brand_reply" in system_prompt
     assert "Do not imply the reply was sent" in system_prompt
-    assert "do not say you posted, sent, booked, updated, or completed anything" in system_prompt
+    assert "Do not say you posted, sent, booked, updated, or completed anything" in system_prompt
     assert created[-1]["role"] == "assistant"
 
 
@@ -710,7 +710,7 @@ def test_drafting_request_adds_creator_dm_guidance(monkeypatch) -> None:
     )
 
     system_prompt = str(captured["system_prompt"])
-    assert "kind: creator_dm" in system_prompt
+    assert "Kind: creator_dm" in system_prompt
     assert "Do not imply it was sent" in system_prompt
 
 
@@ -738,7 +738,7 @@ def test_non_drafting_request_uses_base_prompt(monkeypatch) -> None:
         content="What should I focus on today?",
     )
 
-    assert "drafting mode:" not in str(captured["system_prompt"])
+    assert "Drafting mode:" not in str(captured["system_prompt"])
 
 
 def test_build_context_uses_read_only_tool_bundle(monkeypatch) -> None:

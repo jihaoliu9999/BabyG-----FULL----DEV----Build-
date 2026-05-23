@@ -41,7 +41,7 @@ def test_creator_profile_page_renders(monkeypatch, client: TestClient) -> None:
     assert response.status_code == 200
     assert "Mia Creator" in response.text
     assert 'accept="image/*"' in response.text
-    assert "/auth/logout" not in response.text
+    assert "/auth/logout" in response.text
     assert "/creator/profile/settings" in response.text
 
 

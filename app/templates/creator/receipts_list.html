@@ -1,17 +1,17 @@
 {% extends "base.html" %}
 
-{% block title %}content record - babyg{% endblock %}
+{% block title %}content receipts - babyg{% endblock %}
 
 {% block content %}
 <section class="feed creator-surface">
   <header class="feed-header surface-header">
-    <div class="feed-eyebrow">content</div>
+    <div class="feed-eyebrow">receipts</div>
     <h1 class="feed-title">what shipped</h1>
     <p class="feed-sub">
       proof of work, kept clean.
     </p>
     <div class="action-row action-row-inline">
-      <a class="btn btn-primary" href="/creator/receipts/new">log content</a>
+      <a class="btn btn-primary" href="/creator/receipts/new">log post</a>
     </div>
   </header>
 
@@ -25,7 +25,7 @@
           {% if r.caption_excerpt %}
             {{ r.caption_excerpt[:90] }}{% if r.caption_excerpt|length > 90 %}...{% endif %}
           {% else %}
-            content record
+            content receipt
           {% endif %}
         </h2>
         <div class="record-card-meta">
@@ -44,7 +44,7 @@
   </div>
   {% else %}
   <div class="feed-empty">
-    <h2>no content logged.</h2>
+    <h2>no receipts.</h2>
     <p>log what shipped.</p>
   </div>
   {% endif %}

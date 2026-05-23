@@ -1,17 +1,17 @@
 {% extends "base.html" %}
 {% import "onboarding/_macros.html" as f %}
 
-{% block title %}log a week - babyg{% endblock %}
+{% block title %}Log a week - babyg{% endblock %}
 
 {% block content %}
 <section class="onb">
-  <a class="back-link" href="/creator/performance">performance</a>
+  <a class="back-link" href="/creator/performance">&larr; performance</a>
 
   <header class="onb-header">
-    <div class="auth-tag">weekly entry</div>
-    <h1 class="onb-title">how was last week?</h1>
+    <div class="auth-tag">Weekly entry</div>
+    <h1 class="onb-title">How was last week?</h1>
     <p class="onb-sub">
-      capture the numbers you want babyg to remember.
+      Capture the numbers you want babyg and operators to remember.
     </p>
   </header>
 
@@ -20,38 +20,38 @@
   <form class="onb-form" method="post" action="/creator/performance">
     {% include "_partials/csrf.html" %}
     <section class="onb-section">
-      <h2 class="onb-section-title">week</h2>
-      {{ f.field("week starts", "week_start_date",
+      <h2 class="onb-section-title">Week</h2>
+      {{ f.field("Week starts (Monday)", "week_start_date",
                   log.get("week_start_date", ""),
                   type="date", required=True) }}
     </section>
 
     <section class="onb-section">
-      <h2 class="onb-section-title">numbers</h2>
+      <h2 class="onb-section-title">Numbers</h2>
       <div class="onb-row">
-        {{ f.field("engagement rate (%)", "engagement_rate",
+        {{ f.field("Engagement rate (%)", "engagement_rate",
                     log.get("engagement_rate", ""),
                     placeholder="e.g. 4.2") }}
-        {{ f.field("follower delta", "follower_delta",
+        {{ f.field("Follower delta", "follower_delta",
                     log.get("follower_delta", ""),
                     placeholder="+120") }}
-        {{ f.field("active deals", "active_brand_deals_count",
+        {{ f.field("Active deals", "active_brand_deals_count",
                     log.get("active_brand_deals_count", "")) }}
       </div>
-      {{ f.field("active deals value ($)", "active_brand_deals_value",
+      {{ f.field("Active deals value ($)", "active_brand_deals_value",
                   log.get("active_brand_deals_value", "")) }}
     </section>
 
     <section class="onb-section">
-      <h2 class="onb-section-title">notes</h2>
+      <h2 class="onb-section-title">Notes</h2>
       <div class="field">
         <textarea name="notes" rows="3"
-                  placeholder="what worked, what did not, what is next.">{{ log.get("notes", "") }}</textarea>
+                  placeholder="What went well, what did not, what is next.">{{ log.get("notes", "") }}</textarea>
       </div>
     </section>
 
     <div class="onb-actions">
-      <button type="submit" class="btn btn-primary btn-wide">save week</button>
+      <button type="submit" class="btn btn-primary btn-wide">Save week</button>
     </div>
   </form>
 </section>

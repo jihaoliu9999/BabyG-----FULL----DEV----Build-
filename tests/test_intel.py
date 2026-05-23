@@ -259,7 +259,7 @@ def test_feed_empty_state_renders(client, store, fake_creator):
     _signed_in(client, role="creator")
     r = client.get("/creator")
     assert r.status_code == 200
-    assert "no opportunities yet." in r.text
+    assert "nothing today" in r.text
 
 
 def test_feed_redirects_to_onboarding_when_creator_not_onboarded(

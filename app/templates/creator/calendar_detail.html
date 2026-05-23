@@ -1,10 +1,10 @@
 {% extends "base.html" %}
 
-{% block title %}{{ booking.title }} - schedule - babyg{% endblock %}
+{% block title %}{{ booking.title }} - calendar - babyg{% endblock %}
 
 {% block content %}
 <section class="onb creator-detail">
-  <a class="back-link" href="/creator/calendar">schedule</a>
+  <a class="back-link" href="/creator/calendar">&larr; calendar</a>
 
   <header class="onb-header">
     <div class="auth-tag">{{ booking.type }} / {{ booking.status }}</div>
@@ -12,25 +12,25 @@
   </header>
 
   <section class="onb-section">
-    <h2 class="onb-section-title">details</h2>
+    <h2 class="onb-section-title">Details</h2>
     <dl class="kv">
-      <dt>starts</dt><dd>{{ booking.starts_at|short_dt }}</dd>
-      {% if booking.ends_at %}<dt>ends</dt><dd>{{ booking.ends_at|short_dt }}</dd>{% endif %}
-      {% if booking.venue_name %}<dt>location</dt><dd>{{ booking.venue_name }}</dd>{% endif %}
+      <dt>Starts</dt><dd>{{ booking.starts_at|short_dt }}</dd>
+      {% if booking.ends_at %}<dt>Ends</dt><dd>{{ booking.ends_at|short_dt }}</dd>{% endif %}
+      {% if booking.venue_name %}<dt>Venue</dt><dd>{{ booking.venue_name }}</dd>{% endif %}
     </dl>
     {% if booking.notes %}
     <div class="kv-prose">
-      <h3>notes</h3>
+      <h3>Notes</h3>
       <p>{{ booking.notes }}</p>
     </div>
     {% endif %}
   </section>
 
   <div class="onb-actions action-row-inline">
-    <a class="btn btn-secondary" href="/creator/calendar/{{ booking.id }}/edit">edit</a>
+    <a class="btn btn-secondary" href="/creator/calendar/{{ booking.id }}/edit">Edit</a>
     <form method="post" action="/creator/calendar/{{ booking.id }}/cancel">
       {% include "_partials/csrf.html" %}
-      <button type="submit" class="btn btn-secondary">cancel item</button>
+      <button type="submit" class="btn btn-secondary">Cancel booking</button>
     </form>
   </div>
 </section>

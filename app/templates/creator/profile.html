@@ -5,12 +5,13 @@
   <script src="/static/js/profile.js" defer></script>
 {% endblock %}
 
-{% set initials = (profile.full_name or profile.instagram_handle or "creator")[:2]|lower %}
+{% set initials = (profile.full_name or profile.instagram_handle or "creator")[:2]|upper %}
 
 {% block content %}
 <section class="profile-page">
   <header class="profile-own-hero">
     <form class="profile-photo-control" data-profile-photo-form>
+      <!-- TODO: wire to Supabase Storage upload endpoint when the backend bucket exists. -->
       <label class="profile-photo-label" for="profile-photo-input">
         <span class="sr-only">profile photo</span>
         {% if profile.profile_photo_url %}
@@ -32,34 +33,38 @@
         accept="image/*"
         data-profile-photo-input
       />
-      <div class="profile-photo-copy">preview only. photo saving is not connected yet.</div>
+      <div class="profile-photo-copy">photo</div>
     </form>
 
     <div class="profile-own-copy">
       <p class="quiet-label">profile</p>
       <h1>{{ profile.full_name or "creator" }}</h1>
       {% if profile.instagram_handle %}
-        <p class="profile-handle">@{{ profile.instagram_handle|lower }}</p>
+        <p class="profile-handle">@{{ profile.instagram_handle }}</p>
       {% else %}
         <p class="profile-handle">handle not set</p>
       {% endif %}
     </div>
   </header>
 
-  <div class="profile-action-row profile-action-row-single">
+  <div class="profile-action-row">
     <a class="btn btn-primary" href="/creator/profile/settings">settings</a>
+    <form method="post" action="/auth/logout">
+      {% include "_partials/csrf.html" %}
+      <button type="submit" class="btn btn-secondary">sign out</button>
+    </form>
   </div>
 
   <section class="profile-section">
-    <h2>basic info</h2>
+    <h2>details</h2>
     <dl class="profile-detail-list">
       <div>
         <dt>city</dt>
-        <dd>{{ (profile.neighborhood or "miami")|lower }}</dd>
+        <dd>{{ profile.neighborhood or "miami" }}</dd>
       </div>
       <div>
         <dt>platform</dt>
-        <dd>{{ (profile.primary_platform or "instagram")|lower }}</dd>
+        <dd>{{ profile.primary_platform or "instagram" }}</dd>
       </div>
       <div>
         <dt>followers</dt>
@@ -73,11 +78,11 @@
   </section>
 
   <section class="profile-section">
-    <h2>creator world</h2>
+    <h2>world</h2>
     {% if profile.niches %}
       <div class="profile-chip-row">
         {% for niche in profile.niches %}
-          <span class="profile-chip">{{ niche|lower }}</span>
+          <span class="profile-chip">{{ niche }}</span>
         {% endfor %}
       </div>
     {% else %}
@@ -89,14 +94,14 @@
   </section>
 
   <section class="profile-section">
-    <h2>boundaries</h2>
+    <h2>limits</h2>
     {% if profile.hard_limits %}
       {% if profile.hard_limits is string %}
         <p class="profile-bio">{{ profile.hard_limits }}</p>
       {% else %}
         <div class="profile-chip-row">
           {% for limit in profile.hard_limits %}
-            <span class="profile-chip">{{ limit|lower }}</span>
+            <span class="profile-chip">{{ limit }}</span>
           {% endfor %}
         </div>
       {% endif %}

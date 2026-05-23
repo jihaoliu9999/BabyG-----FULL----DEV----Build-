@@ -1,16 +1,16 @@
 {% extends "base.html" %}
 
-{% block title %}my opportunities - babyg{% endblock %}
+{% block title %}My listings - babyg{% endblock %}
 
 {% block content %}
 <section class="feed creator-surface">
   <header class="feed-header surface-header">
-    <div class="feed-eyebrow">my opportunities</div>
-    <h1 class="feed-title">saved by you</h1>
-    <p class="feed-sub">manage opportunities you have shared with your circle.</p>
+    <div class="feed-eyebrow">My listings</div>
+    <h1 class="feed-title">Posted by you</h1>
+    <p class="feed-sub">Manage creator opportunities you have shared with the network.</p>
     <div class="action-row action-row-inline">
-      <a class="btn btn-secondary" href="/creator/jobs">browse</a>
-      <a class="btn btn-primary" href="/creator/jobs/new">new opportunity</a>
+      <a class="btn btn-secondary" href="/creator/jobs">Browse</a>
+      <a class="btn btn-primary" href="/creator/jobs/new">New listing</a>
     </div>
   </header>
 
@@ -29,15 +29,15 @@
           {% else %}
             <span class="status-pill status-archived">closed</span>
           {% endif %}
-          <span>{{ l.created_at|short_date or "not posted" }}</span>
+          <span>{{ l.created_at|short_date or "Not posted" }}</span>
         </div>
       </div>
       <div class="record-card-actions">
-        <a class="btn btn-secondary" href="/creator/jobs/{{ l.id }}/edit">edit</a>
+        <a class="btn btn-secondary" href="/creator/jobs/{{ l.id }}/edit">Edit</a>
         {% if l.is_active and not l.is_taken_down %}
         <form method="post" action="/creator/jobs/{{ l.id }}/close">
           {% include "_partials/csrf.html" %}
-          <button type="submit" class="btn btn-secondary">close</button>
+          <button type="submit" class="btn btn-secondary">Close</button>
         </form>
         {% endif %}
       </div>
@@ -46,8 +46,8 @@
   </div>
   {% else %}
   <div class="feed-empty">
-    <h2>no opportunities yet.</h2>
-    <p>save your first partnership, content day, or production ask.</p>
+    <h2>No listings yet.</h2>
+    <p>Post your first collab idea, UGC swap, content day, or hiring ask.</p>
   </div>
   {% endif %}
 </section>

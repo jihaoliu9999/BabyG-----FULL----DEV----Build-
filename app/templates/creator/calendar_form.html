@@ -1,15 +1,15 @@
 {% extends "base.html" %}
 {% import "onboarding/_macros.html" as f %}
 
-{% block title %}{{ "new" if is_new else "edit" }} schedule item - babyg{% endblock %}
+{% block title %}{{ "New" if is_new else "Edit" }} booking - babyg{% endblock %}
 
 {% block content %}
 <section class="onb">
-  <a class="back-link" href="/creator/calendar">schedule</a>
+  <a class="back-link" href="/creator/calendar">&larr; calendar</a>
 
   <header class="onb-header">
-    <div class="auth-tag">{% if is_new %}new schedule item{% else %}edit schedule item{% endif %}</div>
-    <h1 class="onb-title">{% if is_new %}add to schedule{% else %}{{ booking.title }}{% endif %}</h1>
+    <div class="auth-tag">{% if is_new %}New booking{% else %}Edit booking{% endif %}</div>
+    <h1 class="onb-title">{% if is_new %}Add to calendar{% else %}{{ booking.title }}{% endif %}</h1>
   </header>
 
   {% if error %}<div class="auth-error">{{ error }}</div>{% endif %}
@@ -19,33 +19,33 @@
     {% include "_partials/csrf.html" %}
 
     <section class="onb-section">
-      <h2 class="onb-section-title">basics</h2>
-      {{ f.field("title", "title", booking.get("title", ""), required=True) }}
+      <h2 class="onb-section-title">Basics</h2>
+      {{ f.field("Title", "title", booking.get("title", ""), required=True) }}
       <div class="field">
-        <label class="field-label">type <span class="req">*</span></label>
+        <label class="field-label">Type <span class="req">*</span></label>
         {{ f.radio_group("type", vocab.types, booking.get("type", "event")) }}
       </div>
       <div class="onb-row onb-row-two">
-        {{ f.field("starts", "starts_at", booking.get("starts_at", ""),
+        {{ f.field("Starts", "starts_at", booking.get("starts_at", ""),
                     type="datetime-local", required=True) }}
-        {{ f.field("ends", "ends_at", booking.get("ends_at", ""),
+        {{ f.field("Ends (optional)", "ends_at", booking.get("ends_at", ""),
                     type="datetime-local") }}
       </div>
-      {{ f.field("location", "venue_name", booking.get("venue_name", ""),
-                  placeholder="where?") }}
+      {{ f.field("Venue", "venue_name", booking.get("venue_name", ""),
+                  placeholder="Where?") }}
     </section>
 
     <section class="onb-section">
-      <h2 class="onb-section-title">notes</h2>
+      <h2 class="onb-section-title">Notes</h2>
       <div class="field">
         <textarea name="notes" rows="4"
-                  placeholder="anything you want to remember.">{{ booking.get("notes", "") }}</textarea>
+                  placeholder="Anything you want to remember.">{{ booking.get("notes", "") }}</textarea>
       </div>
     </section>
 
     <div class="onb-actions">
       <button type="submit" class="btn btn-primary btn-wide">
-        {% if is_new %}save item{% else %}save changes{% endif %}
+        {% if is_new %}Save booking{% else %}Save changes{% endif %}
       </button>
     </div>
   </form>

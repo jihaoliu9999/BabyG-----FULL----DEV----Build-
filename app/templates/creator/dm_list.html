@@ -1,14 +1,14 @@
 {% extends "base.html" %}
 
-{% block title %}inbox - babyg{% endblock %}
+{% block title %}messages - babyg{% endblock %}
 
 {% block content %}
 <section class="feed creator-surface">
   <header class="feed-header surface-header">
-    <div class="feed-eyebrow">inbox</div>
-    <h1 class="feed-title">conversations and follow-ups</h1>
+    <div class="feed-eyebrow">messages</div>
+    <h1 class="feed-title">inbox</h1>
     <p class="feed-sub">
-      conversations that need a reply, a follow-up, or a clean pass.
+      connected creators only.
     </p>
   </header>
 
@@ -23,21 +23,21 @@
             {% if kind == "creator" and peer %}
               {{ (peer.full_name or peer.instagram_handle or "C")[:1]|upper }}
             {% else %}
-              c
+              C
             {% endif %}
           </div>
           <div class="dm-thread-copy">
             <div class="dm-thread-name">
               {% if kind == "creator" %}
-                {{ peer.full_name if peer and peer.full_name else "creator" }}
+                {{ peer.full_name if peer else "Creator" }}
                 {% if peer and peer.instagram_handle %}<span class="dm-thread-handle">@{{ peer.instagram_handle }}</span>{% endif %}
               {% else %}
-                conversation
+                Conversation
               {% endif %}
             </div>
             <div class="dm-thread-meta">
               {% if t.last_message_at %}
-                last message {{ t.last_message_at|short_date }}
+                Last message {{ t.last_message_at|short_date }}
               {% else %}
                 no messages yet
               {% endif %}
@@ -50,7 +50,7 @@
   {% else %}
   <div class="feed-empty">
     <h2>no conversations.</h2>
-    <p>new follow-ups will appear here.</p>
+    <p>connect first.</p>
   </div>
   {% endif %}
 </section>

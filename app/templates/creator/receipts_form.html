@@ -1,17 +1,17 @@
 {% extends "base.html" %}
 {% import "onboarding/_macros.html" as f %}
 
-{% block title %}log content - babyg{% endblock %}
+{% block title %}Log a post - babyg{% endblock %}
 
 {% block content %}
 <section class="onb">
-  <a class="back-link" href="/creator/receipts">content record</a>
+  <a class="back-link" href="/creator/receipts">&larr; receipts</a>
 
   <header class="onb-header">
-    <div class="auth-tag">new content record</div>
-    <h1 class="onb-title">log content</h1>
+    <div class="auth-tag">New receipt</div>
+    <h1 class="onb-title">Log a post</h1>
     <p class="onb-sub">
-      paste the url, choose the format, and add quick stats. babyg uses this
+      Paste the URL, choose the format, and add quick stats. babyg uses this
       to learn what is working for you.
     </p>
   </header>
@@ -21,32 +21,32 @@
   <form class="onb-form" method="post" action="/creator/receipts">
     {% include "_partials/csrf.html" %}
     <section class="onb-section">
-      <h2 class="onb-section-title">post</h2>
-      {{ f.field("post url", "post_url", receipt.get("post_url", ""),
+      <h2 class="onb-section-title">Post</h2>
+      {{ f.field("Post URL", "post_url", receipt.get("post_url", ""),
                   type="url", required=True, placeholder="https://") }}
       <div class="field">
-        <label class="field-label">type <span class="req">*</span></label>
+        <label class="field-label">Type <span class="req">*</span></label>
         {{ f.radio_group("post_type", vocab.post_types, receipt.get("post_type", "reel")) }}
       </div>
-      {{ f.field("posted at", "posted_at",
+      {{ f.field("Posted at (optional)", "posted_at",
                   receipt.get("posted_at", ""), type="datetime-local") }}
       <div class="field">
-        <label for="f-caption" class="field-label">caption excerpt</label>
+        <label for="f-caption" class="field-label">Caption excerpt</label>
         <textarea id="f-caption" name="caption_excerpt" rows="3"
-                  placeholder="the first sentence or two.">{{ receipt.get("caption_excerpt", "") }}</textarea>
+                  placeholder="The first sentence or two.">{{ receipt.get("caption_excerpt", "") }}</textarea>
       </div>
     </section>
 
     <section class="onb-section">
-      <h2 class="onb-section-title">performance</h2>
+      <h2 class="onb-section-title">Performance</h2>
       <div class="onb-row onb-row-two">
-        {{ f.field("likes", "likes_count", receipt.get("likes_count", "")) }}
-        {{ f.field("comments", "comments_count", receipt.get("comments_count", "")) }}
+        {{ f.field("Likes", "likes_count", receipt.get("likes_count", "")) }}
+        {{ f.field("Comments", "comments_count", receipt.get("comments_count", "")) }}
       </div>
     </section>
 
     <div class="onb-actions">
-      <button type="submit" class="btn btn-primary btn-wide">save content</button>
+      <button type="submit" class="btn btn-primary btn-wide">Save receipt</button>
     </div>
   </form>
 </section>
