@@ -1,33 +1,32 @@
 {% extends "base.html" %}
 {% import "_partials/brand_mark.html" as brand %}
 
-{% block title %}Choose your account - babyg{% endblock %}
+{% block title %}choose your account - babyg{% endblock %}
 
 {% block content %}
 <section class="choose">
   <div class="choose-brand">{{ brand.wordmark("brand-lockup-small") }}</div>
   <a class="back-link" href="/">&larr; back</a>
-  <h1 class="choose-title">Who are you?</h1>
-  <p class="choose-sub">Creator access is private beta. Operator access is invite-only.</p>
+  <h1 class="choose-title">sign in.</h1>
+  <p class="choose-sub">creator accounts are invite-only. operator access is managed.</p>
 
   <div class="choose-grid">
     <a class="role-card" href="/auth/login?role=creator">
-      <div class="role-card-tag">Creator</div>
-      <div class="role-card-title">I make content.</div>
+      <div class="role-card-tag">creator</div>
+      <div class="role-card-title">i'm a creator.</div>
       <p class="role-card-body">
-        Daily intel, bookings, content receipts, and a private network of
-        working Miami creators.
+        see what needs attention and keep work moving.
       </p>
-      <div class="role-card-cta">Continue &rarr;</div>
+      <div class="role-card-cta">continue</div>
     </a>
 
     <a class="role-card role-card-muted" href="/auth/login?role=operator">
-      <div class="role-card-tag">Operator</div>
-      <div class="role-card-title">I run babyg.</div>
+      <div class="role-card-tag">operator</div>
+      <div class="role-card-title">i manage babyg.</div>
       <p class="role-card-body">
-        Publish Hot Drops, review reports, manage listings, and keep the roster clean.
+        manage updates, reports, notes, and roster health.
       </p>
-      <div class="role-card-cta">Continue &rarr;</div>
+      <div class="role-card-cta">continue</div>
     </a>
   </div>
 </section>

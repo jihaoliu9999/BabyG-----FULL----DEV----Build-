@@ -27,6 +27,8 @@ class ClaudeCallError(RuntimeError):
 @dataclass(frozen=True)
 class ClaudeResponse:
     text: str
+    content: list[dict[str, Any]] | None = None
+    stop_reason: str | None = None
     input_tokens: int = 0
     output_tokens: int = 0
 
@@ -34,7 +36,8 @@ class ClaudeResponse:
 def complete_chat(
     *,
     system_prompt: str,
-    messages: list[dict[str, str]],
+    messages: list[dict[str, Any]],
+    tools: list[dict[str, Any]] | None = None,
     max_tokens: int = 900,
 ) -> ClaudeResponse:
     """Return one blocking Claude response.
@@ -50,12 +53,15 @@ def complete_chat(
         from anthropic import Anthropic  # type: ignore[import-not-found]
 
         client = Anthropic(api_key=settings.anthropic_api_key)
-        response = client.messages.create(
-            model=settings.anthropic_model,
-            max_tokens=max_tokens,
-            system=system_prompt,
-            messages=cast(Any, messages),
-        )
+        create_kwargs: dict[str, Any] = {
+            "model": settings.anthropic_model,
+            "max_tokens": max_tokens,
+            "system": system_prompt,
+            "messages": cast(Any, messages),
+        }
+        if tools:
+            create_kwargs["tools"] = cast(Any, tools)
+        response = client.messages.create(**create_kwargs)
     except ClaudeNotConfiguredError:
         raise
     except Exception as exc:  # pragma: no cover - exercised via service tests
@@ -64,6 +70,8 @@ def complete_chat(
 
     return ClaudeResponse(
         text=_extract_text(response),
+        content=_extract_content_blocks(response),
+        stop_reason=getattr(response, "stop_reason", None),
         input_tokens=int(getattr(getattr(response, "usage", None), "input_tokens", 0) or 0),
         output_tokens=int(
             getattr(getattr(response, "usage", None), "output_tokens", 0) or 0
@@ -78,3 +86,21 @@ def _extract_text(response: Any) -> str:
         if isinstance(text, str):
             parts.append(text)
     return "\n".join(parts).strip()
+
+
+def _extract_content_blocks(response: Any) -> list[dict[str, Any]]:
+    blocks: list[dict[str, Any]] = []
+    for block in getattr(response, "content", []) or []:
+        block_type = getattr(block, "type", None)
+        if block_type == "text":
+            blocks.append({"type": "text", "text": getattr(block, "text", "")})
+        elif block_type == "tool_use":
+            blocks.append(
+                {
+                    "type": "tool_use",
+                    "id": getattr(block, "id", ""),
+                    "name": getattr(block, "name", ""),
+                    "input": getattr(block, "input", {}) or {},
+                }
+            )
+    return blocks

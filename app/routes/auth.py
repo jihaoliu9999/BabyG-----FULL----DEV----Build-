@@ -23,13 +23,14 @@ Flow:
           so the callback knows what role to assign for first-time signups.
        e. Renders auth/magic_link_sent.html.
 
-  3. GET  /auth/callback?token_hash=...&type=...
-       a. Calls supabase.auth.verify_otp({token_hash, type}).
-       b. Reads the auth.users id from the returned session.
-       c. Looks up public.users; if missing, creates it using the role
+  3. GET/POST /auth/callback
+       a. Accepts token_hash/type, code, or ConfirmationURL fragment tokens.
+       b. Verifies/exchanges the Supabase auth params.
+       c. Reads the auth.users id from the returned session.
+       d. Looks up public.users; if missing, creates it using the role
           from the pending-role cookie (creator only — operator must
           already exist). Creators also get an empty profile row.
-       d. Writes the long-lived session cookie. Redirects to the role's
+       e. Writes the long-lived session cookie. Redirects to the role's
           dashboard (or onboarding if profile is incomplete; we'll wire
           the onboarding redirect in a later step).
 
@@ -180,50 +181,100 @@ async def magic_link(
     return response
 
 
-@router.get("/callback")
-async def callback(
-    request: Request,
-    token_hash: str | None = Query(None),
-    type: str | None = Query(None),
-    error_description: str | None = Query(None),
-):
+@router.api_route("/callback", methods=["GET", "POST"])
+async def callback(request: Request):
+    params = await _callback_params(request)
+    token_hash = params.get("token_hash")
+    otp_type = params.get("type")
+    code = params.get("code")
+    access_token = params.get("access_token")
+    refresh_token = params.get("refresh_token")
+    error_description = params.get("error_description")
+    callback_error = params.get("callback_error")
+
     if error_description:
         return _callback_error(request, message=error_description)
-
-    if not token_hash or not type:
+    if callback_error:
         return _callback_error(
             request, message="Your sign-in link is missing required parameters."
         )
-    if type not in ALLOWED_OTP_TYPES:
+
+    if not any((token_hash, code, access_token, refresh_token)):
+        return templates.TemplateResponse(request, "auth/callback_bridge.html", {})
+
+    user = None
+    if access_token or refresh_token:
+        if not access_token or not refresh_token:
+            return _callback_error(
+                request, message="Your sign-in link is missing required parameters."
+            )
+        try:
+            session_result = supabase_client.get_anon_client().auth.set_session(
+                access_token,
+                refresh_token,
+            )
+        except AuthApiError:
+            logger.info("set_session rejected callback tokens")
+            return _callback_error(
+                request, message="Your sign-in link is invalid or has expired. Try again."
+            )
+        except Exception:
+            logger.exception("set_session infra failure")
+            return _callback_error(
+                request,
+                message="We couldn't verify your link right now. Try again in a minute.",
+            )
+        user = _user_from_auth_response(session_result)
+    elif code:
+        try:
+            code_result = supabase_client.get_anon_client().auth.exchange_code_for_session(
+                {"auth_code": code}  # type: ignore[typeddict-item]
+            )
+        except AuthApiError:
+            logger.info("exchange_code_for_session rejected code")
+            return _callback_error(
+                request, message="Your sign-in link is invalid or has expired. Try again."
+            )
+        except Exception:
+            logger.exception("exchange_code_for_session infra failure")
+            return _callback_error(
+                request,
+                message="We couldn't verify your link right now. Try again in a minute.",
+            )
+        user = _user_from_auth_response(code_result)
+    elif not token_hash or not otp_type:
+        return _callback_error(
+            request, message="Your sign-in link is missing required parameters."
+        )
+    if user is None and otp_type not in ALLOWED_OTP_TYPES:
         # Don't forward attacker-supplied `type` values to Supabase; refuse early.
-        logger.warning("rejected callback with unknown otp type: %r", type)
+        logger.warning("rejected callback with unknown otp type: %r", otp_type)
         return _callback_error(
             request, message="Your sign-in link is invalid. Please request a new one."
         )
 
-    # Step 1: exchange the token for a Supabase session.
-    # `type` was validated against ALLOWED_OTP_TYPES above, but mypy can't
-    # narrow a `frozenset` membership check to the gotrue Literal — cast.
-    try:
-        verify_result = supabase_client.get_anon_client().auth.verify_otp(
-            {"token_hash": token_hash, "type": type}  # type: ignore[typeddict-item]
-        )
-    except AuthApiError:
-        # Token expired / already used / wrong type. User-actionable.
-        logger.info("verify_otp rejected token (expired or invalid)")
-        return _callback_error(
-            request, message="Your sign-in link is invalid or has expired. Try again."
-        )
-    except Exception:
-        # Network / infra. Surface a different message so support can tell the
-        # difference from real link expiries.
-        logger.exception("verify_otp infra failure")
-        return _callback_error(
-            request,
-            message="We couldn't verify your link right now. Try again in a minute.",
-        )
+    if user is None:
+        # Step 1: exchange token_hash/type links for a Supabase session.
+        try:
+            verify_result = supabase_client.get_anon_client().auth.verify_otp(
+                {"token_hash": token_hash, "type": otp_type}  # type: ignore[typeddict-item]
+            )
+        except AuthApiError:
+            # Token expired / already used / wrong type. User-actionable.
+            logger.info("verify_otp rejected token (expired or invalid)")
+            return _callback_error(
+                request, message="Your sign-in link is invalid or has expired. Try again."
+            )
+        except Exception:
+            # Network / infra. Surface a different message so support can tell the
+            # difference from real link expiries.
+            logger.exception("verify_otp infra failure")
+            return _callback_error(
+                request,
+                message="We couldn't verify your link right now. Try again in a minute.",
+            )
 
-    user = getattr(verify_result, "user", None)
+        user = _user_from_auth_response(verify_result)
     if user is None or not getattr(user, "id", None):
         return _callback_error(request, message="Sign-in failed. Please try again.")
 
@@ -273,6 +324,21 @@ async def logout():
 # -----------------------------------------------------------------------------
 # Helpers
 # -----------------------------------------------------------------------------
+
+
+async def _callback_params(request: Request) -> dict[str, str]:
+    if request.method == "POST":
+        form = await request.form()
+        return {str(key): str(value) for key, value in form.items()}
+    return {str(key): str(value) for key, value in request.query_params.items()}
+
+
+def _user_from_auth_response(auth_response):
+    user = getattr(auth_response, "user", None)
+    if user is not None:
+        return user
+    session = getattr(auth_response, "session", None)
+    return getattr(session, "user", None)
 
 
 def _login_error(request: Request, *, role: str, email: str, message: str) -> Response:

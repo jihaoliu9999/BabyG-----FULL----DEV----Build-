@@ -1,20 +1,21 @@
 {% extends "base.html" %}
 
-{% block title %}Network - babyg{% endblock %}
+{% block title %}network - babyg{% endblock %}
 
 {% block content %}
 <section class="feed creator-surface">
   <header class="feed-header surface-header">
-    <div class="feed-eyebrow">Network</div>
-    <h1 class="feed-title">Miami creators</h1>
+    <div class="feed-eyebrow">network</div>
+    <h1 class="feed-title">miami creators</h1>
     <p class="feed-sub">
-      Find working creators, request connections, and unlock DMs with people
-      you actually want to collaborate with.
+      the room. keep it intentional.
     </p>
     <div class="action-row action-row-inline">
       <a class="btn btn-secondary" href="/creator/connections">
-        Connections{% if pending_in %} <span class="badge badge-alert">{{ pending_in }}</span>{% endif %}
+        connections{% if pending_in %} <span class="badge badge-alert">{{ pending_in }}</span>{% endif %}
       </a>
+      <a class="btn btn-secondary" href="/creator/jobs">listings</a>
+      <a class="btn btn-secondary" href="/creator/dm">inbox</a>
     </div>
   </header>
 
@@ -26,8 +27,8 @@
   </div>
   {% else %}
   <div class="feed-empty">
-    <h2>No creators yet.</h2>
-    <p>The directory fills as more creators complete onboarding.</p>
+    <h2>no creators yet.</h2>
+    <p>the room is still quiet.</p>
   </div>
   {% endif %}
 </section>

@@ -1,18 +1,17 @@
 {% extends "base.html" %}
 
-{% block title %}Content receipts - babyg{% endblock %}
+{% block title %}content receipts - babyg{% endblock %}
 
 {% block content %}
 <section class="feed creator-surface">
   <header class="feed-header surface-header">
-    <div class="feed-eyebrow">Receipts</div>
-    <h1 class="feed-title">What you shipped</h1>
+    <div class="feed-eyebrow">receipts</div>
+    <h1 class="feed-title">what shipped</h1>
     <p class="feed-sub">
-      Log posts so babyg can connect creator output back to Hot Drops,
-      creator opportunities, and self-reported performance.
+      proof of work, kept clean.
     </p>
     <div class="action-row action-row-inline">
-      <a class="btn btn-primary" href="/creator/receipts/new">Log a post</a>
+      <a class="btn btn-primary" href="/creator/receipts/new">log post</a>
     </div>
   </header>
 
@@ -26,18 +25,18 @@
           {% if r.caption_excerpt %}
             {{ r.caption_excerpt[:90] }}{% if r.caption_excerpt|length > 90 %}...{% endif %}
           {% else %}
-            Content receipt
+            content receipt
           {% endif %}
         </h2>
         <div class="record-card-meta">
-          <span>{{ r.posted_at|short_date or "Date not set" }}</span>
+          <span>{{ r.posted_at|short_date or "date not set" }}</span>
           <span>{{ r.likes_count if r.likes_count is not none else 0 }} likes</span>
           <span>{{ r.comments_count if r.comments_count is not none else 0 }} comments</span>
         </div>
       </div>
       {% if r.post_url %}
       <div class="record-card-actions">
-        <a class="btn btn-secondary" href="{{ r.post_url|safe_url }}" target="_blank" rel="noopener noreferrer">Open post</a>
+        <a class="btn btn-secondary" href="{{ r.post_url|safe_url }}" target="_blank" rel="noopener noreferrer">open post</a>
       </div>
       {% endif %}
     </article>
@@ -45,8 +44,8 @@
   </div>
   {% else %}
   <div class="feed-empty">
-    <h2>No receipts yet.</h2>
-    <p>Log a post to start building your proof trail.</p>
+    <h2>no receipts.</h2>
+    <p>log what shipped.</p>
   </div>
   {% endif %}
 </section>

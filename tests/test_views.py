@@ -108,7 +108,7 @@ def test_views_page_basic_tier_shows_upgrade_prompt(client, world):
     assert r.status_code == 200
     # Basic shouldn't see the count
     assert "7" not in r.text
-    assert "Pro" in r.text or "VIP" in r.text
+    assert "higher tiers" in r.text
 
 
 def test_views_page_pro_tier_shows_count(client, world):

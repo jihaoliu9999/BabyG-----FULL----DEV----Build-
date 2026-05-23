@@ -1,16 +1,16 @@
 {% extends "base.html" %}
 
-{% block title %}Notifications - babyg{% endblock %}
+{% block title %}alerts - babyg{% endblock %}
 
 {% block content %}
 <section class="feed creator-surface">
   <header class="feed-header surface-header">
-    <div class="feed-eyebrow">Notifications</div>
-    <h1 class="feed-title">Alerts</h1>
+    <div class="feed-eyebrow">alerts</div>
+    <h1 class="feed-title">attention</h1>
     {% if rows %}
     <form method="post" action="/creator/notifications/read-all" class="inline-form">
       {% include "_partials/csrf.html" %}
-      <button type="submit" class="btn btn-secondary">Mark all read</button>
+      <button type="submit" class="btn btn-secondary">mark read</button>
     </form>
     {% endif %}
   </header>
@@ -34,8 +34,8 @@
   </ul>
   {% else %}
   <div class="feed-empty">
-    <h2>You are caught up.</h2>
-    <p>No notifications yet.</p>
+    <h2>nothing needs you.</h2>
+    <p>all clear.</p>
   </div>
   {% endif %}
 </section>

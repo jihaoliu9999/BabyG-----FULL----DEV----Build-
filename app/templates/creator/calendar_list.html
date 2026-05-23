@@ -1,28 +1,27 @@
 {% extends "base.html" %}
 
-{% block title %}Calendar - babyg{% endblock %}
+{% block title %}calendar - babyg{% endblock %}
 
 {% block content %}
 <section class="feed creator-surface">
   <header class="feed-header surface-header">
-    <div class="feed-eyebrow">Calendar</div>
-    <h1 class="feed-title">Bookings</h1>
+    <div class="feed-eyebrow">calendar</div>
+    <h1 class="feed-title">your schedule</h1>
     <p class="feed-sub">
-      Restaurants, events, collab shoots, creator deadlines, and manually
-      tracked brand deadlines.
+      local bookings and creator deadlines live here.
     </p>
     <div class="action-row action-row-inline">
-      <a class="btn btn-primary" href="/creator/calendar/new">New booking</a>
+      <a class="btn btn-primary" href="/creator/calendar/new">add item</a>
     </div>
   </header>
 
   <nav class="feed-filters" aria-label="Filter by horizon">
     <a class="chip {% if horizon == 'upcoming' %}chip-active{% endif %}"
-       href="/creator/calendar?horizon=upcoming">Upcoming</a>
+       href="/creator/calendar?horizon=upcoming">upcoming</a>
     <a class="chip {% if horizon == 'past' %}chip-active{% endif %}"
-       href="/creator/calendar?horizon=past">Past</a>
+       href="/creator/calendar?horizon=past">past</a>
     <a class="chip {% if horizon == 'all' %}chip-active{% endif %}"
-       href="/creator/calendar?horizon=all">All</a>
+       href="/creator/calendar?horizon=all">all</a>
   </nav>
 
   {% if bookings %}
@@ -38,10 +37,10 @@
         </div>
       </a>
       <div class="record-card-actions">
-        <a class="btn btn-secondary" href="/creator/calendar/{{ b.id }}/edit">Edit</a>
+        <a class="btn btn-secondary" href="/creator/calendar/{{ b.id }}/edit">edit</a>
         <form method="post" action="/creator/calendar/{{ b.id }}/cancel">
           {% include "_partials/csrf.html" %}
-          <button type="submit" class="btn btn-secondary">Cancel</button>
+          <button type="submit" class="btn btn-secondary">cancel</button>
         </form>
       </div>
     </article>
@@ -49,8 +48,8 @@
   </div>
   {% else %}
   <div class="feed-empty">
-    <h2>Nothing on the calendar.</h2>
-    <p>Add a dinner, an event, a collab, or a creator deadline and we'll keep track.</p>
+    <h2>nothing scheduled.</h2>
+    <p>google calendar is not connected yet. local babyg items will appear here.</p>
   </div>
   {% endif %}
 </section>

@@ -127,6 +127,28 @@ async def bot_send(
     return RedirectResponse("/creator/bot", status_code=303)
 
 
+@router.post("/creator/bot/actions/{message_id}/confirm")
+async def bot_action_confirm(
+    message_id: str,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    result = bot.confirm_action(user_id=session["user_id"], message_id=message_id)
+    if not result.found:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    return RedirectResponse("/creator/bot", status_code=303)
+
+
+@router.post("/creator/bot/actions/{message_id}/cancel")
+async def bot_action_cancel(
+    message_id: str,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    result = bot.cancel_action(user_id=session["user_id"], message_id=message_id)
+    if not result.found:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    return RedirectResponse("/creator/bot", status_code=303)
+
+
 @router.post("/creator/intel/{post_id}/feedback")
 async def submit_feedback(
     post_id: str,
@@ -138,6 +160,41 @@ async def submit_feedback(
     ):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
     return RedirectResponse("/creator", status_code=303)
+
+
+# -----------------------------------------------------------------------------
+# Profile / settings
+# -----------------------------------------------------------------------------
+
+
+@router.get("/creator/profile", response_class=HTMLResponse)
+async def profile_page(
+    request: Request,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    profile = profiles.get_creator_profile(session["user_id"]) or {}
+    if not profile.get("onboarding_completed_at"):
+        return RedirectResponse("/onboarding/creator", status_code=302)
+    return templates.TemplateResponse(
+        request,
+        "creator/profile.html",
+        {"profile": profile},
+    )
+
+
+@router.get("/creator/profile/settings", response_class=HTMLResponse)
+async def profile_settings_page(
+    request: Request,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    profile = profiles.get_creator_profile(session["user_id"]) or {}
+    if not profile.get("onboarding_completed_at"):
+        return RedirectResponse("/onboarding/creator", status_code=302)
+    return templates.TemplateResponse(
+        request,
+        "creator/profile_settings.html",
+        {"profile": profile},
+    )
 
 
 # -----------------------------------------------------------------------------

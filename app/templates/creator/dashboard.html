@@ -1,30 +1,29 @@
 {% extends "base.html" %}
 
-{% block title %}Daily Hot Drops - babyg{% endblock %}
+{% block title %}feed - babyg{% endblock %}
 
 {% block content %}
 <section class="feed">
   <header class="feed-header">
-    <div class="feed-eyebrow">Today / {{ profile.full_name or "creator" }}</div>
-    <h1 class="feed-title">Hot Drops</h1>
+    <div class="feed-eyebrow">today / {{ profile.full_name or "creator" }}</div>
+    <h1 class="feed-title">today</h1>
     <p class="feed-sub">
-      Curated Miami intel for venues, trends, creator-shared opportunities,
-      alerts, and collabs. Tap feedback so babyg learns what actually helps.
+      things worth your attention.
     </p>
 
     <div class="feed-status-row" aria-label="Creator inbox summary">
       <a class="feed-status-card" href="/creator/dm">
-        <span>Inbox</span>
+        <span>inbox</span>
         <strong>{{ unread_dms or 0 }}</strong>
       </a>
       <a class="feed-status-card" href="/creator/notifications">
-        <span>Alerts</span>
+        <span>alerts</span>
         <strong>{{ unread_total or 0 }}</strong>
       </a>
     </div>
 
     <nav class="feed-filters" aria-label="Filter intel by category">
-      <a class="chip {% if not active_category %}chip-active{% endif %}" href="/creator">All</a>
+      <a class="chip {% if not active_category %}chip-active{% endif %}" href="/creator">all</a>
       {% for slug, label in categories %}
       <a class="chip {% if active_category == slug %}chip-active{% endif %}"
          href="/creator?category={{ slug }}">{{ label }}</a>
@@ -36,9 +35,9 @@
   <aside class="notif-strip" aria-label="Unread notifications">
     <div class="notif-strip-head">
       <div class="notif-strip-eyebrow">
-        {{ unread_total }} new notification{{ "s" if unread_total != 1 else "" }}
+        {{ unread_total }} unread
       </div>
-      <a class="notif-strip-link" href="/creator/notifications">View all &rarr;</a>
+      <a class="notif-strip-link" href="/creator/notifications">open</a>
     </div>
     <ul class="notif-list">
       {% for n in unread_notifs %}
@@ -70,19 +69,9 @@
     </div>
   {% else %}
     <div class="feed-empty">
-      <h2>No drops yet today.</h2>
-      <p>
-        Nothing in your niches right now. Check back later, or pull the intel
-        into your workflow once babyg chat is live.
-      </p>
+      <h2>nothing today.</h2>
+      <p>your feed is clear.</p>
     </div>
   {% endif %}
-
-  <footer class="feed-foot">
-    <form method="post" action="/auth/logout">
-      {% include "_partials/csrf.html" %}
-      <button type="submit" class="btn btn-ghost">Sign out</button>
-    </form>
-  </footer>
 </section>
 {% endblock %}

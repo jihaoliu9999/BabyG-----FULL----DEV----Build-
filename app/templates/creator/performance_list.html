@@ -1,17 +1,17 @@
 {% extends "base.html" %}
 
-{% block title %}Weekly performance - babyg{% endblock %}
+{% block title %}weekly performance - babyg{% endblock %}
 
 {% block content %}
 <section class="feed creator-surface">
   <header class="feed-header surface-header">
-    <div class="feed-eyebrow">Performance</div>
-    <h1 class="feed-title">Weekly numbers</h1>
+    <div class="feed-eyebrow">performance</div>
+    <h1 class="feed-title">weekly numbers</h1>
     <p class="feed-sub">
-      One entry per week. Submit again for the same week to overwrite.
+      the record, week by week.
     </p>
     <div class="action-row action-row-inline">
-      <a class="btn btn-primary" href="/creator/performance/new">Log a week</a>
+      <a class="btn btn-primary" href="/creator/performance/new">log week</a>
     </div>
   </header>
 
@@ -49,8 +49,8 @@
   </div>
   {% else %}
   <div class="feed-empty">
-    <h2>No weeks logged yet.</h2>
-    <p>Submit your first week to start a record.</p>
+    <h2>no weeks logged.</h2>
+    <p>start the record.</p>
   </div>
   {% endif %}
 </section>

@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% block title %}profile - babyg{% endblock %}
+{% block head_extra %}
+  <script src="/static/js/profile.js" defer></script>
+{% endblock %}
+
+{% set initials = (profile.full_name or profile.instagram_handle or "creator")[:2]|upper %}
+
+{% block content %}
+<section class="profile-page">
+  <header class="profile-own-hero">
+    <form class="profile-photo-control" data-profile-photo-form>
+      <!-- TODO: wire to Supabase Storage upload endpoint when the backend bucket exists. -->
+      <label class="profile-photo-label" for="profile-photo-input">
+        <span class="sr-only">profile photo</span>
+        {% if profile.profile_photo_url %}
+          <img
+            class="profile-photo-preview"
+            data-profile-photo-preview
+            src="{{ profile.profile_photo_url|safe_url }}"
+            alt=""
+          />
+        {% else %}
+          <span class="profile-photo-empty" data-profile-photo-empty>{{ initials }}</span>
+          <img class="profile-photo-preview" data-profile-photo-preview alt="" hidden />
+        {% endif %}
+      </label>
+      <input
+        id="profile-photo-input"
+        class="profile-photo-input"
+        type="file"
+        accept="image/*"
+        data-profile-photo-input
+      />
+      <div class="profile-photo-copy">photo</div>
+    </form>
+
+    <div class="profile-own-copy">
+      <p class="quiet-label">profile</p>
+      <h1>{{ profile.full_name or "creator" }}</h1>
+      {% if profile.instagram_handle %}
+        <p class="profile-handle">@{{ profile.instagram_handle }}</p>
+      {% else %}
+        <p class="profile-handle">handle not set</p>
+      {% endif %}
+    </div>
+  </header>
+
+  <div class="profile-action-row">
+    <a class="btn btn-primary" href="/creator/profile/settings">settings</a>
+    <form method="post" action="/auth/logout">
+      {% include "_partials/csrf.html" %}
+      <button type="submit" class="btn btn-secondary">sign out</button>
+    </form>
+  </div>
+
+  <section class="profile-section">
+    <h2>details</h2>
+    <dl class="profile-detail-list">
+      <div>
+        <dt>city</dt>
+        <dd>{{ profile.neighborhood or "miami" }}</dd>
+      </div>
+      <div>
+        <dt>platform</dt>
+        <dd>{{ profile.primary_platform or "instagram" }}</dd>
+      </div>
+      <div>
+        <dt>followers</dt>
+        <dd>{{ profile.follower_range or "not set" }}</dd>
+      </div>
+      <div>
+        <dt>engagement</dt>
+        <dd>{{ profile.engagement_range or "not set" }}</dd>
+      </div>
+    </dl>
+  </section>
+
+  <section class="profile-section">
+    <h2>world</h2>
+    {% if profile.niches %}
+      <div class="profile-chip-row">
+        {% for niche in profile.niches %}
+          <span class="profile-chip">{{ niche }}</span>
+        {% endfor %}
+      </div>
+    {% else %}
+      <p class="profile-muted">no niches set.</p>
+    {% endif %}
+    {% if profile.bio %}
+      <p class="profile-bio">{{ profile.bio }}</p>
+    {% endif %}
+  </section>
+
+  <section class="profile-section">
+    <h2>limits</h2>
+    {% if profile.hard_limits %}
+      {% if profile.hard_limits is string %}
+        <p class="profile-bio">{{ profile.hard_limits }}</p>
+      {% else %}
+        <div class="profile-chip-row">
+          {% for limit in profile.hard_limits %}
+            <span class="profile-chip">{{ limit }}</span>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% else %}
+      <p class="profile-muted">no limits set.</p>
+    {% endif %}
+  </section>
+</section>
+{% endblock %}

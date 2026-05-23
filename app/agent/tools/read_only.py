@@ -48,7 +48,9 @@ def read_my_profile(user_id: str) -> dict[str, Any]:
     }
 
 
-def read_intel_feed(*, niches: list[str], tier: str) -> list[dict[str, Any]]:
+def read_intel_feed(
+    *, niches: list[str], tier: str, limit: int = 5
+) -> list[dict[str, Any]]:
     return [
         {
             "title": row.get("title"),
@@ -57,11 +59,11 @@ def read_intel_feed(*, niches: list[str], tier: str) -> list[dict[str, Any]]:
             "valid_until": row.get("valid_until"),
             "summary": str(row.get("body") or "")[:320],
         }
-        for row in intel.feed_for_creator(niches=niches, tier=tier)[:5]
+        for row in intel.feed_for_creator(niches=niches, tier=tier)[:_bounded_limit(limit)]
     ]
 
 
-def read_my_calendar(user_id: str) -> list[dict[str, Any]]:
+def read_my_calendar(user_id: str, *, limit: int = 5) -> list[dict[str, Any]]:
     return [
         {
             "starts_at": row.get("starts_at"),
@@ -70,12 +72,14 @@ def read_my_calendar(user_id: str) -> list[dict[str, Any]]:
             "status": row.get("status"),
             "location": row.get("location"),
         }
-        for row in bookings.list_for_user(user_id, horizon="upcoming", limit=5)
+        for row in bookings.list_for_user(
+            user_id, horizon="upcoming", limit=_bounded_limit(limit)
+        )
     ]
 
 
-def read_my_dms(user_id: str) -> list[dict[str, Any]]:
-    rows = dms.list_threads_for_user(user_id)[:5]
+def read_my_dms(user_id: str, *, limit: int = 5) -> list[dict[str, Any]]:
+    rows = dms.list_threads_for_user(user_id)[:_bounded_limit(limit)]
     peer_ids = [str(row.get("peer_id")) for row in rows if row.get("peer_id")]
     peers = profiles.get_creators_by_ids(peer_ids)
     return [
@@ -88,7 +92,7 @@ def read_my_dms(user_id: str) -> list[dict[str, Any]]:
     ]
 
 
-def read_my_receipts(user_id: str) -> list[dict[str, Any]]:
+def read_my_receipts(user_id: str, *, limit: int = 5) -> list[dict[str, Any]]:
     return [
         {
             "post_type": row.get("post_type"),
@@ -98,11 +102,11 @@ def read_my_receipts(user_id: str) -> list[dict[str, Any]]:
             "like_count": row.get("like_count"),
             "comment_count": row.get("comment_count"),
         }
-        for row in receipts.list_for_user(user_id, limit=5)
+        for row in receipts.list_for_user(user_id, limit=_bounded_limit(limit))
     ]
 
 
-def read_my_performance(user_id: str) -> list[dict[str, Any]]:
+def read_my_performance(user_id: str, *, limit: int = 3) -> list[dict[str, Any]]:
     return [
         {
             "week_start_date": row.get("week_start_date"),
@@ -111,11 +115,11 @@ def read_my_performance(user_id: str) -> list[dict[str, Any]]:
             "posts_count": row.get("posts_count"),
             "active_brand_deals_value": row.get("active_brand_deals_value"),
         }
-        for row in performance.list_for_user(user_id, limit=3)
+        for row in performance.list_for_user(user_id, limit=_bounded_limit(limit, maximum=12))
     ]
 
 
-def read_creator_directory(user_id: str) -> list[dict[str, Any]]:
+def read_creator_directory(user_id: str, *, limit: int = 6) -> list[dict[str, Any]]:
     return [
         {
             "user_id": row.get("user_id"),
@@ -125,7 +129,7 @@ def read_creator_directory(user_id: str) -> list[dict[str, Any]]:
             "niches": _as_list(row.get("niches"))[:4],
             "follower_range": row.get("follower_range"),
         }
-        for row in network.list_directory_for_creator(user_id)[:6]
+        for row in network.list_directory_for_creator(user_id)[:_bounded_limit(limit)]
     ]
 
 
@@ -137,3 +141,11 @@ def _as_list(value: Any) -> list[str]:
 
 def _summarize_list(value: Any, *, limit: int) -> list[str]:
     return [item[:500] for item in _as_list(value)[:limit]]
+
+
+def _bounded_limit(value: Any, *, default: int = 5, maximum: int = 20) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        parsed = default
+    return max(1, min(parsed, maximum))

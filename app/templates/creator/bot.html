@@ -1,14 +1,18 @@
 {% extends "base.html" %}
+{% import "_partials/brand_mark.html" as brand %}
 
 {% block title %}babyg chat - babyg{% endblock %}
+{% block head_extra %}
+  <script src="/static/js/bot.js" defer></script>
+{% endblock %}
 
 {% block content %}
 <section class="bot-chat">
   <header class="bot-chat-header">
     <div class="feed-eyebrow">babyg</div>
-    <h1 class="bot-chat-title">What are we making happen?</h1>
+    <h1 class="bot-chat-title">what do you need handled?</h1>
     <p class="bot-chat-sub">
-      Ask for captions, content plans, Hot Drop ideas, offer review, or creator ops help.
+      captions, replies, plans, and next moves.
     </p>
   </header>
 
@@ -24,24 +28,72 @@
             {% if m.flagged %}<span class="status-pill status-pending">flagged</span>{% endif %}
           </div>
           <div class="message-bubble">{{ m.content }}</div>
+          {% if m.tool_calls and m.tool_calls.kind == "proposed_action" %}
+            <div class="bot-action-card bot-action-{{ m.tool_calls.status }}">
+              <div class="bot-action-head">
+                <span class="badge badge-muted">{{ m.tool_calls.action_type|replace("_", " ") }}</span>
+                <span class="status-pill status-{{ m.tool_calls.status }}">{{ m.tool_calls.status|capitalize }}</span>
+              </div>
+              <p class="bot-action-copy">
+                {% if m.tool_calls.status == "pending" %}
+                  review this. nothing runs until you confirm.
+                {% elif m.tool_calls.status == "confirmed" %}
+                  saved inside babyg.
+                {% else %}
+                  cancelled. nothing was saved.
+                {% endif %}
+              </p>
+              {% if m.tool_calls.status == "pending" %}
+                <div class="bot-action-buttons">
+                  <form method="post" action="/creator/bot/actions/{{ m.id }}/confirm">
+                    {% include "_partials/csrf.html" %}
+                    <button class="btn btn-primary" type="submit">confirm</button>
+                  </form>
+                  <form method="post" action="/creator/bot/actions/{{ m.id }}/cancel">
+                    {% include "_partials/csrf.html" %}
+                    <button class="btn btn-secondary" type="submit">cancel</button>
+                  </form>
+                </div>
+              {% elif m.tool_calls.result and m.tool_calls.result.record_id %}
+                <p class="bot-action-record">Saved record: {{ m.tool_calls.result.record_id }}</p>
+              {% endif %}
+            </div>
+          {% endif %}
         </li>
         {% endif %}
       {% endfor %}
     {% else %}
       <li class="bot-empty">
-        <h2>babyg is ready.</h2>
-        <p>Try: "Draft three captions from this Hot Drop in my voice."</p>
+        {{ brand.icon() }}
+        <h2>ready when you are.</h2>
+        <p>send the thing you want handled.</p>
+        <div class="bot-empty-prompts" aria-label="Suggested prompts">
+          <span>draft captions</span>
+          <span>plan the week</span>
+          <span>review an offer</span>
+          <span>add a reminder</span>
+        </div>
       </li>
     {% endif %}
+    <li class="bot-message bot-message-assistant bot-typing" id="bot-typing" hidden>
+      <div class="bot-message-label">babyg</div>
+      <div class="message-bubble bot-typing-bubble" aria-live="polite">
+        <span>babyg is thinking</span>
+        <span class="typing-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+      </div>
+    </li>
   </ol>
 
-  <form class="bot-composer" method="post" action="/creator/bot">
+  <form class="bot-composer" method="post" action="/creator/bot" data-bot-composer>
     {% include "_partials/csrf.html" %}
     <label class="sr-only" for="bot-message">Message babyg</label>
     <textarea id="bot-message" name="message" rows="3" maxlength="4000"
-              placeholder="Ask babyg for a caption, plan, reply draft, or next move..."
+              placeholder="ask babyg..."
               required></textarea>
-    <button class="btn btn-primary" type="submit">Send</button>
+    <div class="bot-composer-foot">
+      <span class="bot-composer-hint">ai drafts. you decide.</span>
+      <button class="btn btn-primary" type="submit" data-bot-submit>send</button>
+    </div>
   </form>
 </section>
 {% endblock %}

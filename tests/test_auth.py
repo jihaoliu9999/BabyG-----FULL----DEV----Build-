@@ -38,8 +38,15 @@ from app.main import app
 class FakeAuth:
     def __init__(self) -> None:
         self.last_otp_args: dict[str, Any] | None = None
+        self.last_verify_args: dict[str, Any] | None = None
+        self.last_set_session_args: tuple[str, str] | None = None
+        self.last_code_exchange_args: dict[str, Any] | None = None
         self.verify_response: Any = None
+        self.set_session_response: Any = None
+        self.code_exchange_response: Any = None
         self.verify_should_raise: Exception | None = None
+        self.set_session_should_raise: Exception | None = None
+        self.code_exchange_should_raise: Exception | None = None
         self.otp_should_raise: Exception | None = None
 
     def sign_in_with_otp(self, args: dict[str, Any]) -> Any:
@@ -49,9 +56,22 @@ class FakeAuth:
         return SimpleNamespace()
 
     def verify_otp(self, args: dict[str, Any]) -> Any:
+        self.last_verify_args = args
         if self.verify_should_raise:
             raise self.verify_should_raise
         return self.verify_response
+
+    def set_session(self, access_token: str, refresh_token: str) -> Any:
+        self.last_set_session_args = (access_token, refresh_token)
+        if self.set_session_should_raise:
+            raise self.set_session_should_raise
+        return self.set_session_response
+
+    def exchange_code_for_session(self, args: dict[str, Any]) -> Any:
+        self.last_code_exchange_args = args
+        if self.code_exchange_should_raise:
+            raise self.code_exchange_should_raise
+        return self.code_exchange_response
 
 
 class FakeTable:
@@ -177,7 +197,7 @@ def client() -> TestClient:
 def test_landing_renders(client: TestClient) -> None:
     r = client.get("/")
     assert r.status_code == 200
-    assert "Get started" in r.text
+    assert "get access" in r.text
 
 
 def test_get_started_renders_role_cards(client: TestClient) -> None:
@@ -215,13 +235,13 @@ def test_landing_redirects_signed_in_users(client: TestClient) -> None:
 def test_login_form_renders(client: TestClient) -> None:
     r = client.get("/auth/login?role=creator")
     assert r.status_code == 200
-    assert "Creator sign-in" in r.text
+    assert "creator sign in" in r.text
 
 
 def test_login_form_falls_back_to_creator_for_unknown_role(client: TestClient) -> None:
     r = client.get("/auth/login?role=ufo")
     assert r.status_code == 200
-    assert "Creator sign-in" in r.text
+    assert "creator sign in" in r.text
 
 
 # -----------------------------------------------------------------------------
@@ -237,7 +257,7 @@ def test_magic_link_sends_otp_and_sets_pending_role(
         data={"email": "Anna@Example.com", "role": "creator"},
     )
     assert r.status_code == 200
-    assert "Check your email" in r.text
+    assert "check your email" in r.text
     assert "anna@example.com" in r.text  # email is lowercased
 
     assert fake_auth.last_otp_args is not None
@@ -270,7 +290,7 @@ def test_magic_link_operator_silently_skips_send_for_unknown_email(
         "/auth/magic-link", data={"email": "ghost@example.com", "role": "operator"}
     )
     assert r.status_code == 200
-    assert "Check your email" in r.text  # same UX as success — no enumeration
+    assert "check your email" in r.text  # same UX as success — no enumeration
     assert fake_auth.last_otp_args is None
 
 
@@ -316,6 +336,7 @@ def test_callback_creates_creator_row_and_redirects(
 
     assert r.status_code == 302
     assert r.headers["location"] == "/creator"
+    assert fake_auth.last_verify_args == {"token_hash": "abc", "type": "magiclink"}
 
     inserted_tables = [name for name, _ in fake_service.inserts]
     assert "users" in inserted_tables
@@ -329,6 +350,54 @@ def test_callback_creates_creator_row_and_redirects(
 
     cookies = {c.name: c.value for c in client.cookies.jar}
     assert SESSION_COOKIE in cookies
+
+
+def test_callback_accepts_confirmation_url_fragment_bridge_tokens(
+    client: TestClient, fake_auth: FakeAuth, fake_service: FakeService
+) -> None:
+    fake_auth.set_session_response = SimpleNamespace(
+        user=SimpleNamespace(id="user-fragment", email="fragment@example.com")
+    )
+    _set_pending_role(client, "creator")
+
+    r = client.post(
+        "/auth/callback",
+        data={
+            "access_token": "access.jwt",
+            "refresh_token": "refresh-token",
+            "type": "magiclink",
+        },
+    )
+
+    assert r.status_code == 302
+    assert r.headers["location"] == "/creator"
+    assert fake_auth.last_set_session_args == ("access.jwt", "refresh-token")
+    users_insert = next(p for n, p in fake_service.inserts if n == "users")
+    assert users_insert == {
+        "id": "user-fragment",
+        "email": "fragment@example.com",
+        "role": "creator",
+    }
+
+
+def test_callback_accepts_code_exchange(
+    client: TestClient, fake_auth: FakeAuth, fake_service: FakeService
+) -> None:
+    fake_service.tables["users"].append(
+        {"id": "code-user", "email": "code@example.com", "role": "creator"}
+    )
+    fake_auth.code_exchange_response = SimpleNamespace(
+        session=SimpleNamespace(
+            user=SimpleNamespace(id="code-user", email="code@example.com")
+        )
+    )
+
+    r = client.get("/auth/callback?code=auth-code")
+
+    assert r.status_code == 302
+    assert r.headers["location"] == "/creator"
+    assert fake_auth.last_code_exchange_args == {"auth_code": "auth-code"}
+    assert fake_service.inserts == []
 
 
 def test_callback_existing_user_does_not_reinsert(
@@ -400,8 +469,18 @@ def test_callback_with_unknown_otp_type_rejected(
 def test_callback_missing_params_renders_error(
     client: TestClient, fake_auth: FakeAuth, fake_service: FakeService
 ) -> None:
-    r = client.get("/auth/callback")
+    r = client.get("/auth/callback?callback_error=missing")
     assert r.status_code == 400
+    assert "missing required parameters" in r.text.lower()
+
+
+def test_callback_without_query_renders_fragment_bridge(
+    client: TestClient, fake_auth: FakeAuth, fake_service: FakeService
+) -> None:
+    r = client.get("/auth/callback")
+    assert r.status_code == 200
+    assert "/static/js/auth_callback.js" in r.text
+    assert "finishing sign in" in r.text
 
 
 # -----------------------------------------------------------------------------
