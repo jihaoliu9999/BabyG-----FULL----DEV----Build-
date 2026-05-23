@@ -67,26 +67,39 @@
         {% endif %}
       {% endfor %}
     {% else %}
-    <li class="bot-message assistant" style="align-items:center;text-align:center;padding:24px 0;">
+    <li class="bot-message assistant bot-empty" style="align-items:center;text-align:center;padding:24px 0;">
       <img src="/static/assets/logo-bg.png" alt="" style="width:48px;height:48px;object-fit:contain;opacity:0.5;margin-bottom:12px;" />
       <p style="color:var(--ink-dim);font-size:13.5px;margin:0;">send the thing you want handled.</p>
     </li>
     {% endif %}
+
+    <li class="bot-message assistant" id="bot-typing" hidden>
+      <span class="meta">babyg</span>
+      <div class="bubble" style="display:flex;align-items:center;gap:6px;">
+        <span style="color:var(--ink-dim);font-size:13px;">thinking</span>
+        <span style="display:inline-flex;gap:3px;" aria-hidden="true">
+          <i style="width:4px;height:4px;border-radius:50%;background:var(--ink-dim);display:block;animation:blink 1.2s infinite 0s;"></i>
+          <i style="width:4px;height:4px;border-radius:50%;background:var(--ink-dim);display:block;animation:blink 1.2s infinite .2s;"></i>
+          <i style="width:4px;height:4px;border-radius:50%;background:var(--ink-dim);display:block;animation:blink 1.2s infinite .4s;"></i>
+        </span>
+      </div>
+    </li>
   </ol>
 
-  <div id="bot-typing" hidden style="padding:8px 20px 0;color:var(--ink-dim);font-size:13px;font-style:italic;">babyg is typing…</div>
-
-  <div class="bot-composer" id="botComposer">
+  <form class="bot-composer" method="post" action="/creator/bot" data-bot-composer>
+    {% include "_partials/csrf.html" %}
     <div class="box">
-      <form method="post" action="/creator/bot" id="botForm" style="display:contents;" data-bot-composer>
-        {% include "_partials/csrf.html" %}
-        <textarea id="bot-message" name="message" rows="1" placeholder="ask babyg…" maxlength="4000" required></textarea>
-        <button class="send" type="submit" id="botSend" data-bot-submit aria-label="send">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg>
-        </button>
-      </form>
+      <label class="sr-only" for="bot-message">message babyg</label>
+      <textarea id="bot-message" name="message" rows="1" placeholder="ask babyg…" maxlength="4000" required></textarea>
+      <button class="send" type="submit" data-bot-submit aria-label="send">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg>
+      </button>
     </div>
     <div class="hint">ai drafts. you decide.</div>
-  </div>
+  </form>
 </section>
+
+<style>
+@keyframes blink { 0%,80%,100%{opacity:.2} 40%{opacity:1} }
+</style>
 {% endblock %}
