@@ -8,12 +8,53 @@
     <div class="feed-eyebrow">calendar</div>
     <h1 class="feed-title">your schedule</h1>
     <p class="feed-sub">
-      local bookings and creator deadlines live here.
+      google events, local bookings, and creator deadlines live here.
     </p>
     <div class="action-row action-row-inline">
       <a class="btn btn-primary" href="/creator/calendar/new">add item</a>
+      {% if google_configured and not google_connected %}
+        <a class="btn btn-secondary" href="/creator/google/calendar/connect">connect google</a>
+      {% endif %}
     </div>
   </header>
+
+  {% if calendar_notice %}
+    <div class="calendar-sync-card calendar-sync-notice">
+      <p>{{ calendar_notice }}</p>
+    </div>
+  {% endif %}
+
+  <section class="calendar-sync-card">
+    <div>
+      <p class="record-card-kicker">google calendar</p>
+      {% if google_connected %}
+        <h2>connected.</h2>
+        <p>pull your upcoming google calendar events into babyg.</p>
+      {% elif google_configured %}
+        <h2>connect your calendar.</h2>
+        <p>babyg will show your real schedule here.</p>
+      {% else %}
+        <h2>calendar keys missing.</h2>
+        <p>add google oauth variables in production, then connect.</p>
+      {% endif %}
+    </div>
+    <div class="calendar-sync-actions">
+      {% if google_connected %}
+        <form method="post" action="/creator/google/calendar/sync">
+          {% include "_partials/csrf.html" %}
+          <button type="submit" class="btn btn-primary">sync now</button>
+        </form>
+        <form method="post" action="/creator/google/calendar/disconnect">
+          {% include "_partials/csrf.html" %}
+          <button type="submit" class="btn btn-secondary">disconnect</button>
+        </form>
+      {% elif google_configured %}
+        <a class="btn btn-primary" href="/creator/google/calendar/connect">connect google</a>
+      {% else %}
+        <span class="status-pill status-draft">not configured</span>
+      {% endif %}
+    </div>
+  </section>
 
   <nav class="feed-filters" aria-label="Filter by horizon">
     <a class="chip {% if horizon == 'upcoming' %}chip-active{% endif %}"
@@ -34,6 +75,7 @@
         <div class="record-card-meta">
           <span>{{ b.starts_at|short_dt }}</span>
           {% if b.venue_name %}<span>{{ b.venue_name }}</span>{% endif %}
+          {% if b.google_event_id %}<span>google</span>{% endif %}
         </div>
       </a>
       <div class="record-card-actions">
@@ -49,7 +91,11 @@
   {% else %}
   <div class="feed-empty">
     <h2>nothing scheduled.</h2>
-    <p>google calendar is not connected yet. local babyg items will appear here.</p>
+    {% if google_connected %}
+      <p>sync google calendar or add a local item.</p>
+    {% else %}
+      <p>connect google calendar or add a local item.</p>
+    {% endif %}
   </div>
   {% endif %}
 </section>

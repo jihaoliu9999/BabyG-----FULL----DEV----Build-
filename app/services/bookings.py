@@ -90,6 +90,25 @@ def create(*, user_id: str, payload: dict[str, Any]) -> str | None:
     return str(rows[0]["id"]) if rows else None
 
 
+def upsert_google_event(*, user_id: str, payload: dict[str, Any]) -> bool:
+    """Insert or refresh one Google Calendar event in the local calendar."""
+    google_event_id = str(payload.get("google_event_id") or "")
+    if not google_event_id:
+        return False
+    body = {**payload, "user_id": user_id}
+    try:
+        result = (
+            supabase_client.get_service_client()
+            .table("bookings")
+            .upsert(body, on_conflict="user_id,google_event_id")
+            .execute()
+        )
+    except PostgrestAPIError:
+        logger.exception("bookings google upsert failed: %s", google_event_id)
+        return False
+    return bool(getattr(result, "data", None))
+
+
 def update(booking_id: str, *, user_id: str, payload: dict[str, Any]) -> bool:
     """Owner-only update — the eq on user_id stops cross-user writes even if
     the route layer ever slipped. Returns True if a row updated."""

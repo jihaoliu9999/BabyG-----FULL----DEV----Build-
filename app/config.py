@@ -38,6 +38,14 @@ class Settings(BaseSettings):
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-sonnet-4-20250514"
 
+    # Google OAuth / Calendar
+    google_client_id: str = ""
+    google_client_secret: str = ""
+    google_redirect_uri: str = ""
+    google_oauth_scopes: str = (
+        "https://www.googleapis.com/auth/calendar.events"
+    )
+
     @property
     def is_production(self) -> bool:
         return self.env == "production"

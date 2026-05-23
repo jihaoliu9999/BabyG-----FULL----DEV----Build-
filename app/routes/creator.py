@@ -17,15 +17,18 @@ from app.core.security import SessionPayload
 from app.core.templating import templates
 from app.core.url_guard import http_url_or_none
 from app.deps import require_role
+from app.integrations import google_calendar
 from app.services import (
     audit,
     bookings,
     bot,
+    calendar_sync,
     dms,
     intel,
     jobs,
     network,
     notifications,
+    oauth_connections,
     performance,
     profiles,
     receipts,
@@ -193,7 +196,14 @@ async def profile_settings_page(
     return templates.TemplateResponse(
         request,
         "creator/profile_settings.html",
-        {"profile": profile},
+        {
+            "profile": profile,
+            "google_connected": oauth_connections.get_google_connection(
+                session["user_id"]
+            )
+            is not None,
+            "google_configured": google_calendar.is_configured(),
+        },
     )
 
 
@@ -805,11 +815,88 @@ async def calendar_list(
     if horizon not in ("upcoming", "past", "all"):
         horizon = "upcoming"
     rows = bookings.list_for_user(session["user_id"], horizon=horizon)
+    google_connected = oauth_connections.get_google_connection(session["user_id"]) is not None
     return templates.TemplateResponse(
         request,
         "creator/calendar_list.html",
-        {"bookings": rows, "horizon": horizon},
+        {
+            "bookings": rows,
+            "horizon": horizon,
+            "google_connected": google_connected,
+            "google_configured": google_calendar.is_configured(),
+            "calendar_notice": _calendar_notice(request),
+        },
     )
+
+
+@router.get("/creator/google/calendar/connect")
+async def google_calendar_connect(
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    if not google_calendar.is_configured():
+        return RedirectResponse("/creator/calendar?google=not_configured", status_code=303)
+    state = oauth_connections.create_google_state(session["user_id"])
+    try:
+        url = google_calendar.auth_url(state)
+    except google_calendar.GoogleCalendarError:
+        return RedirectResponse("/creator/calendar?google=not_configured", status_code=303)
+    return RedirectResponse(url, status_code=302)
+
+
+@router.get("/creator/google/calendar/callback", name="google_calendar_callback")
+@router.get("/auth/google/callback", include_in_schema=False)
+@router.get("/oauth/google/callback", include_in_schema=False)
+async def google_calendar_callback(
+    code: str | None = Query(None),
+    state: str | None = Query(None),
+    error: str | None = Query(None),
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    if error:
+        return RedirectResponse("/creator/calendar?google=denied", status_code=303)
+    verified = oauth_connections.verify_google_state(state or "")
+    if not code or not verified:
+        return RedirectResponse("/creator/calendar?google=bad_callback", status_code=303)
+    if verified["user_id"] != session["user_id"]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+
+    try:
+        token_response = google_calendar.exchange_code(code)
+    except google_calendar.GoogleCalendarError:
+        return RedirectResponse("/creator/calendar?google=exchange_failed", status_code=303)
+    if not oauth_connections.save_google_connection(session["user_id"], token_response):
+        return RedirectResponse("/creator/calendar?google=save_failed", status_code=303)
+
+    result = calendar_sync.sync_google_calendar(session["user_id"])
+    if result.error:
+        return RedirectResponse("/creator/calendar?google=connected&sync=failed", status_code=303)
+    return RedirectResponse(
+        f"/creator/calendar?google=connected&synced={result.imported}",
+        status_code=303,
+    )
+
+
+@router.post("/creator/google/calendar/sync")
+async def google_calendar_sync_now(
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    result = calendar_sync.sync_google_calendar(session["user_id"])
+    if result.error == "not_connected":
+        return RedirectResponse("/creator/calendar?google=not_connected", status_code=303)
+    if result.error:
+        return RedirectResponse("/creator/calendar?sync=failed", status_code=303)
+    return RedirectResponse(
+        f"/creator/calendar?sync=done&synced={result.imported}",
+        status_code=303,
+    )
+
+
+@router.post("/creator/google/calendar/disconnect")
+async def google_calendar_disconnect(
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    oauth_connections.disconnect_google(session["user_id"])
+    return RedirectResponse("/creator/calendar?google=disconnected", status_code=303)
 
 
 @router.get("/creator/calendar/new", response_class=HTMLResponse)
@@ -918,6 +1005,36 @@ async def calendar_cancel(
 ) -> Response:
     bookings.cancel(booking_id, user_id=session["user_id"])
     return RedirectResponse("/creator/calendar", status_code=303)
+
+
+def _calendar_notice(request: Request) -> str | None:
+    params = request.query_params
+    google = params.get("google")
+    sync = params.get("sync")
+    synced = params.get("synced")
+    if google == "connected":
+        if synced and synced.isdigit():
+            count = int(synced)
+            return f"google calendar connected. {count} item{'s' if count != 1 else ''} synced."
+        return "google calendar connected."
+    if google == "disconnected":
+        return "google calendar disconnected."
+    if google == "not_configured":
+        return "google calendar needs keys before it can connect."
+    if google == "denied":
+        return "google calendar was not connected."
+    if google in {"bad_callback", "exchange_failed", "save_failed"}:
+        return "google calendar could not connect. try again."
+    if google == "not_connected":
+        return "connect google calendar first."
+    if sync == "done":
+        if synced and synced.isdigit():
+            count = int(synced)
+            return f"calendar synced. {count} item{'s' if count != 1 else ''} refreshed."
+        return "calendar synced."
+    if sync == "failed":
+        return "calendar sync failed. try again."
+    return None
 
 
 # -----------------------------------------------------------------------------

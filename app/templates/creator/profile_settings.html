@@ -56,7 +56,13 @@
     </div>
     <div class="settings-row">
       <span>calendar</span>
-      <strong>not connected</strong>
+      {% if google_connected %}
+        <strong><a href="/creator/calendar">connected</a></strong>
+      {% elif google_configured %}
+        <strong><a href="/creator/google/calendar/connect">connect</a></strong>
+      {% else %}
+        <strong>not configured</strong>
+      {% endif %}
     </div>
   </section>
 

@@ -14,6 +14,7 @@ Files are applied in numeric order. Each migration is plain SQL — run via the 
 | `0006_audit_fixes.sql` | Drops the brittle `dm_messages_recipient_update_read` policy from 0005; tightens `brand_profiles.contact_full_name` to NOT NULL; adds per-day unique index on `profile_views (viewer_id, viewed_id, date(viewed_at))` so reloads don't inflate counts; rewrites `intel_posts.target_tiers` default with quoted array literal |
 | `0007_remove_brand_side.sql` | **v1 scope change**: drops `brand_profiles` (CASCADE — RLS + indexes + trigger drop with it) and removes `collab_match` from the `notifications.kind` CHECK constraint. Brand-side returns in v1.5 (full pre-removal schema preserved on the `brand-side-v1.5` branch). |
 | `0008_lint_fixes.sql` | Supabase linter fixes: relocates the `citext` extension from `public` to the `extensions` schema; revokes EXECUTE on the SECURITY DEFINER `rls_auto_enable()` function from `anon`/`authenticated` so it is no longer callable via `/rest/v1/rpc/`. |
+| `0009_oauth_connections.sql` | Adds creator-owned OAuth token storage for server-side Google Calendar sync. |
 
 ## Conventions
 

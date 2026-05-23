@@ -48,9 +48,15 @@ def test_creator_profile_page_renders(monkeypatch, client: TestClient) -> None:
 def test_creator_profile_settings_page_renders(monkeypatch, client: TestClient) -> None:
     _signed_in(client, role="creator")
     monkeypatch.setattr(creator_routes.profiles, "get_creator_profile", lambda uid: _profile())
+    monkeypatch.setattr(
+        creator_routes.oauth_connections,
+        "get_google_connection",
+        lambda uid: None,
+    )
+    monkeypatch.setattr(creator_routes.google_calendar, "is_configured", lambda: False)
 
     response = client.get("/creator/profile/settings")
 
     assert response.status_code == 200
     assert "account" in response.text
-    assert "not connected" in response.text
+    assert "not configured" in response.text

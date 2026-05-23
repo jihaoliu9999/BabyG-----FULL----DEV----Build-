@@ -1007,6 +1007,54 @@ a.chip.chip-active {
 
 .feed-foot { margin-top: 40px; }
 
+.calendar-sync-card {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin: 0 0 18px;
+  padding: 22px;
+  border: 1px solid rgba(245, 241, 232, 0.09);
+  border-radius: var(--radius-lg);
+  background:
+    linear-gradient(180deg, rgba(245, 241, 232, 0.035), transparent 42%),
+    var(--bg-card);
+}
+.calendar-sync-card h2 {
+  margin: 2px 0 8px;
+  font-size: 26px;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  font-weight: 500;
+}
+.calendar-sync-card p {
+  margin: 0;
+  color: var(--text-mute);
+}
+.calendar-sync-notice {
+  padding: 14px 18px;
+  border-color: rgba(245, 241, 232, 0.16);
+}
+.calendar-sync-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+.calendar-sync-actions form,
+.calendar-sync-actions .btn {
+  width: 100%;
+}
+@media (min-width: 720px) {
+  .calendar-sync-card {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .calendar-sync-actions {
+    flex: 0 0 auto;
+    grid-template-columns: repeat(2, max-content);
+  }
+}
+
 .intel-list { display: flex; flex-direction: column; gap: 16px; }
 
 /* ---------- Intel card ---------- */

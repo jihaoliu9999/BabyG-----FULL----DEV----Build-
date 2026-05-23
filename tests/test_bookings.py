@@ -10,12 +10,15 @@ from fastapi import Response
 from fastapi.testclient import TestClient
 
 from app.core.security import SESSION_COOKIE, write_session
+from app.integrations import google_calendar as google_calendar_module
 from app.main import app
 from app.services import abuse as abuse_module
 from app.services import bookings as bookings_module
+from app.services import calendar_sync as calendar_sync_module
 from app.services import dms as dms_module
 from app.services import intel as intel_module
 from app.services import notifications as notifications_module
+from app.services import oauth_connections as oauth_module
 
 
 class FakeWorld:
@@ -58,6 +61,9 @@ def world(monkeypatch) -> FakeWorld:
     monkeypatch.setattr(bookings_module, "create", _create)
     monkeypatch.setattr(bookings_module, "update", _update)
     monkeypatch.setattr(bookings_module, "cancel", _cancel)
+
+    monkeypatch.setattr(oauth_module, "get_google_connection", lambda uid: None)
+    monkeypatch.setattr(google_calendar_module, "is_configured", lambda: False)
 
     # Quiet everything else
     monkeypatch.setattr(notifications_module, "create", lambda **kw: True)
@@ -166,3 +172,85 @@ def test_calendar_requires_creator(client, world):
     _signed_in(client, role="operator", user_id="op-1")
     r = client.get("/creator/calendar")
     assert r.status_code == 403
+
+
+def test_calendar_google_connect_redirects_to_google(client, world, monkeypatch):
+    _signed_in(client, role="creator", user_id="c-1")
+    monkeypatch.setattr(google_calendar_module, "is_configured", lambda: True)
+    monkeypatch.setattr(oauth_module, "create_google_state", lambda uid: "signed-state")
+    monkeypatch.setattr(
+        google_calendar_module,
+        "auth_url",
+        lambda state: f"https://accounts.google.com/o/oauth2/v2/auth?state={state}",
+    )
+
+    r = client.get("/creator/google/calendar/connect")
+
+    assert r.status_code == 302
+    assert r.headers["location"].endswith("state=signed-state")
+
+
+def test_calendar_google_callback_saves_and_syncs(client, world, monkeypatch):
+    _signed_in(client, role="creator", user_id="c-1")
+    calls: dict[str, Any] = {}
+
+    monkeypatch.setattr(
+        oauth_module,
+        "verify_google_state",
+        lambda state: {"user_id": "c-1", "next": "/creator/calendar"},
+    )
+    monkeypatch.setattr(
+        google_calendar_module,
+        "exchange_code",
+        lambda code: {"access_token": "access", "refresh_token": "refresh"},
+    )
+
+    def _save(uid, token_response):
+        calls["saved"] = (uid, token_response)
+        return True
+
+    def _sync(uid):
+        calls["synced"] = uid
+        return calendar_sync_module.CalendarSyncResult(imported=2, connected=True)
+
+    monkeypatch.setattr(oauth_module, "save_google_connection", _save)
+    monkeypatch.setattr(calendar_sync_module, "sync_google_calendar", _sync)
+
+    r = client.get("/creator/google/calendar/callback?code=abc&state=signed")
+
+    assert r.status_code == 303
+    assert r.headers["location"] == "/creator/calendar?google=connected&synced=2"
+    assert calls["saved"][0] == "c-1"
+    assert calls["synced"] == "c-1"
+
+
+def test_calendar_google_callback_rejects_other_user_state(
+    client, world, monkeypatch
+):
+    _signed_in(client, role="creator", user_id="c-1")
+    monkeypatch.setattr(
+        oauth_module,
+        "verify_google_state",
+        lambda state: {"user_id": "c-other", "next": "/creator/calendar"},
+    )
+
+    r = client.get("/creator/google/calendar/callback?code=abc&state=signed")
+
+    assert r.status_code == 403
+
+
+def test_calendar_google_sync_now(client, world, monkeypatch):
+    _signed_in(client, role="creator", user_id="c-1")
+    calls = []
+
+    def _sync(uid):
+        calls.append(uid)
+        return calendar_sync_module.CalendarSyncResult(imported=1, connected=True)
+
+    monkeypatch.setattr(calendar_sync_module, "sync_google_calendar", _sync)
+
+    r = client.post("/creator/google/calendar/sync")
+
+    assert r.status_code == 303
+    assert r.headers["location"] == "/creator/calendar?sync=done&synced=1"
+    assert calls == ["c-1"]
