@@ -458,7 +458,7 @@ h1, h2, h3, h4 {
 .app-body { display: flex; flex: 1; min-height: 100vh; }
 
 /* page layout */
-.page { padding: 24px 0 32px; }
+.page { padding: 20px 0 28px; }
 .page-narrow .wrap-wide { max-width: 980px; }
 
 .page-header {
@@ -498,8 +498,33 @@ h1, h2, h3, h4 {
   .filter-row { justify-content: center; }
   .stat-row { justify-content: center; }
   .back-link { display: inline-flex; }
-  /* tighten side gutters */
-  .wrap, .wrap-wide, .wrap-narrow { padding: 0 20px; }
+
+  /* adaptive side gutters — grow with screen width so Pro Max breathes */
+  .wrap, .wrap-wide, .wrap-narrow {
+    padding: 0 clamp(16px, 5.2vw, 28px);
+  }
+
+  /* cap content column width and center on wider iPhones */
+  #view > .view {
+    max-width: 480px;
+    margin-left: auto;
+    margin-right: auto;
+    padding-top: 16px;
+    padding-bottom: 16px;
+  }
+
+  /* slightly smaller card radius on mobile — feels more native */
+  .card { border-radius: 14px; padding: 18px; }
+
+  /* tighter grid gap on mobile */
+  .grid-2, .grid-3, .grid-4 { gap: 10px; }
+}
+
+/* wider-iPhone specific tweaks (Pro Max 430px+) */
+@media (min-width: 400px) and (max-width: 999px) {
+  .wrap, .wrap-wide, .wrap-narrow {
+    padding: 0 clamp(20px, 5.5vw, 32px);
+  }
 }
 
 /* surfaces */
