@@ -7,12 +7,11 @@
 <section class="auth-pane">
   <div class="auth-logo-row">
     {{ brand.wordmark("brand-lockup-small") }}
-    {{ brand.icon() }}
   </div>
-  <div class="auth-tag">{{ role }} sign-in</div>
+  <div class="auth-tag">{{ role }} sign in</div>
   <h1 class="auth-title">check your email.</h1>
   <p class="auth-sub">
-    a private link is waiting at <strong>{{ email }}</strong>.
+    your sign-in link is waiting at <strong>{{ email }}</strong>.
   </p>
   <p class="auth-foot">
     no link? <a href="/auth/login?role={{ role }}">send another</a>.

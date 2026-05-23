@@ -6,21 +6,37 @@
 {% block content %}
 <section class="hero">
   <div class="hero-inner">
-    <div>
+    <div class="hero-copy">
       <div class="hero-brand">{{ brand.wordmark() }}</div>
       <div class="hero-eyebrow">miami / private beta</div>
       <h1 class="hero-headline">
-        your private manager<br/>
-        for creator work.
+        a sharper way<br/>
+        to run creator work.
       </h1>
       <p class="hero-sub">
-        babyg keeps the work tight: intel, calendar, receipts, network, and the next move.
+        babyg tracks the replies, plans, places, and decisions that need your attention.
       </p>
       <div class="hero-cta">
-        <a class="btn btn-primary" href="/get-started">get started</a>
+        <a class="btn btn-primary" href="/get-started">get access</a>
         <a class="btn btn-ghost" href="/auth/login?role=creator">sign in</a>
       </div>
     </div>
+    <aside class="hero-visual" aria-label="babyg manager preview">
+      <div class="hero-visual-photo" aria-hidden="true"></div>
+      <div class="manager-card manager-card-main">
+        <span>today</span>
+        <strong>three things need your attention.</strong>
+        <p>reply to the offer, confirm tonight, post the receipt.</p>
+      </div>
+      <div class="manager-card manager-card-small">
+        <span>reply</span>
+        <strong>usage rights need a cleaner ask.</strong>
+      </div>
+      <div class="manager-card manager-card-small manager-card-offset">
+        <span>schedule</span>
+        <strong>7:30 pm / design district</strong>
+      </div>
+    </aside>
   </div>
 </section>
 {% endblock %}

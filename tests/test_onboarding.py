@@ -85,7 +85,7 @@ def test_creator_wizard_renders_blank_for_new_user(client, store):
     _signed_in(client, role="creator")
     r = client.get("/onboarding/creator")
     assert r.status_code == 200
-    assert "Tell us about your work" in r.text
+    assert "tell us about your work" in r.text
     # All chip groups should be present.
     for niche in ["food", "fashion", "fitness"]:
         assert f'value="{niche}"' in r.text

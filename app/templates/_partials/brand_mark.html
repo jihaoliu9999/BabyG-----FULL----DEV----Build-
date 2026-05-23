@@ -1,18 +1,19 @@
-{# TODO: replace these CSS-built Orbit placeholders with final monochrome SVG assets.
-   Use `wordmark()` for landing/auth/onboarding and `icon()` for compact app chrome. #}
+{# CSS-built placeholder marks until final brand assets exist.
+   Direction: abstract manager mark + quiet babyg label. #}
 
 {% macro wordmark(class_name="") %}
-<span class="brand-mark brand-mark-word {{ class_name }}" aria-label="babyg">
-  <span class="brand-mark-text">babyg</span>
-  <span class="brand-orbit" aria-hidden="true"></span>
-  <span class="brand-star" aria-hidden="true"></span>
+<span class="brand-mark brand-mark-lockup {{ class_name }}" aria-label="babyg">
+  {{ icon("brand-mark-symbol-inline") }}
+  <span class="brand-mark-name">babyg</span>
 </span>
 {% endmacro %}
 
 {% macro icon(class_name="") %}
-<span class="brand-mark brand-mark-icon {{ class_name }}" aria-label="babyg">
-  <span class="brand-mark-text">g</span>
-  <span class="brand-orbit" aria-hidden="true"></span>
-  <span class="brand-star" aria-hidden="true"></span>
+<span class="brand-mark brand-mark-symbol {{ class_name }}" aria-label="babyg">
+  <span class="brand-symbol-frame" aria-hidden="true">
+    <span class="brand-symbol-stem"></span>
+    <span class="brand-symbol-dot brand-symbol-dot-a"></span>
+    <span class="brand-symbol-dot brand-symbol-dot-b"></span>
+  </span>
 </span>
 {% endmacro %}

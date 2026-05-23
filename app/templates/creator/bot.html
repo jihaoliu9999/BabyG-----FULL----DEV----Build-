@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "_partials/brand_mark.html" as brand %}
 
 {% block title %}babyg chat - babyg{% endblock %}
 {% block head_extra %}
@@ -9,9 +10,9 @@
 <section class="bot-chat">
   <header class="bot-chat-header">
     <div class="feed-eyebrow">babyg</div>
-    <h1 class="bot-chat-title">what needs handling?</h1>
+    <h1 class="bot-chat-title">what do you need handled?</h1>
     <p class="bot-chat-sub">
-      captions, replies, plans, decisions.
+      captions, replies, plans, and next moves.
     </p>
   </header>
 
@@ -63,11 +64,9 @@
       {% endfor %}
     {% else %}
       <li class="bot-empty">
-        <div class="brand-mark brand-mark-icon" aria-hidden="true">
-          <span class="brand-mark-text">g</span><span class="brand-orbit"></span><span class="brand-star"></span>
-        </div>
-        <h2>babyg is ready.</h2>
-        <p>say what needs handling.</p>
+        {{ brand.icon() }}
+        <h2>ready when you are.</h2>
+        <p>send the thing you want handled.</p>
         <div class="bot-empty-prompts" aria-label="Suggested prompts">
           <span>draft captions</span>
           <span>plan the week</span>

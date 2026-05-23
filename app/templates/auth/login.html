@@ -7,13 +7,12 @@
 <section class="auth-pane">
   <div class="auth-logo-row">
     {{ brand.wordmark("brand-lockup-small") }}
-    {{ brand.icon() }}
   </div>
   <a class="back-link" href="/get-started">&larr; back</a>
-  <div class="auth-tag">{{ role }} sign-in</div>
-  <h1 class="auth-title">enter your email.</h1>
+  <div class="auth-tag">{{ role }} sign in</div>
+  <h1 class="auth-title">we'll send the link.</h1>
   <p class="auth-sub">
-    we send one private link. no password.
+    use the email tied to your babyg invite.
     {% if role == "operator" %}
     <br/><span class="auth-warn">operator access is controlled.</span>
     {% endif %}

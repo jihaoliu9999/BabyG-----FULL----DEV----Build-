@@ -197,7 +197,7 @@ def client() -> TestClient:
 def test_landing_renders(client: TestClient) -> None:
     r = client.get("/")
     assert r.status_code == 200
-    assert "get started" in r.text
+    assert "get access" in r.text
 
 
 def test_get_started_renders_role_cards(client: TestClient) -> None:
@@ -235,13 +235,13 @@ def test_landing_redirects_signed_in_users(client: TestClient) -> None:
 def test_login_form_renders(client: TestClient) -> None:
     r = client.get("/auth/login?role=creator")
     assert r.status_code == 200
-    assert "creator sign-in" in r.text
+    assert "creator sign in" in r.text
 
 
 def test_login_form_falls_back_to_creator_for_unknown_role(client: TestClient) -> None:
     r = client.get("/auth/login?role=ufo")
     assert r.status_code == 200
-    assert "creator sign-in" in r.text
+    assert "creator sign in" in r.text
 
 
 # -----------------------------------------------------------------------------
@@ -480,7 +480,7 @@ def test_callback_without_query_renders_fragment_bridge(
     r = client.get("/auth/callback")
     assert r.status_code == 200
     assert "/static/js/auth_callback.js" in r.text
-    assert "Finishing sign-in" in r.text
+    assert "finishing sign in" in r.text
 
 
 # -----------------------------------------------------------------------------
