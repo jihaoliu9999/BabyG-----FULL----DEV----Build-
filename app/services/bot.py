@@ -32,6 +32,14 @@ DraftKind = Literal[
     "negotiation",
     "general",
 ]
+TaskKind = Literal[
+    "hot_drops",
+    "planning",
+    "offer_review",
+    "networking",
+    "calendar",
+    "stats",
+]
 
 MAX_USER_MESSAGE_CHARS = 4000
 MAX_HISTORY_MESSAGES = 20
@@ -145,8 +153,10 @@ def handle_creator_message(*, user_id: str, content: str) -> BotTurnResult:
         return BotTurnResult(response=response_text)
 
     history = _messages_for_claude(list_messages(user_id, limit=MAX_HISTORY_MESSAGES))
+    draft_kind = _draft_kind(user_content)
     system_prompt = prompts.babyg_system_prompt(
-        draft_kind=_draft_kind(user_content),
+        draft_kind=draft_kind,
+        task_kind=_task_kind(user_content, draft_kind=draft_kind),
     )
 
     tool_calls: list[dict[str, Any]] = []
@@ -799,3 +809,91 @@ def _draft_kind(content: str) -> DraftKind | None:
     if any(marker in lowered for marker in ("content plan", "weekly plan", "calendar")):
         return "content_plan"
     return "general"
+
+
+def _task_kind(content: str, *, draft_kind: DraftKind | None = None) -> TaskKind | None:
+    lowered = content.lower()
+    if any(
+        marker in lowered
+        for marker in (
+            "hot drop",
+            "hot drops",
+            "intel",
+            "trend",
+            "venue",
+            "what's hot",
+            "what is hot",
+            "act on",
+        )
+    ):
+        return "hot_drops"
+    if any(
+        marker in lowered
+        for marker in (
+            "offer",
+            "rate",
+            "usage",
+            "whitelisting",
+            "exclusivity",
+            "deliverables",
+            "brand email",
+            "brand message",
+        )
+    ):
+        return "offer_review"
+    if any(
+        marker in lowered
+        for marker in (
+            "weekly plan",
+            "content plan",
+            "what should i post",
+            "post today",
+            "plan my week",
+            "content calendar",
+        )
+    ):
+        return "planning"
+    if any(
+        marker in lowered
+        for marker in (
+            "calendar",
+            "schedule",
+            "booking",
+            "deadline",
+            "reminder",
+            "remind me",
+        )
+    ):
+        return "calendar"
+    if any(
+        marker in lowered
+        for marker in (
+            "collab",
+            "creator dm",
+            "creator message",
+            "network",
+            "directory",
+            "connect",
+        )
+    ):
+        return "networking"
+    if any(
+        marker in lowered
+        for marker in (
+            "stats",
+            "performance",
+            "analytics",
+            "growth",
+            "engagement",
+            "followers",
+            "recap",
+        )
+    ):
+        return "stats"
+    if draft_kind == "content_plan":
+        return "planning"
+    if draft_kind in ("brand_reply", "negotiation"):
+        return "offer_review"
+    if draft_kind == "creator_dm":
+        return "networking"
+    return None

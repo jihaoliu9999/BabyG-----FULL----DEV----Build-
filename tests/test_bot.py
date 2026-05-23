@@ -685,6 +685,36 @@ def test_drafting_request_adds_brand_reply_guidance(monkeypatch) -> None:
     assert created[-1]["role"] == "assistant"
 
 
+def test_caption_prompt_sets_babyg_voice_and_profile_tool_policy(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(bot_service, "create_message", lambda **kwargs: "msg-1")
+    monkeypatch.setattr(
+        bot_service,
+        "list_messages",
+        lambda uid, limit=20: [
+            {"role": "user", "content": "Draft captions for my new dinner reel."}
+        ],
+    )
+
+    def _fake_claude(**kwargs):
+        captured.update(kwargs)
+        return bot_service.anthropic_client.ClaudeResponse(text="caption options")
+
+    monkeypatch.setattr(bot_service.anthropic_client, "complete_chat", _fake_claude)
+
+    bot_service.handle_creator_message(
+        user_id="creator-1",
+        content="Draft captions for my new dinner reel.",
+    )
+
+    system_prompt = str(captured["system_prompt"])
+    assert "sound like a sharp senior manager, not a chatbot" in system_prompt
+    assert "no hype, no exclamation points" in system_prompt
+    assert "Call read_my_profile before voice-matched captions" in system_prompt
+    assert "Use read_my_profile before drafting" in system_prompt
+
+
 def test_drafting_request_adds_creator_dm_guidance(monkeypatch) -> None:
     captured: dict[str, object] = {}
 
@@ -712,6 +742,35 @@ def test_drafting_request_adds_creator_dm_guidance(monkeypatch) -> None:
     system_prompt = str(captured["system_prompt"])
     assert "Kind: creator_dm" in system_prompt
     assert "Do not imply it was sent" in system_prompt
+
+
+def test_hot_drop_request_adds_task_guidance(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(bot_service, "create_message", lambda **kwargs: "msg-1")
+    monkeypatch.setattr(
+        bot_service,
+        "list_messages",
+        lambda uid, limit=20: [
+            {"role": "user", "content": "What hot drops should I act on this week?"}
+        ],
+    )
+
+    def _fake_claude(**kwargs):
+        captured.update(kwargs)
+        return bot_service.anthropic_client.ClaudeResponse(text="act on this")
+
+    monkeypatch.setattr(bot_service.anthropic_client, "complete_chat", _fake_claude)
+
+    bot_service.handle_creator_message(
+        user_id="creator-1",
+        content="What hot drops should I act on this week?",
+    )
+
+    system_prompt = str(captured["system_prompt"])
+    assert "Task mode:" in system_prompt
+    assert "Kind: hot_drops" in system_prompt
+    assert "Call read_intel_feed before answering" in system_prompt
 
 
 def test_non_drafting_request_uses_base_prompt(monkeypatch) -> None:
