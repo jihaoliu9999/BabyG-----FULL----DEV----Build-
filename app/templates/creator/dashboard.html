@@ -58,9 +58,10 @@
         {% if post.id %}
         <form method="post" action="/creator/intel/{{ post.id }}/feedback" style="display:contents;">
           {% include "_partials/csrf.html" %}
-          <button class="feedback-btn" name="rating" value="useful">useful</button>
-          <button class="feedback-btn" name="rating" value="not_useful">not useful</button>
-          <button class="feedback-btn" name="rating" value="acted_on">acted on</button>
+          {% set my_fb = feedback_map.get(post.id|string) if feedback_map is defined else None %}
+          <button class="feedback-btn {% if my_fb == 'useful' %}feedback-btn-active{% endif %}" name="signal" value="useful" aria-pressed="{{ 'true' if my_fb == 'useful' else 'false' }}">useful</button>
+          <button class="feedback-btn {% if my_fb == 'not_useful' %}feedback-btn-active{% endif %}" name="signal" value="not_useful" aria-pressed="{{ 'true' if my_fb == 'not_useful' else 'false' }}">not useful</button>
+          <button class="feedback-btn {% if my_fb == 'acted_on' %}feedback-btn-active{% endif %}" name="signal" value="acted_on" aria-pressed="{{ 'true' if my_fb == 'acted_on' else 'false' }}">acted on</button>
         </form>
         {% else %}
         <button class="feedback-btn">useful</button>

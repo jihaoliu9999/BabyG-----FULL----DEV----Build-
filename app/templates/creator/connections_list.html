@@ -31,11 +31,11 @@
         <div style="display:flex;gap:8px;flex-shrink:0;">
           <form method="post" action="/creator/connections/{{ c.id }}/accept">
             {% include "_partials/csrf.html" %}
-            <button type="submit" class="btn btn-lime btn-sm">accept</button>
+            <button type="submit" class="btn btn-lime btn-sm">Accept</button>
           </form>
           <form method="post" action="/creator/connections/{{ c.id }}/decline">
             {% include "_partials/csrf.html" %}
-            <button type="submit" class="btn btn-ghost btn-sm">decline</button>
+            <button type="submit" class="btn btn-ghost btn-sm">Decline</button>
           </form>
         </div>
       </div>

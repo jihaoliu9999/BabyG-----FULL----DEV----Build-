@@ -50,11 +50,11 @@
   <span class="mono" style="display:block;margin-bottom:8px;">reach out</span>
   {% if can_dm %}
   <p style="color:var(--ink-dim);font-size:13.5px;margin:0 0 12px;">you're connected. send a DM directly.</p>
-  <a href="/creator/dms/{{ listing.poster_user_id }}" class="btn btn-lime btn-sm">open DM
+  <a href="/creator/dms/{{ listing.poster_user_id }}" class="btn btn-lime btn-sm">Open DM
     <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 9L9 3M9 3H4M9 3V8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
   </a>
   {% else %}
-  <p style="color:var(--ink-dim);font-size:13.5px;margin:0 0 12px;">connect first to message this creator.</p>
+  <p style="color:var(--ink-dim);font-size:13.5px;margin:0 0 12px;">Connect first to message this creator.</p>
   <a href="/creator/network/{{ listing.poster_user_id }}" class="btn btn-lime btn-sm">view profile →</a>
   {% endif %}
 
