@@ -3085,3 +3085,209 @@ h1, h2, h3,
     white-space: normal;
   }
 }
+
+/* ============================================================
+   v2 additive layer (post-merge): motion + marketing extras
+   Designed to NOT fight the editorial brand direction set in
+   main. Adds only:
+     - motion tokens + scroll-reveal class system (paired with
+       /static/js/motion.js)
+     - prefers-reduced-motion short-circuit
+     - marketing-features grid + marketing-foot styles, which the
+       landing template now references
+     - safe-area padding for primary surfaces (iOS notch)
+   No gradient text, no coral glows, no uppercase reinstatement.
+   ============================================================ */
+
+:root {
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur: 220ms;
+  --dur-slow: 420ms;
+}
+
+/* Scroll-reveal */
+.reveal {
+  opacity: 0;
+  transform: translateY(12px);
+  transition:
+    opacity 520ms var(--ease-out),
+    transform 520ms var(--ease-out);
+  will-change: opacity, transform;
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+.reveal-delay-1 { transition-delay: 50ms; }
+.reveal-delay-2 { transition-delay: 100ms; }
+.reveal-delay-3 { transition-delay: 150ms; }
+.reveal-delay-4 { transition-delay: 200ms; }
+.reveal-delay-5 { transition-delay: 250ms; }
+
+/* Quiet entrance for hero + headers (no transforms that fight layout) */
+@keyframes fade-up-quiet {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade-in-quiet {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.hero-brand,
+.hero-eyebrow,
+.hero-headline,
+.hero-sub,
+.hero-cta {
+  animation: fade-up-quiet 600ms var(--ease-out) both;
+}
+.hero-eyebrow  { animation-delay: 60ms; }
+.hero-headline { animation-delay: 120ms; }
+.hero-sub      { animation-delay: 200ms; }
+.hero-cta      { animation-delay: 280ms; }
+
+.feed-header > *,
+.bot-chat-header > *,
+.op-header > * {
+  animation: fade-up-quiet 480ms var(--ease-out) both;
+}
+
+.intel-list,
+.creator-grid,
+.record-list,
+.dm-thread-list,
+.notif-list-full {
+  animation: fade-in-quiet 420ms var(--ease-out) 120ms both;
+}
+
+/* Marketing features grid + foot (landing template uses these) */
+.marketing-features {
+  padding: clamp(48px, 8vw, 96px) 24px;
+}
+.marketing-features-inner {
+  width: 100%;
+  max-width: var(--maxw);
+  margin: 0 auto;
+}
+.marketing-features-head {
+  margin-bottom: clamp(24px, 5vw, 56px);
+  max-width: 720px;
+}
+.marketing-features-title {
+  font-family: var(--font-display);
+  font-size: clamp(28px, 4.5vw, 48px);
+  line-height: 1.02;
+  letter-spacing: -0.04em;
+  font-weight: 500;
+  margin: 12px 0 0;
+  color: var(--text);
+}
+.marketing-features-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+@media (min-width: 720px) {
+  .marketing-features-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (min-width: 1040px) {
+  .marketing-features-grid { grid-template-columns: repeat(4, 1fr); }
+}
+.marketing-feature {
+  padding: 28px;
+  border: 1px solid rgba(245, 241, 232, 0.08);
+  border-radius: 22px;
+  background: var(--bg-card);
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  transition: border-color var(--dur) var(--ease-out), transform var(--dur) var(--ease-out);
+}
+.marketing-feature:hover {
+  transform: translateY(-2px);
+  border-color: rgba(245, 241, 232, 0.18);
+}
+.marketing-feature-tag {
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  color: var(--text-mute);
+  font-weight: 400;
+}
+.marketing-feature-title {
+  font-size: 22px;
+  font-weight: 500;
+  letter-spacing: -0.03em;
+  line-height: 1.18;
+  margin: 0;
+  color: var(--text);
+}
+.marketing-feature-body {
+  color: var(--text-mute);
+  font-size: 15px;
+  line-height: 1.55;
+  margin: 0;
+}
+
+.marketing-foot {
+  padding: clamp(48px, 8vw, 96px) 24px clamp(80px, 12vw, 120px);
+  text-align: center;
+}
+.marketing-foot-inner {
+  max-width: 640px;
+  margin: 0 auto;
+}
+.marketing-foot-title {
+  font-family: var(--font-display);
+  font-size: clamp(32px, 6vw, 56px);
+  line-height: 1.02;
+  letter-spacing: -0.04em;
+  font-weight: 500;
+  margin: 0 0 12px;
+  color: var(--text);
+}
+.marketing-foot-sub {
+  color: var(--text-mute);
+  margin: 0 0 28px;
+  font-size: clamp(16px, 1.4vw, 18px);
+}
+.marketing-foot .hero-cta { justify-content: center; }
+
+/* Safe-area padding on primary surfaces (iOS notch) */
+.feed,
+.bot-chat,
+.dm,
+.onb,
+.choose,
+.hero {
+  padding-left: max(18px, env(safe-area-inset-left));
+  padding-right: max(18px, env(safe-area-inset-right));
+}
+
+/* Slim scrollbar */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(245, 241, 232, 0.16) transparent;
+}
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: rgba(245, 241, 232, 0.14);
+  border-radius: 999px;
+}
+
+html { scroll-behavior: smooth; }
+input, textarea, select { font-size: 16px; } /* prevent iOS zoom */
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .reveal { opacity: 1; transform: none; }
+}
