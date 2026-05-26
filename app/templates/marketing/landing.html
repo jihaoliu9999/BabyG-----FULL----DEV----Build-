@@ -2,164 +2,537 @@
 
 {% block title %}babyg — your AI manager{% endblock %}
 
+{% block head_extra %}
+<link rel="stylesheet" href="/static/css/landing.css" />
+{% endblock %}
+
 {% block content %}
-<section class="hero">
+<div class="lp">
+
+<header id="site-header" class="site-header">
+  <div class="wrap-wide nav">
+    <a class="brand" href="/">
+      <span class="brand-mark">
+        <img src="/static/assets/logo-bg.png" alt="" />
+      </span>
+      <span class="logo-text">babyg</span>
+    </a>
+    <nav class="navlinks">
+      <a href="#features">features</a>
+      <a href="#how">how it works</a>
+      <a href="#creators">for creators</a>
+    </nav>
+    <div class="nav-right">
+      <a class="lp-btn lp-btn-ghost" href="/auth/login?role=creator">log in</a>
+      <a class="lp-btn lp-btn-lime" href="/get-started">try babyg</a>
+    </div>
+  </div>
+</header>
+
+<div id="top">
+
+<div class="bg-watermarks" aria-hidden="true">
+  <img class="bg-mark m1" src="/static/assets/logo-bg.png" alt="" />
+  <img class="bg-mark m2" src="/static/assets/logo-bg.png" alt="" />
+  <img class="bg-mark m3" src="/static/assets/logo-bg.png" alt="" />
+  <img class="bg-mark m4" src="/static/assets/logo-bg.png" alt="" />
+  <img class="bg-mark m5" src="/static/assets/logo-bg.png" alt="" />
+  <img class="bg-mark m6" src="/static/assets/logo-bg.png" alt="" />
+  <img class="bg-mark m7" src="/static/assets/logo-bg.png" alt="" />
+</div>
+
+<section class="lp-hero">
   <div class="wrap">
-    <span class="hero-eyebrow"><span class="pulse-dot"></span> live · private beta</span>
-    <div class="hero-mark">
-      <img src="/static/assets/logo-bg.png" alt="babyg" />
+    <div class="hero-eyebrow reveal">
+      <span class="pulse-dot"></span>
+      live · private beta
     </div>
-    <h1 class="display"><span class="chrome">your AI manager.</span></h1>
-    <p class="lede" style="margin-left:auto;margin-right:auto;">
-      text babyg or use the platform to manage deals, replies, content, schedule, and everything around being a creator.
+
+    <div class="hero-mark reveal" id="heroMark" aria-hidden="true">
+      <img class="mark-img" src="/static/assets/logo-bg.png" alt="babyg" />
+    </div>
+
+    <h1 class="display reveal delay-1">
+      <span class="chrome">your AI manager.</span>
+    </h1>
+
+    <p class="lede reveal delay-2">
+      Text babyg or use the platform to manage deals, replies, content, schedule, and everything around being a creator.
     </p>
-    <div style="display:inline-flex;gap:12px;flex-wrap:wrap;justify-content:center;margin-top:36px;">
-      <a class="btn btn-lime" href="/get-started">get started
-        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 9L9 3M9 3H4M9 3V8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+
+    <div class="cta-row reveal delay-3">
+      <a class="lp-btn lp-btn-lime" href="/get-started">
+        try babyg
+        <svg width="13" height="13" viewBox="0 0 12 12" fill="none"><path d="M3 9L9 3M9 3H4M9 3V8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"></path></svg>
       </a>
-      <a class="btn btn-ghost" href="/auth/login?role=creator">i have an account</a>
+      <a class="lp-btn lp-btn-ghost" href="#how">
+        see how it works
+        <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="5" stroke="currentColor" stroke-width="1"></circle><path d="M5 4l3 2-3 2V4z" fill="currentColor"></path></svg>
+      </a>
     </div>
   </div>
 </section>
 
-<section class="marquee" aria-hidden="true">
-  <div class="marquee-track">
-    <span class="marquee-item">
+<section class="lp-marquee" aria-hidden="true">
+  <div class="marquee-track" id="marqueeTrack">
+    <div class="marquee-item">
       <span>deals</span><span class="dot"></span>
       <span>messages</span><span class="dot"></span>
       <span>schedule</span><span class="dot"></span>
       <span>content</span><span class="dot"></span>
       <span>negotiation</span><span class="dot"></span>
       <span>always on</span><span class="dot"></span>
-    </span>
-    <span class="marquee-item" aria-hidden="true">
+    </div>
+    <div class="marquee-item">
       <span>deals</span><span class="dot"></span>
       <span>messages</span><span class="dot"></span>
       <span>schedule</span><span class="dot"></span>
       <span>content</span><span class="dot"></span>
       <span>negotiation</span><span class="dot"></span>
       <span>always on</span><span class="dot"></span>
-    </span>
+    </div>
   </div>
 </section>
 
-<section class="section">
+<section class="mod-section">
   <div class="wrap-wide">
-    <div class="section-head">
-      <h2>for creators.<br/>only creators.</h2>
+    <div class="mod-head reveal">
+      <h2>for creators.<br>only creators.</h2>
       <p class="right">two ways in — one for the big moves, one for the day-to-day.</p>
     </div>
-    <div class="grid-2">
-      <article class="card" style="padding:32px;min-height:320px;display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden;">
+    <div class="mod-grid">
+
+      <article class="mod-card dark reveal delay-1">
         <div>
-          <span class="mono">for the deals</span>
-          <h3 style="font-size:clamp(28px,3vw,40px);margin-top:14px;line-height:1;">handle the deal.<br/>not the drama.</h3>
+          <div class="label">for the deals</div>
+          <h3>handle the deal.<br>not the drama.</h3>
         </div>
-        <div aria-hidden style="position:absolute;right:-60px;bottom:-40px;width:260px;height:260px;background:url(/static/assets/logo-bg.png) center / contain no-repeat;opacity:0.10;transform:rotate(-8deg);filter:drop-shadow(0 0 30px rgba(160,200,255,0.4));"></div>
-        <p style="margin:24px 0 0;color:var(--ink-mid);font-size:14px;position:relative;">negotiate, reply, schedule — without losing your voice.</p>
+        <div class="mod-art creators"></div>
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap;">
+          <div style="font-size:14px;color:var(--lp-ink-mid);">negotiate, reply, schedule — without losing your voice.</div>
+          <a class="read-more-btn" href="/get-started">
+            read more
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M4 12L12 4M12 4H6M12 4V10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+          </a>
+        </div>
       </article>
-      <article class="card" style="padding:32px;min-height:320px;display:flex;flex-direction:column;justify-content:space-between;position:relative;overflow:hidden;">
+
+      <article class="mod-card dark reveal delay-2">
         <div>
-          <span class="mono">for the day-to-day</span>
-          <h3 style="font-size:clamp(28px,3vw,40px);margin-top:14px;line-height:1;">negotiates while<br/>you create.</h3>
+          <div class="label">for the day-to-day</div>
+          <h3>negotiates while<br>you create.</h3>
         </div>
-        <div style="padding:14px;background:var(--surface-2);border:1px solid var(--hairline);border-radius:12px;font-size:12.5px;line-height:1.5;color:var(--ink-mid);position:relative;">
-          <div style="margin-bottom:8px;">nike countered at $4.2k for 3 videos. i'm holding at $5.8k + 6mo cap. they'll come back — want me to keep pushing?</div>
-          <div style="background:var(--lime);color:#fff;padding:8px 12px;border-radius:10px;display:inline-block;font-size:12px;">yes. push. lock 6mo.</div>
+        <div class="mod-art talent">
+          <div class="pill">live deal</div>
+          <div class="mini-chat">
+            <div class="mc-bub">nike countered at $4.2k for 3 videos. i'm holding at $5.8k + 6mo cap. they'll come back — want me to keep pushing?</div>
+            <div class="mc-bub you">yes. push. lock 6mo.</div>
+          </div>
         </div>
-        <p style="margin:0;color:var(--ink-mid);font-size:14px;">drafts the move, holds the line, lets you decide.</p>
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap;">
+          <div style="font-size:14px;color:var(--lp-ink-mid);">drafts the move, holds the line, lets you decide.</div>
+          <a class="read-more-btn" href="/get-started">
+            read more
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M4 12L12 4M12 4H6M12 4V10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+          </a>
+        </div>
       </article>
+
     </div>
   </div>
 </section>
 
-<section class="section" id="features">
+<section class="lp-demo">
+  <div class="wrap">
+    <div class="demo-head reveal">
+      <span class="demo-eyebrow">● live demo</span>
+      <h2>always a text away. <span class="quiet">always answers.</span></h2>
+    </div>
+
+    <div class="chat-stage reveal delay-1">
+      <div class="chat-day">today · 9:41 AM</div>
+
+      <div class="msg">
+        <div class="av-msg user"></div>
+        <div class="msg-body">
+          <div class="msg-name">you</div>
+          <div class="bubble user">a brand wants 3 videos + usage rights. what do i say?</div>
+          <div class="msg-time">9:41 AM
+            <svg width="12" height="9" viewBox="0 0 12 9" fill="none"><path d="M1 4.5L4 7.5L11 1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="msg">
+        <div class="av-msg bot"><img src="/static/assets/logo-bg.png" alt="" /></div>
+        <div class="msg-body">
+          <div class="msg-name">babyg</div>
+          <div class="bubble">hold off. you need <b>scope, usage length, paid media, exclusivity,</b> and a <b>budget ceiling</b> before pricing this. brands always lowball first.</div>
+          <div class="msg-time">9:41 AM</div>
+        </div>
+      </div>
+
+      <div class="msg">
+        <div class="av-msg user"></div>
+        <div class="msg-body">
+          <div class="msg-name">you</div>
+          <div class="bubble user"><span class="typing"><span></span><span></span><span></span></span></div>
+        </div>
+      </div>
+
+      <form class="composer" action="/get-started" method="get" role="search">
+        <input name="q" placeholder="ask babyg anything…" aria-label="ask babyg anything" />
+        <button class="send" type="submit" aria-label="send">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 11.5V2.5M7 2.5L3 6.5M7 2.5L11 6.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+        </button>
+      </form>
+    </div>
+  </div>
+</section>
+
+<section class="lp-features" id="features">
   <div class="wrap-wide">
-    <div class="section-head">
+    <div class="mod-head reveal">
       <h2>what it handles.</h2>
       <p class="right">four parts of the job you'll never have to think about again.</p>
     </div>
-    <div class="grid-2">
-      <div class="feature">
-        <span class="mono" style="display:block;margin-bottom:14px;">01 · deals</span>
+
+    <div class="feature-grid">
+
+      <div class="lp-feature reveal delay-1">
+        <div class="row">
+          <span class="ico">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12c2-3 5-3 7-1l4 4c2 2 5 2 7-1"></path><path d="M14 7l3-3 3 3"></path><path d="M10 17l-3 3-3-3"></path></svg>
+          </span>
+        </div>
         <h3>deals</h3>
         <p>negotiate offers, usage rights, rates, and payment terms. babyg holds the line on your value.</p>
-        <div class="feature-preview">
-          <div class="fp-row"><span class="fp-mono">brand · nike</span><span class="fp-tag">holding</span></div>
-          <div class="fp-rate"><span>$5.8k</span><span class="fp-strike">$4.2k</span><span class="fp-mono">+6mo cap</span></div>
-          <div class="fp-foot"><span>countered · 14m ago</span></div>
+        <div class="preview">
+          <span class="pdot"></span><span class="ptag">counter</span>$4.5k + 3mo. revisit q3.
         </div>
-        <span class="learn">learn more →</span>
+        <a class="learn" href="/get-started">see how it negotiates →</a>
       </div>
-      <div class="feature">
-        <span class="mono" style="display:block;margin-bottom:14px;">02 · messages</span>
+
+      <div class="lp-feature reveal delay-2">
+        <div class="row">
+          <span class="ico">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M16 10c0 2.2-1.8 4-4 4-.7 0-1.4-.2-2-.5"></path><path d="M12 8a2 2 0 1 0 0 4"></path></svg>
+          </span>
+        </div>
         <h3>messages</h3>
-        <p>clean up dms, replies, follow-ups, and brand conversations.</p>
-        <div class="feature-preview">
-          <div class="fp-msg-row"><span class="fp-avatar fp-av-s">S</span><div class="fp-msg-in">you in for tonight?</div></div>
-          <div class="fp-msg-row out"><div class="fp-msg-out">yes. babyg's on it.</div></div>
-          <div class="fp-foot"><span>3 drafted · 0 unsent</span></div>
+        <p>dms, replies, follow-ups, and brand threads. babyg keeps every conversation moving without you.</p>
+        <div class="preview">
+          <span class="pdot"></span><span class="ptag">today</span>14 replied · 2 await you
         </div>
-        <span class="learn">learn more →</span>
+        <a class="learn" href="/get-started">see how it replies →</a>
       </div>
-      <div class="feature">
-        <span class="mono" style="display:block;margin-bottom:14px;">03 · schedule</span>
+
+      <div class="lp-feature reveal delay-3">
+        <div class="row">
+          <span class="ico">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 7v5l3 2"></path></svg>
+          </span>
+        </div>
         <h3>schedule</h3>
-        <p>track shoots, dinners, deadlines, calls, and everything on your plate.</p>
-        <div class="feature-preview">
-          <div class="fp-event"><span class="fp-bar"></span><div><div class="fp-mono">thu · oct 9</div><div class="fp-event-title">pop-up content day</div></div></div>
-          <div class="fp-event"><span class="fp-bar fp-bar-blue"></span><div><div class="fp-mono">fri · oct 10</div><div class="fp-event-title">agency review</div></div></div>
+        <p>shoots, dinners, deadlines, calls. babyg knows your week and protects the time that matters.</p>
+        <div class="preview">
+          <span class="pdot"></span><span class="ptag">moved</span>wed 2pm call → fri 11am
         </div>
-        <span class="learn">learn more →</span>
+        <a class="learn" href="/get-started">see how it plans →</a>
       </div>
-      <div class="feature">
-        <span class="mono" style="display:block;margin-bottom:14px;">04 · content</span>
-        <h3>content</h3>
-        <p>turn moments into posts, captions, ideas, and your next move.</p>
-        <div class="feature-preview">
-          <div class="fp-caption">"slow tuesday in wynwood — third coffee, second roll, first cool morning of the season."</div>
-          <div class="fp-foot"><span>caption · draft 2</span><span>·</span><span>189 chars</span></div>
+
+      <div class="lp-feature reveal delay-4">
+        <div class="row">
+          <span class="ico">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="4"></circle><path d="M12 3v3M21 12h-3M12 21v-3M3 12h3"></path></svg>
+          </span>
         </div>
-        <span class="learn">learn more →</span>
+        <h3>content planning</h3>
+        <p>moments turned into posts, captions, and your next move. babyg drafts. you decide what goes live.</p>
+        <div class="preview">
+          <span class="pdot"></span><span class="ptag">caption</span>"sun shoot. 14 frames."
+        </div>
+        <a class="learn" href="/get-started">see how it writes →</a>
       </div>
+
     </div>
   </div>
 </section>
 
-<section class="section" style="text-align:center;padding-bottom:120px;">
-  <div class="wrap">
-    <div style="width:120px;height:120px;margin:0 auto 32px;position:relative;">
-      <img src="/static/assets/logo-bg.png" alt="" style="width:100%;height:100%;object-fit:contain;filter:drop-shadow(0 0 30px rgba(255,77,109,0.3)) drop-shadow(0 0 16px rgba(160,200,255,0.3));"/>
-    </div>
-    <h2 class="display"><span class="chrome">stop managing</span><br/><span class="quiet">everything alone.</span></h2>
-    <p class="lede" style="margin:32px auto;">babyg handles what surrounds the creator so you can focus on what matters.</p>
-    <div style="display:inline-flex;gap:12px;flex-wrap:wrap;justify-content:center;">
-      <a class="btn btn-lime btn-lg" href="/get-started">try babyg
-        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 9L9 3M9 3H4M9 3V8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </a>
-      <a class="btn btn-ghost btn-lg" href="/auth/login?role=creator">i have an account</a>
-    </div>
-  </div>
-</section>
-
-<footer>
+<section class="lp-how" id="how">
   <div class="wrap-wide">
-    <div class="foot-top">
-      <div class="foot-brand">
-        <span class="brand-lockup">
+    <div class="mod-head reveal">
+      <h2>the loop.</h2>
+      <p class="right">watch. draft. approve. on repeat. nothing goes out without you.</p>
+    </div>
+
+    <div class="lp-how-grid">
+      <div class="lp-step reveal delay-1">
+        <div class="num">01 · LISTENING</div>
+        <h4>it watches.<br>you don't have to.</h4>
+        <p>babyg reads your inbox, dms, and calendar in real time. when a brand reaches out or your day shifts — it pings you first, move already drafted.</p>
+        <ul class="step-detail">
+          <li>watches every channel.</li>
+          <li>alerts you on what matters.</li>
+          <li>or text it first, anytime.</li>
+        </ul>
+        <div class="glyph">
+          <svg width="64" height="48" viewBox="0 0 64 48" fill="none">
+            <rect x="2" y="6" width="40" height="28" rx="6" stroke="#3a3a3a" stroke-width="1"></rect>
+            <circle cx="14" cy="20" r="1.4" fill="#888"></circle>
+            <circle cx="20" cy="20" r="1.4" fill="#888"></circle>
+            <circle cx="26" cy="20" r="1.4" fill="#888"></circle>
+            <circle cx="50" cy="36" r="10" fill="#161616" stroke="#2a2a2a"></circle>
+            <path d="M45 36L55 36M55 36L52 33M55 36L52 39" stroke="#FF4D6D" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"></path>
+          </svg>
+        </div>
+      </div>
+
+      <div class="lp-step reveal delay-2">
+        <div class="num">02 · THINKING</div>
+        <h4>it drafts<br>the move.</h4>
+        <p>reads the context, weighs the leverage, and writes the reply before you ask. like a manager who's been doing this for years.</p>
+        <ul class="step-detail">
+          <li>knows industry norms.</li>
+          <li>learns your tone.</li>
+          <li>drafts with intent.</li>
+        </ul>
+        <div class="glyph">
+          <div style="width:56px;height:56px;border-radius:12px;border:1.25px solid var(--lp-ink);display:flex;align-items:center;justify-content:center;overflow:hidden;">
+            <img src="/static/assets/logo-bg.png" alt="" style="width:42px;height:42px;object-fit:contain;filter:drop-shadow(0 0 6px rgba(160,200,255,0.5));" />
+          </div>
+        </div>
+      </div>
+
+      <div class="lp-step reveal delay-3">
+        <div class="num">03 · APPROVAL</div>
+        <h4>you decide</h4>
+        <p>babyg shows the draft — the reply, the schedule, the post. you approve, edit, or send it back.</p>
+        <ul class="step-detail">
+          <li>approve in one tap.</li>
+          <li>edit in place.</li>
+          <li>or ask for another angle.</li>
+        </ul>
+        <div class="glyph">
+          <div style="width:36px;height:36px;border-radius:50%;border:1px solid var(--lp-accent);display:flex;align-items:center;justify-content:center;color:var(--lp-accent);">
+            <svg width="13" height="13" viewBox="0 0 12 12"><path d="M3 3L9 9M9 3L3 9" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"></path></svg>
+          </div>
+          <div style="width:36px;height:36px;border-radius:50%;background:var(--lp-lime);color:#fff;display:flex;align-items:center;justify-content:center;">
+            <svg width="14" height="11" viewBox="0 0 12 10"><path d="M1 5L4.5 8.5L11 1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" fill="none"></path></svg>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="lp-scenarios" id="creators">
+  <div class="wrap-wide">
+    <div class="mod-head reveal">
+      <h2>real scenarios.</h2>
+      <p class="right">text on the left. the move on the right.</p>
+    </div>
+
+    <div class="scn-grid">
+      <div class="scn reveal delay-1">
+        <div class="scn-head">
+          <div class="scn-av"><img src="/static/assets/logo-bg.png" alt="" /></div>
+          <div class="scn-meta">
+            <div class="scn-name">babyg</div>
+            <div class="scn-status"><span class="dot"></span>babyg first</div>
+          </div>
+          <span class="lp-badge babyg-first">7:14 am</span>
+        </div>
+        <div class="scn-body">
+          <div class="scn-time">today · 7:14 am</div>
+          <div class="scn-msg in">morning. <b>nike</b> emailed about a q3 campaign while you slept.</div>
+          <div class="scn-msg in">drafted a hold reply asking for full scope, usage length, and a <b>budget ceiling</b>. ready to send when you're up.</div>
+          <div class="scn-msg out">send. love you.</div>
+        </div>
+      </div>
+
+      <div class="scn reveal delay-2">
+        <div class="scn-head">
+          <div class="scn-av"><img src="/static/assets/logo-bg.png" alt="" /></div>
+          <div class="scn-meta">
+            <div class="scn-name">babyg</div>
+            <div class="scn-status"><span class="dot"></span>active now</div>
+          </div>
+          <span class="lp-badge">needs review</span>
+        </div>
+        <div class="scn-body">
+          <div class="scn-time">today · 11:02 am</div>
+          <div class="scn-msg out">brand wants 3 videos + usage rights. no budget yet. what do i say?</div>
+          <div class="scn-msg in">hold the reply. we need <b>scope, usage length, paid media, exclusivity,</b> and a <b>budget ceiling</b> before pricing this.</div>
+          <div class="scn-msg in">brands always lowball first.</div>
+        </div>
+      </div>
+
+      <div class="scn reveal delay-3">
+        <div class="scn-head">
+          <div class="scn-av"><img src="/static/assets/logo-bg.png" alt="" /></div>
+          <div class="scn-meta">
+            <div class="scn-name">babyg</div>
+            <div class="scn-status"><span class="dot"></span>active now</div>
+          </div>
+          <span class="lp-badge">tonight</span>
+        </div>
+        <div class="scn-body">
+          <div class="scn-time">today · 4:46 pm</div>
+          <div class="scn-msg out">dinner at 8, event at 11. what's the play?</div>
+          <div class="scn-msg in">nap <b>4–6</b>. dinner fit by 7. shoot the <b>11:30–1:30am</b> window. leave by 2.</div>
+          <div class="scn-msg in">any later and tomorrow's shoot is toast.</div>
+        </div>
+      </div>
+
+      <div class="scn reveal delay-4">
+        <div class="scn-head">
+          <div class="scn-av"><img src="/static/assets/logo-bg.png" alt="" /></div>
+          <div class="scn-meta">
+            <div class="scn-name">babyg</div>
+            <div class="scn-status"><span class="dot"></span>babyg first</div>
+          </div>
+          <span class="lp-badge saved">passed</span>
+        </div>
+        <div class="scn-body">
+          <div class="scn-time">today · 2:09 pm</div>
+          <div class="scn-msg in">a small label offered <b>$1.2k flat</b> for 5 videos + perpetual usage.</div>
+          <div class="scn-msg in">you'd net ~$600 after fees and lose the rights forever. i passed.</div>
+          <div class="scn-msg in">a better one just came in from glossier. reading it now.</div>
+          <div class="scn-msg out">you're the best.</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<section class="lp-network" id="network">
+  <div class="wrap-wide">
+    <div class="mod-head reveal">
+      <h2>creators meet creators.</h2>
+      <p class="right">every creator on babyg knows every other one. intros, collabs, quiet support — handled when the timing's right.</p>
+    </div>
+
+    <div class="lp-network-grid">
+      <div class="lp-creator-card reveal delay-1">
+        <div class="lp-creator-avatar av-g1"><div class="badge-dot"></div></div>
+        <div class="lp-creator-name">@maya.fits</div>
+        <div class="lp-creator-tag">fashion · nyc</div>
+        <a class="creator-cta" href="/get-started">intro</a>
+      </div>
+      <div class="lp-creator-card reveal delay-2">
+        <div class="lp-creator-avatar av-g2"><div class="badge-dot"></div></div>
+        <div class="lp-creator-name">@daniel.creates</div>
+        <div class="lp-creator-tag">photo · la</div>
+        <a class="creator-cta" href="/get-started">intro</a>
+      </div>
+      <div class="lp-creator-card reveal delay-3">
+        <div class="lp-creator-avatar av-g3"><div class="badge-dot"></div></div>
+        <div class="lp-creator-name">@aria.draws</div>
+        <div class="lp-creator-tag">art · berlin</div>
+        <a class="creator-cta" href="/get-started">intro</a>
+      </div>
+      <div class="lp-creator-card reveal delay-4">
+        <div class="lp-creator-avatar av-g4"><div class="badge-dot"></div></div>
+        <div class="lp-creator-name">@kj.builds</div>
+        <div class="lp-creator-tag">dev · ldn</div>
+        <a class="creator-cta" href="/get-started">intro</a>
+      </div>
+      <div class="lp-creator-card reveal delay-4">
+        <div class="lp-creator-avatar av-g5"><div class="badge-dot"></div></div>
+        <div class="lp-creator-name">@nia.films</div>
+        <div class="lp-creator-tag">film · syd</div>
+        <a class="creator-cta" href="/get-started">intro</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="lp-stats">
+  <div class="wrap-wide">
+    <div class="lp-stats-grid">
+      <div class="lp-stat reveal delay-1">
+        <div class="num"><span data-count="24" data-suffix="/7">0/7</span></div>
+        <div class="label">always on</div>
+      </div>
+      <div class="lp-stat reveal delay-2">
+        <div class="num"><span data-count="3" data-suffix="x">0x</span></div>
+        <div class="label">faster replies</div>
+      </div>
+      <div class="lp-stat reveal delay-3">
+        <div class="num"><span data-count="42" data-suffix="%">0%</span></div>
+        <div class="label">more deals closed</div>
+      </div>
+      <div class="lp-stat reveal delay-4">
+        <div class="num"><span data-count="0" data-suffix="">∞</span></div>
+        <div class="label">patience</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</div>
+
+<footer class="lp-footer">
+  <div class="wrap-wide">
+    <div class="lp-foot-top">
+      <div class="lp-foot-brand">
+        <a class="brand" href="/">
           <span class="brand-mark"><img src="/static/assets/logo-bg.png" alt="" /></span>
           <span class="logo-text">babyg</span>
-        </span>
-        <p>your AI manager. miami, private beta.</p>
+        </a>
+        <p>your AI manager.</p>
+        <a class="lp-btn lp-btn-lime" href="/get-started">try babyg</a>
       </div>
-      <div class="foot-col"><h5>product</h5><ul><li><a href="#features">features</a></li><li><a href="/get-started">get access</a></li></ul></div>
-      <div class="foot-col"><h5>creators</h5><ul><li><a href="/get-started">apply</a></li><li><a href="/auth/login?role=creator">sign in</a></li></ul></div>
-      <div class="foot-col"><h5>company</h5><ul><li><a href="#">about</a></li><li><a href="#">privacy</a></li><li><a href="#">terms</a></li></ul></div>
+      <div class="lp-foot-col">
+        <h5>product</h5>
+        <ul>
+          <li><a href="#features">features</a></li>
+          <li><a href="#how">how it works</a></li>
+          <li><a href="/get-started">get access</a></li>
+          <li><a href="/auth/login?role=creator">sign in</a></li>
+        </ul>
+      </div>
+      <div class="lp-foot-col">
+        <h5>creators</h5>
+        <ul>
+          <li><a href="#creators">for creators</a></li>
+          <li><a href="#network">network</a></li>
+          <li><a href="/get-started">apply</a></li>
+          <li><a href="/auth/login?role=creator">sign in</a></li>
+        </ul>
+      </div>
+      <div class="lp-foot-col">
+        <h5>company</h5>
+        <ul>
+          <li><a href="/get-started">about</a></li>
+          <li><a href="/get-started">manifesto</a></li>
+          <li><a href="/get-started">press</a></li>
+          <li><a href="/get-started">contact</a></li>
+        </ul>
+      </div>
+      <div class="lp-foot-col">
+        <h5>access</h5>
+        <ul>
+          <li><a href="/get-started">creator login</a></li>
+          <li><a href="/auth/login?role=operator">operator login</a></li>
+          <li><a href="/get-started">get started</a></li>
+          <li><a href="#top">back to top</a></li>
+        </ul>
+      </div>
     </div>
-    <div class="foot-bot">
+    <div class="lp-foot-bot">
       <span>© 2026 babyg · all rights reserved</span>
-      <span>miami, fl</span>
+      <span>your AI manager</span>
+      <span>private beta · miami, fl</span>
     </div>
   </div>
 </footer>
+
+</div>
+{% endblock %}
+
+{% block foot_scripts %}
+<script src="/static/js/landing.js" defer></script>
 {% endblock %}
