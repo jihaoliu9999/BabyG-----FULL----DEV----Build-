@@ -18,7 +18,7 @@
   </div>
 
   <div class="stat-row" style="margin-bottom:22px;">
-    <a href="/creator/dms" class="stat-card"><span class="l">inbox</span><span class="v">{{ unread_dms or 0 }}</span></a>
+    <a href="/creator/dm" class="stat-card"><span class="l">inbox</span><span class="v">{{ unread_dms or 0 }}</span></a>
     <a href="/creator/notifications" class="stat-card {{ 'alert' if unread_total and unread_total > 0 }}"><span class="l">needs you</span><span class="v">{{ unread_total or 0 }}</span></a>
   </div>
 

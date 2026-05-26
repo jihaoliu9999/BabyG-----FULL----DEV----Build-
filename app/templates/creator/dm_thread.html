@@ -4,7 +4,7 @@
 
 {% block content %}
 <div class="wrap">
-  <a href="/creator/dms" class="back-link">← inbox</a>
+  <a href="/creator/dm" class="back-link">← inbox</a>
 
   <div style="display:flex;align-items:center;gap:14px;margin-bottom:24px;">
     <span class="avatar av-g2 lg">{{ (peer.full_name or peer.instagram_handle or 'C')[0].upper() }}</span>
@@ -38,7 +38,7 @@
 
   <div style="position:sticky;bottom:0;background:rgba(8,8,8,0.92);backdrop-filter:blur(20px);padding:12px 0 max(env(safe-area-inset-bottom,18px),18px);margin:0 -24px;border-top:1px solid var(--hairline);">
     <div class="wrap">
-      <form method="post" action="/creator/dms/{{ peer_id }}/send">
+      <form method="post" action="/creator/dm/{{ peer_id }}/send">
         {% include "_partials/csrf.html" %}
         <div style="display:flex;gap:8px;background:var(--surface-2);border:1px solid var(--hairline);border-radius:999px;padding:6px 6px 6px 16px;align-items:center;">
           <input name="body" required maxlength="4000" placeholder="reply…" style="flex:1;background:transparent;border:0;outline:none;color:var(--ink);font-size:14px;padding:8px 0;font-family:inherit;" />
@@ -52,7 +52,7 @@
 
   {% set target_type = "dm_thread" %}
   {% set target_id = thread.id %}
-  {% set return_to = "/creator/dms/" ~ peer_id %}
+  {% set return_to = "/creator/dm/" ~ peer_id %}
   {% set label = "this conversation" %}
   {% include "_partials/report_form.html" %}
 </div>

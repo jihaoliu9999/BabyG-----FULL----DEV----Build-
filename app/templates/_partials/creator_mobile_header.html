@@ -5,7 +5,7 @@
 {% elif path.startswith("/creator/jobs") %}{% set mh_title = "listings" %}
 {% elif path.startswith("/creator/calendar") %}{% set mh_title = "calendar" %}
 {% elif path.startswith("/creator/performance") or path.startswith("/creator/receipts") or path.startswith("/creator/views") %}{% set mh_title = "stats" %}
-{% elif path.startswith("/creator/dms") %}{% set mh_title = "inbox" %}
+{% elif path.startswith("/creator/dm") %}{% set mh_title = "inbox" %}
 {% elif path.startswith("/creator/notifications") %}{% set mh_title = "alerts" %}
 {% elif path.startswith("/creator/profile") or path.startswith("/creator/settings") %}{% set mh_title = "profile" %}
 {% endif %}

@@ -1119,6 +1119,16 @@ h1, h2, h3, h4 {
 }
 .is-chat .bot-screen { flex: 1; min-height: 0; }
 .is-chat .bot-messages { min-height: 0; }
+.is-chat #view > .view {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
 .bot-hero { padding: 20px 24px 16px; }
 .bot-hero .head {
   display: flex; align-items: center; gap: 12px;
