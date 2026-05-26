@@ -72,18 +72,6 @@
       <p style="color:var(--ink-dim);font-size:13.5px;margin:0;">send the thing you want handled.</p>
     </li>
     {% endif %}
-
-    <li class="bot-message assistant" id="bot-typing" hidden>
-      <span class="meta">babyg</span>
-      <div class="bubble" style="display:flex;align-items:center;gap:6px;">
-        <span style="color:var(--ink-dim);font-size:13px;">thinking</span>
-        <span style="display:inline-flex;gap:3px;" aria-hidden="true">
-          <i style="width:4px;height:4px;border-radius:50%;background:var(--ink-dim);display:block;animation:blink 1.2s infinite 0s;"></i>
-          <i style="width:4px;height:4px;border-radius:50%;background:var(--ink-dim);display:block;animation:blink 1.2s infinite .2s;"></i>
-          <i style="width:4px;height:4px;border-radius:50%;background:var(--ink-dim);display:block;animation:blink 1.2s infinite .4s;"></i>
-        </span>
-      </div>
-    </li>
   </ol>
 
   <form class="bot-composer" method="post" action="/creator/bot" data-bot-composer>
@@ -98,8 +86,4 @@
     <div class="hint">ai drafts. you decide.</div>
   </form>
 </section>
-
-<style>
-@keyframes blink { 0%,80%,100%{opacity:.2} 40%{opacity:1} }
-</style>
 {% endblock %}

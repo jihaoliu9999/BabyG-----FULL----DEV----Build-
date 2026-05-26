@@ -1,19 +1,17 @@
 (() => {
   const composer = document.querySelector("[data-bot-composer]");
-  const typing = document.getElementById("bot-typing");
   const submit = document.querySelector("[data-bot-submit]");
   const textarea = document.getElementById("bot-message");
 
   const scrollToLatest = () => {
-    const target = typing && !typing.hidden ? typing : composer;
-    if (target) {
-      target.scrollIntoView({ block: "end", behavior: "smooth" });
+    if (composer) {
+      composer.scrollIntoView({ block: "end", behavior: "smooth" });
     }
   };
 
   scrollToLatest();
 
-  if (!composer || !typing || !submit || !textarea) {
+  if (!composer || !submit || !textarea) {
     return;
   }
 
@@ -22,9 +20,11 @@
     if (!value) {
       return;
     }
-    typing.hidden = false;
+    // Submit-button feedback only — no fake "thinking" bubble.
+    // The browser navigates away after POST; on response the page
+    // reloads with fresh HTML and these states naturally reset.
     submit.setAttribute("disabled", "disabled");
-    submit.textContent = "sending";
+    submit.setAttribute("aria-busy", "true");
     textarea.setAttribute("readonly", "readonly");
     scrollToLatest();
   });
