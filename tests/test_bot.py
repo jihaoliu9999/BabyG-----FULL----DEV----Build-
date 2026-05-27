@@ -36,6 +36,38 @@ def test_bot_page_redirects_until_onboarded(monkeypatch, client: TestClient) -> 
     assert response.headers["location"] == "/onboarding/creator"
 
 
+def test_bot_page_preserves_paragraph_breaks_in_assistant_content(
+    monkeypatch, client: TestClient
+) -> None:
+    """Multi-paragraph assistant responses must round-trip through the template
+    without losing the blank line. This protects the chat readability contract:
+    Claude returns \\n\\n between paragraphs; the template + CSS render them as
+    real paragraph gaps. If any layer collapses newlines, this test fails."""
+    _signed_in(client, role="creator")
+    monkeypatch.setattr(
+        creator_routes.profiles,
+        "get_creator_profile",
+        lambda uid: {"onboarding_completed_at": "2026-05-01T00:00:00Z"},
+    )
+    monkeypatch.setattr(
+        creator_routes.bot,
+        "list_messages",
+        lambda uid: [
+            {
+                "role": "assistant",
+                "content": "verdict: counter at six.\n\npush back on usage.",
+                "flagged": False,
+            },
+        ],
+    )
+
+    response = client.get("/creator/bot")
+
+    assert response.status_code == 200
+    # The literal blank line between sentences must survive into the HTML.
+    assert "verdict: counter at six.\n\npush back on usage." in response.text
+
+
 def test_bot_page_renders_history(monkeypatch, client: TestClient) -> None:
     _signed_in(client, role="creator")
     monkeypatch.setattr(
@@ -709,9 +741,14 @@ def test_caption_prompt_sets_babyg_voice_and_profile_tool_policy(monkeypatch) ->
     )
 
     system_prompt = str(captured["system_prompt"])
-    assert "sound like a sharp senior manager, not a chatbot" in system_prompt
-    assert "no hype, no exclamation points" in system_prompt
-    assert "Call read_my_profile before voice-matched captions" in system_prompt
+    # voice character (high-level manager, not a chatbot)
+    assert "high-level personal manager texting a creator" in system_prompt
+    # no-hype rule
+    assert "no exclamation points" in system_prompt
+    assert "no fake hype" in system_prompt
+    # tool policy: read_my_profile is required for voice-matched captions
+    assert "call read_my_profile before voice-matched captions" in system_prompt
+    # caption drafting guidance gets injected when draft_kind == "caption"
     assert "Use read_my_profile before drafting" in system_prompt
 
 
