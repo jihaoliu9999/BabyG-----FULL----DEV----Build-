@@ -24,9 +24,10 @@ def test_robots_disallows_indexing(client: TestClient) -> None:
 def test_csp_allows_same_origin_static_css(client: TestClient) -> None:
     response = client.get("/")
     assert response.status_code == 200
-    assert 'href="/static/css/app.css"' in response.text
-    assert 'href="http://testserver/static/css/app.css"' not in response.text
-    assert 'href="https://testserver/static/css/app.css"' not in response.text
+    # CSS link is root-relative + cache-busted with a content hash.
+    assert 'href="/static/css/app.css?v=' in response.text
+    assert 'href="http://testserver/static/css/app.css' not in response.text
+    assert 'href="https://testserver/static/css/app.css' not in response.text
     csp = response.headers["content-security-policy"]
     assert "script-src 'self'" in csp
     assert "style-src-elem 'self'" in csp
@@ -42,9 +43,9 @@ def test_forwarded_proto_keeps_static_url_root_relative(client: TestClient) -> N
     response = client.get("/", headers={"x-forwarded-proto": "https"})
 
     assert response.status_code == 200
-    assert 'href="/static/css/app.css"' in response.text
-    assert 'href="http://testserver/static/css/app.css"' not in response.text
-    assert 'href="https://testserver/static/css/app.css"' not in response.text
+    assert 'href="/static/css/app.css?v=' in response.text
+    assert 'href="http://testserver/static/css/app.css' not in response.text
+    assert 'href="https://testserver/static/css/app.css' not in response.text
 
 
 def test_production_csp_upgrades_insecure_subresources(
@@ -59,4 +60,4 @@ def test_production_csp_upgrades_insecure_subresources(
     assert response.status_code == 200
     csp = response.headers["content-security-policy"]
     assert "upgrade-insecure-requests" in csp
-    assert 'href="/static/css/app.css"' in response.text
+    assert 'href="/static/css/app.css?v=' in response.text

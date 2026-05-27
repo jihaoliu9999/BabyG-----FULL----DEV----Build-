@@ -22,7 +22,9 @@ def test_prompt_contains_load_bearing_sections() -> None:
     # The new formatting rules that fix the word-cluster bug
     assert "formatting:" in p
     assert "blank line" in p
-    assert "wall of text" in p
+    # The concrete example demonstrating block separation must survive
+    # — examples teach the model the pattern faster than rules alone.
+    assert "example of correctly-formatted response" in p
     # Safety + non-negotiable guarantees
     assert "safety and privacy:" in p
     assert "non-negotiable:" in p
