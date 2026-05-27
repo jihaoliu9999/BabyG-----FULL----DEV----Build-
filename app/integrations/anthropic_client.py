@@ -85,7 +85,10 @@ def _extract_text(response: Any) -> str:
         text = getattr(block, "text", None)
         if isinstance(text, str):
             parts.append(text)
-    return "\n".join(parts).strip()
+    # Separate distinct text blocks with a blank line so paragraph
+    # breaks survive when Claude returns multiple text blocks
+    # (e.g. interleaved with tool use).
+    return "\n\n".join(parts).strip()
 
 
 def _extract_content_blocks(response: Any) -> list[dict[str, Any]]:

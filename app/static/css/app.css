@@ -1160,7 +1160,11 @@ h1, h2, h3, h4 {
   font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.18em;
   text-transform: uppercase; color: var(--ink-dim);
 }
-.bot-message .bubble { max-width: 86%; }
+.bot-message .bubble {
+  max-width: 86%;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 .bot-message.user .bubble { background: var(--surface-2); border-bottom-right-radius: 4px; }
 .bot-message.assistant .bubble { background: var(--surface-1); border: 1px solid var(--hairline); border-bottom-left-radius: 4px; }
 
