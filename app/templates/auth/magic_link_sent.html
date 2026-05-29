@@ -11,10 +11,16 @@
   <div class="auth-tag">{{ role }} sign in</div>
   <h1 class="auth-title">check your email.</h1>
   <p class="auth-sub">
-    your sign-in link is waiting at <strong>{{ email }}</strong>.
+    your sign-in link is at <strong>{{ email }}</strong>.
   </p>
   <p class="auth-foot">
-    no link? <a href="/auth/login?role={{ role }}">send another</a>.
+    open it on this device to finish signing in.
   </p>
+
+  <div class="auth-foot-meta">
+    <span>link expires in 15 minutes</span>
+    <span>nothing yet? check spam</span>
+    <span><a href="/auth/login?role={{ role }}" style="color:inherit;text-decoration:underline;">resend</a> · <a href="/get-started" style="color:inherit;text-decoration:underline;">wrong role</a></span>
+  </div>
 </div>
 {% endblock %}

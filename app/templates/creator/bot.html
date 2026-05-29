@@ -67,9 +67,8 @@
         {% endif %}
       {% endfor %}
     {% else %}
-    <li class="bot-message assistant bot-empty" style="align-items:center;text-align:center;padding:24px 0;">
-      <img src="/static/assets/logo-bg.png" alt="" style="width:48px;height:48px;object-fit:contain;opacity:0.5;margin-bottom:12px;" />
-      <p style="color:var(--ink-dim);font-size:13.5px;margin:0;">send the thing you want handled.</p>
+    <li class="bot-empty-state" aria-hidden="true">
+      <p>send the thing you want handled.</p>
     </li>
     {% endif %}
   </ol>

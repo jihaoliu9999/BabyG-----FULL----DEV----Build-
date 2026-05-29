@@ -11,7 +11,7 @@
       <span class="badge badge-muted">{{ listing.listing_type|replace('_', ' ') or 'listing' }}</span>
       {% if listing.is_active %}<span class="badge badge-coral">active</span>{% else %}<span class="badge badge-muted">closed</span>{% endif %}
     </div>
-    <h1 style="font-size:28px;line-height:1.1;margin:0 0 10px;">{{ listing.title }}</h1>
+    <h1 class="detail-title" style="margin:0 0 10px;">{{ listing.title }}</h1>
     {% if poster %}
     <div style="color:var(--ink-mid);font-size:13.5px;">
       from <a href="/creator/network/{{ listing.poster_user_id }}" style="color:var(--ink);">{{ poster.full_name or poster.instagram_handle or 'creator' }}</a>

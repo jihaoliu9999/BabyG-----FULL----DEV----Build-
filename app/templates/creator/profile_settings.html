@@ -8,7 +8,7 @@
 
   <div style="margin-bottom:22px;">
     <span class="mono eyebrow">settings</span>
-    <h1 style="font-size:24px;margin-top:8px;line-height:1;">account</h1>
+    <h1 class="detail-title">account</h1>
     <p style="color:var(--ink-dim);font-size:13.5px;margin-top:4px;">keep the basics clean.</p>
   </div>
 
@@ -31,11 +31,11 @@
     <div class="settings-row"><span>instagram</span><strong>not connected</strong></div>
     <div class="settings-row"><span>gmail</span><strong>not connected</strong></div>
     <div class="settings-row">
-      <span>calendar</span>
+      <span>Google Calendar</span>
       {% if google_connected %}
         <strong><a href="/creator/calendar">connected</a></strong>
       {% elif google_configured %}
-        <strong><a href="/creator/google/calendar/connect">connect</a></strong>
+        <strong><a href="/creator/google/calendar/connect">connect Google Calendar</a></strong>
       {% else %}
         <strong>not configured</strong>
       {% endif %}

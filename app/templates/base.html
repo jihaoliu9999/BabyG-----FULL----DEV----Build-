@@ -17,7 +17,8 @@
 {% set current_path = cp %}
 {% set is_creator = cp.startswith('/creator') %}
 {% set is_operator = cp.startswith('/operator') %}
-<body class="{{ 'is-chat' if is_creator and cp.startswith('/creator/bot') else '' }}">
+{% set is_dm_thread = is_creator and cp.startswith('/creator/dm/') %}
+<body class="{{ 'is-chat' if is_creator and cp.startswith('/creator/bot') else ('is-dm-thread' if is_dm_thread else '') }}">
 
 {% if is_creator %}
 <div class="app-shell" id="app">

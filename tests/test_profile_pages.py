@@ -40,7 +40,10 @@ def test_creator_profile_page_renders(monkeypatch, client: TestClient) -> None:
 
     assert response.status_code == 200
     assert "Mia Creator" in response.text
-    assert 'accept="image/*"' in response.text
+    # Profile photo upload + niche editing are not yet wired to the
+    # backend (no Storage bucket, no PATCH endpoint). The page surfaces
+    # this honestly instead of pretending the upload works.
+    assert "coming soon" in response.text
     assert "/auth/logout" in response.text
     assert "/creator/profile/settings" in response.text
 
