@@ -11,22 +11,21 @@
     <span class="avatar av-g3 xl">{{ initials[0] }}</span>
     <div>
       <span class="mono eyebrow">your profile</span>
-      <h1 style="font-size:28px;margin-top:6px;line-height:1;">{{ profile.full_name or 'creator' }}</h1>
+      <h1 class="detail-title">{{ profile.full_name or 'creator' }}</h1>
       {% if profile.instagram_handle %}
       <div style="color:var(--ink-mid);margin-top:4px;font-size:13.5px;">@{{ profile.instagram_handle }}{% if profile.primary_platform %} · {{ profile.primary_platform }}{% endif %}</div>
       {% endif %}
     </div>
   </div>
 
-  <input type="file" accept="image/*" style="display:none;" aria-hidden="true" />
-
-  <div style="display:flex;gap:8px;margin-bottom:26px;flex-wrap:wrap;">
-    <a href="/creator/profile/settings" class="btn btn-ghost btn-sm">settings</a>
+  <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
+    <a href="/creator/profile/settings" class="btn btn-ghost btn-sm">edit account info</a>
     <form method="post" action="/auth/logout" style="display:inline;">
       {% include "_partials/csrf.html" %}
       <button type="submit" class="btn btn-ghost btn-sm">sign out</button>
     </form>
   </div>
+  <p class="mono" style="font-size:10px;letter-spacing:0.14em;color:var(--ink-dim);margin:0 0 22px;text-transform:uppercase;">photo upload + niche editing — coming soon</p>
 
   <span class="mono" style="display:block;margin-bottom:10px;">details</span>
   <div class="kv-list" style="margin-bottom:22px;">

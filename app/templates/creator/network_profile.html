@@ -10,7 +10,7 @@
     <span class="avatar av-g2 xl">{{ (peer.full_name or peer.instagram_handle or 'C')[0].upper() }}</span>
     <div>
       <span class="mono eyebrow">creator</span>
-      <h1 style="font-size:32px;margin-top:8px;line-height:1;">{{ peer.full_name or "Creator" }}</h1>
+      <h1 class="detail-title">{{ peer.full_name or "Creator" }}</h1>
       {% if peer.instagram_handle %}
       <div style="color:var(--ink-mid);margin-top:6px;">@{{ peer.instagram_handle }}{% if peer.primary_platform %} · {{ peer.primary_platform }}{% endif %}</div>
       {% endif %}

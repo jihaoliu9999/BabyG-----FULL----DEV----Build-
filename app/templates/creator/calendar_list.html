@@ -7,11 +7,11 @@
   <div class="page-header">
     <div class="title-block">
       <span class="mono eyebrow">calendar</span>
-      <p class="sub">google events, local bookings, and creator deadlines.</p>
+      <p class="sub">Google events, local bookings, and creator deadlines.</p>
     </div>
     <div class="actions">
       {% if google_connected %}
-      <span class="status-pill"><span class="pulse-dot"></span> google synced</span>
+      <span class="status-pill"><span class="pulse-dot"></span> Google synced</span>
       {% endif %}
       <a class="btn btn-lime btn-sm" href="/creator/calendar/new">add item
         <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 9L9 3M9 3H4M9 3V8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -26,14 +26,14 @@
   {% if not google_connected %}
   <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:22px;">
     <div>
-      <span class="mono eyebrow">google calendar</span>
+      <span class="mono eyebrow">Google Calendar</span>
       <p style="margin:8px 0 0;color:var(--ink-mid);font-size:13.5px;">
         {% if google_configured %}connect to pull your real schedule into babyg.
-        {% else %}google calendar not configured yet.{% endif %}
+        {% else %}Google Calendar not configured yet.{% endif %}
       </p>
     </div>
     {% if google_configured %}
-    <a class="btn btn-ghost btn-sm" href="/creator/google/calendar/connect">connect google</a>
+    <a class="btn btn-ghost btn-sm" href="/creator/google/calendar/connect">connect Google Calendar</a>
     {% else %}
     <span class="badge badge-muted">not configured</span>
     {% endif %}
@@ -77,8 +77,8 @@
   <div style="text-align:center;padding:60px 0;color:var(--ink-dim);">
     <span class="mono">nothing scheduled.</span>
     <p style="margin:12px 0 0;font-size:13.5px;">
-      {% if google_connected %}sync google calendar or add a local item.
-      {% else %}connect google calendar or add a local item.{% endif %}
+      {% if google_connected %}sync Google Calendar or add a local item.
+      {% else %}connect Google Calendar or add a local item.{% endif %}
     </p>
   </div>
   {% endif %}
@@ -87,7 +87,7 @@
   <div style="margin-top:22px;display:flex;gap:8px;flex-wrap:wrap;">
     <form method="post" action="/creator/google/calendar/sync">
       {% include "_partials/csrf.html" %}
-      <button type="submit" class="btn btn-ghost btn-sm">sync google now</button>
+      <button type="submit" class="btn btn-ghost btn-sm">sync Google now</button>
     </form>
     <form method="post" action="/creator/google/calendar/disconnect">
       {% include "_partials/csrf.html" %}

@@ -1015,18 +1015,18 @@ def _calendar_notice(request: Request) -> str | None:
     if google == "connected":
         if synced and synced.isdigit():
             count = int(synced)
-            return f"google calendar connected. {count} item{'s' if count != 1 else ''} synced."
-        return "google calendar connected."
+            return f"Google Calendar connected. {count} item{'s' if count != 1 else ''} synced."
+        return "Google Calendar connected."
     if google == "disconnected":
-        return "google calendar disconnected."
+        return "Google Calendar disconnected."
     if google == "not_configured":
-        return "google calendar needs keys before it can connect."
+        return "Google Calendar needs keys before it can connect."
     if google == "denied":
-        return "google calendar was not connected."
+        return "Google Calendar was not connected."
     if google in {"bad_callback", "exchange_failed", "save_failed"}:
-        return "google calendar could not connect. try again."
+        return "Google Calendar could not connect. try again."
     if google == "not_connected":
-        return "connect google calendar first."
+        return "connect Google Calendar first."
     if sync == "done":
         if synced and synced.isdigit():
             count = int(synced)

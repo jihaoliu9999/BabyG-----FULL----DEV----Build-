@@ -106,8 +106,11 @@ def test_views_page_basic_tier_shows_upgrade_prompt(client, world):
     world.count = 7
     r = client.get("/creator/views")
     assert r.status_code == 200
-    # Basic shouldn't see the count
-    assert "7" not in r.text
+    # Basic shouldn't see the count. Assert against the specific markup
+    # the count would render into — a bare "7" can collide with the
+    # asset-hash query string in `app.css?v=…`.
+    assert "views-count-card" not in r.text
+    assert "<strong>7</strong>" not in r.text
     assert "higher tiers" in r.text
 
 
