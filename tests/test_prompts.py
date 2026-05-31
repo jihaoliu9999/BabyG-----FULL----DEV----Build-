@@ -55,3 +55,23 @@ def test_drafting_guidance_pushes_paragraphed_output_for_multi_part_drafts() -> 
     assert "blank line" in prompts.DRAFTING_GUIDANCE["negotiation"]
     assert "blank line" in prompts.DRAFTING_GUIDANCE["content_plan"]
     assert "blank line" in prompts.DRAFTING_GUIDANCE["caption"]
+
+
+def test_prompt_contains_stats_reality_check() -> None:
+    """The stats reality check is a load-bearing section: without it,
+    Claude can hallucinate platform metrics or treat empty stats
+    arrays as silence. Deleting it would regress the live bug."""
+    p = prompts.babyg_system_prompt()
+    assert "stats reality check:" in p
+    # Must name the platforms it cannot read.
+    assert "instagram" in p
+    assert "tiktok" in p
+    # Must include the verbatim sentence the user spec'd for the empty
+    # case — that sentence is the contract.
+    assert (
+        "i don't have connected post stats yet. right now i can use "
+        "manually logged performance, and auto-sync will come after "
+        "Meta/TikTok integration."
+    ) in p
+    # Must forbid invention.
+    assert "never invent numbers" in p

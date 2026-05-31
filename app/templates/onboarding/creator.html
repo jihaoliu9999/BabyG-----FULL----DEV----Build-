@@ -5,7 +5,7 @@
 
 {% block head_extra %}
 <style>
-.onb-wrap{max-width:520px;margin:0 auto;padding:32px 24px max(env(safe-area-inset-bottom,40px),60px);}
+.onb-wrap{max-width:520px;width:100%;margin:0 auto;padding:32px 20px max(env(safe-area-inset-bottom,40px),60px);}
 .onb-eyebrow{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--lime);letter-spacing:.08em;text-transform:uppercase;display:block;margin-bottom:10px;}
 .onb-h1{font-size:28px;font-weight:700;line-height:1.1;margin:0 0 10px;}
 .onb-sub{color:var(--ink-mid);font-size:14px;line-height:1.55;margin:0 0 22px;}
@@ -15,17 +15,24 @@
 .onb-section{margin-bottom:32px;padding-bottom:32px;border-bottom:1px solid var(--hairline);}
 .onb-section:last-of-type{border-bottom:0;}
 .onb-section-title{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.08em;margin:0 0 20px;}
-.onb-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+/* `minmax(0, 1fr)` forces columns to honor the container width even when
+   the field content (long select option labels) would otherwise push the
+   row wider than the viewport. */
+.onb-row{display:grid;grid-template-columns:repeat(2, minmax(0, 1fr));gap:12px;}
 .onb-actions{padding-top:8px;}
-.field{margin-bottom:16px;}
+.field{margin-bottom:16px;min-width:0;}
 .field-label{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-dim);display:block;margin-bottom:6px;letter-spacing:.04em;}
 .field-hint{font-size:12px;color:var(--ink-dim);margin-top:4px;line-height:1.4;}
 .req{color:var(--lime);}
-.field input[type=text],.field input[type=email],.field input[type=number],.field textarea,.field select{width:100%;background:var(--surface-2);border:1px solid var(--hairline);border-radius:10px;color:var(--ink);font-family:inherit;font-size:14px;padding:10px 14px;outline:none;box-sizing:border-box;-webkit-appearance:none;}
+/* Inputs intentionally inherit the global 16px rule (iOS zoom guard).
+   Don't restate font-size here — keeping the rule in app.css means one
+   place to maintain. */
+.field input[type=text],.field input[type=email],.field input[type=number],.field textarea,.field select{width:100%;max-width:100%;background:var(--surface-2);border:1px solid var(--hairline);border-radius:10px;color:var(--ink);font-family:inherit;padding:10px 14px;outline:none;box-sizing:border-box;-webkit-appearance:none;}
 .field input:focus,.field textarea:focus,.field select:focus{border-color:var(--lime);}
 .field textarea{resize:vertical;min-height:80px;}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;}
-.chips .chip{position:relative;display:inline-flex;align-items:center;cursor:pointer;padding:6px 12px;border-radius:999px;border:1px solid var(--hairline);font-size:13px;color:var(--ink-mid);background:var(--surface-2);transition:border-color .15s,color .15s;}
+.chips .chip{position:relative;display:inline-flex;align-items:center;cursor:pointer;padding:6px 12px;border-radius:999px;border:1px solid var(--hairline);font-size:13px;color:var(--ink-mid);background:var(--surface-2);transition:border-color .15s,color .15s;max-width:100%;}
+.chips .chip>span{overflow-wrap:anywhere;}
 .chips .chip input{position:absolute;opacity:0;width:0;height:0;pointer-events:none;}
 .chips .chip:has(input:checked){border-color:var(--lime);color:var(--lime);background:rgba(255,77,109,0.08);}
 .auth-error{background:rgba(255,77,109,0.08);border:1px solid var(--lime);border-radius:10px;color:var(--lime);font-size:13px;padding:12px 14px;margin-bottom:20px;}
