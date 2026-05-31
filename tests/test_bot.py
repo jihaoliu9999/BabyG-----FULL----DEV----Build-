@@ -957,3 +957,81 @@ def test_read_only_context_collects_creator_data(monkeypatch) -> None:
     assert context["read_my_receipts"][0]["caption_excerpt"] == "Miami night out"
     assert context["read_my_performance"][0]["active_brand_deals_value"] == 1200
     assert context["read_creator_directory"][0]["name"] == "Nia Creator"
+
+
+# ---------------------------------------------------------------------------
+# Crash protection: a single bad turn should never bubble a 500 to the user.
+# ---------------------------------------------------------------------------
+
+
+def test_bot_persists_friendly_message_when_agent_loop_throws(monkeypatch) -> None:
+    """Any unhandled exception inside `_run_agent_loop` must be caught.
+
+    The user's stats-question crash on the live app was a top-level
+    exception escaping the bot service. This test pins the safety
+    wrapper: tools and the loop can fail in arbitrary ways, and the
+    creator still receives a calm assistant message instead of an HTTP
+    500. The original user message remains persisted.
+    """
+    persisted: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        bot_service,
+        "create_message",
+        lambda **kwargs: persisted.append(kwargs) or "msg-1",
+    )
+    monkeypatch.setattr(bot_service, "list_messages", lambda uid, limit=20: [])
+    monkeypatch.setattr(bot_service, "build_context", lambda uid: {})
+
+    def _explode(*_a, **_kw):
+        raise RuntimeError("simulated tool serialization failure")
+
+    monkeypatch.setattr(bot_service, "_run_agent_loop", _explode)
+
+    result = bot_service.handle_creator_message(
+        user_id="creator-1",
+        content="how did my last post do?",
+    )
+
+    # The user message is the first persisted; the assistant fallback is
+    # the second. Both must be written, and the assistant text must be
+    # the calm fallback, not an empty string or a leaked traceback.
+    roles = [str(call.get("role")) for call in persisted]
+    assert roles[:2] == ["user", "assistant"]
+    assert "snag" in result.response.lower()
+    # No fake stats, no invented numbers.
+    assert "instagram" not in result.response.lower()
+    assert "tiktok" not in result.response.lower()
+
+
+def test_bot_does_not_crash_on_stats_question_with_empty_data(monkeypatch) -> None:
+    """End-to-end mock: stats-style question + empty receipts/performance
+    must complete a normal turn (no exception). Claude is mocked so the
+    test asserts the integration shape, not the LLM wording."""
+    persisted: list[dict[str, object]] = []
+    monkeypatch.setattr(
+        bot_service,
+        "create_message",
+        lambda **kwargs: persisted.append(kwargs) or "msg-1",
+    )
+    monkeypatch.setattr(bot_service, "list_messages", lambda uid, limit=20: [])
+    monkeypatch.setattr(bot_service, "build_context", lambda uid: {})
+
+    def _fake_claude(**_kwargs):
+        return bot_service.anthropic_client.ClaudeResponse(
+            text=(
+                "i don't have connected post stats yet. right now i can use "
+                "manually logged performance, and auto-sync will come after "
+                "Meta/TikTok integration."
+            )
+        )
+
+    monkeypatch.setattr(bot_service.anthropic_client, "complete_chat", _fake_claude)
+
+    result = bot_service.handle_creator_message(
+        user_id="creator-1",
+        content="what were my last post stats?",
+    )
+
+    # Turn completes, response surfaces the stats reality clause.
+    assert "manually logged" in result.response.lower()
+    assert "Meta/TikTok integration" in result.response

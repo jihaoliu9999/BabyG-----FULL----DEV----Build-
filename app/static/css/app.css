@@ -52,6 +52,8 @@ html, body {
   background: var(--bg);
   color: var(--ink);
   overflow-x: hidden;
+  width: 100%;
+  max-width: 100%;
 }
 body {
   font-family: var(--sans);
@@ -64,6 +66,12 @@ body {
 }
 a { color: inherit; text-decoration: none; }
 button, input, textarea, select { font-family: inherit; }
+/* iOS Safari triggers an auto-zoom on any form control with a font-size
+   below 16px and frequently does NOT zoom back out on blur, which the
+   user perceives as the page "shifting" or "staying zoomed". Pin every
+   control to 16px globally so individual component rules don't have to
+   remember. */
+input, textarea, select { font-size: 16px; }
 button { cursor: pointer; }
 ::selection { background: var(--lime); color: #fff; }
 

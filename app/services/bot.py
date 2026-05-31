@@ -187,6 +187,22 @@ def handle_creator_message(*, user_id: str, content: str) -> BotTurnResult:
         )
         input_tokens = 0
         output_tokens = 0
+    except Exception:
+        # Belt for the agent loop. ClaudeNotConfigured / ClaudeCallError
+        # above cover the known upstream failures; this catches anything
+        # else (tool-result serialization edge cases, unexpected response
+        # shapes, etc.) so a single bad turn never returns a 500 to the
+        # creator. The traceback is logged server-side via .exception().
+        # The creator message is still persisted (above), and the
+        # assistant message we write below explains the failure without
+        # inventing stats or other context.
+        logger.exception("bot turn failed unexpectedly")
+        response_text = (
+            "i hit a snag pulling that. your message is saved — "
+            "try a slightly narrower ask?"
+        )
+        input_tokens = 0
+        output_tokens = 0
 
     create_message(
         user_id=user_id,
