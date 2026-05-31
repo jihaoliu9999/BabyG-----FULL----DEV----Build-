@@ -9,7 +9,17 @@ in the full design but were removed when brand was deferred to v1.5
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    Request,
+    UploadFile,
+    status,
+)
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from app.core.redirects import safe_same_origin
@@ -32,6 +42,7 @@ from app.services import (
     performance,
     profiles,
     receipts,
+    storage,
     views,
 )
 
@@ -205,6 +216,60 @@ async def profile_settings_page(
             "google_configured": google_calendar.is_configured(),
         },
     )
+
+
+@router.post("/creator/profile/photo")
+async def profile_photo_upload(
+    request: Request,
+    photo: UploadFile = File(...),
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    raw = await photo.read()
+    if not raw:
+        return RedirectResponse(
+            "/creator/profile?photo=missing", status_code=303
+        )
+    try:
+        url = storage.upload_profile_photo(
+            session["user_id"], raw, photo.content_type
+        )
+    except storage.PhotoTooLargeError:
+        return RedirectResponse(
+            "/creator/profile?photo=too_big", status_code=303
+        )
+    except storage.PhotoUnsupportedTypeError:
+        return RedirectResponse(
+            "/creator/profile?photo=bad_type", status_code=303
+        )
+    except storage.PhotoDecodeError:
+        return RedirectResponse(
+            "/creator/profile?photo=corrupt", status_code=303
+        )
+
+    if not profiles.update_creator_profile(
+        session["user_id"], {"profile_photo_url": url}
+    ):
+        # DB update failed but the file is in storage; the next successful
+        # upload will overwrite. Surface a generic error.
+        return RedirectResponse(
+            "/creator/profile?photo=save_failed", status_code=303
+        )
+    return RedirectResponse("/creator/profile?photo=ok", status_code=303)
+
+
+@router.post("/creator/profile/photo/delete")
+async def profile_photo_delete(
+    request: Request,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    # Clear the DB column first (source of truth for "no photo"), then
+    # best-effort remove the storage object. If the remove fails the next
+    # upload overwrites it.
+    profiles.update_creator_profile(
+        session["user_id"], {"profile_photo_url": None}
+    )
+    storage.delete_profile_photo(session["user_id"])
+    return RedirectResponse("/creator/profile?photo=removed", status_code=303)
 
 
 # -----------------------------------------------------------------------------

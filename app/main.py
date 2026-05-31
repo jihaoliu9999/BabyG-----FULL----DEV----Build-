@@ -178,13 +178,20 @@ class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
         # Minimal CSP. We don't load external scripts or stylesheets. Linked
         # CSS is same-origin only; inline style attributes are allowed because
         # a few operator templates still use `style=`.
+        # img-src includes the Supabase Storage origin so creator profile
+        # photos (hosted in the `profile-photos` public bucket) render.
+        settings = get_settings()
+        img_src = "img-src 'self' data:"
+        supabase_origin = _origin(settings.supabase_url)
+        if supabase_origin:
+            img_src = f"{img_src} {supabase_origin}"
         csp = (
-            "default-src 'self'; img-src 'self' data:; "
+            f"default-src 'self'; {img_src}; "
             "script-src 'self'; style-src 'self' 'unsafe-inline'; "
             "style-src-elem 'self'; "
             "form-action 'self'; frame-ancestors 'none';"
         )
-        if get_settings().env != "dev":
+        if settings.env != "dev":
             csp = f"{csp} upgrade-insecure-requests;"
         response.headers.setdefault(
             "Content-Security-Policy",
@@ -245,6 +252,21 @@ def _assert_session_secret(settings) -> None:
         raise RuntimeError(
             f"SESSION_SECRET must be at least 32 characters in env={settings.env}."
         )
+
+
+def _origin(url: str) -> str:
+    """Return scheme://host[:port] from a URL, or "" if unparseable."""
+    if not url:
+        return ""
+    try:
+        from urllib.parse import urlsplit
+
+        parts = urlsplit(url)
+        if not parts.scheme or not parts.netloc:
+            return ""
+        return f"{parts.scheme}://{parts.netloc}"
+    except ValueError:
+        return ""
 
 
 def _wants_html(request: Request) -> bool:
