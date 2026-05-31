@@ -22,5 +22,8 @@ httpx==0.27.2
 # --- Supabase ---
 supabase==2.10.0
 
+# --- Image processing (profile photos) ---
+pillow==11.0.0
+
 # --- Phase 2 AI assistant ---
 anthropic==0.39.0

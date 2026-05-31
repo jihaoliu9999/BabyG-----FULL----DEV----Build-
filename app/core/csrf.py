@@ -42,7 +42,11 @@ SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 # rejected with 413 before any per-route limit gets a chance to fire,
 # preventing a malicious POST from forcing the worker to allocate
 # unbounded memory on the CSRF path.
-MAX_CSRF_BODY_BYTES = 2 * 1024 * 1024  # 2 MiB
+#
+# 6 MiB headroom = 5 MiB profile-photo upload cap (see app/services/storage.py)
+# plus multipart envelope + CSRF field. Bump again if a future route needs
+# bigger bodies.
+MAX_CSRF_BODY_BYTES = 6 * 1024 * 1024
 
 # Routes that legitimately accept POSTs without a CSRF token. Keep this list
 # tiny and deliberate. /auth/callback is reachable from the email link in a
