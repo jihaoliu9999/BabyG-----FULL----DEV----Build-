@@ -1,0 +1,9 @@
+# Railway redeploy log
+
+Each line is a manual Railway redeploy trigger from this repo. Railway's
+git-watch on `main` picks up the merge commit and starts a fresh build.
+
+This file exists so the trigger has a real diff (otherwise PRs can't be
+opened) and so we have a record of when forced redeploys were needed.
+
+- 2026-06-01 — main was ahead of the running Railway deploy; manual trigger.
