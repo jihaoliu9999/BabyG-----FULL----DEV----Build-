@@ -921,15 +921,43 @@ h1, h2, h3, h4 {
 .field-hint { color: var(--ink-dim); font-size: 12.5px; margin-top: -2px; }
 
 .role-grid { display: flex; flex-direction: column; gap: 12px; }
+/* Primary interactive surface on the auth role-picker. Premium hover
+   keeps motion restrained: -3px lift, surface elevation by one token,
+   a monochrome triple-stack shadow for a soft halo. Layout-shift-free
+   (transform + shadow only). Focus state mirrors hover so keyboard
+   nav surfaces the same affordance. */
 .role-card {
+  display: block;
   background: var(--surface-1);
   border: 1px solid var(--hairline);
   border-radius: 18px;
   padding: 24px;
   text-align: left;
-  transition: border-color .2s, transform .2s;
+  transition:
+    background 240ms ease-in-out,
+    border-color 240ms ease-in-out,
+    transform 240ms ease-in-out,
+    box-shadow 280ms ease-in-out;
+  will-change: transform;
 }
-.role-card:hover { border-color: var(--hairline-strong); transform: translateY(-2px); }
+.role-card:hover,
+.role-card:focus-visible {
+  background: var(--surface-2);
+  border-color: var(--hairline-strong);
+  transform: translateY(-3px);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 18px 48px rgba(0, 0, 0, 0.30),
+    0 0 24px rgba(255, 255, 255, 0.04);
+}
+.role-card:focus-visible {
+  outline: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .role-card { transition: none; }
+  .role-card:hover,
+  .role-card:focus-visible { transform: none; box-shadow: none; }
+}
 .role-card .role-tag { display: block; margin-bottom: 12px; }
 .role-card h3 { font-size: 24px; margin: 0 0 8px; }
 .role-card p { color: var(--ink-mid); font-size: 13.5px; margin: 0 0 16px; }
