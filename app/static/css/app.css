@@ -504,7 +504,10 @@ h1, h2, h3, h4 {
   }
   .page-header .sub { max-width: 320px; }
   .page-header .actions { justify-content: center; width: 100%; }
-  .filter-row { justify-content: center; }
+  /* .filter-row deliberately NOT centered on mobile — when the chip set
+     overflows, justify-content: center starts the scroll mid-row, which
+     hides earlier options. Pinning to flex-start keeps the natural read
+     order. */
   .stat-row { justify-content: center; }
   .back-link { display: inline-flex; }
 
@@ -553,11 +556,31 @@ h1, h2, h3, h4 {
   display: flex;
   gap: 8px;
   margin-bottom: 22px;
+  /* Horizontal swipe scroll for pill rows that don't fit. Chips never
+     compress (flex-shrink: 0 + white-space: nowrap on .chip) so the
+     layout doesn't jitter when the active chip changes. */
   overflow-x: auto;
-  padding-bottom: 4px;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  overflow-anchor: none;
+  padding: 0 16px 4px;
+  margin-left: -16px;
+  margin-right: -16px;
+  scroll-snap-type: x proximity;
   -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;          /* firefox */
+  -ms-overflow-style: none;       /* legacy edge */
+  /* Soft right-edge fade so users see there's more content off-screen.
+     Mask is transparent in the last 24px; non-supporting browsers just
+     show a flat row, no visual breakage. */
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
+          mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent);
 }
-.filter-row::-webkit-scrollbar { display: none; }
+.filter-row::-webkit-scrollbar { display: none; } /* webkit */
+.filter-row > .chip {
+  flex: 0 0 auto;                 /* never shrink, always honor intrinsic width */
+  scroll-snap-align: start;
+}
 
 /* stack & grid */
 .stack > * + * { margin-top: 12px; }
