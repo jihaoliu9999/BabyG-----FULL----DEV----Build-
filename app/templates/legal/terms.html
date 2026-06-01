@@ -1,0 +1,66 @@
+{% extends "legal/_base.html" %}
+
+{% block title %}terms · babyg{% endblock %}
+{% block legal_eyebrow %}terms of service{% endblock %}
+{% block legal_title %}terms of service.{% endblock %}
+
+{% block legal_body %}
+<p>by using babyg, you agree to these terms. this version is written in plain english for the private beta. when babyg goes public, a longer lawyer-reviewed version will replace it.</p>
+
+<h2>eligibility</h2>
+<p>babyg is invite-only during the private beta. to use the platform you must be:</p>
+<ul>
+  <li>at least 18 years old.</li>
+  <li>a creator (or operator) invited to the platform.</li>
+  <li>willing to use your real email and real identity on the platform.</li>
+</ul>
+
+<h2>your account</h2>
+<p>you sign in using a magic link sent to your email. keeping that email account secure is your responsibility. if you think someone else has accessed your account, email <a href="mailto:{{ contact_email }}">{{ contact_email }}</a> and we'll suspend the session immediately.</p>
+<p>one person, one account. don't share credentials. don't impersonate someone else.</p>
+
+<h2>acceptable use</h2>
+<p>babyg is a tool for creators to manage their work. you agree not to:</p>
+<ul>
+  <li>harass, threaten, or abuse other creators or operators on the platform.</li>
+  <li>upload illegal content, hate speech, or content that sexualizes minors.</li>
+  <li>scrape the platform, reverse-engineer the API, or build derivative products on top of it without written permission.</li>
+  <li>use babyg to send spam, deceptive messages, or unsolicited bulk dms.</li>
+  <li>break any law in the jurisdiction where you live or where the brand you're working with operates.</li>
+</ul>
+<p>we may remove content, suspend, or close accounts that violate these rules. serious or repeat violations end the account permanently.</p>
+
+<h2>your content</h2>
+<p>you own the content you create. captions, ideas, drafts, post performance you log, photos you upload — yours.</p>
+<p>you grant babyg a limited license to store and process that content so the platform can do its job (display your profile to other creators, draft replies on your behalf, deliver dms to the recipient). this license ends when you delete the content or close your account.</p>
+
+<h2>AI assistance disclaimer</h2>
+<p>babyg's assistant drafts replies, captions, negotiation moves, and schedule suggestions. <strong>you approve every send.</strong> if a draft is wrong or doesn't sound like you, edit it or discard it. babyg is a co-pilot, not the pilot.</p>
+<p>the assistant uses a third-party large language model (anthropic claude). it can be wrong. it can hallucinate numbers. it can make up details. always read the draft before approving it.</p>
+
+<h2>not legal, tax, or financial advice</h2>
+<p>nothing babyg drafts or recommends is legal, tax, or financial advice. when babyg suggests a negotiation move, a rate, a usage-rights clause, or a payment schedule, treat it as a starting point. for anything that materially affects your money or your rights, talk to a real lawyer, accountant, or financial advisor.</p>
+
+<h2>brand deals and contracts</h2>
+<p>babyg can draft outreach, replies, and counter-offers. <strong>you are responsible for the deal you actually sign.</strong> the contract is between you and the brand. babyg is not a party to that contract and is not liable for its terms or for either party's performance.</p>
+<p>read the contract. ask questions. if a brand is asking for something that feels off, walk away.</p>
+
+<h2>platform availability</h2>
+<p>we run babyg on a best-effort basis. the platform may go down for maintenance, deploys, or unexpected outages. we don't guarantee uptime in the private beta. if a deal is time-sensitive, don't rely on babyg as the only channel.</p>
+
+<h2>account termination</h2>
+<p>you can close your account at any time by emailing <a href="mailto:{{ contact_email }}">{{ contact_email }}</a> from the address tied to your account. data deletion follows the steps on the <a href="/data-deletion">data deletion</a> page.</p>
+<p>we can suspend or close accounts for violations of these terms or the acceptable-use rules above. for serious violations (harassment, illegal content, fraud) we may close immediately without notice.</p>
+
+<h2>limitation of liability</h2>
+<p>babyg is provided "as is." to the maximum extent allowed by law, we are not liable for indirect, incidental, or consequential damages, including lost profits or lost data. our total liability for any claim arising from your use of babyg is capped at the amount you paid us for the service in the twelve months before the claim arose. for free private-beta accounts that cap is zero.</p>
+
+<h2>changes to these terms</h2>
+<p>we may update these terms. if a change is material, we'll bump the "last updated" date at the top and notify signed-in users in the app. continued use after the change means you accept the updated terms. if you don't accept them, email us to close your account.</p>
+
+<h2>governing law</h2>
+<p>these terms are governed by the laws of the state of florida, usa, where babyg operates. disputes will be brought in the state or federal courts located in miami-dade county.</p>
+
+<h2>contact</h2>
+<p>questions about these terms: <a href="mailto:{{ contact_email }}">{{ contact_email }}</a>.</p>
+{% endblock %}

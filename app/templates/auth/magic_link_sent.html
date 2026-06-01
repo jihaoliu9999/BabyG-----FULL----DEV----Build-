@@ -2,6 +2,7 @@
 {% import "_partials/brand_mark.html" as brand %}
 
 {% block title %}check your email — babyg{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/css/legal.css" />{% endblock %}
 
 {% block content %}
 <div class="auth-pane">
@@ -22,5 +23,15 @@
     <span>nothing yet? check spam</span>
     <span><a href="/auth/login?role={{ role }}" style="color:inherit;text-decoration:underline;">resend</a> · <a href="/get-started" style="color:inherit;text-decoration:underline;">wrong role</a></span>
   </div>
+
+  <nav class="legal-meta-strip" aria-label="legal">
+    <a href="/privacy">privacy</a>
+    <span class="sep">·</span>
+    <a href="/terms">terms</a>
+    <span class="sep">·</span>
+    <a href="/accessibility">accessibility</a>
+    <span class="sep">·</span>
+    <a href="/data-deletion">data deletion</a>
+  </nav>
 </div>
 {% endblock %}

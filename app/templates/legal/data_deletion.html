@@ -1,0 +1,60 @@
+{% extends "legal/_base.html" %}
+
+{% block title %}data deletion · babyg{% endblock %}
+{% block legal_eyebrow %}data deletion{% endblock %}
+{% block legal_title %}data deletion.{% endblock %}
+
+{% block legal_callout %}deletion today is a manual review, not a self-serve button. we don't have an automated "delete my account" flow yet, and we'd rather be honest about that than fake one. email us and we'll handle it.{% endblock %}
+
+{% block legal_body %}
+<p>you can ask us to delete your account or specific data tied to it at any time. this page explains exactly how, what gets removed, and what may stay behind for legal or security reasons.</p>
+
+<h2>how to request deletion</h2>
+<p>email <a href="mailto:{{ contact_email }}">{{ contact_email }}</a> from the email address tied to your babyg account. include:</p>
+<ul>
+  <li>"data deletion request" in the subject line.</li>
+  <li>what you want deleted: the whole account, or specific items (e.g. dms with a specific user, your bot conversation history).</li>
+  <li>any context that helps us identify the account — your full name on the platform or your instagram handle.</li>
+</ul>
+<p>requests sent from a different email than the one on file get an extra verification step before we act.</p>
+
+<h2>what we delete</h2>
+<p>when you request a full account deletion, we remove:</p>
+<ul>
+  <li>your account record (email, role assignment, sign-in metadata).</li>
+  <li>your creator profile and onboarding answers.</li>
+  <li>your uploaded profile photo and the underlying storage object.</li>
+  <li>your direct messages and dm threads where you are the sender or recipient. messages where another creator is the only remaining party are preserved on that other creator's account; their copy is theirs to delete.</li>
+  <li>your bot conversation history with the babyg AI assistant.</li>
+  <li>your bookings, calendar items, content receipts, and performance logs.</li>
+  <li>your OAuth tokens for any connected service (google calendar today, more later). we also disconnect on the provider side where we can.</li>
+  <li>your notifications and your entries in the network/connections graph.</li>
+</ul>
+
+<h2>what may be retained</h2>
+<p>some records may stay after deletion, narrowly and for stated reasons:</p>
+<ul>
+  <li><strong>operator audit log entries</strong> tied to abuse reports or moderation actions. these are kept for as long as needed to defend the platform and other creators from repeat actors.</li>
+  <li><strong>aggregated, anonymized analytics</strong> with no link back to your account.</li>
+  <li><strong>error logs</strong> that briefly recorded your user id alongside a traceback. these auto-rotate on our infrastructure provider's retention schedule.</li>
+  <li><strong>records we're legally required to keep</strong>, for example financial records related to any payment we may have processed.</li>
+</ul>
+<p>nothing in this retained bucket includes the contents of your dms, your bot conversations, or your profile information.</p>
+
+<h2>disconnecting connected accounts</h2>
+<p>if you connected google calendar (or any future provider) to babyg, we revoke our stored access token as part of deletion. you should also revoke babyg's access on the provider's side to be safe:</p>
+<ul>
+  <li>google: <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">myaccount.google.com/permissions</a></li>
+  <li>instagram, tiktok, twilio, gmail: these are not connected today. when they are, this list will tell you exactly where to revoke them.</li>
+</ul>
+
+<h2>timeframe</h2>
+<p>we aim to acknowledge deletion requests within two business days and complete the deletion within thirty days. it's usually much faster — the thirty-day window is there to cover providers whose deletion calls are queued, not instant.</p>
+<p>once a request is complete we send a confirmation email to the address that originated the request.</p>
+
+<h2>partial deletion</h2>
+<p>if you want to remove only a specific piece of data — a single dm thread, your profile photo, your bot history — say so in the email. we'll remove just that and leave the rest of the account in place.</p>
+
+<h2>contact</h2>
+<p>deletion requests, partial deletions, or questions about retention: <a href="mailto:{{ contact_email }}">{{ contact_email }}</a>.</p>
+{% endblock %}

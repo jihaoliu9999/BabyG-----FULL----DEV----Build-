@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 
 {% block title %}get started — babyg{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/css/legal.css" />{% endblock %}
 
 {% block content %}
 <section class="auth-pane">
@@ -26,5 +27,15 @@
       <span class="cta">continue →</span>
     </a>
   </div>
+
+  <nav class="legal-meta-strip" aria-label="legal">
+    <a href="/privacy">privacy</a>
+    <span class="sep">·</span>
+    <a href="/terms">terms</a>
+    <span class="sep">·</span>
+    <a href="/accessibility">accessibility</a>
+    <span class="sep">·</span>
+    <a href="/data-deletion">data deletion</a>
+  </nav>
 </section>
 {% endblock %}
