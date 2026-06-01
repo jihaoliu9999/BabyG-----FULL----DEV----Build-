@@ -1160,80 +1160,10 @@
 .lp .av-g5 { background: linear-gradient(135deg, #5a4a3a, #2a201a); }
 
 /* --------------- stats --------------- */
-.lp .lp-stats {
-  padding: 80px 0;
-  border-top: 1px solid var(--lp-hairline);
-  border-bottom: 1px solid var(--lp-hairline);
-  position: relative;
-  overflow: hidden;
-}
-.lp .lp-stats::before {
-  content: "";
-  position: absolute;
-  width: 900px; height: 900px;
-  right: -300px; top: 50%;
-  transform: translateY(-50%) rotate(15deg);
-  background: url("/static/assets/logo-bg.png") center / contain no-repeat;
-  opacity: 0.035;
-  pointer-events: none;
-}
-.lp .lp-stats > .wrap-wide { position: relative; z-index: 2; }
-.lp .lp-stats-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-}
-.lp .lp-stat {
-  text-align: center;
-  padding: 32px 16px 24px;
-  border-radius: 18px;
-  cursor: default;
-  position: relative;
-  transition: transform .35s cubic-bezier(.2,.7,.2,1), background .25s ease;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-}
-.lp .lp-stat::before {
-  content: "";
-  position: absolute;
-  top: 14px; left: 50%;
-  transform: translateX(-50%);
-  width: 0; height: 2px;
-  background: var(--lp-lime);
-  border-radius: 1px;
-  box-shadow: 0 0 8px var(--lp-lime);
-  transition: width .35s cubic-bezier(.2,.7,.2,1);
-}
-.lp .lp-stat:hover {
-  transform: translateY(-6px);
-  background: rgba(255,255,255,0.025);
-}
-.lp .lp-stat:hover::before { width: 40px; }
-.lp .lp-stat .num {
-  font-weight: var(--lp-display-weight);
-  font-size: clamp(48px, 5.5vw, 84px);
-  letter-spacing: var(--lp-display-track);
-  line-height: 1;
-  background: linear-gradient(180deg, #ffffff 0%, #cbd5e0 45%, #8794ad 100%);
-  -webkit-background-clip: text;
-          background-clip: text;
-  -webkit-text-fill-color: transparent;
-          color: transparent;
-  transition: filter .35s ease, transform .35s ease;
-}
-.lp .lp-stat:hover .num {
-  filter: drop-shadow(0 0 24px rgba(160,200,255,0.4));
-  transform: scale(1.04);
-}
-.lp .lp-stat .label {
-  font-family: var(--lp-mono);
-  font-size: 11px;
-  color: var(--lp-ink-dim);
-  margin-top: 18px;
-  letter-spacing: 0.20em;
-  text-transform: uppercase;
-  transition: color .25s ease;
-}
-.lp .lp-stat:hover .label { color: var(--lp-ink); }
+/* Homepage stats section (lp-stats / .lp-stat / .num / .label, plus
+   the IntersectionObserver-driven [data-count] counter in landing.js)
+   was removed — the four metrics block didn't earn its place on the
+   page. If you're putting it back, restore from PR #14's parent. */
 
 /* --------------- footer --------------- */
 .lp .lp-footer {
@@ -1318,7 +1248,7 @@
   .lp .mod-head .right { text-align: left; }
   .lp .mod-grid { grid-template-columns: 1fr; }
   .lp .feature-grid { grid-template-columns: 1fr; }
-  .lp .lp-how-grid, .lp .scn-grid, .lp .lp-stats-grid, .lp .lp-network-grid { grid-template-columns: 1fr; }
+  .lp .lp-how-grid, .lp .scn-grid, .lp .lp-network-grid { grid-template-columns: 1fr; }
   .lp .lp-step { border-right: 0; border-bottom: 1px solid var(--lp-hairline); }
   .lp .lp-step:last-child { border-bottom: 0; }
   .lp .navlinks { display: none; }

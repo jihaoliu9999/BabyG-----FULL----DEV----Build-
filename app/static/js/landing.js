@@ -54,34 +54,9 @@
     })();
   }
 
-  var countEls = root.querySelectorAll("[data-count]");
-  if (countEls.length && "IntersectionObserver" in window) {
-    var ciO = new IntersectionObserver(function (entries) {
-      entries.forEach(function (e) {
-        if (!e.isIntersecting) return;
-        var el = e.target;
-        var target = parseInt(el.dataset.count, 10);
-        var suffix = el.dataset.suffix || "";
-        if (target === 0) {
-          ciO.unobserve(el);
-          return;
-        }
-        var n = 0;
-        var dur = 1100;
-        var start = performance.now();
-        function tick(now) {
-          var t = Math.min(1, (now - start) / dur);
-          var eased = 1 - Math.pow(1 - t, 3);
-          n = Math.round(target * eased);
-          el.textContent = n + suffix;
-          if (t < 1) requestAnimationFrame(tick);
-        }
-        requestAnimationFrame(tick);
-        ciO.unobserve(el);
-      });
-    }, { threshold: 0.4 });
-    countEls.forEach(function (el) { ciO.observe(el); });
-  }
+  // The IntersectionObserver-driven [data-count] counter animation
+  // for the homepage stats section was removed alongside the markup.
+  // No other surface used data-count, so the helper went with it.
 
   var bgMarks = root.querySelectorAll(".bg-mark");
   if (bgMarks.length && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
