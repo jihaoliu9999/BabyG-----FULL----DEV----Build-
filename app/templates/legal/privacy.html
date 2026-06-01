@@ -1,0 +1,99 @@
+{% extends "legal/_base.html" %}
+
+{% block title %}privacy · babyg{% endblock %}
+{% block legal_eyebrow %}privacy policy{% endblock %}
+{% block legal_title %}privacy policy.{% endblock %}
+
+{% block legal_body %}
+<p>babyg is an AI manager for creators. this page explains what we collect, why we collect it, who can see it, and how you can ask us to delete it. plain english, no dark patterns.</p>
+
+<h2>what we collect</h2>
+
+<h3>account information</h3>
+<p>your email address (used for the magic-link sign-in), the role assigned to your account (creator or operator), and timestamps for when your account was created and last signed in.</p>
+
+<h3>profile information</h3>
+<p>anything you fill in on your creator profile: name, instagram handle, primary platform, neighborhood, follower range, engagement range, creator tenure, niches, content formats, bio, and hard limits.</p>
+
+<h3>onboarding answers</h3>
+<p>the questions answered during onboarding (tier, writing samples, content preferences). these inform what babyg drafts on your behalf.</p>
+
+<h3>messages and dms</h3>
+<p>direct messages you send or receive on the platform, including the body, sender/recipient, and timestamps. messages between two creators are visible to both of them and to babyg operators when a report is filed.</p>
+
+<h3>bot conversations</h3>
+<p>your conversation history with the babyg AI assistant, including your prompts and the assistant's drafts. this is required to give the assistant short-term memory across a session.</p>
+
+<h3>bookings and calendar items</h3>
+<p>bookings you create inside babyg, including titles, times, locations, and notes. if you connect google calendar via OAuth, the access token is stored encrypted so babyg can read upcoming events and create new ones on your behalf.</p>
+
+<h3>content receipts and performance logs</h3>
+<p>manually-entered post performance (views, likes, comments, etc.) and any receipt-style notes you log against a content item.</p>
+
+<h3>uploaded media</h3>
+<p>profile photos you upload. images are EXIF-stripped, resized to a small square, and stored in a Supabase Storage bucket dedicated to profile photos. embedded GPS data is removed before upload.</p>
+
+<h3>connected accounts</h3>
+<p>OAuth tokens for services you choose to connect. today: google calendar. planned for later: instagram, tiktok, gmail, twilio sms. tokens are stored encrypted and used only to perform the actions you've authorized.</p>
+
+<h3>cookies and session data</h3>
+<p>a signed session cookie (so we know you're signed in), a CSRF cookie (so forms can't be submitted from other sites), and a short-lived role-hint cookie used during the magic-link sign-in. we don't use third-party advertising or analytics cookies today.</p>
+
+<h3>error logs</h3>
+<p>when something on the server breaks, we log the traceback and the URL path. logs may briefly include your user id so we can pair the error to a session. we don't log message bodies, dms, or bot prompts.</p>
+
+<h2>how we use this</h2>
+<ul>
+  <li>running the product: routing your dms, drafting replies, building your feed, syncing calendar items.</li>
+  <li>generating AI suggestions: your profile, messages, and bookings are passed to anthropic's claude model so the assistant can draft on your behalf. you approve every send.</li>
+  <li>security and abuse handling: detecting policy violations and responding to abuse reports.</li>
+  <li>product improvement: aggregated, non-identifying patterns (e.g. "how often is the draft accepted") may inform roadmap decisions.</li>
+</ul>
+<p>we do not use your data to train AI models. we don't sell personal information to anyone.</p>
+
+<h2>who can access it</h2>
+<ul>
+  <li>you, on your own account.</li>
+  <li>other creators on babyg, but only the fields explicitly shared in the network directory (name, handle, neighborhood, niches, public bio). dms are visible only to the sender and recipient.</li>
+  <li>babyg operators, when investigating an abuse report or supporting a tagged ticket.</li>
+  <li>the service providers listed below, strictly to keep the service running.</li>
+</ul>
+
+<h2>service providers</h2>
+<p>babyg runs on a small set of trusted infrastructure providers. each one has its own privacy practices.</p>
+<dl>
+  <dt>Supabase</dt>
+  <dd>database, authentication (magic links), file storage. hosts your profile, messages, bookings, and photos.</dd>
+  <dt>Railway</dt>
+  <dd>application hosting and deploy infrastructure.</dd>
+  <dt>Resend</dt>
+  <dd>transactional email delivery (the magic-link sign-in email).</dd>
+  <dt>Anthropic</dt>
+  <dd>large language model behind the babyg AI assistant. messages passed to anthropic are not used to train their models per their commercial API terms.</dd>
+  <dt>Google</dt>
+  <dd>OAuth and google calendar API, only if you connect your calendar.</dd>
+  <dt>Meta, TikTok, Twilio (planned)</dt>
+  <dd>not connected today. when added, this page will be updated and you'll be asked to consent before any data flows to those services.</dd>
+</dl>
+
+<h2>data retention</h2>
+<p>we retain your data while your account is active. if you delete your account, we delete the data as described on the <a href="/data-deletion">data deletion</a> page. some logs may be retained longer for security or legal reasons; see that page for specifics.</p>
+
+<h2>deletion requests</h2>
+<p>you can request account or data deletion at any time. follow the steps on the <a href="/data-deletion">data deletion</a> page, or email <a href="mailto:{{ contact_email }}">{{ contact_email }}</a> from the email address tied to your account.</p>
+
+<h2>security</h2>
+<p>we encrypt connections with TLS, use row-level security on the database so users can't read each other's rows, and store OAuth tokens encrypted at rest. no system is perfect. we work to patch known issues quickly and will notify affected accounts if a breach involves personal data.</p>
+
+<h2>no selling personal information</h2>
+<p>we do not sell, rent, or otherwise transfer your personal information to third parties for their own marketing or advertising purposes.</p>
+
+<h2>children</h2>
+<p>babyg is for adults. we don't knowingly collect information from anyone under 18. if you believe a minor has signed up, email us and we'll close the account.</p>
+
+<h2>changes to this policy</h2>
+<p>if we change anything material, we'll update the "last updated" date at the top and, where possible, notify signed-in users in the app. continued use after a change means you accept the updated policy.</p>
+
+<h2>contact</h2>
+<p>questions, deletion requests, or anything else: <a href="mailto:{{ contact_email }}">{{ contact_email }}</a>.</p>
+{% endblock %}

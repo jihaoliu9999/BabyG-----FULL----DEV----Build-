@@ -1,0 +1,54 @@
+{% extends "legal/_base.html" %}
+
+{% block title %}accessibility · babyg{% endblock %}
+{% block legal_eyebrow %}accessibility statement{% endblock %}
+{% block legal_title %}accessibility.{% endblock %}
+
+{% block legal_body %}
+<p>babyg should be usable for every creator, on every device, with every assistive technology. we're not there yet. this page describes what we work toward and how to tell us when we miss.</p>
+
+<h2>our commitment</h2>
+<p>we aim to make babyg conform to the <strong>web content accessibility guidelines (WCAG) 2.1 level AA</strong> as a baseline. this is an ongoing effort, not a finished claim, and we treat accessibility bugs the same way we treat any other production bug.</p>
+
+<h2>mobile-first design</h2>
+<p>babyg is built mobile-first. specifically:</p>
+<ul>
+  <li>form inputs use a 16px minimum font size so mobile safari doesn't zoom and lose context on focus.</li>
+  <li>safe-area insets are respected on iphone notch and home-indicator devices.</li>
+  <li>tap targets follow a minimum 44×44 px guidance where practical.</li>
+  <li>color contrast is checked against the babyg dark palette during design review.</li>
+</ul>
+
+<h2>keyboard and screen reader goals</h2>
+<p>we work to make every interactive element reachable by keyboard alone, and every meaningful image, button, or icon labeled for screen readers.</p>
+<ul>
+  <li>semantic HTML for headings, lists, forms, and landmarks.</li>
+  <li>visible focus states on all keyboard-focusable elements.</li>
+  <li><code>aria-label</code> on icon-only buttons and avatars.</li>
+  <li>form fields with associated <code>&lt;label&gt;</code> elements.</li>
+</ul>
+<p>we know there are gaps. some pages still rely on motion or visual cues that aren't yet announced to screen readers. fixing those is on the roadmap.</p>
+
+<h2>motion and animation</h2>
+<p>the landing page uses subtle scroll-reveal and parallax. these honor <code>prefers-reduced-motion</code> in most places, and we're working to add it everywhere it's missing.</p>
+
+<h2>ongoing improvements</h2>
+<p>we audit accessibility periodically and treat findings as bugs to be fixed in the next release. when a report comes in, we triage it on the same schedule as any other production issue.</p>
+
+<h2>report an issue</h2>
+<p>if you hit an accessibility barrier — a button you can't reach with a keyboard, an unlabeled icon, a contrast problem, a screen-reader misread — please tell us:</p>
+<ul>
+  <li>email <a href="mailto:{{ contact_email }}">{{ contact_email }}</a></li>
+  <li>include the page url, the device and browser you're using, and a short description of what didn't work.</li>
+  <li>if you use a screen reader, please tell us which one and which version.</li>
+</ul>
+
+<h2>response process</h2>
+<p>we aim to acknowledge accessibility reports within two business days and tell you whether a fix is in the next release or further out. urgent issues (something that fully blocks access) get triaged immediately.</p>
+
+<h2>what this statement is not</h2>
+<p>this is not a claim of full compliance with any specific standard. we aim toward WCAG 2.1 AA but have not been audited by a third party. the words "we aim to" and "we work to" are deliberate. they describe an ongoing commitment, not a finished state.</p>
+
+<h2>contact</h2>
+<p>accessibility questions or reports: <a href="mailto:{{ contact_email }}">{{ contact_email }}</a>.</p>
+{% endblock %}

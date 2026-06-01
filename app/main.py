@@ -24,6 +24,7 @@ from app.core.templating import templates
 from app.routes import abuse as abuse_routes
 from app.routes import auth as auth_routes
 from app.routes import creator as creator_routes
+from app.routes import legal as legal_routes
 from app.routes import marketing as marketing_routes
 from app.routes import onboarding as onboarding_routes
 from app.routes import operator as operator_routes
@@ -67,6 +68,7 @@ def create_app() -> FastAPI:
     app.include_router(creator_routes.router)
     app.include_router(operator_routes.router)
     app.include_router(abuse_routes.router)
+    app.include_router(legal_routes.router)
 
     @app.get("/healthz", tags=["system"])
     async def healthz() -> JSONResponse:
