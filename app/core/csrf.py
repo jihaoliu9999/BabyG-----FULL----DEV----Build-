@@ -43,10 +43,12 @@ SAFE_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
 # preventing a malicious POST from forcing the worker to allocate
 # unbounded memory on the CSRF path.
 #
-# 6 MiB headroom = 5 MiB profile-photo upload cap (see app/services/storage.py)
-# plus multipart envelope + CSRF field. Bump again if a future route needs
-# bigger bodies.
-MAX_CSRF_BODY_BYTES = 6 * 1024 * 1024
+# 11 MiB headroom = 10 MiB profile-photo upload cap (see
+# app/services/storage.py:MAX_UPLOAD_BYTES) plus multipart envelope +
+# CSRF field. Keep this in lockstep with the storage cap; the
+# middleware buffers the whole multipart body to extract the token,
+# so a route cap above this one would silently 413 every upload.
+MAX_CSRF_BODY_BYTES = 11 * 1024 * 1024
 
 # Routes that legitimately accept POSTs without a CSRF token. Keep this list
 # tiny and deliberate. /auth/callback is reachable from the email link in a
