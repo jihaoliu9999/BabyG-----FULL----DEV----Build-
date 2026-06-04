@@ -22,8 +22,23 @@ from app.core import supabase_client
 
 logger = logging.getLogger(__name__)
 
+# Pillow defaults MAX_IMAGE_PIXELS to ~89 MP and only emits a warning,
+# not an error, when an image exceeds it. A maliciously-crafted 5 MB
+# JPEG can decompress to roughly that size and force `ImageOps.fit` to
+# allocate hundreds of MB of RAM. Pin a stricter cap (~25 MP — well above
+# any legitimate phone camera) so Pillow raises `DecompressionBombError`
+# on bombs and the route surfaces a clean `?photo=corrupt` flash.
+Image.MAX_IMAGE_PIXELS = 25_000_000
+
 BUCKET: Final = "profile-photos"
-MAX_UPLOAD_BYTES: Final = 5 * 1024 * 1024  # raw upload cap before resize
+# Raw upload cap before client- or server-side resize. Sized to fit the
+# 8 MB iPhone HDR photos some users send when the browser-side
+# compressor in profile.js can't decode their file (e.g., HEIC on a
+# non-Safari browser). The final stored object is always 512x512 JPEG,
+# ~30-80 KB, so this cap controls memory and bandwidth, not bucket
+# footprint. Bump the CSRF body cap in app/core/csrf.py in lockstep —
+# the middleware buffers the whole multipart body to extract the token.
+MAX_UPLOAD_BYTES: Final = 10 * 1024 * 1024
 OUTPUT_SIZE: Final = 512  # square px
 OUTPUT_QUALITY: Final = 82
 ALLOWED_CONTENT_TYPES: Final = frozenset(
@@ -108,5 +123,10 @@ def _normalize_to_square_jpeg(raw: bytes) -> bytes:
             out = io.BytesIO()
             im.save(out, format="JPEG", quality=OUTPUT_QUALITY, optimize=True)
             return out.getvalue()
+    # DecompressionBombError subclasses Image.DecompressionBombWarning in
+    # some Pillow versions and Exception in others — catch both explicitly
+    # so a malicious upload always becomes a clean PhotoDecodeError.
+    except Image.DecompressionBombError as e:
+        raise PhotoDecodeError(f"image too large to process: {e}") from e
     except (UnidentifiedImageError, OSError, ValueError) as e:
         raise PhotoDecodeError(str(e)) from e

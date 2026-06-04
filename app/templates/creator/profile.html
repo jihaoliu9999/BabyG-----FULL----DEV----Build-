@@ -57,6 +57,8 @@
                data-profile-photo-input style="display:none;" />
       </label>
       <button type="submit" class="btn btn-lime btn-sm" hidden data-profile-photo-submit>save</button>
+      <span class="mono" data-profile-photo-status hidden
+            style="font-size:10px;letter-spacing:0.14em;color:var(--ink-dim);text-transform:uppercase;margin-left:4px;"></span>
     </form>
     {% if profile.profile_photo_url %}
     <form method="post" action="/creator/profile/photo/delete" style="display:inline;margin:0;">

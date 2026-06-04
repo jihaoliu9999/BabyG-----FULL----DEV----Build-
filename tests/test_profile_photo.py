@@ -212,3 +212,39 @@ def test_storage_normalize_strips_exif_and_resizes() -> None:
 def test_storage_decode_error_on_garbage() -> None:
     with pytest.raises(storage_module.PhotoDecodeError):
         storage_module._normalize_to_square_jpeg(b"not an image at all")
+
+
+def test_storage_raw_upload_cap_is_ten_mib() -> None:
+    """The raw cap controls memory + bandwidth, not bucket footprint.
+    Pinning this so a future tweak doesn't silently re-block iPhone
+    HDR uploads (which routinely sit between 5 and 10 MB)."""
+    assert storage_module.MAX_UPLOAD_BYTES == 10 * 1024 * 1024
+
+
+def test_storage_pillow_decompression_bomb_cap_is_pinned() -> None:
+    """Without an explicit cap Pillow only warns at ~89 MP. A 5 MB
+    crafted JPEG can decompress to that and force `ImageOps.fit` to
+    allocate hundreds of MB. The module sets a stricter cap at
+    import time; this test pins it so a future refactor that drops
+    the line gets caught."""
+    from PIL import Image
+
+    # 25 MP is well above any phone camera and well below the
+    # ~89 MP default that lets bombs through silently.
+    assert Image.MAX_IMAGE_PIXELS == 25_000_000
+
+
+def test_storage_decompression_bomb_becomes_clean_decode_error() -> None:
+    """A real bomb (image whose declared dimensions exceed the cap)
+    must surface as PhotoDecodeError so the route returns a calm
+    `?photo=corrupt` flash instead of bubbling a 500. Pillow only
+    raises DecompressionBombError at 2x MAX_IMAGE_PIXELS (it only
+    warns at 1x), so the test image is sized well above that line."""
+    from PIL import Image
+
+    # 8000x8000 = 64 MP > 50 MP (2x the 25M cap), so Pillow raises.
+    raw = io.BytesIO()
+    Image.new("RGB", (8000, 8000), color="white").save(raw, format="PNG")
+
+    with pytest.raises(storage_module.PhotoDecodeError):
+        storage_module._normalize_to_square_jpeg(raw.getvalue())
