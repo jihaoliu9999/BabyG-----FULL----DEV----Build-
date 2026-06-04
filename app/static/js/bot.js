@@ -1,41 +1,206 @@
+/* bot.js — async chat with no full-page reload.
+ *
+ * The form is a real <form method="post" action="/creator/bot"> so a
+ * no-JS client (disabled JS, JS error, fetch failure) still works the
+ * old PRG way: browser navigates, server redirects back. With JS, we
+ * intercept submit, POST the same FormData via fetch with
+ * X-Requested-With: fetch, swap the message list <ol> innerHTML with
+ * the server-rendered partial, and never reload the page shell.
+ *
+ * Action card confirm/cancel forms are intercepted via delegation —
+ * any <form data-bot-action> goes through the same async path.
+ *
+ * CSRF: untouched. We send the same FormData the native form would,
+ * so the csrf_token hidden input rides along and the middleware
+ * verifies it from the body exactly like before.
+ */
 (() => {
   const composer = document.querySelector("[data-bot-composer]");
   const submit = document.querySelector("[data-bot-submit]");
   const textarea = document.getElementById("bot-message");
+  const messageList = document.getElementById("botMessages");
+  const errorSlot = document.querySelector("[data-bot-error-slot]");
+
+  if (!composer || !submit || !textarea || !messageList) return;
+
+  let inFlight = false;
+
+  const isScrolledToBottom = (el) => {
+    const slack = 40;
+    return el.scrollHeight - el.scrollTop - el.clientHeight < slack;
+  };
 
   const scrollToLatest = () => {
-    if (composer) {
-      composer.scrollIntoView({ block: "end", behavior: "smooth" });
+    const last = messageList.lastElementChild;
+    if (last && last.scrollIntoView) {
+      last.scrollIntoView({ block: "end", behavior: "smooth" });
     }
   };
 
+  // Initial scroll on page load: pin to the latest message.
   scrollToLatest();
 
-  if (!composer || !submit || !textarea) {
-    return;
+  const setBusy = (busy) => {
+    inFlight = busy;
+    if (busy) {
+      submit.setAttribute("disabled", "disabled");
+      submit.setAttribute("aria-busy", "true");
+      textarea.setAttribute("readonly", "readonly");
+    } else {
+      submit.removeAttribute("disabled");
+      submit.removeAttribute("aria-busy");
+      textarea.removeAttribute("readonly");
+    }
+  };
+
+  const addTyping = () => {
+    const li = document.createElement("li");
+    li.className = "bot-message assistant";
+    li.setAttribute("data-bot-typing", "");
+    li.innerHTML =
+      '<span class="meta">babyg</span>' +
+      '<div class="bubble" aria-label="thinking"><span class="bot-typing-dots"><span></span><span></span><span></span></span></div>';
+    messageList.appendChild(li);
+    scrollToLatest();
+    return li;
+  };
+
+  const removeTyping = () => {
+    const t = messageList.querySelector("[data-bot-typing]");
+    if (t) t.remove();
+  };
+
+  const showInlineError = (text) => {
+    if (!errorSlot) return;
+    errorSlot.innerHTML =
+      '<div class="bot-banner bot-banner-error" data-bot-banner ' +
+      'style="margin:0 24px 12px;padding:12px 16px;background:rgba(255,77,109,0.1);' +
+      'border:1px solid var(--lime);border-radius:12px;color:var(--lime);font-size:13px;">' +
+      escapeHtml(text) +
+      "</div>";
+  };
+
+  const clearInlineError = () => {
+    if (!errorSlot) return;
+    errorSlot.innerHTML = "";
+  };
+
+  const escapeHtml = (s) =>
+    String(s).replace(/[&<>"']/g, (c) =>
+      ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])
+    );
+
+  const swapList = (html, preserveBottomLock) => {
+    const wasAtBottom = preserveBottomLock && isScrolledToBottom(messageList);
+    const prevScroll = messageList.scrollTop;
+    messageList.innerHTML = html;
+    if (wasAtBottom) {
+      scrollToLatest();
+    } else {
+      messageList.scrollTop = prevScroll;
+    }
+  };
+
+  // The server returns the partial as either:
+  //   - a chunk of <li> + optional banner (200 OK), or
+  //   - same shape with an embedded error banner (4xx)
+  // The partial sometimes leads with the banner (.bot-banner-error)
+  // and sometimes with <li> messages. We split: any leading banner
+  // goes to errorSlot, the rest replaces the message-list innerHTML.
+  const applyPartial = (html) => {
+    clearInlineError();
+    const wrap = document.createElement("div");
+    wrap.innerHTML = html;
+    const banner = wrap.querySelector(".bot-banner");
+    if (banner && errorSlot) {
+      errorSlot.innerHTML = banner.outerHTML;
+      banner.remove();
+    }
+    swapList(wrap.innerHTML, true);
+  };
+
+  async function postForm(form) {
+    const fd = new FormData(form);
+    return fetch(form.action, {
+      method: form.method || "POST",
+      body: fd,
+      headers: { "X-Requested-With": "fetch" },
+      credentials: "same-origin",
+    });
   }
 
-  composer.addEventListener("submit", () => {
+  async function send() {
+    if (inFlight) return;
     const value = textarea.value.trim();
-    if (!value) {
-      return;
+    if (!value) return;
+
+    clearInlineError();
+    setBusy(true);
+    addTyping();
+
+    try {
+      const resp = await postForm(composer);
+      const html = await resp.text();
+      removeTyping();
+      if (resp.ok) {
+        applyPartial(html);
+        textarea.value = "";
+      } else {
+        // The 400 response is still the same partial with an embedded
+        // banner — apply it so the existing history doesn't vanish.
+        applyPartial(html);
+      }
+    } catch (_e) {
+      removeTyping();
+      showInlineError(
+        "couldn't reach babyg. your message wasn't sent — try again."
+      );
+    } finally {
+      setBusy(false);
+      textarea.focus();
     }
-    // Submit-button feedback only — no fake "thinking" bubble.
-    // The browser navigates away after POST; on response the page
-    // reloads with fresh HTML and these states naturally reset.
-    submit.setAttribute("disabled", "disabled");
-    submit.setAttribute("aria-busy", "true");
-    textarea.setAttribute("readonly", "readonly");
-    scrollToLatest();
+  }
+
+  composer.addEventListener("submit", (e) => {
+    e.preventDefault();
+    send();
   });
 
   textarea.addEventListener("keydown", (event) => {
-    if (event.key !== "Enter" || event.shiftKey) {
+    if (event.key !== "Enter" || event.shiftKey) return;
+    event.preventDefault();
+    if (textarea.value.trim() && !inFlight) {
+      composer.requestSubmit();
+    }
+  });
+
+  // Delegated handler for action card confirm/cancel forms inside the
+  // message list. They re-render after each list swap, so we listen on
+  // the parent.
+  messageList.addEventListener("submit", async (e) => {
+    const form = e.target.closest("form[data-bot-action]");
+    if (!form) return;
+    if (inFlight) {
+      e.preventDefault();
       return;
     }
-    event.preventDefault();
-    if (textarea.value.trim()) {
-      composer.requestSubmit();
+    e.preventDefault();
+    setBusy(true);
+    addTyping();
+    try {
+      const resp = await postForm(form);
+      const html = await resp.text();
+      removeTyping();
+      if (resp.ok || resp.status === 400) {
+        applyPartial(html);
+      } else {
+        showInlineError("couldn't save that action — try again.");
+      }
+    } catch (_e) {
+      removeTyping();
+      showInlineError("network error — your action wasn't saved.");
+    } finally {
+      setBusy(false);
     }
   });
 })();

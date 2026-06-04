@@ -26,7 +26,8 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from app.core.security import SessionPayload
 from app.core.templating import templates
 from app.deps import require_role
-from app.services import profiles
+from app.integrations import google_calendar
+from app.services import oauth_connections, profiles
 
 logger = logging.getLogger(__name__)
 
@@ -73,6 +74,26 @@ async def creator_form(
     profile = profiles.get_creator_profile(session["user_id"]) or {}
     if profile.get("onboarding_completed_at"):
         return RedirectResponse("/creator", status_code=302)
+
+    # Step 4 (integrations) renders the same partial used on
+    # profile/settings. Google Calendar is the only real connector
+    # today; the rest are coming-soon and don't read these flags.
+    # Wrapped defensively so a missing-Supabase test environment
+    # doesn't blow up the wizard render — the worst case is the
+    # Google connect card showing "not configured".
+    try:
+        google_configured = google_calendar.is_configured()
+    except Exception:
+        logger.exception("onboarding: google_calendar.is_configured failed")
+        google_configured = False
+    try:
+        google_connected = (
+            oauth_connections.get_google_connection(session["user_id"]) is not None
+        )
+    except Exception:
+        logger.exception("onboarding: get_google_connection failed")
+        google_connected = False
+
     return templates.TemplateResponse(
         request,
         "onboarding/creator.html",
@@ -80,6 +101,8 @@ async def creator_form(
             "profile": profile,
             "vocab": _creator_vocab(),
             "error": None,
+            "google_configured": google_configured,
+            "google_connected": google_connected,
         },
     )
 

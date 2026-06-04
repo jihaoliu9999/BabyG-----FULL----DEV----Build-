@@ -249,3 +249,71 @@ def test_onboarding_creator_requires_auth(client, store):
     assert r.headers["location"] == "/auth/login?role=creator"
     r = client.get("/onboarding/creator", headers={"accept": "application/json"})
     assert r.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# Stepped wizard structure (Part B): the form is now organized into
+# four <fieldset data-onb-step="N"> sections plus the integrations
+# grid partial. Pin the markers so a future refactor that drops one
+# of the steps surfaces clearly.
+# ---------------------------------------------------------------------------
+
+
+def test_onboarding_creator_renders_four_steps_and_integrations(
+    monkeypatch, client, store
+):
+    from app.routes import onboarding as onboarding_routes
+
+    _signed_in(client, role="creator", user_id="u-1")
+
+    monkeypatch.setattr(
+        onboarding_routes.google_calendar,
+        "is_configured",
+        lambda: False,
+    )
+    monkeypatch.setattr(
+        onboarding_routes.oauth_connections,
+        "get_google_connection",
+        lambda uid: None,
+    )
+
+    r = client.get("/onboarding/creator")
+    assert r.status_code == 200
+    # Four step pips.
+    for n in range(1, 5):
+        assert f'data-onb-step-pip="{n}"' in r.text
+    # Four step fieldsets.
+    for n in range(1, 5):
+        assert f'data-onb-step="{n}"' in r.text
+    # Integrations partial included — has the brand labels and a
+    # coming-soon marker for the non-Google providers.
+    assert "Google Calendar" in r.text
+    assert "Gmail" in r.text
+    assert "Instagram" in r.text
+    assert "TikTok" in r.text
+    assert "coming soon" in r.text
+    # No fake connect buttons for the non-Google providers — they
+    # render as <button disabled>, not <a href="/creator/.../connect">.
+    assert "/creator/gmail/connect" not in r.text
+    assert "/creator/instagram/connect" not in r.text
+    assert "/creator/tiktok/connect" not in r.text
+
+
+def test_onboarding_passes_google_flags_when_configured(monkeypatch, client, store):
+    from app.routes import onboarding as onboarding_routes
+
+    _signed_in(client, role="creator", user_id="u-1")
+    monkeypatch.setattr(
+        onboarding_routes.google_calendar, "is_configured", lambda: True
+    )
+    monkeypatch.setattr(
+        onboarding_routes.oauth_connections,
+        "get_google_connection",
+        lambda uid: None,
+    )
+
+    r = client.get("/onboarding/creator")
+    assert r.status_code == 200
+    # Real connect link visible for Google Calendar.
+    assert "/creator/google/calendar/connect" in r.text
+    assert "connect Google Calendar" in r.text

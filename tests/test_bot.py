@@ -1035,3 +1035,191 @@ def test_bot_does_not_crash_on_stats_question_with_empty_data(monkeypatch) -> No
     # Turn completes, response surfaces the stats reality clause.
     assert "manually logged" in result.response.lower()
     assert "Meta/TikTok integration" in result.response
+
+
+# ---------------------------------------------------------------------------
+# Async / AJAX path: X-Requested-With: fetch returns the bot_messages
+# partial instead of redirecting, so the chat surface can swap innerHTML
+# without a full-page reload.
+# ---------------------------------------------------------------------------
+
+
+def test_bot_post_ajax_returns_message_partial(monkeypatch, client: TestClient) -> None:
+    _signed_in(client, role="creator", user_id="creator-1")
+    monkeypatch.setattr(
+        creator_routes.profiles,
+        "get_creator_profile",
+        lambda uid: {"onboarding_completed_at": "2026-05-01T00:00:00Z"},
+    )
+    monkeypatch.setattr(
+        creator_routes.bot,
+        "handle_creator_message",
+        lambda *, user_id, content: bot_service.BotTurnResult(response="Drafted."),
+    )
+    monkeypatch.setattr(
+        creator_routes.bot,
+        "list_messages",
+        lambda uid: [
+            {"role": "user", "content": "Draft a caption", "flagged": False},
+            {"role": "assistant", "content": "Drafted.", "flagged": False},
+        ],
+    )
+
+    r = client.post(
+        "/creator/bot",
+        data={"message": "Draft a caption"},
+        headers={"X-Requested-With": "fetch"},
+        follow_redirects=False,
+    )
+
+    # No redirect — partial returned 200 with HTML body.
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("text/html")
+    assert "Drafted." in r.text
+    assert "Draft a caption" in r.text
+    # The partial does NOT include the full page shell — no <html>, no nav.
+    assert "<html" not in r.text.lower()
+    assert "app-topbar" not in r.text
+
+
+def test_bot_post_ajax_failure_returns_partial_with_banner(
+    monkeypatch, client: TestClient
+) -> None:
+    _signed_in(client, role="creator", user_id="creator-1")
+    monkeypatch.setattr(
+        creator_routes.profiles,
+        "get_creator_profile",
+        lambda uid: {"onboarding_completed_at": "2026-05-01T00:00:00Z"},
+    )
+    monkeypatch.setattr(
+        creator_routes.bot,
+        "handle_creator_message",
+        lambda *, user_id, content: bot_service.BotTurnResult(response=""),
+    )
+    monkeypatch.setattr(creator_routes.bot, "list_messages", lambda uid: [])
+
+    r = client.post(
+        "/creator/bot",
+        data={"message": "??"},
+        headers={"X-Requested-With": "fetch"},
+        follow_redirects=False,
+    )
+
+    # 400 status, partial body with embedded banner — never a redirect.
+    assert r.status_code == 400
+    assert r.headers["content-type"].startswith("text/html")
+    assert "bot-banner-error" in r.text
+    # Jinja HTML-escapes the apostrophe → check for the visible
+    # words around it instead of the literal contraction.
+    assert "answer that turn" in r.text.lower()
+
+
+def test_bot_action_confirm_ajax_returns_message_partial(
+    monkeypatch, client: TestClient
+) -> None:
+    message_id = str(uuid4())
+    _signed_in(client, role="creator", user_id="creator-1")
+
+    monkeypatch.setattr(
+        creator_routes.bot,
+        "confirm_action",
+        lambda *, user_id, message_id: bot_service.BotActionResult(
+            message="confirmed", found=True
+        ),
+    )
+    monkeypatch.setattr(
+        creator_routes.bot,
+        "list_messages",
+        lambda uid: [
+            {
+                "id": message_id,
+                "role": "assistant",
+                "content": "Booking saved.",
+                "tool_calls": {
+                    "kind": "proposed_action",
+                    "status": "confirmed",
+                    "action_type": "create_booking",
+                },
+            }
+        ],
+    )
+
+    r = client.post(
+        f"/creator/bot/actions/{message_id}/confirm",
+        headers={"X-Requested-With": "fetch"},
+        follow_redirects=False,
+    )
+
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("text/html")
+    assert "Booking saved." in r.text
+    assert "bot-action-confirmed" in r.text
+
+
+def test_bot_action_cancel_ajax_returns_message_partial(
+    monkeypatch, client: TestClient
+) -> None:
+    message_id = str(uuid4())
+    _signed_in(client, role="creator", user_id="creator-1")
+
+    monkeypatch.setattr(
+        creator_routes.bot,
+        "cancel_action",
+        lambda *, user_id, message_id: bot_service.BotActionResult(
+            message="cancelled", found=True
+        ),
+    )
+    monkeypatch.setattr(
+        creator_routes.bot,
+        "list_messages",
+        lambda uid: [
+            {
+                "id": message_id,
+                "role": "assistant",
+                "content": "Cancelled. Nothing was saved.",
+                "tool_calls": {
+                    "kind": "proposed_action",
+                    "status": "cancelled",
+                    "action_type": "create_booking",
+                },
+            }
+        ],
+    )
+
+    r = client.post(
+        f"/creator/bot/actions/{message_id}/cancel",
+        headers={"X-Requested-With": "fetch"},
+        follow_redirects=False,
+    )
+
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("text/html")
+    assert "bot-action-cancelled" in r.text
+
+
+def test_bot_post_without_ajax_header_still_redirects(
+    monkeypatch, client: TestClient
+) -> None:
+    """No-JS fallback contract: native form post still gets the PRG
+    redirect. Any change to this will silently break clients that have
+    JS disabled or where bot.js failed to load."""
+    _signed_in(client, role="creator", user_id="creator-1")
+    monkeypatch.setattr(
+        creator_routes.profiles,
+        "get_creator_profile",
+        lambda uid: {"onboarding_completed_at": "2026-05-01T00:00:00Z"},
+    )
+    monkeypatch.setattr(
+        creator_routes.bot,
+        "handle_creator_message",
+        lambda *, user_id, content: bot_service.BotTurnResult(response="ok"),
+    )
+
+    r = client.post(
+        "/creator/bot",
+        data={"message": "hi"},
+        follow_redirects=False,
+    )
+
+    assert r.status_code == 303
+    assert r.headers["location"] == "/creator/bot"

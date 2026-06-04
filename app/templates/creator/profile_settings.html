@@ -27,19 +27,8 @@
   </div>
 
   <div class="settings-group">
-    <h2>accounts</h2>
-    <div class="settings-row"><span>instagram</span><strong>not connected</strong></div>
-    <div class="settings-row"><span>gmail</span><strong>not connected</strong></div>
-    <div class="settings-row">
-      <span>Google Calendar</span>
-      {% if google_connected %}
-        <strong><a href="/creator/calendar">connected</a></strong>
-      {% elif google_configured %}
-        <strong><a href="/creator/google/calendar/connect">connect Google Calendar</a></strong>
-      {% else %}
-        <strong>not configured</strong>
-      {% endif %}
-    </div>
+    <h2>integrations</h2>
+    {% include "_partials/integrations_grid.html" %}
   </div>
 
   <div class="settings-group">

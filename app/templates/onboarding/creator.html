@@ -4,14 +4,18 @@
 {% block title %}set up your creator profile — babyg{% endblock %}
 
 {% block head_extra %}
+<script src="/static/js/onboarding.js" defer></script>
+<script src="/static/js/profile.js" defer></script>
 <style>
 .onb-wrap{max-width:520px;width:100%;margin:0 auto;padding:32px 20px max(env(safe-area-inset-bottom,40px),60px);}
 .onb-eyebrow{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--lime);letter-spacing:.08em;text-transform:uppercase;display:block;margin-bottom:10px;}
 .onb-h1{font-size:28px;font-weight:700;line-height:1.1;margin:0 0 10px;}
 .onb-sub{color:var(--ink-mid);font-size:14px;line-height:1.55;margin:0 0 22px;}
-.onb-progress{list-style:none;padding:0;margin:0 0 32px;display:flex;gap:16px;flex-wrap:wrap;}
+.onb-progress{list-style:none;padding:0;margin:0 0 32px;display:flex;gap:8px;flex-wrap:wrap;}
 .onb-progress li{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-dim);display:flex;align-items:center;gap:6px;}
-.onb-progress li .n{background:var(--surface-2);border:1px solid var(--hairline);border-radius:50%;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;}
+.onb-progress li .n{background:var(--surface-2);border:1px solid var(--hairline);border-radius:50%;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;transition:background .15s,border-color .15s,color .15s;}
+.onb-progress li[aria-current="step"] .n{background:var(--lime);border-color:var(--lime);color:var(--obsidian);}
+.onb-progress li[data-done] .n{border-color:var(--lime);color:var(--lime);}
 .onb-section{margin-bottom:32px;padding-bottom:32px;border-bottom:1px solid var(--hairline);}
 .onb-section:last-of-type{border-bottom:0;}
 .onb-section-title{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.08em;margin:0 0 20px;}
@@ -19,14 +23,13 @@
    the field content (long select option labels) would otherwise push the
    row wider than the viewport. */
 .onb-row{display:grid;grid-template-columns:repeat(2, minmax(0, 1fr));gap:12px;}
-.onb-actions{padding-top:8px;}
+.onb-actions{padding-top:8px;display:flex;gap:10px;flex-wrap:wrap;}
+.onb-actions .btn{flex:1 1 auto;min-width:140px;}
+.onb-actions .btn-prev{flex:0 0 auto;min-width:90px;}
 .field{margin-bottom:16px;min-width:0;}
 .field-label{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-dim);display:block;margin-bottom:6px;letter-spacing:.04em;}
 .field-hint{font-size:12px;color:var(--ink-dim);margin-top:4px;line-height:1.4;}
 .req{color:var(--lime);}
-/* Inputs intentionally inherit the global 16px rule (iOS zoom guard).
-   Don't restate font-size here — keeping the rule in app.css means one
-   place to maintain. */
 .field input[type=text],.field input[type=email],.field input[type=number],.field textarea,.field select{width:100%;max-width:100%;background:var(--surface-2);border:1px solid var(--hairline);border-radius:10px;color:var(--ink);font-family:inherit;padding:10px 14px;outline:none;box-sizing:border-box;-webkit-appearance:none;}
 .field input:focus,.field textarea:focus,.field select:focus{border-color:var(--lime);}
 .field textarea{resize:vertical;min-height:80px;}
@@ -37,42 +40,49 @@
 .chips .chip:has(input:checked){border-color:var(--lime);color:var(--lime);background:rgba(255,77,109,0.08);}
 .auth-error{background:rgba(255,77,109,0.08);border:1px solid var(--lime);border-radius:10px;color:var(--lime);font-size:13px;padding:12px 14px;margin-bottom:20px;}
 .btn-wide{width:100%;justify-content:center;}
+.onb-photo-block{display:flex;flex-direction:column;align-items:flex-start;gap:14px;}
+.onb-photo-block .avatar{width:96px;height:96px;border-radius:50%;background:var(--surface-2);border:1px solid var(--hairline);overflow:hidden;display:inline-flex;align-items:center;justify-content:center;color:var(--ink-mid);font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;}
+.onb-photo-block .avatar img{width:100%;height:100%;object-fit:cover;display:block;}
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="onb-wrap">
+<div class="onb-wrap" data-onb-wrap>
   <div style="margin-bottom:28px;">
     <img src="/static/assets/logo-bg.png" alt="babyg" style="width:36px;height:36px;margin-bottom:20px;" />
     <span class="onb-eyebrow">private beta setup</span>
     <h1 class="onb-h1">tell us about your work.</h1>
     <p class="onb-sub">this shapes your updates, matches, schedule, and rate guidance. you can change any of it later.</p>
-    <ol class="onb-progress">
-      <li><span class="n">1</span> identity</li>
-      <li><span class="n">2</span> content</li>
-      <li><span class="n">3</span> preferences</li>
+    <ol class="onb-progress" data-onb-progress>
+      <li data-onb-step-pip="1" aria-current="step"><span class="n">1</span> basics</li>
+      <li data-onb-step-pip="2"><span class="n">2</span> niches</li>
+      <li data-onb-step-pip="3"><span class="n">3</span> photo</li>
+      <li data-onb-step-pip="4"><span class="n">4</span> integrations</li>
     </ol>
   </div>
 
   {% if error %}<div class="auth-error">{{ error }}</div>{% endif %}
 
-  <form method="post" action="/onboarding/creator">
+  <form method="post" action="/onboarding/creator" data-onb-form>
     {% include "_partials/csrf.html" %}
 
-    <div class="onb-section">
-      <h2 class="onb-section-title">01 / identity</h2>
+    {# Step 1: identity. Required: full_name + instagram_handle. #}
+    <fieldset class="onb-section" data-onb-step="1" style="border:0;padding:0;margin:0 0 24px;">
+      <h2 class="onb-section-title">01 / basics</h2>
       {{ f.field("full name", "full_name", profile.get("full_name", ""), required=True) }}
       {{ f.field("instagram handle", "instagram_handle", profile.get("instagram_handle", ""), placeholder="yourhandle", required=True, hint="no need to include the @.") }}
       {{ f.select("neighborhood", "neighborhood", vocab.neighborhoods, selected=profile.get("neighborhood")) }}
       {{ f.textarea("short bio", "bio", profile.get("bio", ""), placeholder="two or three sentences about who you are and what you cover.", rows=3) }}
-    </div>
+    </fieldset>
 
-    <div class="onb-section">
-      <h2 class="onb-section-title">02 / content world</h2>
+    {# Step 2: niches + content world + vibe/limits/tier. Merged because
+       these are all "what you make and don't make" — same mental load. #}
+    <fieldset class="onb-section" data-onb-step="2" style="border:0;padding:0;margin:0 0 24px;">
+      <h2 class="onb-section-title">02 / niches & format</h2>
 
       <div class="field">
         <label class="field-label">niches <span class="req">*</span></label>
-        <div class="field-hint" style="margin-bottom:8px;">pick everything that applies.</div>
+        <div class="field-hint" style="margin-bottom:8px;">pick everything that applies. multiple ok.</div>
         {{ f.chip_group("niches", vocab.niches, profile.get("niches", [])) }}
       </div>
 
@@ -92,10 +102,6 @@
         {{ f.select("engagement rate", "engagement_range", vocab.engagement_ranges, selected=profile.get("engagement_range")) }}
       </div>
       {{ f.select("creator tenure", "creator_tenure", vocab.tenures, selected=profile.get("creator_tenure")) }}
-    </div>
-
-    <div class="onb-section">
-      <h2 class="onb-section-title">03 / vibe and limits</h2>
 
       <div class="field">
         <label class="field-label">hard limits</label>
@@ -108,10 +114,59 @@
         <div class="field-hint" style="margin-bottom:8px;">basic is free. pro and VIP unlock daily intel, deeper analytics, and higher-touch creator ops. change anytime.</div>
         {{ f.radio_group("tier", vocab.tiers, profile.get("tier", "basic")) }}
       </div>
-    </div>
+    </fieldset>
+
+    {# Step 3: profile photo. Real upload — posts to /creator/profile/photo
+       and immediately comes back to this page. We DON'T submit the
+       wizard form here; this is a side trip. The route's
+       onboarding_completed_at guard is intentionally absent so this
+       works during signup. #}
+    <fieldset class="onb-section" data-onb-step="3" style="border:0;padding:0;margin:0 0 24px;">
+      <h2 class="onb-section-title">03 / profile photo</h2>
+      <p class="field-hint" style="margin-bottom:14px;">optional. you can add or change it any time from your profile.</p>
+
+      <div class="onb-photo-block">
+        <span class="avatar">
+          {% if profile.profile_photo_url %}
+          <img src="{{ profile.profile_photo_url }}" alt="" data-profile-photo-preview />
+          {% else %}
+          <img hidden alt="" data-profile-photo-preview />
+          <span data-profile-photo-initials>{{ (profile.get('full_name') or 'creator')[:1]|upper }}</span>
+          {% endif %}
+        </span>
+
+        {# Nested form — submits independently to the photo endpoint, not
+           the wizard. After submit, the route redirects back to the
+           profile page; the wizard re-renders with the saved photo. #}
+        <form method="post" action="/creator/profile/photo" enctype="multipart/form-data"
+              data-profile-photo-form style="display:inline-flex;align-items:center;gap:10px;margin:0;">
+          {% include "_partials/csrf.html" %}
+          <label class="btn btn-ghost btn-sm" style="cursor:pointer;margin:0;">
+            <span data-profile-photo-label>{% if profile.profile_photo_url %}change photo{% else %}upload photo{% endif %}</span>
+            <input type="file" name="photo" accept="image/jpeg,image/png,image/webp"
+                   data-profile-photo-input style="display:none;" />
+          </label>
+          <button type="submit" class="btn btn-lime btn-sm" hidden data-profile-photo-submit>save</button>
+          <span class="mono" data-profile-photo-status hidden
+                style="font-size:10px;letter-spacing:0.14em;color:var(--ink-dim);text-transform:uppercase;margin-left:4px;"></span>
+        </form>
+      </div>
+    </fieldset>
+
+    {# Step 4: integrations. Google Calendar is real; the rest are
+       coming-soon per docs/INTEGRATIONS.md. No fake connect states. #}
+    <fieldset class="onb-section" data-onb-step="4" style="border:0;padding:0;margin:0 0 24px;">
+      <h2 class="onb-section-title">04 / integrations</h2>
+      <p class="field-hint" style="margin-bottom:14px;">connect what you have, skip what isn't ready. you can do this later from settings.</p>
+      {% include "_partials/integrations_grid.html" %}
+    </fieldset>
 
     <div class="onb-actions">
-      <button type="submit" class="btn btn-lime btn-wide">save and continue
+      <button type="button" class="btn btn-ghost btn-prev" data-onb-prev hidden>back</button>
+      <button type="button" class="btn btn-lime btn-wide" data-onb-next>continue
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 9L9 3M9 3H4M9 3V8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <button type="submit" class="btn btn-lime btn-wide" data-onb-finish hidden>finish setup
         <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 9L9 3M9 3H4M9 3V8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
     </div>

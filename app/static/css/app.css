@@ -1324,6 +1324,70 @@ h1, h2, h3, h4 {
   font-size: 13.5px;
 }
 .bot-empty-state p { margin: 0; }
+
+/* Integrations grid — onboarding step 4 + profile/settings. Calm,
+   restrained palette; coming-soon cards visually dim but still
+   informative. No fake connect buttons. */
+.integrations-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  margin: 0;
+}
+@media (min-width: 720px) {
+  .integrations-grid { grid-template-columns: repeat(2, 1fr); }
+}
+.integration-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 18px;
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  background: var(--surface-1);
+}
+.integration-card-connected { border-color: var(--lime); }
+.integration-card-soon { opacity: 0.78; }
+.integration-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; flex-wrap: wrap;
+}
+.integration-tag {
+  font-size: 10.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ink-mid);
+}
+.integration-body {
+  color: var(--ink-mid);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0;
+}
+.integration-card .btn[disabled] {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+/* Live typing indicator. Created by bot.js when a fetch is in flight,
+   removed when the response arrives or fails. Three dots blink in
+   sequence. Tied to actual request lifecycle — never permanent. */
+.bot-typing-dots { display: inline-flex; gap: 4px; align-items: center; }
+.bot-typing-dots > span {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--ink-dim);
+  animation: bot-typing-blink 1.2s infinite ease-in-out;
+}
+.bot-typing-dots > span:nth-child(2) { animation-delay: 0.18s; }
+.bot-typing-dots > span:nth-child(3) { animation-delay: 0.36s; }
+@keyframes bot-typing-blink {
+  0%, 80%, 100% { opacity: 0.3; transform: translateY(0); }
+  40%           { opacity: 1;   transform: translateY(-2px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bot-typing-dots > span { animation: none; opacity: 0.6; }
+}
 .bot-message { display: flex; flex-direction: column; gap: 6px; }
 .bot-message.user { align-items: flex-end; }
 .bot-message.assistant { align-items: flex-start; }

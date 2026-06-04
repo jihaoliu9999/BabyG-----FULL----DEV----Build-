@@ -1,0 +1,54 @@
+{# Bot conversation list — rendered both as a chunk of the full bot.html
+   page on initial GET and as a standalone partial on AJAX POSTs from
+   bot.js. Keeping the markup in one file so server-rendered and
+   client-driven turns never drift. The form actions inside action cards
+   stay native: bot.js intercepts them with delegated handlers and POSTs
+   asynchronously; if JS fails the form submits the old way and the
+   server's PRG fallback takes over. #}
+{% if error %}
+<div class="bot-banner bot-banner-error" data-bot-banner>
+  <span>{{ error }}</span>
+</div>
+{% endif %}
+{% if messages %}
+  {% for m in messages %}
+    {% if m.role != "system" %}
+    <li class="bot-message {{ m.role }}" data-bot-message-id="{{ m.id }}">
+      <span class="meta">{{ "you" if m.role == "user" else "babyg" }}</span>
+      <div class="bubble">{{ m.content }}</div>
+      {% if m.tool_calls and m.tool_calls.kind == "proposed_action" %}
+      <div class="card bot-action-card {% if m.tool_calls.status == 'pending' %}bot-action-pending{% elif m.tool_calls.status == 'confirmed' %}bot-action-confirmed{% else %}bot-action-cancelled{% endif %}" style="margin-top:10px;max-width:86%;{{ 'align-self:flex-start;' if m.role == 'assistant' else '' }}">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;">
+          <span class="badge badge-muted">{{ m.tool_calls.action_type|replace("_", " ") }}</span>
+          <span class="status-pill">
+            <span class="pulse-dot" style="{{ '' if m.tool_calls.status == 'pending' else 'background:var(--ink-dim);box-shadow:none;' }}"></span>
+            {{ m.tool_calls.status }}
+          </span>
+        </div>
+        <p style="margin:0 0 12px;color:var(--ink-mid);font-size:13px;">
+          {% if m.tool_calls.status == "pending" %}review this. nothing runs until you confirm.
+          {% elif m.tool_calls.status == "confirmed" %}saved inside babyg.
+          {% else %}cancelled. nothing was saved.{% endif %}
+        </p>
+        {% if m.tool_calls.status == "pending" %}
+        <div style="display:flex;gap:8px;">
+          <form method="post" action="/creator/bot/actions/{{ m.id }}/confirm" data-bot-action>
+            {% include "_partials/csrf.html" %}
+            <button class="btn btn-lime btn-sm" type="submit">confirm</button>
+          </form>
+          <form method="post" action="/creator/bot/actions/{{ m.id }}/cancel" data-bot-action>
+            {% include "_partials/csrf.html" %}
+            <button class="btn btn-ghost btn-sm" type="submit">cancel</button>
+          </form>
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}
+    </li>
+    {% endif %}
+  {% endfor %}
+{% else %}
+<li class="bot-empty-state" aria-hidden="true">
+  <p>send the thing you want handled.</p>
+</li>
+{% endif %}
