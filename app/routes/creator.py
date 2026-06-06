@@ -115,6 +115,34 @@ async def bot_chat(
     )
 
 
+def _is_ajax(request: Request) -> bool:
+    """True when bot.js submitted this POST via fetch().
+
+    Branches on the X-Requested-With header bot.js sets. Native form
+    posts (no JS, or JS failure) don't set the header, so they fall
+    through to the existing PRG redirect — no behavior change for
+    no-JS clients.
+    """
+    return request.headers.get("x-requested-with", "").lower() == "fetch"
+
+
+def _bot_messages_partial(
+    request: Request,
+    user_id: str,
+    *,
+    error: str | None = None,
+    status_code: int = 200,
+) -> Response:
+    """Render the bot_messages.html partial used by every async bot route."""
+    messages = bot.list_messages(user_id)
+    return templates.TemplateResponse(
+        request,
+        "_partials/bot_messages.html",
+        {"messages": messages, "error": error},
+        status_code=status_code,
+    )
+
+
 @router.post("/creator/bot")
 async def bot_send(
     request: Request,
@@ -126,6 +154,14 @@ async def bot_send(
         return RedirectResponse("/onboarding/creator", status_code=302)
 
     result = bot.handle_creator_message(user_id=session["user_id"], content=message)
+
+    if _is_ajax(request):
+        err = None if result.response else "babyg couldn't answer that turn. Try again."
+        code = 200 if result.response else 400
+        return _bot_messages_partial(
+            request, session["user_id"], error=err, status_code=code
+        )
+
     if not result.response:
         messages = bot.list_messages(session["user_id"])
         return templates.TemplateResponse(
@@ -143,23 +179,29 @@ async def bot_send(
 
 @router.post("/creator/bot/actions/{message_id}/confirm")
 async def bot_action_confirm(
+    request: Request,
     message_id: str,
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
     result = bot.confirm_action(user_id=session["user_id"], message_id=message_id)
     if not result.found:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    if _is_ajax(request):
+        return _bot_messages_partial(request, session["user_id"])
     return RedirectResponse("/creator/bot", status_code=303)
 
 
 @router.post("/creator/bot/actions/{message_id}/cancel")
 async def bot_action_cancel(
+    request: Request,
     message_id: str,
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
     result = bot.cancel_action(user_id=session["user_id"], message_id=message_id)
     if not result.found:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    if _is_ajax(request):
+        return _bot_messages_partial(request, session["user_id"])
     return RedirectResponse("/creator/bot", status_code=303)
 
 
@@ -224,6 +266,10 @@ async def profile_photo_upload(
     photo: UploadFile = File(...),
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
+    # Intentionally NOT gated on onboarding_completed_at — step 3 of the
+    # onboarding wizard uses this same endpoint, so a creator can upload
+    # before their profile flips to completed. Auth (require_role) +
+    # storage validation are still in place.
     raw = await photo.read()
     if not raw:
         return RedirectResponse(
