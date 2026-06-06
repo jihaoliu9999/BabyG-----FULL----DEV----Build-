@@ -1283,7 +1283,10 @@ h1, h2, h3, h4 {
 .dm-screen .dm-composer input {
   flex: 1;
   background: transparent; border: 0; outline: none;
-  color: var(--ink); font-size: 14.5px; padding: 8px 0;
+  color: var(--ink);
+  /* >= 16px — iOS Safari auto-zoom guard, same as .bot-composer textarea. */
+  font-size: 16px;
+  padding: 8px 0;
   font-family: inherit;
 }
 .dm-screen .dm-composer input::placeholder { color: var(--ink-dim); }
@@ -1439,7 +1442,11 @@ h1, h2, h3, h4 {
   flex: 1;
   background: transparent; border: 0; outline: none;
   color: var(--ink);
-  font-size: 14.5px;
+  /* MUST stay >= 16px. iOS Safari (every version through 26.5)
+     auto-zooms any form control with a font-size below 16, and bot.js
+     refocuses the textarea after every send to keep the keyboard up —
+     a sub-16 value re-triggers zoom on every message. Don't drop this. */
+  font-size: 16px;
   line-height: 1.45;
   resize: none;
   padding: 8px 0;
