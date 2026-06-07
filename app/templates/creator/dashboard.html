@@ -34,7 +34,7 @@
   {% endif %}
 
   <div class="filter-row">
-    <a href="/creator" class="chip {{ 'chip-active' if not active_category }}">all</a>
+    <a href="/creator" class="chip {{ 'chip-active' if not active_category }}">All</a>
     {% for slug, label in categories %}
     {% if slug != "alert" %}
     <a href="/creator?category={{ slug }}" class="chip {{ 'chip-active' if active_category == slug }}">{{ label }}</a>
