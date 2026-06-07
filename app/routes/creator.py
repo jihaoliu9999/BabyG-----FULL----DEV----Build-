@@ -56,6 +56,37 @@ CATEGORY_LABELS = {
     "alert": "Alert",
 }
 
+PROFILE_CHIP_OPTIONS = {
+    "niches": {
+        "field": "niches",
+        "options": [
+            "lifestyle",
+            "nightlife",
+            "fashion",
+            "fitness",
+            "beauty",
+            "food",
+            "travel",
+            "music",
+        ],
+    },
+    "formats": {
+        "field": "content_formats",
+        "options": ["reels", "stories", "posts", "lives", "shorts"],
+    },
+    "limits": {
+        "field": "hard_limits",
+        "options": [
+            "no alcohol",
+            "no gambling",
+            "no politics",
+            "no adult content",
+            "no smoking",
+            "no explicit language",
+        ],
+    },
+}
+
 
 @router.get("/creator", response_class=HTMLResponse)
 async def dashboard(
@@ -231,11 +262,41 @@ async def profile_page(
     profile = profiles.get_creator_profile(session["user_id"]) or {}
     if not profile.get("onboarding_completed_at"):
         return RedirectResponse("/onboarding/creator", status_code=302)
+    chip_values = _profile_chip_values(profile)
     return templates.TemplateResponse(
         request,
         "creator/profile.html",
-        {"profile": profile},
+        {
+            "profile": profile,
+            "profile_chip_values": chip_values,
+            "profile_chip_options": _profile_chip_options(chip_values),
+        },
     )
+
+
+@router.post("/creator/profile/chips")
+async def profile_chips_update(
+    request: Request,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    profile = profiles.get_creator_profile(session["user_id"]) or {}
+    if not profile.get("onboarding_completed_at"):
+        return RedirectResponse("/onboarding/creator", status_code=302)
+
+    form = await request.form()
+    section = str(form.get("section") or "").strip()
+    config = PROFILE_CHIP_OPTIONS.get(section)
+    if config is None:
+        return RedirectResponse("/creator/profile?chips=invalid", status_code=303)
+
+    field = str(config["field"])
+    current = _profile_chip_values(profile).get(section, [])
+    allowed = _dedupe([*config["options"], *current])
+    values = _multi_clean(form.getlist("values"), allowed)
+
+    if not profiles.update_creator_profile(session["user_id"], {field: values}):
+        return RedirectResponse("/creator/profile?chips=save_failed", status_code=303)
+    return RedirectResponse("/creator/profile?chips=ok", status_code=303)
 
 
 @router.get("/creator/profile/settings", response_class=HTMLResponse)
@@ -316,6 +377,46 @@ async def profile_photo_delete(
     )
     storage.delete_profile_photo(session["user_id"])
     return RedirectResponse("/creator/profile?photo=removed", status_code=303)
+
+
+def _profile_chip_values(profile: dict) -> dict[str, list[str]]:
+    return {
+        section: _clean_profile_values(profile.get(str(config["field"])))
+        for section, config in PROFILE_CHIP_OPTIONS.items()
+    }
+
+
+def _profile_chip_options(chip_values: dict[str, list[str]]) -> dict[str, list[str]]:
+    return {
+        section: _dedupe([*config["options"], *chip_values.get(section, [])])
+        for section, config in PROFILE_CHIP_OPTIONS.items()
+    }
+
+
+def _clean_profile_values(value) -> list[str]:
+    if value is None:
+        return []
+    raw = [value] if isinstance(value, str) else value
+    if not isinstance(raw, (list, tuple)):
+        return []
+    return _dedupe(str(item).strip() for item in raw if str(item).strip())
+
+
+def _multi_clean(values, allowed: list[str]) -> list[str]:
+    allowed_set = set(allowed)
+    return _dedupe(
+        str(value).strip()
+        for value in values
+        if str(value).strip() in allowed_set
+    )
+
+
+def _dedupe(values) -> list[str]:
+    out: list[str] = []
+    for value in values:
+        if value and value not in out:
+            out.append(value)
+    return out
 
 
 # -----------------------------------------------------------------------------

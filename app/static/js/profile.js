@@ -147,3 +147,72 @@
     showPreview(working);
   });
 })();
+
+(() => {
+  const triggers = document.querySelectorAll("[data-profile-chip-open]");
+  const dialogs = document.querySelectorAll("[data-profile-chip-dialog]");
+
+  if (!triggers.length || !dialogs.length) {
+    return;
+  }
+
+  const byId = new Map();
+  dialogs.forEach((dialog) => {
+    byId.set(dialog.id, dialog);
+
+    dialog.addEventListener("click", (event) => {
+      if (event.target === dialog) {
+        closeDialog(dialog);
+      }
+    });
+
+    dialog.addEventListener("close", () => {
+      resetDialog(dialog);
+      if (![...dialogs].some((item) => item.open)) {
+        document.documentElement.classList.remove("profile-chip-lock");
+      }
+    });
+
+    dialog.querySelectorAll("[data-profile-chip-close]").forEach((button) => {
+      button.addEventListener("click", () => closeDialog(dialog));
+    });
+  });
+
+  function openDialog(dialog) {
+    if (typeof dialog.showModal === "function") {
+      dialog.showModal();
+    } else {
+      dialog.setAttribute("open", "");
+    }
+    document.documentElement.classList.add("profile-chip-lock");
+  }
+
+  function closeDialog(dialog) {
+    if (typeof dialog.close === "function" && dialog.open) {
+      dialog.close();
+    } else {
+      dialog.removeAttribute("open");
+      resetDialog(dialog);
+    }
+    if (![...dialogs].some((item) => item.open)) {
+      document.documentElement.classList.remove("profile-chip-lock");
+    }
+  }
+
+  function resetDialog(dialog) {
+    const form = dialog.querySelector("form");
+    if (form) {
+      form.reset();
+    }
+  }
+
+  triggers.forEach((trigger) => {
+    trigger.addEventListener("click", () => {
+      const section = trigger.getAttribute("data-profile-chip-open");
+      const dialog = byId.get(`profile-chip-${section}`);
+      if (dialog) {
+        openDialog(dialog);
+      }
+    });
+  });
+})();
