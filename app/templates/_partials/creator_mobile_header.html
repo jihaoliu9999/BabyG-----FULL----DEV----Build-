@@ -2,7 +2,7 @@
 {% set mh_title = "today" %}
 {% if path.startswith("/creator/bot") %}{% set mh_title = "babyg" %}
 {% elif path.startswith("/creator/network") or path.startswith("/creator/connections") %}{% set mh_title = "network" %}
-{% elif path.startswith("/creator/jobs") %}{% set mh_title = "listings" %}
+{% elif path.startswith("/creator/jobs") %}{% set mh_title = "postings" %}
 {% elif path.startswith("/creator/calendar") %}{% set mh_title = "calendar" %}
 {% elif path.startswith("/creator/performance") or path.startswith("/creator/receipts") or path.startswith("/creator/views") %}{% set mh_title = "stats" %}
 {% elif path.startswith("/creator/dm") %}{% set mh_title = "inbox" %}
