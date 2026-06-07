@@ -204,7 +204,11 @@ def test_get_started_renders_role_cards(client: TestClient) -> None:
     r = client.get("/get-started")
     assert r.status_code == 200
     assert "/auth/login?role=creator" in r.text
-    assert "/auth/login?role=operator" in r.text
+    # Operator card removed from the visual chooser — see
+    # tests/test_marketing.py::test_get_started_renders_role_cards for the
+    # full rationale. Operators sign in via a direct /auth/login?role=operator
+    # URL from an admin invite; the route still accepts it.
+    assert "/auth/login?role=operator" not in r.text
 
 
 def test_get_started_with_role_query_redirects(client: TestClient) -> None:
