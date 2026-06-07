@@ -9,6 +9,9 @@ in the full design but were removed when brand was deferred to v1.5
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta
+import re
+
 from fastapi import (
     APIRouter,
     Depends,
@@ -767,7 +770,7 @@ async def views_list(
 
 
 # -----------------------------------------------------------------------------
-# Job listings (creator-side)
+# Postings (creator-side; internal route/service names remain jobs/listings)
 # -----------------------------------------------------------------------------
 
 
@@ -835,7 +838,7 @@ async def jobs_create(
     new_id = jobs.create(poster_id=session["user_id"], payload=payload)
     if not new_id:
         return _jobs_form_error(
-            request, form, "Couldn't save the listing. Try again.",
+            request, form, "Couldn't save the posting. Try again.",
             is_new=True, listing_id=None,
         )
     return RedirectResponse(f"/creator/jobs/{new_id}", status_code=303)
@@ -851,9 +854,9 @@ async def jobs_detail(
     if listing is None or listing.get("is_taken_down"):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     is_mine = str(listing["poster_user_id"]) == session["user_id"]
-    # Closed listings (is_active=false) shouldn't be discoverable to
+    # Closed postings (is_active=false) shouldn't be discoverable to
     # other creators by guessing the UUID — mirror brand.py's check.
-    # The poster still sees their own closed listings so they can
+    # The poster still sees their own closed postings so they can
     # re-open them.
     if not is_mine and not listing.get("is_active"):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
@@ -924,7 +927,7 @@ async def jobs_update(
         )
     if not jobs.update(listing_id, payload, poster_id=session["user_id"]):
         return _jobs_form_error(
-            request, form, "Couldn't save the listing. Try again.",
+            request, form, "Couldn't save the posting. Try again.",
             is_new=False, listing_id=listing_id,
         )
     return RedirectResponse(f"/creator/jobs/{listing_id}", status_code=303)
@@ -940,8 +943,17 @@ async def jobs_close(
 
 
 # -----------------------------------------------------------------------------
-# Job listings: validation + helpers
+# Postings: validation + helpers
 # -----------------------------------------------------------------------------
+
+_MONEY_RE = re.compile(r"^\$\s?\d[\d,]*(?:\.\d{2})?$")
+_FORBIDDEN_COMPENSATION_TERMS = (
+    "negotiable",
+    "tfp",
+    "trade",
+    "product only",
+    "product",
+)
 
 
 def _validate_listing(form):
@@ -950,14 +962,21 @@ def _validate_listing(form):
     listing_type = (form.get("listing_type") or "").strip()
     compensation = (form.get("compensation_text") or "").strip()[:240]
     deadline = (form.get("deadline") or "").strip()[:64]
-    is_active = (form.get("is_active") or "").strip() != "off"
 
     if not title:
         return {}, "Please enter a title."
     if not description:
         return {}, "Please enter a description."
     if listing_type not in jobs.LISTING_TYPES:
-        return {}, "Pick a listing type."
+        return {}, "Pick a posting type."
+
+    compensation_error = _validate_posting_compensation(compensation)
+    if compensation_error:
+        return {}, compensation_error
+
+    deadline_error = _validate_posting_deadline(deadline)
+    if deadline_error:
+        return {}, deadline_error
 
     target_niches: list[str] = []
     seen: set[str] = set()
@@ -973,12 +992,40 @@ def _validate_listing(form):
         "title": title,
         "description": description,
         "listing_type": listing_type,
-        "compensation_text": compensation or None,
+        "compensation_text": compensation,
         "target_niches": target_niches,
-        "deadline": deadline or None,
-        "is_active": is_active,
+        "deadline": deadline,
+        "is_active": True,
     }
     return payload, None
+
+
+def _validate_posting_compensation(compensation: str) -> str | None:
+    if not compensation:
+        return "Posting compensation must be a dollar amount."
+    lowered = compensation.lower()
+    if any(term in lowered for term in _FORBIDDEN_COMPENSATION_TERMS):
+        return "Posting compensation must be a dollar amount, like $250."
+    if not _MONEY_RE.fullmatch(compensation):
+        return "Posting compensation must be a dollar amount, like $250."
+    return None
+
+
+def _validate_posting_deadline(deadline: str) -> str | None:
+    if not deadline:
+        return "Posting deadline is required."
+    try:
+        deadline_at = datetime.fromisoformat(deadline)
+    except ValueError:
+        return "Posting deadline must be a valid date."
+
+    now = datetime.now()
+    max_deadline = now + timedelta(days=21)
+    if deadline_at <= now:
+        return "Posting deadline must be in the future."
+    if deadline_at > max_deadline:
+        return "Posting deadline must be within 21 days."
+    return None
 
 
 def _jobs_form_error(request, form, message, *, is_new, listing_id):
@@ -989,7 +1036,7 @@ def _jobs_form_error(request, form, message, *, is_new, listing_id):
         "compensation_text": form.get("compensation_text", ""),
         "target_niches": list(form.getlist("target_niches")),
         "deadline": form.get("deadline", ""),
-        "is_active": (form.get("is_active") or "").strip() != "off",
+        "is_active": True,
     }
     return templates.TemplateResponse(
         request,

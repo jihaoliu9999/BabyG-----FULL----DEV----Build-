@@ -1,17 +1,17 @@
 {% extends "base.html" %}
 
-{% block title %}my listings — babyg{% endblock %}
+{% block title %}my postings — babyg{% endblock %}
 
 {% block content %}
 <div class="wrap">
   <div class="page-header">
     <div class="title-block">
-      <span class="mono eyebrow">my listings</span>
+      <span class="mono eyebrow">my postings</span>
       <p class="sub">posted by you.</p>
     </div>
     <div class="actions">
       <a class="btn btn-ghost btn-sm" href="/creator/jobs">browse</a>
-      <a class="btn btn-lime btn-sm" href="/creator/jobs/new">new listing
+      <a class="btn btn-lime btn-sm" href="/creator/jobs/new">new posting
         <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 9L9 3M9 3H4M9 3V8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </a>
     </div>
@@ -48,9 +48,9 @@
   </div>
   {% else %}
   <div style="text-align:center;padding:60px 0;color:var(--ink-dim);">
-    <span class="mono">no listings yet.</span>
+    <span class="mono">no postings yet.</span>
     <p style="margin:12px 0 0;font-size:13.5px;">post your first collab, swap, or hiring ask.</p>
-    <a href="/creator/jobs/new" class="btn btn-ghost btn-sm" style="margin-top:16px;">post first listing</a>
+    <a href="/creator/jobs/new" class="btn btn-ghost btn-sm" style="margin-top:16px;">post first posting</a>
   </div>
   {% endif %}
 </div>

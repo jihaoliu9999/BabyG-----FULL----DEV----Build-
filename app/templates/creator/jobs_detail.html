@@ -4,11 +4,11 @@
 
 {% block content %}
 <div class="wrap">
-  <a href="/creator/jobs" class="back-link">← listings</a>
+  <a href="/creator/jobs" class="back-link">← postings</a>
 
   <div style="margin-bottom:22px;">
     <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
-      <span class="badge badge-muted">{{ listing.listing_type|replace('_', ' ') or 'listing' }}</span>
+      <span class="badge badge-muted">{{ listing.listing_type|replace('_', ' ') or 'posting' }}</span>
       {% if listing.is_active %}<span class="badge badge-coral">active</span>{% else %}<span class="badge badge-muted">closed</span>{% endif %}
     </div>
     <h1 class="detail-title" style="margin:0 0 10px;">{{ listing.title }}</h1>
@@ -45,7 +45,7 @@
   {% endif %}
 
   {% if is_mine %}
-  <a href="/creator/jobs/{{ listing.id }}/edit" class="btn btn-ghost btn-sm">edit listing</a>
+  <a href="/creator/jobs/{{ listing.id }}/edit" class="btn btn-ghost btn-sm">edit posting</a>
   {% else %}
   <span class="mono" style="display:block;margin-bottom:8px;">reach out</span>
   {% if can_dm %}
@@ -61,7 +61,7 @@
   {% set target_type = "listing" %}
   {% set target_id = listing.id %}
   {% set return_to = "/creator/jobs/" ~ listing.id %}
-  {% set label = "this listing" %}
+  {% set label = "this posting" %}
   {% include "_partials/report_form.html" %}
   {% endif %}
 </div>
