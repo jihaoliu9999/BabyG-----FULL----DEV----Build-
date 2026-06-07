@@ -25,8 +25,9 @@ def _profile() -> dict:
         "primary_platform": "instagram",
         "follower_range": "10k-25k",
         "engagement_range": "3-5%",
-        "niches": ["food", "style"],
-        "hard_limits": ["gambling"],
+        "niches": ["food", "style", ""],
+        "content_formats": ["reels", "stories", " "],
+        "hard_limits": ["no gambling", ""],
         "tier": "pro",
         "writing_samples": ["sample"],
     }
@@ -40,12 +41,42 @@ def test_creator_profile_page_renders(monkeypatch, client: TestClient) -> None:
 
     assert response.status_code == 200
     assert "Mia Creator" in response.text
-    # Profile photo upload + niche editing are not yet wired to the
-    # backend (no Storage bucket, no PATCH endpoint). The page surfaces
-    # this honestly instead of pretending the upload works.
-    assert "coming soon" in response.text
+    assert "edit niches" in response.text
+    assert "edit formats" in response.text
+    assert "edit limits" in response.text
+    assert 'data-profile-chip-open="niches"' in response.text
+    assert 'value="lifestyle"' in response.text
+    assert 'value="no alcohol"' in response.text
+    assert 'class="chip profile-chip-static"></span>' not in response.text
     assert "/auth/logout" in response.text
     assert "/creator/profile/settings" in response.text
+
+
+def test_creator_profile_chip_update_saves_existing_fields(
+    monkeypatch, client: TestClient
+) -> None:
+    _signed_in(client, role="creator")
+    saved: dict = {}
+
+    monkeypatch.setattr(creator_routes.profiles, "get_creator_profile", lambda uid: _profile())
+    monkeypatch.setattr(
+        creator_routes.profiles,
+        "update_creator_profile",
+        lambda uid, payload: saved.setdefault("payload", payload) or True,
+    )
+
+    response = client.post(
+        "/creator/profile/chips",
+        data={
+            "section": "limits",
+            "values": ["no alcohol", "no gambling", "", "<script>"],
+        },
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/creator/profile?chips=ok"
+    assert saved["payload"] == {"hard_limits": ["no alcohol", "no gambling"]}
 
 
 def test_creator_profile_settings_page_renders(monkeypatch, client: TestClient) -> None:

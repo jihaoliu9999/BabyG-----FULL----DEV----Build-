@@ -5,6 +5,12 @@
 
 {% set initials = (profile.full_name or profile.instagram_handle or 'creator')[:2]|upper %}
 {% set photo_flash = request.query_params.get('photo') %}
+{% set chips_flash = request.query_params.get('chips') %}
+{% set chip_sections = [
+  ('niches', 'niches', 'what you make and where babyg should look first.'),
+  ('formats', 'formats', 'how your work usually shows up.'),
+  ('limits', 'limits', 'categories and asks babyg should keep off the table.')
+] %}
 
 {% block content %}
 <div class="wrap">
@@ -75,7 +81,18 @@
       <button type="submit" class="btn btn-ghost btn-sm">sign out</button>
     </form>
   </div>
-  <p class="mono" style="font-size:10px;letter-spacing:0.14em;color:var(--ink-dim);margin:0 0 22px;text-transform:uppercase;">niche editing — coming soon</p>
+
+  {% if chips_flash %}
+  <div class="mono" style="font-size:10.5px;letter-spacing:0.14em;text-transform:uppercase;margin:0 0 14px;padding:8px 12px;border-radius:10px;border:1px solid var(--hairline);
+    {% if chips_flash == 'ok' %}color:var(--lime);border-color:var(--lime);background:var(--lime-soft);
+    {% else %}color:var(--accent);border-color:var(--accent);background:var(--accent-bg);
+    {% endif %}">
+    {% if chips_flash == 'ok' %}profile updated
+    {% elif chips_flash == 'save_failed' %}couldn't save profile choices
+    {% else %}{{ chips_flash }}
+    {% endif %}
+  </div>
+  {% endif %}
 
   <span class="mono" style="display:block;margin-bottom:10px;">details</span>
   <div class="kv-list" style="margin-bottom:22px;">
@@ -86,40 +103,64 @@
     <div class="row"><span class="l">tenure</span><span class="v">{{ profile.creator_tenure or 'not set' }}</span></div>
   </div>
 
-  {% if profile.niches %}
-  <span class="mono" style="display:block;margin-bottom:10px;">niches</span>
-  <div class="chip-group" style="margin-bottom:22px;">
-    {% for n in profile.niches %}
-    <span class="chip chip-active">{{ n }}</span>
-    {% endfor %}
-  </div>
-  {% endif %}
+  <div class="profile-chip-stack">
+    {% for section, label, hint in chip_sections %}
+    {% set values = profile_chip_values.get(section, []) %}
+    {% set options = profile_chip_options.get(section, []) %}
+    <section class="profile-chip-section">
+      <button type="button"
+              class="profile-chip-trigger"
+              data-profile-chip-open="{{ section }}"
+              aria-controls="profile-chip-{{ section }}">
+        <span>
+          <span class="mono profile-chip-label">{{ label }}</span>
+          <span class="profile-chip-hint">{{ hint }}</span>
+        </span>
+        <span class="profile-chip-edit">edit</span>
+      </button>
+      {% if values %}
+      <div class="chip-group profile-chip-display" aria-label="{{ label }}">
+        {% for value in values %}
+        <span class="chip profile-chip-static">{{ value }}</span>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="profile-chip-empty">tap to add {{ label }}.</p>
+      {% endif %}
+    </section>
 
-  {% if profile.content_formats %}
-  <span class="mono" style="display:block;margin-bottom:10px;">formats</span>
-  <div class="chip-group" style="margin-bottom:22px;">
-    {% for f in profile.content_formats %}
-    <span class="chip chip-active">{{ f }}</span>
+    <dialog class="profile-chip-dialog" id="profile-chip-{{ section }}" data-profile-chip-dialog>
+      <form method="post" action="/creator/profile/chips" class="profile-chip-sheet">
+        {% include "_partials/csrf.html" %}
+        <input type="hidden" name="section" value="{{ section }}" />
+        <div class="profile-chip-sheet-head">
+          <div>
+            <span class="mono profile-chip-label">{{ label }}</span>
+            <h2>edit {{ label }}</h2>
+          </div>
+          <button type="button" class="profile-chip-close" data-profile-chip-close aria-label="close">×</button>
+        </div>
+        <p>{{ hint }}</p>
+        <div class="profile-chip-options">
+          {% for option in options %}
+          <label class="profile-chip-option">
+            <input type="checkbox" name="values" value="{{ option }}" {% if option in values %}checked{% endif %} />
+            <span>{{ option }}</span>
+          </label>
+          {% endfor %}
+        </div>
+        <div class="profile-chip-actions">
+          <button type="button" class="btn btn-ghost btn-sm" data-profile-chip-close>cancel</button>
+          <button type="submit" class="btn btn-lime btn-sm">save</button>
+        </div>
+      </form>
+    </dialog>
     {% endfor %}
   </div>
-  {% endif %}
 
   {% if profile.bio %}
   <span class="mono" style="display:block;margin-bottom:10px;">bio</span>
   <p style="color:var(--ink-mid);font-size:14.5px;line-height:1.55;margin:0 0 22px;">{{ profile.bio }}</p>
-  {% endif %}
-
-  {% if profile.hard_limits %}
-  <span class="mono" style="display:block;margin-bottom:10px;">limits</span>
-  <div class="chip-group" style="margin-bottom:22px;">
-    {% if profile.hard_limits is string %}
-    <span class="chip chip-active">{{ profile.hard_limits }}</span>
-    {% else %}
-    {% for limit in profile.hard_limits %}
-    <span class="chip chip-active">{{ limit }}</span>
-    {% endfor %}
-    {% endif %}
-  </div>
   {% endif %}
 </div>
 {% endblock %}

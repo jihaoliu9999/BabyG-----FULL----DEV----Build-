@@ -1012,6 +1012,190 @@ h1, h2, h3, h4 {
 /* chip group for niches/formats */
 .chip-group { display: flex; flex-wrap: wrap; gap: 6px; }
 
+/* profile chip editor */
+.profile-chip-stack {
+  display: grid;
+  gap: 18px;
+  margin-bottom: 22px;
+}
+.profile-chip-section {
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--hairline);
+}
+.profile-chip-section:last-child { border-bottom: 0; }
+.profile-chip-trigger {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 0;
+  margin: 0 0 12px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.profile-chip-trigger:hover .profile-chip-edit,
+.profile-chip-trigger:focus-visible .profile-chip-edit {
+  color: var(--ink);
+  border-color: var(--bone);
+}
+.profile-chip-trigger:focus-visible {
+  outline: 1px solid var(--bone);
+  outline-offset: 6px;
+  border-radius: 10px;
+}
+.profile-chip-label {
+  display: block;
+  margin-bottom: 7px;
+  color: var(--ink-dim);
+}
+.profile-chip-hint,
+.profile-chip-empty {
+  display: block;
+  margin: 0;
+  color: var(--ink-dim);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.profile-chip-edit {
+  flex: 0 0 auto;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 999px;
+  padding: 5px 10px;
+  color: var(--ink-mid);
+  font-size: 12px;
+  line-height: 1;
+  transition: color .16s ease, border-color .16s ease, background .16s ease;
+}
+.profile-chip-display { margin-top: 10px; }
+.profile-chip-static {
+  cursor: default;
+  background: var(--bone);
+  color: var(--obsidian);
+  border-color: var(--bone);
+}
+.profile-chip-static:hover {
+  color: var(--obsidian);
+  border-color: var(--bone);
+}
+.profile-chip-dialog {
+  width: min(520px, calc(100vw - 28px));
+  max-height: min(76vh, 680px);
+  margin: auto;
+  padding: 0;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 22px;
+  background: var(--surface-2);
+  color: var(--ink);
+  box-shadow: 0 24px 80px rgba(0,0,0,0.56);
+}
+.profile-chip-dialog::backdrop {
+  background: rgba(0,0,0,0.72);
+  backdrop-filter: blur(10px);
+}
+.profile-chip-sheet {
+  padding: 22px;
+}
+.profile-chip-sheet-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+.profile-chip-sheet h2 {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.05;
+  font-weight: 500;
+  letter-spacing: var(--display-track);
+}
+.profile-chip-sheet p {
+  margin: 0 0 18px;
+  color: var(--ink-mid);
+  font-size: 14px;
+}
+.profile-chip-close {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid var(--hairline-strong);
+  background: var(--surface-3);
+  color: var(--ink-mid);
+  cursor: pointer;
+  font-size: 20px;
+  line-height: 1;
+}
+.profile-chip-close:hover { color: var(--ink); border-color: #444; }
+.profile-chip-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 22px;
+}
+.profile-chip-option {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  border: 1px solid var(--hairline-strong);
+  background: var(--surface-1);
+  color: var(--ink-mid);
+  cursor: pointer;
+  font-size: 13.5px;
+  line-height: 1;
+  transition: background .16s ease, color .16s ease, border-color .16s ease, transform .16s ease;
+  user-select: none;
+}
+.profile-chip-option input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+.profile-chip-option span {
+  display: inline-flex;
+  padding: 10px 14px;
+}
+.profile-chip-option:hover {
+  border-color: #444;
+  color: var(--ink);
+}
+.profile-chip-option:has(input:checked) {
+  background: var(--bone);
+  border-color: var(--bone);
+  color: var(--obsidian);
+}
+.profile-chip-option:active { transform: scale(0.98); }
+.profile-chip-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.profile-chip-lock { overflow: hidden; }
+
+@media (max-width: 640px) {
+  .profile-chip-dialog {
+    width: 100vw;
+    max-width: none;
+    max-height: min(82vh, 720px);
+    margin: auto 0 0;
+    border-width: 1px 0 0;
+    border-radius: 24px 24px 0 0;
+  }
+  .profile-chip-sheet {
+    padding: 22px 20px max(env(safe-area-inset-bottom), 22px);
+  }
+  .profile-chip-actions .btn {
+    flex: 1 1 0;
+    justify-content: center;
+  }
+}
+
 /* ───── app screens ───── */
 /* mini stat row */
 .stat-row { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
