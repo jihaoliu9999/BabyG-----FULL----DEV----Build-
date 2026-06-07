@@ -59,7 +59,12 @@ def test_get_started_renders_role_cards(client: TestClient) -> None:
     r = client.get("/get-started")
     assert r.status_code == 200
     assert "/auth/login?role=creator" in r.text
-    assert "/auth/login?role=operator" in r.text
+    # Operator card removed from the visual chooser — operators reach
+    # /auth/login?role=operator via direct URL from an admin invite.
+    # The route still accepts ?role=operator and the auth gate still
+    # works; see test_get_started_with_role_query_redirects below.
+    assert "/auth/login?role=operator" not in r.text
+    assert "i manage babyg" not in r.text.lower()
     # Brand card was removed when scope shipped creator-only (v1.5
     # branch carries the brand surface).
     assert "/auth/login?role=brand" not in r.text
