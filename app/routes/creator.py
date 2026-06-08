@@ -302,6 +302,23 @@ async def profile_chips_update(
     return RedirectResponse("/creator/profile?chips=ok", status_code=303)
 
 
+@router.post("/creator/profile/bio")
+async def profile_bio_update(
+    bio: str = Form(""),
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    profile = profiles.get_creator_profile(session["user_id"]) or {}
+    if not profile.get("onboarding_completed_at"):
+        return RedirectResponse("/onboarding/creator", status_code=302)
+
+    cleaned = "\n".join(line.strip() for line in bio.strip().splitlines()).strip()
+    if not profiles.update_creator_profile(
+        session["user_id"], {"bio": cleaned[:600] or None}
+    ):
+        return RedirectResponse("/creator/profile?bio=save_failed", status_code=303)
+    return RedirectResponse("/creator/profile?bio=ok", status_code=303)
+
+
 @router.get("/creator/profile/settings", response_class=HTMLResponse)
 async def profile_settings_page(
     request: Request,

@@ -355,6 +355,10 @@ def test_creator_jobs_form_hides_ugc_gig_and_back_link(client, world):
     assert r.status_code == 200
     assert "ugc_gig" not in r.text
     assert "my postings" not in r.text
+    assert "brand deal" in r.text
+    assert "brand_deal" in r.text
+    assert ">post<" in r.text
+    assert "post posting" not in r.text
     assert "required. must be within 14 days." in r.text
 
 

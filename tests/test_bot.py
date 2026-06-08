@@ -87,7 +87,7 @@ def test_bot_page_renders_history(monkeypatch, client: TestClient) -> None:
     response = client.get("/creator/bot")
 
     assert response.status_code == 200
-    assert "what do you need handled?" in response.text
+    assert "What are we working on today?" in response.text
     assert '/static/js/bot.js' in response.text
     assert "Need a caption" in response.text
     assert "Drafting it." in response.text
