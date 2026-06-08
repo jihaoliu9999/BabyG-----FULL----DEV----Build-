@@ -4,7 +4,15 @@
 {% block title %}{{ "New" if is_new else "Edit" }} booking - babyg{% endblock %}
 
 {% block content %}
-<section class="onb">
+<div class="ambient-page calendar-form-page">
+  <div class="auth-bg-watermarks" aria-hidden="true">
+    <img class="auth-bg-mark m1" src="/static/assets/logo-bg.png" alt="" />
+    <img class="auth-bg-mark m2" src="/static/assets/logo-bg.png" alt="" />
+    <img class="auth-bg-mark m3" src="/static/assets/logo-bg.png" alt="" />
+    <img class="auth-bg-mark m4" src="/static/assets/logo-bg.png" alt="" />
+  </div>
+
+<section class="onb ambient-shell calendar-form-shell">
   <a class="back-link" href="/creator/calendar">&larr; calendar</a>
 
   <header class="onb-header">
@@ -50,4 +58,5 @@
     </div>
   </form>
 </section>
+</div>
 {% endblock %}
