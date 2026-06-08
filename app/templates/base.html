@@ -29,18 +29,6 @@
       <span class="brand-mark sm"><img src="/static/assets/logo-bg.png" alt="" /></span>
       <span class="logo-text">babyg</span>
     </a>
-    <span class="crumb">
-      {%- if cp == '/creator' %}today
-      {%- elif cp.startswith('/creator/bot') %}babyg
-      {%- elif cp.startswith('/creator/calendar') %}
-      {%- elif cp.startswith('/creator/dm') %}inbox
-      {%- elif cp.startswith('/creator/network') or cp.startswith('/creator/connections') %}network
-      {%- elif cp.startswith('/creator/jobs') %}postings
-      {%- elif cp.startswith('/creator/performance') or cp.startswith('/creator/receipts') or cp.startswith('/creator/views') %}stats
-      {%- elif cp.startswith('/creator/profile') or cp.startswith('/creator/settings') %}
-      {%- elif cp.startswith('/creator/notifications') %}alerts
-      {%- else %}babyg{%- endif %}
-    </span>
     <div class="right">
       <a href="/creator/profile" class="avatar av-g3" style="width:32px;height:32px;font-size:13px;text-decoration:none;overflow:hidden;padding:0;" aria-label="profile">
         {% if profile is defined and profile is not none and profile.profile_photo_url %}
@@ -106,6 +94,14 @@
 
     <!-- MAIN COLUMN -->
     <main class="app-main" id="main-col">
+      {% if not cp.startswith('/creator/bot') %}
+      <div class="app-bg-watermarks" aria-hidden="true">
+        <img class="app-bg-mark m1" src="/static/assets/logo-bg.png" alt="" />
+        <img class="app-bg-mark m2" src="/static/assets/logo-bg.png" alt="" />
+        <img class="app-bg-mark m3" src="/static/assets/logo-bg.png" alt="" />
+        <img class="app-bg-mark m4" src="/static/assets/logo-bg.png" alt="" />
+      </div>
+      {% endif %}
       {% include "_partials/creator_mobile_header.html" %}
       <div id="view">
         <div class="view">

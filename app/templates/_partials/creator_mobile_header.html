@@ -1,15 +1,4 @@
 {% set path = request.url.path %}
-{% set mh_title = "today" %}
-{% if path.startswith("/creator/bot") %}{% set mh_title = "babyg" %}
-{% elif path.startswith("/creator/network") or path.startswith("/creator/connections") %}{% set mh_title = "network" %}
-{% elif path.startswith("/creator/jobs") %}{% set mh_title = "postings" %}
-{% elif path.startswith("/creator/calendar") %}{% set mh_title = "calendar" %}
-{% elif path.startswith("/creator/performance") or path.startswith("/creator/receipts") or path.startswith("/creator/views") %}{% set mh_title = "stats" %}
-{% elif path.startswith("/creator/dm") %}{% set mh_title = "inbox" %}
-{% elif path.startswith("/creator/notifications") %}{% set mh_title = "alerts" %}
-{% elif path.startswith("/creator/profile") or path.startswith("/creator/settings") %}{% set mh_title = "profile" %}
-{% endif %}
-
 {% set is_detail = path.count('/') > 2 and not path.startswith('/creator/bot') %}
 
 <header class="mobile-header" id="mobile-header">
@@ -22,7 +11,6 @@
     <span class="brand-mark sm"><img src="/static/assets/logo-bg.png" alt="" /></span>
   </span>
   {% endif %}
-  <span class="title">{{ mh_title }}</span>
   <a href="/creator/notifications" class="icon-btn" aria-label="alerts">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M6 8a6 6 0 0112 0c0 6 3 9 3 9H3s3-2 3-9"/><path d="M10 21a2 2 0 004 0"/></svg>
   </a>

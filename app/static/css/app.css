@@ -485,9 +485,45 @@ h1, h2, h3, h4 {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  position: relative;
   padding-bottom: calc(var(--tabbar-h) + max(env(safe-area-inset-bottom, 16px), 16px));
 }
 .is-marketing .app-main { padding-bottom: 0; }
+
+.app-bg-watermarks {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.app-bg-mark {
+  position: absolute;
+  display: block;
+  object-fit: contain;
+  opacity: 0.03;
+  pointer-events: none;
+  user-select: none;
+  filter: drop-shadow(0 0 34px rgba(255,77,109,0.09));
+}
+.app-bg-mark.m1 { width: 430px; height: 430px; top: -150px; left: -150px; }
+.app-bg-mark.m2 { width: 500px; height: 500px; right: -210px; top: 3%; opacity: 0.028; }
+.app-bg-mark.m3 { width: 520px; height: 520px; left: -240px; bottom: -240px; opacity: 0.024; }
+.app-bg-mark.m4 { width: 430px; height: 430px; right: -170px; bottom: -180px; opacity: 0.024; }
+.is-chat .app-bg-watermarks {
+  display: none;
+}
+.app-main > .mobile-header,
+.app-main > #view {
+  position: relative;
+  z-index: 1;
+}
+@media (max-width: 720px) {
+  .app-bg-mark.m1 { width: 300px; height: 300px; top: -110px; left: -145px; }
+  .app-bg-mark.m2 { width: 340px; height: 340px; right: -175px; top: 8%; opacity: 0.026; }
+  .app-bg-mark.m3 { width: 360px; height: 360px; left: -200px; bottom: -185px; opacity: 0.022; }
+  .app-bg-mark.m4 { width: 300px; height: 300px; right: -150px; bottom: -140px; opacity: 0.022; }
+}
 
 .app-body { display: flex; flex: 1; min-height: 100vh; }
 
