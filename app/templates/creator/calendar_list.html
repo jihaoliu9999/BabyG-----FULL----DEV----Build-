@@ -3,10 +3,17 @@
 {% block title %}calendar — babyg{% endblock %}
 
 {% block content %}
-<div class="wrap">
+<div class="ambient-page calendar-page">
+  <div class="auth-bg-watermarks" aria-hidden="true">
+    <img class="auth-bg-mark m1" src="/static/assets/logo-bg.png" alt="" />
+    <img class="auth-bg-mark m2" src="/static/assets/logo-bg.png" alt="" />
+    <img class="auth-bg-mark m3" src="/static/assets/logo-bg.png" alt="" />
+    <img class="auth-bg-mark m4" src="/static/assets/logo-bg.png" alt="" />
+  </div>
+
+<div class="wrap ambient-shell">
   <div class="page-header">
     <div class="title-block">
-      <span class="mono eyebrow">calendar</span>
       <p class="sub">Google events, local bookings, and creator deadlines.</p>
     </div>
     <div class="actions">
@@ -95,5 +102,6 @@
     </form>
   </div>
   {% endif %}
+</div>
 </div>
 {% endblock %}

@@ -32,12 +32,12 @@
     <span class="crumb">
       {%- if cp == '/creator' %}today
       {%- elif cp.startswith('/creator/bot') %}babyg
-      {%- elif cp.startswith('/creator/calendar') %}calendar
+      {%- elif cp.startswith('/creator/calendar') %}
       {%- elif cp.startswith('/creator/dm') %}inbox
       {%- elif cp.startswith('/creator/network') or cp.startswith('/creator/connections') %}network
       {%- elif cp.startswith('/creator/jobs') %}postings
       {%- elif cp.startswith('/creator/performance') or cp.startswith('/creator/receipts') or cp.startswith('/creator/views') %}stats
-      {%- elif cp.startswith('/creator/profile') or cp.startswith('/creator/settings') %}profile
+      {%- elif cp.startswith('/creator/profile') or cp.startswith('/creator/settings') %}
       {%- elif cp.startswith('/creator/notifications') %}alerts
       {%- else %}babyg{%- endif %}
     </span>

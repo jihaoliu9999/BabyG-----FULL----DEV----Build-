@@ -7,6 +7,7 @@
 {% set photo_flash = request.query_params.get('photo') %}
 {% set chips_flash = request.query_params.get('chips') %}
 {% set bio_flash = request.query_params.get('bio') %}
+{% set details_flash = request.query_params.get('details') %}
 {% set chip_sections = [
   ('niches', 'niches', 'what you make and where babyg should look first.'),
   ('formats', 'formats', 'how your work usually shows up.'),
@@ -14,7 +15,15 @@
 ] %}
 
 {% block content %}
-<div class="wrap">
+<div class="ambient-page profile-page">
+  <div class="auth-bg-watermarks" aria-hidden="true">
+    <img class="auth-bg-mark m1" src="/static/assets/logo-bg.png" alt="" />
+    <img class="auth-bg-mark m2" src="/static/assets/logo-bg.png" alt="" />
+    <img class="auth-bg-mark m3" src="/static/assets/logo-bg.png" alt="" />
+    <img class="auth-bg-mark m4" src="/static/assets/logo-bg.png" alt="" />
+  </div>
+
+<div class="wrap ambient-shell profile-shell">
   <div style="display:flex;align-items:center;gap:18px;margin-bottom:22px;flex-wrap:wrap;">
     {% if profile.profile_photo_url %}
     <span class="avatar av-g3 xl" style="overflow:hidden;padding:0;">
@@ -107,14 +116,66 @@
   </div>
   {% endif %}
 
-  <span class="mono" style="display:block;margin-bottom:10px;">details</span>
-  <div class="kv-list" style="margin-bottom:22px;">
-    <div class="row"><span class="l">neighborhood</span><span class="v">{{ profile.neighborhood or 'not set' }}</span></div>
-    <div class="row"><span class="l">platform</span><span class="v">{{ profile.primary_platform or 'not set' }}</span></div>
-    <div class="row"><span class="l">followers</span><span class="v">{{ profile.follower_range or 'not set' }}</span></div>
-    <div class="row"><span class="l">engagement</span><span class="v">{{ profile.engagement_range or 'not set' }}</span></div>
-    <div class="row"><span class="l">tenure</span><span class="v">{{ profile.creator_tenure or 'not set' }}</span></div>
+  {% if details_flash %}
+  <div class="mono" style="font-size:10.5px;letter-spacing:0.14em;text-transform:uppercase;margin:0 0 14px;padding:8px 12px;border-radius:10px;border:1px solid var(--hairline);
+    {% if details_flash == 'ok' %}color:var(--lime);border-color:var(--lime);background:var(--lime-soft);
+    {% else %}color:var(--accent);border-color:var(--accent);background:var(--accent-bg);
+    {% endif %}">
+    {% if details_flash == 'ok' %}details updated
+    {% elif details_flash == 'save_failed' %}couldn't save details
+    {% else %}{{ details_flash }}
+    {% endif %}
   </div>
+  {% endif %}
+
+  <span class="mono" style="display:block;margin-bottom:10px;">details</span>
+  <div class="profile-details-card">
+    <div class="profile-details-head">
+      <span>creator basics</span>
+      <button type="button" class="profile-chip-edit profile-details-edit"
+              data-profile-chip-open="details"
+              aria-controls="profile-chip-details">edit</button>
+    </div>
+    <div class="profile-detail-grid">
+      <div class="profile-detail-item">
+        <span class="l">neighborhood</span>
+        <strong>{{ profile.neighborhood or 'not set' }}</strong>
+      </div>
+      <div class="profile-detail-item">
+        <span class="l">platform</span>
+        <strong>{{ profile.primary_platform or 'not set' }}</strong>
+      </div>
+      <div class="profile-detail-item">
+        <span class="l">followers</span>
+        <strong>{{ profile.follower_range or 'not set' }}</strong>
+      </div>
+      <div class="profile-detail-item">
+        <span class="l">engagement</span>
+        <strong>{{ profile.engagement_range or 'not set' }}</strong>
+      </div>
+    </div>
+  </div>
+
+  <dialog class="profile-chip-dialog" id="profile-chip-details" data-profile-chip-dialog>
+    <form method="post" action="/creator/profile/neighborhood" class="profile-chip-sheet">
+      {% include "_partials/csrf.html" %}
+      <div class="profile-chip-sheet-head">
+        <div>
+          <span class="mono profile-chip-label">details</span>
+          <h2>edit neighborhood</h2>
+        </div>
+        <button type="button" class="profile-chip-close" data-profile-chip-close aria-label="close">×</button>
+      </div>
+      <p>where should babyg place you?</p>
+      <label for="profile-neighborhood-input" class="sr-only">neighborhood</label>
+      <input id="profile-neighborhood-input" name="neighborhood" class="profile-detail-input"
+             value="{{ profile.neighborhood or '' }}" placeholder="coral gables" />
+      <div class="profile-chip-actions">
+        <button type="button" class="btn btn-ghost btn-sm" data-profile-chip-close>cancel</button>
+        <button type="submit" class="btn btn-lime btn-sm">save</button>
+      </div>
+    </form>
+  </dialog>
 
   <div class="profile-chip-stack">
     {% for section, label, hint in chip_sections %}
@@ -207,5 +268,6 @@
       </form>
     </dialog>
   </div>
+</div>
 </div>
 {% endblock %}

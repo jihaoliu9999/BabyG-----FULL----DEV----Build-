@@ -1096,6 +1096,57 @@ h1, h2, h3, h4 {
   transition: color .16s ease, border-color .16s ease, background .16s ease;
 }
 .profile-chip-display { margin-top: 10px; }
+.profile-details-card {
+  margin-bottom: 26px;
+  padding: 18px;
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 22px;
+  background: rgba(22,22,22,.58);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 22px 70px rgba(0,0,0,.18);
+}
+.profile-details-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 14px;
+  color: var(--ink-mid);
+  font-size: 13px;
+}
+.profile-details-edit {
+  background: transparent;
+  cursor: pointer;
+}
+.profile-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.profile-detail-item {
+  min-height: 92px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--hairline);
+  border-radius: 16px;
+  background: rgba(10,10,10,.42);
+}
+.profile-detail-item .l {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.profile-detail-item strong {
+  font-size: 16px;
+  line-height: 1.2;
+  font-weight: 500;
+  color: var(--ink);
+}
 .profile-bio-copy {
   color: var(--ink-mid);
   font-size: 14.5px;
@@ -1222,7 +1273,23 @@ h1, h2, h3, h4 {
   resize: vertical;
   outline: none;
 }
+.profile-detail-input {
+  width: 100%;
+  min-height: 56px;
+  margin: 0 0 18px;
+  padding: 0 16px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 16px;
+  background: var(--surface-1);
+  color: var(--ink);
+  font: inherit;
+  outline: none;
+}
 .profile-bio-textarea:focus {
+  border-color: var(--lime);
+  box-shadow: 0 0 0 1px rgba(255,77,109,0.22);
+}
+.profile-detail-input:focus {
   border-color: var(--lime);
   box-shadow: 0 0 0 1px rgba(255,77,109,0.22);
 }
@@ -1243,6 +1310,12 @@ h1, h2, h3, h4 {
 .profile-chip-lock { overflow: hidden; }
 
 @media (max-width: 640px) {
+  .profile-detail-grid {
+    grid-template-columns: 1fr;
+  }
+  .profile-detail-item {
+    min-height: 78px;
+  }
   .profile-chip-dialog {
     width: 100vw;
     max-width: none;
@@ -1808,6 +1881,73 @@ h1, h2, h3, h4 {
   min-height: calc(100vh - 96px);
   overflow: hidden;
   padding: 10px 0 80px;
+}
+.ambient-page {
+  position: relative;
+  min-height: calc(100vh - 96px);
+  overflow: hidden;
+  padding: 10px 0 80px;
+}
+.ambient-page .auth-bg-watermarks {
+  opacity: .7;
+}
+.ambient-page .auth-bg-mark {
+  filter: drop-shadow(0 0 34px rgba(255,77,109,0.1));
+}
+.ambient-shell {
+  position: relative;
+  z-index: 1;
+}
+.profile-shell {
+  max-width: 1120px;
+}
+.calendar-page .page-header {
+  margin-bottom: 34px;
+}
+.calendar-form-shell {
+  width: min(100%, 720px);
+  max-width: 720px;
+  padding-top: 50px;
+}
+.calendar-form-shell .back-link {
+  display: inline-flex;
+  margin-bottom: 30px;
+}
+.calendar-form-shell .onb-header {
+  text-align: center;
+  margin-bottom: 38px;
+}
+.calendar-form-shell .onb-title {
+  font-size: clamp(40px, 7vw, 58px);
+  font-weight: 500;
+  letter-spacing: var(--display-track);
+}
+.calendar-form-shell .onb-form {
+  padding: 30px;
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 28px;
+  background: rgba(22,22,22,.54);
+  backdrop-filter: blur(12px);
+}
+.calendar-form-shell .onb-section {
+  margin-bottom: 36px;
+  padding-bottom: 34px;
+}
+.calendar-form-shell .field {
+  margin-bottom: 18px;
+}
+.calendar-form-shell .field:last-child {
+  margin-bottom: 0;
+}
+.calendar-form-shell textarea,
+.calendar-form-shell input[type="text"],
+.calendar-form-shell input[type="datetime-local"] {
+  min-height: 56px;
+  border-radius: 14px;
+  background: rgba(12,12,12,.74);
+}
+.calendar-form-shell textarea {
+  padding-top: 16px;
 }
 .posting-page .auth-bg-watermarks {
   opacity: .72;
@@ -2414,6 +2554,25 @@ hr.hairline {
 @media (max-width: 640px) {
   .posting-page {
     padding-top: 0;
+  }
+  .ambient-page {
+    padding-top: 0;
+  }
+  .calendar-page .page-header {
+    margin-bottom: 28px;
+  }
+  .calendar-form-shell {
+    padding-top: 28px;
+  }
+  .calendar-form-shell .onb-header {
+    text-align: left;
+  }
+  .calendar-form-shell .onb-title {
+    font-size: clamp(34px, 12vw, 46px);
+  }
+  .calendar-form-shell .onb-form {
+    padding: 22px;
+    border-radius: 22px;
   }
   .posting-index .page-header {
     margin-bottom: 44px;

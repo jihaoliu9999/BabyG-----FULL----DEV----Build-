@@ -51,6 +51,9 @@ def test_creator_profile_page_renders(monkeypatch, client: TestClient) -> None:
     assert 'class="chip profile-chip-static"></span>' not in response.text
     assert "edit bio" in response.text
     assert "what should babyg know about how you show up?" in response.text
+    assert 'action="/creator/profile/neighborhood"' in response.text
+    assert "creator_tenure" not in response.text
+    assert "tenure" not in response.text
     assert "/auth/logout" in response.text
     assert "/creator/profile/settings" in response.text
 
@@ -130,6 +133,33 @@ def test_creator_profile_bio_update_clears_blank_bio(
 
     assert response.status_code == 303
     assert saved == {"bio": None}
+
+
+def test_creator_profile_neighborhood_update_saves_existing_field(
+    monkeypatch, client: TestClient
+) -> None:
+    _signed_in(client, role="creator", user_id="creator-1")
+    saved: dict = {}
+
+    monkeypatch.setattr(creator_routes.profiles, "get_creator_profile", lambda uid: _profile())
+    monkeypatch.setattr(
+        creator_routes.profiles,
+        "update_creator_profile",
+        lambda uid, payload: saved.update({"uid": uid, "payload": payload}) or True,
+    )
+
+    response = client.post(
+        "/creator/profile/neighborhood",
+        data={"neighborhood": "  Coral   Gables  "},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/creator/profile?details=ok"
+    assert saved == {
+        "uid": "creator-1",
+        "payload": {"neighborhood": "Coral Gables"},
+    }
 
 
 def test_creator_profile_settings_page_renders(monkeypatch, client: TestClient) -> None:

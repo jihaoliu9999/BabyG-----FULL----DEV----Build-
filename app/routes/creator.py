@@ -319,6 +319,23 @@ async def profile_bio_update(
     return RedirectResponse("/creator/profile?bio=ok", status_code=303)
 
 
+@router.post("/creator/profile/neighborhood")
+async def profile_neighborhood_update(
+    neighborhood: str = Form(""),
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    profile = profiles.get_creator_profile(session["user_id"]) or {}
+    if not profile.get("onboarding_completed_at"):
+        return RedirectResponse("/onboarding/creator", status_code=302)
+
+    cleaned = " ".join(neighborhood.strip().split())[:80]
+    if not profiles.update_creator_profile(
+        session["user_id"], {"neighborhood": cleaned or None}
+    ):
+        return RedirectResponse("/creator/profile?details=save_failed", status_code=303)
+    return RedirectResponse("/creator/profile?details=ok", status_code=303)
+
+
 @router.get("/creator/profile/settings", response_class=HTMLResponse)
 async def profile_settings_page(
     request: Request,
