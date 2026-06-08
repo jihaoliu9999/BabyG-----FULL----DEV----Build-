@@ -9,8 +9,8 @@ in the full design but were removed when brand was deferred to v1.5
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta
 import re
+from datetime import datetime, timedelta
 
 from fastapi import (
     APIRouter,
@@ -434,7 +434,7 @@ def _clean_profile_values(value) -> list[str]:
     if value is None:
         return []
     raw = [value] if isinstance(value, str) else value
-    if not isinstance(raw, (list, tuple)):
+    if not isinstance(raw, list | tuple):
         return []
     return _dedupe(str(item).strip() for item in raw if str(item).strip())
 

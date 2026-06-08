@@ -429,14 +429,16 @@ h1, h2, h3, h4 {
   width: 18px;
   height: 18px;
   flex: 0 0 18px;
-  opacity: 0.72;
+  color: rgba(245,241,232,0.72);
+  opacity: 0.84;
   transform-origin: center;
-  animation: sidebarIconBreathe 5.8s ease-in-out infinite;
+  animation: sidebarIconBreathe 4.8s ease-in-out infinite;
 }
 .app-sidebar nav a:hover svg,
 .app-sidebar nav a.active svg {
   opacity: 1;
-  filter: drop-shadow(0 0 8px rgba(245,241,232,0.18));
+  color: var(--ink);
+  filter: drop-shadow(0 0 10px rgba(245,241,232,0.28));
 }
 .app-sidebar nav a[data-tab="feed"] svg {
   color: var(--lime);
@@ -446,7 +448,7 @@ h1, h2, h3, h4 {
 .app-sidebar nav a.active:not([data-tab="feed"]):hover svg,
 .app-sidebar nav a.active:not([data-tab="feed"]) svg {
   color: var(--ink);
-  filter: drop-shadow(0 0 10px rgba(255,77,109,0.18));
+  animation: sidebarIconActivePulse 4.2s ease-in-out infinite;
 }
 @keyframes feedIconPulse {
   0%, 100% {
@@ -461,11 +463,23 @@ h1, h2, h3, h4 {
 @keyframes sidebarIconBreathe {
   0%, 100% {
     transform: translateY(0) scale(1);
-    filter: drop-shadow(0 0 2px rgba(245,241,232,0.05));
+    opacity: 0.72;
+    filter: drop-shadow(0 0 2px rgba(245,241,232,0.08));
   }
   50% {
-    transform: translateY(-1px) scale(1.025);
-    filter: drop-shadow(0 0 8px rgba(245,241,232,0.14));
+    transform: translateY(-1px) scale(1.06);
+    opacity: 0.98;
+    filter: drop-shadow(0 0 12px rgba(245,241,232,0.28));
+  }
+}
+@keyframes sidebarIconActivePulse {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+    filter: drop-shadow(0 0 6px rgba(255,77,109,0.16));
+  }
+  50% {
+    transform: translateY(-1px) scale(1.07);
+    filter: drop-shadow(0 0 15px rgba(255,77,109,0.34));
   }
 }
 .app-sidebar nav a .nav-bg-icon {
@@ -474,16 +488,16 @@ h1, h2, h3, h4 {
   filter: drop-shadow(0 0 3px rgba(160,200,255,0.45));
   opacity: 0.95;
   transform-origin: center;
-  animation: sidebarLogoBreathe 6.4s ease-in-out infinite;
+  animation: sidebarLogoBreathe 5.2s ease-in-out infinite;
 }
 @keyframes sidebarLogoBreathe {
   0%, 100% {
     transform: translateY(0) scale(1);
-    filter: drop-shadow(0 0 3px rgba(160,200,255,0.35));
+    filter: drop-shadow(0 0 4px rgba(160,200,255,0.4));
   }
   50% {
-    transform: translateY(-1px) scale(1.035);
-    filter: drop-shadow(0 0 8px rgba(245,241,232,0.18));
+    transform: translateY(-1px) scale(1.075);
+    filter: drop-shadow(0 0 12px rgba(245,241,232,0.28));
   }
 }
 .app-tabbar a .nav-bg-icon {
@@ -529,8 +543,11 @@ h1, h2, h3, h4 {
 .is-marketing .app-main { padding-bottom: 0; }
 
 .app-bg-watermarks {
-  position: absolute;
-  inset: 0;
+  position: fixed;
+  top: var(--topbar-h);
+  right: 0;
+  bottom: 0;
+  left: var(--sidebar-w);
   z-index: 0;
   overflow: hidden;
   pointer-events: none;
@@ -539,77 +556,111 @@ h1, h2, h3, h4 {
   position: absolute;
   display: block;
   object-fit: contain;
-  opacity: 0.03;
+  opacity: 0.052;
   pointer-events: none;
   user-select: none;
-  filter: drop-shadow(0 0 34px rgba(255,77,109,0.09));
+  filter: drop-shadow(0 0 40px rgba(255,77,109,0.14));
   will-change: transform;
 }
 .app-bg-mark.m1 {
-  width: 430px;
-  height: 430px;
-  top: -150px;
-  left: -150px;
-  animation: appLogoDriftOne 32s ease-in-out infinite;
-}
-.app-bg-mark.m2 {
   width: 500px;
   height: 500px;
-  right: -210px;
-  top: 3%;
-  opacity: 0.028;
-  animation: appLogoDriftTwo 39s ease-in-out infinite;
+  top: -155px;
+  left: -165px;
+  animation: appLogoDriftOne 24s ease-in-out infinite;
+}
+.app-bg-mark.m2 {
+  width: 560px;
+  height: 560px;
+  right: -230px;
+  top: 2%;
+  opacity: 0.046;
+  animation: appLogoDriftTwo 29s ease-in-out infinite;
 }
 .app-bg-mark.m3 {
   width: 520px;
   height: 520px;
   left: -240px;
   bottom: -240px;
-  opacity: 0.024;
-  animation: appLogoDriftThree 44s ease-in-out infinite;
+  opacity: 0.042;
+  animation: appLogoDriftThree 33s ease-in-out infinite;
 }
 .app-bg-mark.m4 {
-  width: 430px;
-  height: 430px;
-  right: -170px;
-  bottom: -180px;
+  width: 480px;
+  height: 480px;
+  right: -175px;
+  bottom: -185px;
+  opacity: 0.042;
+  animation: appLogoDriftFour 27s ease-in-out infinite;
+}
+.app-bg-mark.m5 {
+  width: 360px;
+  height: 360px;
+  left: 38%;
+  top: 18%;
+  opacity: 0.026;
+  animation: appLogoDriftFive 31s ease-in-out infinite;
+}
+.app-bg-mark.m6 {
+  width: 390px;
+  height: 390px;
+  right: 18%;
+  bottom: 10%;
   opacity: 0.024;
-  animation: appLogoDriftFour 36s ease-in-out infinite;
+  animation: appLogoDriftSix 35s ease-in-out infinite;
 }
 .is-chat .app-bg-mark {
-  opacity: 0.014;
+  opacity: 0.026;
 }
 .is-chat .app-bg-mark.m2,
 .is-chat .app-bg-mark.m3,
-.is-chat .app-bg-mark.m4 {
-  opacity: 0.012;
+.is-chat .app-bg-mark.m4,
+.is-chat .app-bg-mark.m5,
+.is-chat .app-bg-mark.m6 {
+  opacity: 0.02;
 }
 @keyframes appLogoDriftOne {
   0%, 100% { transform: translate3d(0, 0, 0) rotate(-2deg) scale(1); }
-  50% { transform: translate3d(28px, 34px, 0) rotate(2deg) scale(1.035); }
+  50% { transform: translate3d(72px, 58px, 0) rotate(3deg) scale(1.045); }
 }
 @keyframes appLogoDriftTwo {
   0%, 100% { transform: translate3d(0, 0, 0) rotate(2deg) scale(1); }
-  50% { transform: translate3d(-36px, 24px, 0) rotate(-2deg) scale(1.025); }
+  50% { transform: translate3d(-84px, 46px, 0) rotate(-3deg) scale(1.04); }
 }
 @keyframes appLogoDriftThree {
   0%, 100% { transform: translate3d(0, 0, 0) rotate(1deg) scale(1); }
-  50% { transform: translate3d(34px, -30px, 0) rotate(-2deg) scale(1.03); }
+  50% { transform: translate3d(78px, -70px, 0) rotate(-3deg) scale(1.045); }
 }
 @keyframes appLogoDriftFour {
   0%, 100% { transform: translate3d(0, 0, 0) rotate(-1deg) scale(1); }
-  50% { transform: translate3d(-30px, -34px, 0) rotate(2deg) scale(1.035); }
+  50% { transform: translate3d(-68px, -64px, 0) rotate(3deg) scale(1.04); }
+}
+@keyframes appLogoDriftFive {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(2deg) scale(1); }
+  50% { transform: translate3d(-48px, 72px, 0) rotate(-2deg) scale(1.035); }
+}
+@keyframes appLogoDriftSix {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(-2deg) scale(1); }
+  50% { transform: translate3d(56px, -58px, 0) rotate(2deg) scale(1.04); }
 }
 .app-main > .mobile-header,
 .app-main > #view {
   position: relative;
   z-index: 1;
 }
+@media (max-width: 999px) {
+  .app-bg-watermarks {
+    top: 0;
+    left: 0;
+  }
+}
 @media (max-width: 720px) {
-  .app-bg-mark.m1 { width: 300px; height: 300px; top: -110px; left: -145px; }
-  .app-bg-mark.m2 { width: 340px; height: 340px; right: -175px; top: 8%; opacity: 0.026; }
-  .app-bg-mark.m3 { width: 360px; height: 360px; left: -200px; bottom: -185px; opacity: 0.022; }
-  .app-bg-mark.m4 { width: 300px; height: 300px; right: -150px; bottom: -140px; opacity: 0.022; }
+  .app-bg-mark.m1 { width: 340px; height: 340px; top: -110px; left: -150px; }
+  .app-bg-mark.m2 { width: 360px; height: 360px; right: -175px; top: 8%; opacity: 0.04; }
+  .app-bg-mark.m3 { width: 360px; height: 360px; left: -190px; bottom: -180px; opacity: 0.036; }
+  .app-bg-mark.m4 { width: 330px; height: 330px; right: -150px; bottom: -130px; opacity: 0.034; }
+  .app-bg-mark.m5 { width: 260px; height: 260px; left: 34%; top: 28%; opacity: 0.022; }
+  .app-bg-mark.m6 { width: 280px; height: 280px; right: -100px; bottom: 18%; opacity: 0.022; }
 }
 
 .app-body { display: flex; flex: 1; min-height: 100vh; }
