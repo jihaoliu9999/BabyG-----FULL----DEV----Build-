@@ -137,6 +137,13 @@ def world(monkeypatch) -> FakeWorld:
         listing["is_active"] = False
         return True
 
+    def _delete(lid, *, poster_id):
+        listing = w.listings.get(lid)
+        if not listing or listing["poster_user_id"] != poster_id:
+            return False
+        del w.listings[lid]
+        return True
+
     def _take_down(*, listing_id, operator_id, reason):
         if not reason:
             return False
@@ -157,6 +164,7 @@ def world(monkeypatch) -> FakeWorld:
     monkeypatch.setattr(jobs_module, "create", _create)
     monkeypatch.setattr(jobs_module, "update", _update)
     monkeypatch.setattr(jobs_module, "deactivate", _deactivate)
+    monkeypatch.setattr(jobs_module, "delete", _delete)
     monkeypatch.setattr(jobs_module, "take_down", _take_down)
 
     # ----- network: connection lookup for "can DM" gate -----
@@ -262,7 +270,7 @@ def test_creator_jobs_create_rejects_non_money_compensation(client, world):
     assert world.listings == {}
 
 
-def test_creator_jobs_create_rejects_deadline_after_21_days(client, world):
+def test_creator_jobs_create_rejects_deadline_after_14_days(client, world):
     _signed_in(client, role="creator", user_id="c-1")
     world.add_creator(user_id="c-1")
     r = client.post(
@@ -272,11 +280,46 @@ def test_creator_jobs_create_rejects_deadline_after_21_days(client, world):
             "description": "Half-day shoot in Wynwood next week.",
             "listing_type": "hiring",
             "compensation_text": "$300",
-            "deadline": _deadline(22),
+            "deadline": _deadline(15),
         },
     )
     assert r.status_code == 400
-    assert "Posting deadline must be within 21 days" in r.text
+    assert "Posting deadline must be within 14 days" in r.text
+    assert world.listings == {}
+
+
+def test_creator_jobs_create_rejects_missing_deadline(client, world):
+    _signed_in(client, role="creator", user_id="c-1")
+    world.add_creator(user_id="c-1")
+    r = client.post(
+        "/creator/jobs",
+        data={
+            "title": "Looking for a videographer",
+            "description": "Half-day shoot in Wynwood next week.",
+            "listing_type": "hiring",
+            "compensation_text": "$300",
+        },
+    )
+    assert r.status_code == 400
+    assert "Posting deadline is required" in r.text
+    assert world.listings == {}
+
+
+def test_creator_jobs_create_rejects_ugc_gig_type(client, world):
+    _signed_in(client, role="creator", user_id="c-1")
+    world.add_creator(user_id="c-1")
+    r = client.post(
+        "/creator/jobs",
+        data={
+            "title": "Looking for a videographer",
+            "description": "Half-day shoot in Wynwood next week.",
+            "listing_type": "ugc_gig",
+            "compensation_text": "$300",
+            "deadline": _deadline(),
+        },
+    )
+    assert r.status_code == 400
+    assert "Pick a posting type" in r.text
     assert world.listings == {}
 
 
@@ -303,6 +346,25 @@ def test_creator_jobs_edit_only_owner(client, world):
     listing = world.add_listing(poster="c-2", title="Theirs")
     r = client.get(f"/creator/jobs/{listing['id']}/edit")
     assert r.status_code == 403
+
+
+def test_creator_jobs_form_hides_ugc_gig_and_back_link(client, world):
+    _signed_in(client, role="creator", user_id="c-1")
+    world.add_creator(user_id="c-1")
+    r = client.get("/creator/jobs/new")
+    assert r.status_code == 200
+    assert "ugc_gig" not in r.text
+    assert "my postings" not in r.text
+    assert "required. must be within 14 days." in r.text
+
+
+def test_creator_jobs_old_ugc_gig_record_renders(client, world):
+    _signed_in(client, role="creator", user_id="c-1")
+    world.add_creator(user_id="c-1")
+    listing = world.add_listing(poster="c-1", title="Legacy", listing_type="ugc_gig")
+    r = client.get(f"/creator/jobs/{listing['id']}")
+    assert r.status_code == 200
+    assert "Legacy" in r.text
 
 
 def test_creator_jobs_detail_dm_gate_when_unconnected(client, world):
@@ -333,6 +395,26 @@ def test_creator_jobs_close(client, world):
     r = client.post(f"/creator/jobs/{listing['id']}/close")
     assert r.status_code == 303
     assert world.listings[listing["id"]]["is_active"] is False
+
+
+def test_creator_jobs_delete_owner_only(client, world):
+    _signed_in(client, role="creator", user_id="c-1")
+    world.add_creator(user_id="c-1")
+    listing = world.add_listing(poster="c-1", title="Mine")
+    r = client.post(f"/creator/jobs/{listing['id']}/delete")
+    assert r.status_code == 303
+    assert r.headers["location"] == "/creator/jobs"
+    assert listing["id"] not in world.listings
+
+
+def test_creator_jobs_delete_rejects_non_owner(client, world):
+    _signed_in(client, role="creator", user_id="c-1")
+    world.add_creator(user_id="c-1")
+    world.add_creator(user_id="c-2")
+    listing = world.add_listing(poster="c-2", title="Theirs")
+    r = client.post(f"/creator/jobs/{listing['id']}/delete")
+    assert r.status_code == 403
+    assert listing["id"] in world.listings
 
 
 def test_creator_jobs_404_taken_down(client, world):

@@ -13,8 +13,6 @@
   </div>
 
 <section class="onb posting-form-shell">
-  <a class="back-link" href="/creator/jobs/mine">&larr; my postings</a>
-
   <header class="onb-header">
     <div class="auth-tag">{% if is_new %}new posting{% else %}edit posting{% endif %}</div>
     <h1 class="onb-title">
@@ -53,7 +51,7 @@
 
       {{ f.field("deadline", "deadline",
                   listing.get("deadline", ""), type="datetime-local", required=True,
-                  hint="required. must be within 21 days.") }}
+                  hint="required. must be within 14 days.") }}
     </section>
 
     <section class="onb-section">
@@ -71,6 +69,16 @@
       </button>
     </div>
   </form>
+
+  {% if not is_new %}
+  <form class="posting-delete-form" method="post" action="/creator/jobs/{{ listing_id }}/delete">
+    {% include "_partials/csrf.html" %}
+    <button type="submit" class="btn btn-danger btn-wide"
+            onclick="return confirm('delete this posting?');">
+      delete posting
+    </button>
+  </form>
+  {% endif %}
 </section>
 </div>
 {% endblock %}

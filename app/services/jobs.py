@@ -20,7 +20,7 @@ from app.core import supabase_client
 logger = logging.getLogger(__name__)
 
 
-LISTING_TYPES = ("collab", "ugc_gig", "hiring", "brand_deal")
+LISTING_TYPES = ("collab", "hiring", "brand_deal")
 
 
 def list_active(*, niche: str | None = None, limit: int = 100) -> list[dict[str, Any]]:
@@ -153,6 +153,23 @@ def deactivate(listing_id: str, *, poster_id: str) -> bool:
         )
     except PostgrestAPIError:
         logger.exception("jobs deactivate failed: %s", listing_id)
+        return False
+    return bool(getattr(result, "data", None))
+
+
+def delete(listing_id: str, *, poster_id: str) -> bool:
+    """Poster-initiated delete, owner-filtered at the service layer."""
+    try:
+        result = (
+            supabase_client.get_service_client()
+            .table("creator_job_listings")
+            .delete()
+            .eq("id", listing_id)
+            .eq("poster_user_id", poster_id)
+            .execute()
+        )
+    except PostgrestAPIError:
+        logger.exception("jobs delete failed: %s", listing_id)
         return False
     return bool(getattr(result, "data", None))
 

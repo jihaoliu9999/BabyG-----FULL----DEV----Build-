@@ -143,6 +143,16 @@ h1, h2, h3, h4 {
 .btn-light:hover { background: #fff; }
 .btn-lime { background: var(--lime); color: #fff; border-color: var(--lime); }
 .btn-lime:hover { background: #ff6c84; }
+.btn-danger {
+  background: rgba(255,77,109,.1);
+  color: var(--lime);
+  border-color: rgba(255,77,109,.5);
+}
+.btn-danger:hover {
+  background: var(--lime);
+  color: #fff;
+  border-color: var(--lime);
+}
 .btn-ghost { background: transparent; color: var(--ink); border: 1px solid var(--hairline-strong); }
 .btn-ghost:hover { border-color: #444; background: rgba(255,255,255,0.03); }
 .btn-dark { background: var(--obsidian); color: var(--bone); border-color: var(--hairline-strong); }
@@ -2369,6 +2379,11 @@ hr.hairline {
 }
 .posting-form .onb-actions {
   padding-top: 12px;
+}
+.posting-delete-form {
+  margin-top: 18px;
+  padding-top: 20px;
+  border-top: 1px solid var(--hairline);
 }
 
 @media (max-width: 640px) {

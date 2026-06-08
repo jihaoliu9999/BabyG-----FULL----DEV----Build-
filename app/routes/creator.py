@@ -942,6 +942,21 @@ async def jobs_close(
     return RedirectResponse("/creator/jobs/mine", status_code=303)
 
 
+@router.post("/creator/jobs/{listing_id}/delete")
+async def jobs_delete(
+    listing_id: str,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    listing = jobs.get(listing_id)
+    if listing is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    if str(listing["poster_user_id"]) != session["user_id"]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+    if not jobs.delete(listing_id, poster_id=session["user_id"]):
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
+    return RedirectResponse("/creator/jobs", status_code=303)
+
+
 # -----------------------------------------------------------------------------
 # Postings: validation + helpers
 # -----------------------------------------------------------------------------
@@ -1020,11 +1035,11 @@ def _validate_posting_deadline(deadline: str) -> str | None:
         return "Posting deadline must be a valid date."
 
     now = datetime.now()
-    max_deadline = now + timedelta(days=21)
+    max_deadline = now + timedelta(days=14)
     if deadline_at <= now:
         return "Posting deadline must be in the future."
     if deadline_at > max_deadline:
-        return "Posting deadline must be within 21 days."
+        return "Posting deadline must be within 14 days."
     return None
 
 
