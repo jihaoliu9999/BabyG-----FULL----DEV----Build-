@@ -28,6 +28,7 @@ def _profile() -> dict:
         "niches": ["food", "style", ""],
         "content_formats": ["reels", "stories", " "],
         "hard_limits": ["no gambling", ""],
+        "bio": "lifestyle creator - party videos",
         "tier": "pro",
         "writing_samples": ["sample"],
     }
@@ -48,6 +49,8 @@ def test_creator_profile_page_renders(monkeypatch, client: TestClient) -> None:
     assert 'value="lifestyle"' in response.text
     assert 'value="no alcohol"' in response.text
     assert 'class="chip profile-chip-static"></span>' not in response.text
+    assert "edit bio" in response.text
+    assert "what should babyg know about how you show up?" in response.text
     assert "/auth/logout" in response.text
     assert "/creator/profile/settings" in response.text
 
@@ -77,6 +80,56 @@ def test_creator_profile_chip_update_saves_existing_fields(
     assert response.status_code == 303
     assert response.headers["location"] == "/creator/profile?chips=ok"
     assert saved["payload"] == {"hard_limits": ["no alcohol", "no gambling"]}
+
+
+def test_creator_profile_bio_update_saves_own_profile(
+    monkeypatch, client: TestClient
+) -> None:
+    _signed_in(client, role="creator", user_id="creator-1")
+    saved: dict = {}
+
+    monkeypatch.setattr(creator_routes.profiles, "get_creator_profile", lambda uid: _profile())
+    monkeypatch.setattr(
+        creator_routes.profiles,
+        "update_creator_profile",
+        lambda uid, payload: saved.update({"uid": uid, "payload": payload}) or True,
+    )
+
+    response = client.post(
+        "/creator/profile/bio",
+        data={"bio": "  lifestyle creator\n  party videos  "},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/creator/profile?bio=ok"
+    assert saved == {
+        "uid": "creator-1",
+        "payload": {"bio": "lifestyle creator\nparty videos"},
+    }
+
+
+def test_creator_profile_bio_update_clears_blank_bio(
+    monkeypatch, client: TestClient
+) -> None:
+    _signed_in(client, role="creator", user_id="creator-1")
+    saved: dict = {}
+
+    monkeypatch.setattr(creator_routes.profiles, "get_creator_profile", lambda uid: _profile())
+    monkeypatch.setattr(
+        creator_routes.profiles,
+        "update_creator_profile",
+        lambda uid, payload: saved.update(payload) or True,
+    )
+
+    response = client.post(
+        "/creator/profile/bio",
+        data={"bio": "   "},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert saved == {"bio": None}
 
 
 def test_creator_profile_settings_page_renders(monkeypatch, client: TestClient) -> None:

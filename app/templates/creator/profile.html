@@ -6,6 +6,7 @@
 {% set initials = (profile.full_name or profile.instagram_handle or 'creator')[:2]|upper %}
 {% set photo_flash = request.query_params.get('photo') %}
 {% set chips_flash = request.query_params.get('chips') %}
+{% set bio_flash = request.query_params.get('bio') %}
 {% set chip_sections = [
   ('niches', 'niches', 'what you make and where babyg should look first.'),
   ('formats', 'formats', 'how your work usually shows up.'),
@@ -94,6 +95,18 @@
   </div>
   {% endif %}
 
+  {% if bio_flash %}
+  <div class="mono" style="font-size:10.5px;letter-spacing:0.14em;text-transform:uppercase;margin:0 0 14px;padding:8px 12px;border-radius:10px;border:1px solid var(--hairline);
+    {% if bio_flash == 'ok' %}color:var(--lime);border-color:var(--lime);background:var(--lime-soft);
+    {% else %}color:var(--accent);border-color:var(--accent);background:var(--accent-bg);
+    {% endif %}">
+    {% if bio_flash == 'ok' %}bio updated
+    {% elif bio_flash == 'save_failed' %}couldn't save bio
+    {% else %}{{ bio_flash }}
+    {% endif %}
+  </div>
+  {% endif %}
+
   <span class="mono" style="display:block;margin-bottom:10px;">details</span>
   <div class="kv-list" style="margin-bottom:22px;">
     <div class="row"><span class="l">neighborhood</span><span class="v">{{ profile.neighborhood or 'not set' }}</span></div>
@@ -156,11 +169,43 @@
       </form>
     </dialog>
     {% endfor %}
-  </div>
 
-  {% if profile.bio %}
-  <span class="mono" style="display:block;margin-bottom:10px;">bio</span>
-  <p style="color:var(--ink-mid);font-size:14.5px;line-height:1.55;margin:0 0 22px;">{{ profile.bio }}</p>
-  {% endif %}
+    <section class="profile-chip-section">
+      <button type="button"
+              class="profile-chip-trigger"
+              data-profile-chip-open="bio"
+              aria-controls="profile-chip-bio">
+        <span>
+          <span class="mono profile-chip-label">bio</span>
+        </span>
+        <span class="profile-chip-edit">edit</span>
+      </button>
+      {% if profile.bio %}
+      <p class="profile-bio-copy">{{ profile.bio }}</p>
+      {% else %}
+      <p class="profile-chip-empty">tap to add bio.</p>
+      {% endif %}
+    </section>
+
+    <dialog class="profile-chip-dialog" id="profile-chip-bio" data-profile-chip-dialog>
+      <form method="post" action="/creator/profile/bio" class="profile-chip-sheet">
+        {% include "_partials/csrf.html" %}
+        <div class="profile-chip-sheet-head">
+          <div>
+            <span class="mono profile-chip-label">bio</span>
+            <h2>edit bio</h2>
+          </div>
+          <button type="button" class="profile-chip-close" data-profile-chip-close aria-label="close">×</button>
+        </div>
+        <p>what should babyg know about how you show up?</p>
+        <label for="profile-bio-input" class="sr-only">bio</label>
+        <textarea id="profile-bio-input" name="bio" rows="5" class="profile-bio-textarea">{{ profile.bio or '' }}</textarea>
+        <div class="profile-chip-actions">
+          <button type="button" class="btn btn-ghost btn-sm" data-profile-chip-close>cancel</button>
+          <button type="submit" class="btn btn-lime btn-sm">save</button>
+        </div>
+      </form>
+    </dialog>
+  </div>
 </div>
 {% endblock %}

@@ -1096,6 +1096,13 @@ h1, h2, h3, h4 {
   transition: color .16s ease, border-color .16s ease, background .16s ease;
 }
 .profile-chip-display { margin-top: 10px; }
+.profile-bio-copy {
+  color: var(--ink-mid);
+  font-size: 14.5px;
+  line-height: 1.55;
+  margin: 0;
+  white-space: pre-wrap;
+}
 .profile-chip-static {
   cursor: default;
   background: var(--bone);
@@ -1201,6 +1208,24 @@ h1, h2, h3, h4 {
   color: var(--obsidian);
 }
 .profile-chip-option:active { transform: scale(0.98); }
+.profile-bio-textarea {
+  width: 100%;
+  min-height: 132px;
+  margin: 0 0 18px;
+  padding: 14px 16px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 16px;
+  background: var(--surface-1);
+  color: var(--ink);
+  font: inherit;
+  line-height: 1.45;
+  resize: vertical;
+  outline: none;
+}
+.profile-bio-textarea:focus {
+  border-color: var(--lime);
+  box-shadow: 0 0 0 1px rgba(255,77,109,0.22);
+}
 .profile-chip-actions {
   display: flex;
   justify-content: flex-end;

@@ -41,7 +41,15 @@
 
       <div class="field">
         <label class="field-label">posting type <span class="req">*</span></label>
-        {{ f.radio_group("listing_type", vocab.listing_types, listing.get("listing_type")) }}
+        <div class="chips chips-grid">
+          {% for option in vocab.listing_types %}
+          <label class="chip chip-radio">
+            <input type="radio" name="listing_type" value="{{ option }}"
+                   {% if option == listing.get("listing_type") %}checked{% endif %} />
+            <span>{{ option|replace('_', ' ') }}</span>
+          </label>
+          {% endfor %}
+        </div>
       </div>
 
       {{ f.field("compensation", "compensation_text",
@@ -64,9 +72,7 @@
     </section>
 
     <div class="onb-actions">
-      <button type="submit" class="btn btn-primary btn-wide">
-        {% if is_new %}post posting{% else %}save changes{% endif %}
-      </button>
+      <button type="submit" class="btn btn-primary btn-wide">{% if is_new %}post{% else %}save changes{% endif %}</button>
     </div>
   </form>
 
