@@ -94,14 +94,12 @@
 
     <!-- MAIN COLUMN -->
     <main class="app-main" id="main-col">
-      {% if not cp.startswith('/creator/bot') %}
       <div class="app-bg-watermarks" aria-hidden="true">
         <img class="app-bg-mark m1" src="/static/assets/logo-bg.png" alt="" />
         <img class="app-bg-mark m2" src="/static/assets/logo-bg.png" alt="" />
         <img class="app-bg-mark m3" src="/static/assets/logo-bg.png" alt="" />
         <img class="app-bg-mark m4" src="/static/assets/logo-bg.png" alt="" />
       </div>
-      {% endif %}
       {% include "_partials/creator_mobile_header.html" %}
       <div id="view">
         <div class="view">

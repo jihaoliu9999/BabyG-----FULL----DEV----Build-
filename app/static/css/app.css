@@ -425,12 +425,28 @@ h1, h2, h3, h4 {
   background: var(--surface-2);
   color: var(--ink);
 }
-.app-sidebar nav a svg { width: 18px; height: 18px; flex: 0 0 18px; opacity: 0.7; }
-.app-sidebar nav a.active svg { opacity: 1; }
+.app-sidebar nav a svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  opacity: 0.72;
+  transform-origin: center;
+  animation: sidebarIconBreathe 5.8s ease-in-out infinite;
+}
+.app-sidebar nav a:hover svg,
+.app-sidebar nav a.active svg {
+  opacity: 1;
+  filter: drop-shadow(0 0 8px rgba(245,241,232,0.18));
+}
 .app-sidebar nav a[data-tab="feed"] svg {
   color: var(--lime);
   filter: drop-shadow(0 0 8px rgba(255,77,109,0.55));
-  animation: feedIconPulse 2.8s ease-in-out infinite;
+  animation: feedIconPulse 3.2s ease-in-out infinite;
+}
+.app-sidebar nav a.active:not([data-tab="feed"]):hover svg,
+.app-sidebar nav a.active:not([data-tab="feed"]) svg {
+  color: var(--ink);
+  filter: drop-shadow(0 0 10px rgba(255,77,109,0.18));
 }
 @keyframes feedIconPulse {
   0%, 100% {
@@ -442,11 +458,33 @@ h1, h2, h3, h4 {
     filter: drop-shadow(0 0 13px rgba(255,77,109,0.75));
   }
 }
+@keyframes sidebarIconBreathe {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+    filter: drop-shadow(0 0 2px rgba(245,241,232,0.05));
+  }
+  50% {
+    transform: translateY(-1px) scale(1.025);
+    filter: drop-shadow(0 0 8px rgba(245,241,232,0.14));
+  }
+}
 .app-sidebar nav a .nav-bg-icon {
   width: 20px; height: 20px; flex: 0 0 20px;
   object-fit: contain;
   filter: drop-shadow(0 0 3px rgba(160,200,255,0.45));
   opacity: 0.95;
+  transform-origin: center;
+  animation: sidebarLogoBreathe 6.4s ease-in-out infinite;
+}
+@keyframes sidebarLogoBreathe {
+  0%, 100% {
+    transform: translateY(0) scale(1);
+    filter: drop-shadow(0 0 3px rgba(160,200,255,0.35));
+  }
+  50% {
+    transform: translateY(-1px) scale(1.035);
+    filter: drop-shadow(0 0 8px rgba(245,241,232,0.18));
+  }
 }
 .app-tabbar a .nav-bg-icon {
   width: 22px; height: 22px;
@@ -505,13 +543,62 @@ h1, h2, h3, h4 {
   pointer-events: none;
   user-select: none;
   filter: drop-shadow(0 0 34px rgba(255,77,109,0.09));
+  will-change: transform;
 }
-.app-bg-mark.m1 { width: 430px; height: 430px; top: -150px; left: -150px; }
-.app-bg-mark.m2 { width: 500px; height: 500px; right: -210px; top: 3%; opacity: 0.028; }
-.app-bg-mark.m3 { width: 520px; height: 520px; left: -240px; bottom: -240px; opacity: 0.024; }
-.app-bg-mark.m4 { width: 430px; height: 430px; right: -170px; bottom: -180px; opacity: 0.024; }
-.is-chat .app-bg-watermarks {
-  display: none;
+.app-bg-mark.m1 {
+  width: 430px;
+  height: 430px;
+  top: -150px;
+  left: -150px;
+  animation: appLogoDriftOne 32s ease-in-out infinite;
+}
+.app-bg-mark.m2 {
+  width: 500px;
+  height: 500px;
+  right: -210px;
+  top: 3%;
+  opacity: 0.028;
+  animation: appLogoDriftTwo 39s ease-in-out infinite;
+}
+.app-bg-mark.m3 {
+  width: 520px;
+  height: 520px;
+  left: -240px;
+  bottom: -240px;
+  opacity: 0.024;
+  animation: appLogoDriftThree 44s ease-in-out infinite;
+}
+.app-bg-mark.m4 {
+  width: 430px;
+  height: 430px;
+  right: -170px;
+  bottom: -180px;
+  opacity: 0.024;
+  animation: appLogoDriftFour 36s ease-in-out infinite;
+}
+.is-chat .app-bg-mark {
+  opacity: 0.014;
+}
+.is-chat .app-bg-mark.m2,
+.is-chat .app-bg-mark.m3,
+.is-chat .app-bg-mark.m4 {
+  opacity: 0.012;
+}
+@keyframes appLogoDriftOne {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(-2deg) scale(1); }
+  50% { transform: translate3d(28px, 34px, 0) rotate(2deg) scale(1.035); }
+}
+@keyframes appLogoDriftTwo {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(2deg) scale(1); }
+  50% { transform: translate3d(-36px, 24px, 0) rotate(-2deg) scale(1.025); }
+}
+@keyframes appLogoDriftThree {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(1deg) scale(1); }
+  50% { transform: translate3d(34px, -30px, 0) rotate(-2deg) scale(1.03); }
+}
+@keyframes appLogoDriftFour {
+  0%, 100% { transform: translate3d(0, 0, 0) rotate(-1deg) scale(1); }
+  50% { transform: translate3d(-30px, -34px, 0) rotate(2deg) scale(1.035); }
 }
 .app-main > .mobile-header,
 .app-main > #view {
@@ -2888,9 +2975,14 @@ hr.hairline {
 .report-form textarea:focus { border-color: var(--lime); }
 
 @media (prefers-reduced-motion: reduce) {
+  .app-bg-mark,
+  .app-sidebar nav a svg,
+  .app-sidebar nav a .nav-bg-icon,
   .app-sidebar nav a[data-tab="feed"] svg {
     animation: none;
     transform: none;
+  }
+  .app-sidebar nav a[data-tab="feed"] svg {
     filter: drop-shadow(0 0 7px rgba(255,77,109,0.55));
   }
 }
