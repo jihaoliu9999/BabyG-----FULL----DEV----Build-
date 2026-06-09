@@ -20,35 +20,35 @@
     {% include "_partials/csrf.html" %}
     <input type="hidden" name="next_path" value="{{ next_path }}" />
 
-    <label style="display:block;padding:14px 0;border-bottom:1px solid var(--hairline);cursor:pointer;">
-      <span style="display:flex;align-items:flex-start;gap:12px;">
-        <input type="checkbox" name="services" value="calendar" style="margin-top:3px;" {% if "calendar" in selected_services %}checked{% endif %} />
+    <div style="padding:14px 0;border-bottom:1px solid var(--hairline);">
+      <div style="display:flex;align-items:flex-start;gap:12px;">
+        <input id="google-service-calendar" type="checkbox" name="services" value="calendar" style="margin-top:3px;" {% if "calendar" in selected_services %}checked{% endif %} />
         <span style="display:block;">
           <span style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-            <span>Google Calendar</span>
+            <label for="google-service-calendar" style="cursor:pointer;">Google Calendar</label>
             {% if google_calendar_connected %}
             <span class="mono" style="font-size:10px;color:var(--lime);">connected</span>
             {% endif %}
           </span>
           <span style="display:block;color:var(--ink-dim);font-size:13px;margin-top:4px;">read your schedule and help plan around it</span>
         </span>
-      </span>
-    </label>
+      </div>
+    </div>
 
-    <label style="display:block;padding:14px 0;border-bottom:1px solid var(--hairline);cursor:pointer;">
-      <span style="display:flex;align-items:flex-start;gap:12px;">
-        <input type="checkbox" name="services" value="gmail" style="margin-top:3px;" {% if "gmail" in selected_services %}checked{% endif %} />
+    <div style="padding:14px 0;border-bottom:1px solid var(--hairline);">
+      <div style="display:flex;align-items:flex-start;gap:12px;">
+        <input id="google-service-gmail" type="checkbox" name="services" value="gmail" style="margin-top:3px;" {% if "gmail" in selected_services %}checked{% endif %} />
         <span style="display:block;">
           <span style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
-            <span>Gmail</span>
+            <label for="google-service-gmail" style="cursor:pointer;">Gmail</label>
             {% if google_gmail_connected %}
             <span class="mono" style="font-size:10px;color:var(--lime);">connected</span>
             {% endif %}
           </span>
           <span style="display:block;color:var(--ink-dim);font-size:13px;margin-top:4px;">read email threads and draft replies after approval</span>
         </span>
-      </span>
-    </label>
+      </div>
+    </div>
 
     <p style="color:var(--ink-dim);font-size:12.5px;margin:14px 0 0;">Google will show the actual permission request on its consent screen.</p>
 

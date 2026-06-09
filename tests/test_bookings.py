@@ -195,9 +195,10 @@ def test_google_connect_picker_preselects_calendar(client, world, monkeypatch):
     r = client.get("/creator/google/connect?service=calendar")
 
     assert r.status_code == 200
-    assert 'name="services" value="calendar"' in r.text
-    assert 'name="services" value="calendar" style="margin-top:3px;" checked' in r.text
-    assert 'name="services" value="gmail" style="margin-top:3px;" checked' not in r.text
+    assert 'id="google-service-calendar"' in r.text
+    assert 'for="google-service-calendar"' in r.text
+    assert 'id="google-service-calendar" type="checkbox" name="services" value="calendar" style="margin-top:3px;" checked' in r.text
+    assert 'id="google-service-gmail" type="checkbox" name="services" value="gmail" style="margin-top:3px;" checked' not in r.text
 
 
 def test_google_connect_picker_preselects_gmail(client, world, monkeypatch):
@@ -207,9 +208,10 @@ def test_google_connect_picker_preselects_gmail(client, world, monkeypatch):
     r = client.get("/creator/google/connect?service=gmail")
 
     assert r.status_code == 200
-    assert 'name="services" value="gmail"' in r.text
-    assert 'name="services" value="gmail" style="margin-top:3px;" checked' in r.text
-    assert 'name="services" value="calendar" style="margin-top:3px;" checked' not in r.text
+    assert 'id="google-service-gmail"' in r.text
+    assert 'for="google-service-gmail"' in r.text
+    assert 'id="google-service-gmail" type="checkbox" name="services" value="gmail" style="margin-top:3px;" checked' in r.text
+    assert 'id="google-service-calendar" type="checkbox" name="services" value="calendar" style="margin-top:3px;" checked' not in r.text
 
 
 def test_google_connect_requires_one_service(client, world, monkeypatch):
@@ -223,6 +225,38 @@ def test_google_connect_requires_one_service(client, world, monkeypatch):
 
     assert r.status_code == 400
     assert "choose at least one Google service." in r.text
+
+
+@pytest.mark.parametrize(
+    ("service", "expected"),
+    [
+        ("calendar", ["calendar"]),
+        ("gmail", ["gmail"]),
+    ],
+)
+def test_google_connect_prechecked_service_submits_expected_service(
+    client, world, monkeypatch, service, expected
+):
+    _signed_in(client, role="creator", user_id="c-1")
+    monkeypatch.setattr(google_calendar_module, "is_configured", lambda: True)
+    captured: dict[str, Any] = {}
+
+    def _auth_url(state, *, scopes_override=None):
+        captured["state"] = oauth_module.verify_google_state(state)
+        return "https://accounts.google.com/o/oauth2/v2/auth?ok=1"
+
+    monkeypatch.setattr(google_calendar_module, "auth_url", _auth_url)
+
+    r = client.post(
+        "/creator/google/connect",
+        data={
+            "services": expected,
+            "next_path": "/creator/profile/settings",
+        },
+    )
+
+    assert r.status_code == 302
+    assert captured["state"]["services"] == expected
 
 
 @pytest.mark.parametrize(
