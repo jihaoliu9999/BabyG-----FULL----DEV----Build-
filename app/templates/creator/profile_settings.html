@@ -12,6 +12,24 @@
     <p style="color:var(--ink-dim);font-size:13.5px;margin-top:4px;">keep the basics clean.</p>
   </div>
 
+  {% set ig_flash = request.query_params.get('instagram') %}
+  {% if ig_flash %}
+  <div class="mono" style="font-size:10.5px;letter-spacing:0.14em;text-transform:uppercase;margin:0 0 14px;padding:10px 14px;border-radius:10px;border:1px solid var(--hairline);
+    {% if ig_flash == 'connected' %}color:var(--lime);border-color:var(--lime);background:var(--lime-soft,rgba(255,77,109,0.08));
+    {% elif ig_flash == 'disconnected' %}color:var(--ink-mid);
+    {% else %}color:var(--accent,var(--ink));border-color:var(--accent,var(--hairline));{% endif %}">
+    {% if ig_flash == 'connected' %}instagram connected
+    {% elif ig_flash == 'disconnected' %}instagram disconnected
+    {% elif ig_flash == 'ineligible' %}instagram connection requires an Instagram Business or Creator account linked to a Facebook Page.
+    {% elif ig_flash == 'denied' %}instagram connection cancelled
+    {% elif ig_flash == 'bad_callback' %}instagram callback missed — try again
+    {% elif ig_flash == 'exchange_failed' %}instagram token exchange failed — try again
+    {% elif ig_flash == 'save_failed' %}instagram connected but save failed — try again
+    {% elif ig_flash == 'not_configured' %}instagram integration isn't configured on the server yet
+    {% else %}{{ ig_flash }}{% endif %}
+  </div>
+  {% endif %}
+
   <div class="settings-group">
     <h2>identity</h2>
     <div class="settings-row"><span>name</span><strong>{{ profile.full_name or 'not set' }}</strong></div>
