@@ -30,7 +30,7 @@ from app.core.security import SessionPayload
 from app.core.templating import templates
 from app.core.url_guard import http_url_or_none
 from app.deps import require_role
-from app.integrations import google_calendar
+from app.integrations import google_calendar, instagram_meta
 from app.services import (
     audit,
     bookings,
@@ -345,6 +345,19 @@ async def profile_settings_page(
     if not profile.get("onboarding_completed_at"):
         return RedirectResponse("/onboarding/creator", status_code=302)
     google_connection = oauth_connections.get_google_connection(session["user_id"])
+    # Defensive: a test environment without Supabase configured must
+    # still render the page. The worst case is the IG card showing
+    # "coming soon" instead of "ready" / "connected".
+    try:
+        instagram_configured = instagram_meta.is_configured()
+    except Exception:
+        instagram_configured = False
+    try:
+        instagram_connected = (
+            oauth_connections.get_instagram_connection(session["user_id"]) is not None
+        )
+    except Exception:
+        instagram_connected = False
     return templates.TemplateResponse(
         request,
         "creator/profile_settings.html",
@@ -357,6 +370,8 @@ async def profile_settings_page(
                 google_connection
             ),
             "google_configured": google_calendar.is_configured(),
+            "instagram_configured": instagram_configured,
+            "instagram_connected": instagram_connected,
         },
     )
 
@@ -1310,6 +1325,124 @@ async def google_calendar_disconnect(
         session["user_id"], oauth_connections.GOOGLE_SERVICE_CALENDAR
     )
     return RedirectResponse("/creator/calendar?google=disconnected", status_code=303)
+
+
+# -----------------------------------------------------------------------------
+# Instagram / Meta OAuth
+#
+# Independent from Google: separate provider row, separate state salt,
+# separate scopes. The OAuth scope set itself precludes posting/DMs/
+# comments — the service layer doesn't even export a write function.
+# After exchange, we resolve the FB Page -> linked IG Business Account.
+# Personal IG accounts and unlinked accounts are refused with a
+# specific creator-facing message; the connection row is NOT saved.
+# -----------------------------------------------------------------------------
+
+
+def _instagram_next(verified: dict | None, default: str = "/creator/profile/settings") -> str:
+    raw = (verified or {}).get("next") or ""
+    return safe_same_origin(str(raw), default=default)
+
+
+@router.get("/creator/instagram/connect")
+async def instagram_connect(
+    next_path: str = Query("/creator/profile/settings", alias="next"),
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    safe_next = safe_same_origin(next_path, default="/creator/profile/settings")
+    if not instagram_meta.is_configured():
+        return RedirectResponse(
+            _with_query(safe_next, "instagram=not_configured"), status_code=303
+        )
+    state = oauth_connections.create_instagram_state(
+        session["user_id"], next_path=safe_next
+    )
+    try:
+        url = instagram_meta.auth_url(state)
+    except instagram_meta.InstagramNotConfiguredError:
+        return RedirectResponse(
+            _with_query(safe_next, "instagram=not_configured"), status_code=303
+        )
+    return RedirectResponse(url, status_code=302)
+
+
+@router.get("/creator/instagram/callback", name="instagram_callback")
+async def instagram_callback(
+    code: str | None = Query(None),
+    state: str | None = Query(None),
+    error: str | None = Query(None),
+    error_reason: str | None = Query(None),
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    # The flash hint lands on profile/settings by default; the state
+    # carries the real `next` the user came from (onboarding step 4
+    # vs settings) so they bounce back to where they started.
+    if error or error_reason:
+        return RedirectResponse(
+            "/creator/profile/settings?instagram=denied", status_code=303
+        )
+    verified = oauth_connections.verify_instagram_state(state or "")
+    if not code or not verified:
+        return RedirectResponse(
+            "/creator/profile/settings?instagram=bad_callback", status_code=303
+        )
+    if verified["user_id"] != session["user_id"]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+
+    safe_next = _instagram_next(verified)
+
+    try:
+        token_response = instagram_meta.exchange_code(code)
+    except instagram_meta.InstagramNotConfiguredError:
+        return RedirectResponse(
+            _with_query(safe_next, "instagram=not_configured"), status_code=303
+        )
+    except instagram_meta.InstagramError:
+        return RedirectResponse(
+            _with_query(safe_next, "instagram=exchange_failed"), status_code=303
+        )
+
+    access_token = str(token_response.get("access_token") or "")
+    if not access_token:
+        return RedirectResponse(
+            _with_query(safe_next, "instagram=exchange_failed"), status_code=303
+        )
+
+    # Eligibility resolution — refused for personal IG accounts or
+    # accounts not linked to a Facebook Page. Connection row is NOT
+    # saved on refusal; the creator gets a specific, actionable
+    # message via the integrations grid.
+    try:
+        ig_account = instagram_meta.resolve_business_account(access_token)
+    except instagram_meta.InstagramIneligibleAccountError:
+        return RedirectResponse(
+            _with_query(safe_next, "instagram=ineligible"), status_code=303
+        )
+    except instagram_meta.InstagramError:
+        return RedirectResponse(
+            _with_query(safe_next, "instagram=exchange_failed"), status_code=303
+        )
+
+    if not oauth_connections.save_instagram_connection(
+        session["user_id"], token_response, ig_account=ig_account
+    ):
+        return RedirectResponse(
+            _with_query(safe_next, "instagram=save_failed"), status_code=303
+        )
+
+    return RedirectResponse(
+        _with_query(safe_next, "instagram=connected"), status_code=303
+    )
+
+
+@router.post("/creator/instagram/disconnect")
+async def instagram_disconnect(
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    oauth_connections.disconnect_instagram(session["user_id"])
+    return RedirectResponse(
+        "/creator/profile/settings?instagram=disconnected", status_code=303
+    )
 
 
 @router.post("/creator/google/gmail/disconnect")

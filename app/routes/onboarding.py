@@ -26,7 +26,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from app.core.security import SessionPayload
 from app.core.templating import templates
 from app.deps import require_role
-from app.integrations import google_calendar
+from app.integrations import google_calendar, instagram_meta
 from app.services import oauth_connections, profiles
 
 logger = logging.getLogger(__name__)
@@ -99,6 +99,22 @@ async def creator_form(
         google_calendar_connected = False
         google_gmail_connected = False
 
+    # Instagram is independent of Google. Same defensive wrap so a
+    # missing-Supabase test env can't 500 the wizard.
+    try:
+        instagram_configured = instagram_meta.is_configured()
+    except Exception:
+        logger.exception("onboarding: instagram_meta.is_configured failed")
+        instagram_configured = False
+    try:
+        instagram_connection = oauth_connections.get_instagram_connection(
+            session["user_id"]
+        )
+        instagram_connected = instagram_connection is not None
+    except Exception:
+        logger.exception("onboarding: get_instagram_connection failed")
+        instagram_connected = False
+
     return templates.TemplateResponse(
         request,
         "onboarding/creator.html",
@@ -109,6 +125,8 @@ async def creator_form(
             "google_configured": google_configured,
             "google_calendar_connected": google_calendar_connected,
             "google_gmail_connected": google_gmail_connected,
+            "instagram_configured": instagram_configured,
+            "instagram_connected": instagram_connected,
         },
     )
 

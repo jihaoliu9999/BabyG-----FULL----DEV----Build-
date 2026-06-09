@@ -51,13 +51,28 @@
     {% endif %}
   </article>
 
-  <article class="integration-card integration-card-soon">
+  <article class="integration-card{% if instagram_connected %} integration-card-connected{% endif %}{% if not instagram_configured %} integration-card-soon{% endif %}">
     <div class="integration-head">
       <span class="mono integration-tag">Instagram</span>
+      {% if instagram_connected %}
+      <span class="status-pill"><span class="pulse-dot"></span> connected</span>
+      {% elif instagram_configured %}
+      <span class="status-pill" style="border-color:var(--hairline);color:var(--ink-mid);"><span class="pulse-dot" style="background:var(--ink-dim);box-shadow:none;"></span> ready</span>
+      {% else %}
       <span class="status-pill" style="border-color:var(--hairline);color:var(--ink-dim);">coming soon</span>
+      {% endif %}
     </div>
-    <p class="integration-body">live post insights - likes, comments, reach - without manual logging.</p>
+    <p class="integration-body">live post insights - likes, comments, reach - without manual logging. requires an Instagram Business or Creator account linked to a Facebook Page.</p>
+    {% if instagram_connected %}
+    <form method="post" action="/creator/instagram/disconnect" style="display:inline;">
+      {% include "_partials/csrf.html" %}
+      <button type="submit" class="btn btn-ghost btn-sm">disconnect Instagram</button>
+    </form>
+    {% elif instagram_configured %}
+    <a class="btn btn-lime btn-sm" href="/creator/instagram/connect?next=/creator/profile/settings">connect Instagram</a>
+    {% else %}
     <button type="button" class="btn btn-ghost btn-sm" disabled aria-disabled="true">connect later</button>
+    {% endif %}
   </article>
 
   <article class="integration-card integration-card-soon">
