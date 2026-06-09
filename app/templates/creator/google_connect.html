@@ -9,7 +9,7 @@
   <div style="margin-bottom:22px;">
     <span class="mono eyebrow">Google</span>
     <h1 class="detail-title">choose services</h1>
-    <p style="color:var(--ink-dim);font-size:13.5px;margin-top:4px;">pick what babyg can connect.</p>
+    <p style="color:var(--ink-dim);font-size:13.5px;margin-top:4px;">pick what babyg should request from Google.</p>
   </div>
 
   {% if error == "select" %}
@@ -20,25 +20,37 @@
     {% include "_partials/csrf.html" %}
     <input type="hidden" name="next_path" value="{{ next_path }}" />
 
-    <label class="settings-row">
-      <span>Google Calendar</span>
-      <span>
-        {% if google_calendar_connected %}
-        <span class="mono" style="font-size:10px;color:var(--lime);margin-right:10px;">connected</span>
-        {% endif %}
-        <input type="checkbox" name="services" value="calendar" {% if "calendar" in selected_services %}checked{% endif %} />
+    <label style="display:block;padding:14px 0;border-bottom:1px solid var(--hairline);cursor:pointer;">
+      <span style="display:flex;align-items:flex-start;gap:12px;">
+        <input type="checkbox" name="services" value="calendar" style="margin-top:3px;" {% if "calendar" in selected_services %}checked{% endif %} />
+        <span style="display:block;">
+          <span style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <span>Google Calendar</span>
+            {% if google_calendar_connected %}
+            <span class="mono" style="font-size:10px;color:var(--lime);">connected</span>
+            {% endif %}
+          </span>
+          <span style="display:block;color:var(--ink-dim);font-size:13px;margin-top:4px;">read your schedule and help plan around it</span>
+        </span>
       </span>
     </label>
 
-    <label class="settings-row">
-      <span>Gmail</span>
-      <span>
-        {% if google_gmail_connected %}
-        <span class="mono" style="font-size:10px;color:var(--lime);margin-right:10px;">connected</span>
-        {% endif %}
-        <input type="checkbox" name="services" value="gmail" {% if "gmail" in selected_services %}checked{% endif %} />
+    <label style="display:block;padding:14px 0;border-bottom:1px solid var(--hairline);cursor:pointer;">
+      <span style="display:flex;align-items:flex-start;gap:12px;">
+        <input type="checkbox" name="services" value="gmail" style="margin-top:3px;" {% if "gmail" in selected_services %}checked{% endif %} />
+        <span style="display:block;">
+          <span style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <span>Gmail</span>
+            {% if google_gmail_connected %}
+            <span class="mono" style="font-size:10px;color:var(--lime);">connected</span>
+            {% endif %}
+          </span>
+          <span style="display:block;color:var(--ink-dim);font-size:13px;margin-top:4px;">read email threads and draft replies after approval</span>
+        </span>
       </span>
     </label>
+
+    <p style="color:var(--ink-dim);font-size:12.5px;margin:14px 0 0;">Google will show the actual permission request on its consent screen.</p>
 
     <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;">
       <button type="submit" class="btn btn-lime btn-sm">continue to Google</button>

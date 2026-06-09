@@ -11,7 +11,6 @@ from __future__ import annotations
 
 import re
 from datetime import datetime, timedelta
-from urllib.parse import urlencode
 
 from fastapi import (
     APIRouter,
@@ -1173,22 +1172,18 @@ async def google_connect_picker(
     return templates.TemplateResponse(
         request,
         "creator/google_connect.html",
-        {
-            "selected_services": selected_services,
-            "next_path": safe_same_origin(next_path, default="/creator/profile/settings"),
-            "error": error,
-            "google_calendar_connected": oauth_connections.google_calendar_connected(
-                google_connection
-            ),
-            "google_gmail_connected": oauth_connections.google_gmail_connected(
-                google_connection
-            ),
-        },
+        _google_connect_context(
+            next_path=next_path,
+            selected_services=selected_services,
+            google_connection=google_connection,
+            error=error,
+        ),
     )
 
 
 @router.post("/creator/google/connect")
 async def google_connect_start(
+    request: Request,
     services: list[str] | None = Form(None),
     next_path: str = Form("/creator/profile/settings"),
     session: SessionPayload = Depends(require_role("creator")),
@@ -1196,8 +1191,18 @@ async def google_connect_start(
     safe_next = safe_same_origin(next_path, default="/creator/profile/settings")
     selected_services = oauth_connections.normalize_google_services(services)
     if not selected_services:
-        params = urlencode({"error": "select", "next": safe_next})
-        return RedirectResponse(f"/creator/google/connect?{params}", status_code=303)
+        google_connection = oauth_connections.get_google_connection(session["user_id"])
+        return templates.TemplateResponse(
+            request,
+            "creator/google_connect.html",
+            _google_connect_context(
+                next_path=safe_next,
+                selected_services=[],
+                google_connection=google_connection,
+                error="select",
+            ),
+            status_code=400,
+        )
     if not google_calendar.is_configured():
         return RedirectResponse(
             _with_query(safe_next, "google=not_configured"),
@@ -1450,6 +1455,26 @@ def _calendar_notice(request: Request) -> str | None:
 def _with_query(path: str, query: str) -> str:
     separator = "&" if "?" in path else "?"
     return f"{path}{separator}{query}"
+
+
+def _google_connect_context(
+    *,
+    next_path: str,
+    selected_services: list[str],
+    google_connection: dict | None,
+    error: str | None,
+) -> dict:
+    return {
+        "selected_services": selected_services,
+        "next_path": safe_same_origin(next_path, default="/creator/profile/settings"),
+        "error": error,
+        "google_calendar_connected": oauth_connections.google_calendar_connected(
+            google_connection
+        ),
+        "google_gmail_connected": oauth_connections.google_gmail_connected(
+            google_connection
+        ),
+    }
 
 
 def _google_effective_callback_scopes(

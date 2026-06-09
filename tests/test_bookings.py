@@ -195,8 +195,9 @@ def test_google_connect_picker_preselects_calendar(client, world, monkeypatch):
     r = client.get("/creator/google/connect?service=calendar")
 
     assert r.status_code == 200
-    assert 'value="calendar" checked' in r.text
-    assert 'value="gmail" checked' not in r.text
+    assert 'name="services" value="calendar"' in r.text
+    assert 'name="services" value="calendar" style="margin-top:3px;" checked' in r.text
+    assert 'name="services" value="gmail" style="margin-top:3px;" checked' not in r.text
 
 
 def test_google_connect_picker_preselects_gmail(client, world, monkeypatch):
@@ -206,8 +207,9 @@ def test_google_connect_picker_preselects_gmail(client, world, monkeypatch):
     r = client.get("/creator/google/connect?service=gmail")
 
     assert r.status_code == 200
-    assert 'value="gmail" checked' in r.text
-    assert 'value="calendar" checked' not in r.text
+    assert 'name="services" value="gmail"' in r.text
+    assert 'name="services" value="gmail" style="margin-top:3px;" checked' in r.text
+    assert 'name="services" value="calendar" style="margin-top:3px;" checked' not in r.text
 
 
 def test_google_connect_requires_one_service(client, world, monkeypatch):
@@ -219,8 +221,71 @@ def test_google_connect_requires_one_service(client, world, monkeypatch):
         data={"next_path": "/creator/profile/settings"},
     )
 
-    assert r.status_code == 303
-    assert r.headers["location"].startswith("/creator/google/connect?error=select")
+    assert r.status_code == 400
+    assert "choose at least one Google service." in r.text
+
+
+@pytest.mark.parametrize(
+    ("services", "expected_services", "expected_scopes", "unexpected_scope"),
+    [
+        (
+            ["calendar"],
+            ["calendar"],
+            [google_calendar_module.CALENDAR_SCOPE],
+            google_calendar_module.GMAIL_READONLY_SCOPE,
+        ),
+        (
+            ["gmail"],
+            ["gmail"],
+            [google_calendar_module.GMAIL_READONLY_SCOPE],
+            google_calendar_module.CALENDAR_SCOPE,
+        ),
+        (
+            ["calendar", "gmail"],
+            ["calendar", "gmail"],
+            [
+                google_calendar_module.CALENDAR_SCOPE,
+                google_calendar_module.GMAIL_READONLY_SCOPE,
+            ],
+            None,
+        ),
+    ],
+)
+def test_google_connect_post_redirects_to_oauth_with_selected_scopes(
+    client,
+    world,
+    monkeypatch,
+    services,
+    expected_services,
+    expected_scopes,
+    unexpected_scope,
+):
+    _signed_in(client, role="creator", user_id="c-1")
+    monkeypatch.setenv("GOOGLE_CLIENT_ID", "client-id")
+    monkeypatch.setenv("GOOGLE_CLIENT_SECRET", "client-secret")
+    get_settings.cache_clear()
+    monkeypatch.setattr(google_calendar_module, "is_configured", lambda: True)
+
+    r = client.post(
+        "/creator/google/connect",
+        data={
+            "services": services,
+            "next_path": "/creator/profile/settings",
+        },
+    )
+
+    assert r.status_code == 302
+    parsed = urlparse(r.headers["location"])
+    assert parsed.scheme == "https"
+    assert parsed.netloc == "accounts.google.com"
+    query = parse_qs(parsed.query)
+    assert query["scope"] == [" ".join(expected_scopes)]
+    if unexpected_scope:
+        assert unexpected_scope not in query["scope"][0]
+    state = oauth_module.verify_google_state(query["state"][0])
+    assert state is not None
+    assert state["services"] == expected_services
+    assert state["scopes"] == expected_scopes
 
 
 def test_google_connect_posts_selected_services_and_scopes(
