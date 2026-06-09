@@ -197,8 +197,8 @@ def test_google_connect_picker_preselects_calendar(client, world, monkeypatch):
     assert r.status_code == 200
     assert 'id="google-service-calendar"' in r.text
     assert 'for="google-service-calendar"' in r.text
-    assert 'id="google-service-calendar" type="checkbox" name="services" value="calendar" style="margin-top:3px;" checked' in r.text
-    assert 'id="google-service-gmail" type="checkbox" name="services" value="gmail" style="margin-top:3px;" checked' not in r.text
+    assert 'id="google-service-calendar" type="checkbox" name="calendar" value="1" style="margin-top:3px;" checked' in r.text
+    assert 'id="google-service-gmail" type="checkbox" name="gmail" value="1" style="margin-top:3px;" checked' not in r.text
 
 
 def test_google_connect_picker_preselects_gmail(client, world, monkeypatch):
@@ -210,8 +210,8 @@ def test_google_connect_picker_preselects_gmail(client, world, monkeypatch):
     assert r.status_code == 200
     assert 'id="google-service-gmail"' in r.text
     assert 'for="google-service-gmail"' in r.text
-    assert 'id="google-service-gmail" type="checkbox" name="services" value="gmail" style="margin-top:3px;" checked' in r.text
-    assert 'id="google-service-calendar" type="checkbox" name="services" value="calendar" style="margin-top:3px;" checked' not in r.text
+    assert 'id="google-service-gmail" type="checkbox" name="gmail" value="1" style="margin-top:3px;" checked' in r.text
+    assert 'id="google-service-calendar" type="checkbox" name="calendar" value="1" style="margin-top:3px;" checked' not in r.text
 
 
 def test_google_connect_requires_one_service(client, world, monkeypatch):
@@ -250,7 +250,7 @@ def test_google_connect_prechecked_service_submits_expected_service(
     r = client.post(
         "/creator/google/connect",
         data={
-            "services": expected,
+            **{service: "1" for service in expected},
             "next_path": "/creator/profile/settings",
         },
     )
@@ -260,22 +260,22 @@ def test_google_connect_prechecked_service_submits_expected_service(
 
 
 @pytest.mark.parametrize(
-    ("services", "expected_services", "expected_scopes", "unexpected_scope"),
+    ("form_flags", "expected_services", "expected_scopes", "unexpected_scope"),
     [
         (
-            ["calendar"],
+            {"calendar": "1"},
             ["calendar"],
             [google_calendar_module.CALENDAR_SCOPE],
             google_calendar_module.GMAIL_READONLY_SCOPE,
         ),
         (
-            ["gmail"],
+            {"gmail": "1"},
             ["gmail"],
             [google_calendar_module.GMAIL_READONLY_SCOPE],
             google_calendar_module.CALENDAR_SCOPE,
         ),
         (
-            ["calendar", "gmail"],
+            {"calendar": "1", "gmail": "1"},
             ["calendar", "gmail"],
             [
                 google_calendar_module.CALENDAR_SCOPE,
@@ -289,7 +289,7 @@ def test_google_connect_post_redirects_to_oauth_with_selected_scopes(
     client,
     world,
     monkeypatch,
-    services,
+    form_flags,
     expected_services,
     expected_scopes,
     unexpected_scope,
@@ -303,7 +303,7 @@ def test_google_connect_post_redirects_to_oauth_with_selected_scopes(
     r = client.post(
         "/creator/google/connect",
         data={
-            "services": services,
+            **form_flags,
             "next_path": "/creator/profile/settings",
         },
     )
@@ -339,7 +339,8 @@ def test_google_connect_posts_selected_services_and_scopes(
     r = client.post(
         "/creator/google/connect",
         data={
-            "services": ["calendar", "gmail"],
+            "calendar": "1",
+            "gmail": "1",
             "next_path": "/creator/profile/settings",
         },
     )

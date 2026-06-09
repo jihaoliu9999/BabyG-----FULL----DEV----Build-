@@ -1184,12 +1184,20 @@ async def google_connect_picker(
 @router.post("/creator/google/connect")
 async def google_connect_start(
     request: Request,
-    services: list[str] | None = Form(None),
+    calendar: bool = Form(False),
+    gmail: bool = Form(False),
     next_path: str = Form("/creator/profile/settings"),
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
     safe_next = safe_same_origin(next_path, default="/creator/profile/settings")
-    selected_services = oauth_connections.normalize_google_services(services)
+    selected_services = [
+        service
+        for service, selected in (
+            (oauth_connections.GOOGLE_SERVICE_CALENDAR, calendar),
+            (oauth_connections.GOOGLE_SERVICE_GMAIL, gmail),
+        )
+        if selected
+    ]
     if not selected_services:
         google_connection = oauth_connections.get_google_connection(session["user_id"])
         return templates.TemplateResponse(

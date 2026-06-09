@@ -22,7 +22,7 @@
 
     <div style="padding:14px 0;border-bottom:1px solid var(--hairline);">
       <div style="display:flex;align-items:flex-start;gap:12px;">
-        <input id="google-service-calendar" type="checkbox" name="services" value="calendar" style="margin-top:3px;" {% if "calendar" in selected_services %}checked{% endif %} />
+        <input id="google-service-calendar" type="checkbox" name="calendar" value="1" style="margin-top:3px;" {% if "calendar" in selected_services %}checked{% endif %} />
         <span style="display:block;">
           <span style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
             <label for="google-service-calendar" style="cursor:pointer;">Google Calendar</label>
@@ -37,7 +37,7 @@
 
     <div style="padding:14px 0;border-bottom:1px solid var(--hairline);">
       <div style="display:flex;align-items:flex-start;gap:12px;">
-        <input id="google-service-gmail" type="checkbox" name="services" value="gmail" style="margin-top:3px;" {% if "gmail" in selected_services %}checked{% endif %} />
+        <input id="google-service-gmail" type="checkbox" name="gmail" value="1" style="margin-top:3px;" {% if "gmail" in selected_services %}checked{% endif %} />
         <span style="display:block;">
           <span style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
             <label for="google-service-gmail" style="cursor:pointer;">Gmail</label>
