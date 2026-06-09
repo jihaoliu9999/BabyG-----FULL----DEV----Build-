@@ -294,7 +294,6 @@ def test_onboarding_creator_renders_four_steps_and_integrations(
     assert "coming soon" in r.text
     # No fake connect buttons for the non-Google providers — they
     # render as <button disabled>, not <a href="/creator/.../connect">.
-    assert "/creator/gmail/connect" not in r.text
     assert "/creator/instagram/connect" not in r.text
     assert "/creator/tiktok/connect" not in r.text
 
@@ -315,5 +314,7 @@ def test_onboarding_passes_google_flags_when_configured(monkeypatch, client, sto
     r = client.get("/onboarding/creator")
     assert r.status_code == 200
     # Real connect link visible for Google Calendar.
-    assert "/creator/google/calendar/connect" in r.text
+    assert "/creator/google/connect?service=calendar" in r.text
+    assert "/creator/google/connect?service=gmail" in r.text
     assert "connect Google Calendar" in r.text
+    assert "connect Gmail" in r.text

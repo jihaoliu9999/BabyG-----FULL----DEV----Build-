@@ -33,7 +33,7 @@
       </p>
     </div>
     {% if google_configured %}
-    <a class="btn btn-ghost btn-sm" href="/creator/google/calendar/connect">connect Google Calendar</a>
+    <a class="btn btn-ghost btn-sm" href="/creator/google/connect?service=calendar&next=/creator/calendar">connect Google Calendar</a>
     {% else %}
     <span class="badge badge-muted">not configured</span>
     {% endif %}
@@ -91,7 +91,7 @@
     </form>
     <form method="post" action="/creator/google/calendar/disconnect">
       {% include "_partials/csrf.html" %}
-      <button type="submit" class="btn btn-ghost btn-sm">disconnect</button>
+      <button type="submit" class="btn btn-ghost btn-sm">disconnect Calendar</button>
     </form>
   </div>
   {% endif %}

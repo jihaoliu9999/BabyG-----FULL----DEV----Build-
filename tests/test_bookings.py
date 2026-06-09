@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 from typing import Any
+from urllib.parse import parse_qs, urlparse
 from uuid import uuid4
 
 import pytest
 from fastapi import Response
 from fastapi.testclient import TestClient
 
+from app.config import get_settings
 from app.core.security import SESSION_COOKIE, write_session
 from app.integrations import google_calendar as google_calendar_module
 from app.main import app
@@ -177,17 +179,95 @@ def test_calendar_requires_creator(client, world):
 def test_calendar_google_connect_redirects_to_google(client, world, monkeypatch):
     _signed_in(client, role="creator", user_id="c-1")
     monkeypatch.setattr(google_calendar_module, "is_configured", lambda: True)
-    monkeypatch.setattr(oauth_module, "create_google_state", lambda uid: "signed-state")
-    monkeypatch.setattr(
-        google_calendar_module,
-        "auth_url",
-        lambda state: f"https://accounts.google.com/o/oauth2/v2/auth?state={state}",
-    )
 
     r = client.get("/creator/google/calendar/connect")
 
     assert r.status_code == 302
-    assert r.headers["location"].endswith("state=signed-state")
+    assert r.headers["location"] == (
+        "/creator/google/connect?service=calendar&next=/creator/calendar"
+    )
+
+
+def test_google_connect_picker_preselects_calendar(client, world, monkeypatch):
+    _signed_in(client, role="creator", user_id="c-1")
+    monkeypatch.setattr(google_calendar_module, "is_configured", lambda: True)
+
+    r = client.get("/creator/google/connect?service=calendar")
+
+    assert r.status_code == 200
+    assert 'value="calendar" checked' in r.text
+    assert 'value="gmail" checked' not in r.text
+
+
+def test_google_connect_picker_preselects_gmail(client, world, monkeypatch):
+    _signed_in(client, role="creator", user_id="c-1")
+    monkeypatch.setattr(google_calendar_module, "is_configured", lambda: True)
+
+    r = client.get("/creator/google/connect?service=gmail")
+
+    assert r.status_code == 200
+    assert 'value="gmail" checked' in r.text
+    assert 'value="calendar" checked' not in r.text
+
+
+def test_google_connect_requires_one_service(client, world, monkeypatch):
+    _signed_in(client, role="creator", user_id="c-1")
+    monkeypatch.setattr(google_calendar_module, "is_configured", lambda: True)
+
+    r = client.post(
+        "/creator/google/connect",
+        data={"next_path": "/creator/profile/settings"},
+    )
+
+    assert r.status_code == 303
+    assert r.headers["location"].startswith("/creator/google/connect?error=select")
+
+
+def test_google_connect_posts_selected_services_and_scopes(
+    client, world, monkeypatch
+):
+    _signed_in(client, role="creator", user_id="c-1")
+    monkeypatch.setattr(google_calendar_module, "is_configured", lambda: True)
+    calls: dict[str, Any] = {}
+
+    def _auth_url(state, *, scopes_override=None):
+        calls["state"] = oauth_module.verify_google_state(state)
+        calls["scopes"] = scopes_override
+        return "https://accounts.google.com/o/oauth2/v2/auth?ok=1"
+
+    monkeypatch.setattr(google_calendar_module, "auth_url", _auth_url)
+
+    r = client.post(
+        "/creator/google/connect",
+        data={
+            "services": ["calendar", "gmail"],
+            "next_path": "/creator/profile/settings",
+        },
+    )
+
+    assert r.status_code == 302
+    assert r.headers["location"].endswith("ok=1")
+    assert calls["state"]["services"] == ["calendar", "gmail"]
+    assert calls["state"]["scopes"] == [
+        google_calendar_module.CALENDAR_SCOPE,
+        google_calendar_module.GMAIL_READONLY_SCOPE,
+    ]
+    assert calls["scopes"] == calls["state"]["scopes"]
+
+
+def test_google_auth_url_uses_only_selected_scopes(monkeypatch):
+    monkeypatch.setenv("GOOGLE_CLIENT_ID", "client-id")
+    monkeypatch.setenv("GOOGLE_CLIENT_SECRET", "client-secret")
+    get_settings.cache_clear()
+
+    url = google_calendar_module.auth_url(
+        "signed-state",
+        scopes_override=[google_calendar_module.CALENDAR_SCOPE],
+    )
+
+    query = parse_qs(urlparse(url).query)
+    assert query["scope"] == [google_calendar_module.CALENDAR_SCOPE]
+    assert "gmail" not in query["scope"][0]
 
 
 def test_calendar_google_callback_saves_and_syncs(client, world, monkeypatch):
@@ -197,7 +277,12 @@ def test_calendar_google_callback_saves_and_syncs(client, world, monkeypatch):
     monkeypatch.setattr(
         oauth_module,
         "verify_google_state",
-        lambda state: {"user_id": "c-1", "next": "/creator/calendar"},
+        lambda state: {
+            "user_id": "c-1",
+            "next": "/creator/calendar",
+            "services": ["calendar"],
+            "scopes": [google_calendar_module.CALENDAR_SCOPE],
+        },
     )
     monkeypatch.setattr(
         google_calendar_module,
@@ -205,8 +290,8 @@ def test_calendar_google_callback_saves_and_syncs(client, world, monkeypatch):
         lambda code: {"access_token": "access", "refresh_token": "refresh"},
     )
 
-    def _save(uid, token_response):
-        calls["saved"] = (uid, token_response)
+    def _save(uid, token_response, *, requested_scopes=None):
+        calls["saved"] = (uid, token_response, requested_scopes)
         return True
 
     def _sync(uid):
@@ -221,7 +306,93 @@ def test_calendar_google_callback_saves_and_syncs(client, world, monkeypatch):
     assert r.status_code == 303
     assert r.headers["location"] == "/creator/calendar?google=connected&synced=2"
     assert calls["saved"][0] == "c-1"
+    assert calls["saved"][2] == [google_calendar_module.CALENDAR_SCOPE]
     assert calls["synced"] == "c-1"
+
+
+def test_google_gmail_only_callback_does_not_sync_calendar(
+    client, world, monkeypatch
+):
+    _signed_in(client, role="creator", user_id="c-1")
+    calls: dict[str, Any] = {}
+
+    monkeypatch.setattr(
+        oauth_module,
+        "verify_google_state",
+        lambda state: {
+            "user_id": "c-1",
+            "next": "/creator/profile/settings",
+            "services": ["gmail"],
+            "scopes": [google_calendar_module.GMAIL_READONLY_SCOPE],
+        },
+    )
+    monkeypatch.setattr(
+        google_calendar_module,
+        "exchange_code",
+        lambda code: {"access_token": "access", "refresh_token": "refresh"},
+    )
+
+    def _save(uid, token_response, *, requested_scopes=None):
+        calls["saved"] = (uid, requested_scopes)
+        return True
+
+    def _sync(uid):
+        raise AssertionError("gmail-only callback must not sync calendar")
+
+    monkeypatch.setattr(oauth_module, "save_google_connection", _save)
+    monkeypatch.setattr(calendar_sync_module, "sync_google_calendar", _sync)
+
+    r = client.get("/creator/google/calendar/callback?code=abc&state=signed")
+
+    assert r.status_code == 303
+    assert r.headers["location"] == "/creator/profile/settings?google=connected"
+    assert calls["saved"] == ("c-1", [google_calendar_module.GMAIL_READONLY_SCOPE])
+
+
+def test_google_both_callback_saves_both_and_syncs_calendar(
+    client, world, monkeypatch
+):
+    _signed_in(client, role="creator", user_id="c-1")
+    calls: dict[str, Any] = {}
+
+    requested = [
+        google_calendar_module.CALENDAR_SCOPE,
+        google_calendar_module.GMAIL_READONLY_SCOPE,
+    ]
+    monkeypatch.setattr(
+        oauth_module,
+        "verify_google_state",
+        lambda state: {
+            "user_id": "c-1",
+            "next": "/creator/calendar",
+            "services": ["calendar", "gmail"],
+            "scopes": requested,
+        },
+    )
+    monkeypatch.setattr(
+        google_calendar_module,
+        "exchange_code",
+        lambda code: {"access_token": "access", "refresh_token": "refresh"},
+    )
+    monkeypatch.setattr(
+        oauth_module,
+        "save_google_connection",
+        lambda uid, token_response, *, requested_scopes=None: calls.setdefault(
+            "saved", requested_scopes
+        )
+        is not None,
+    )
+    monkeypatch.setattr(
+        calendar_sync_module,
+        "sync_google_calendar",
+        lambda uid: calendar_sync_module.CalendarSyncResult(imported=3, connected=True),
+    )
+
+    r = client.get("/creator/google/calendar/callback?code=abc&state=signed")
+
+    assert r.status_code == 303
+    assert r.headers["location"] == "/creator/calendar?google=connected&synced=3"
+    assert calls["saved"] == requested
 
 
 def test_calendar_google_callback_rejects_other_user_state(
@@ -242,6 +413,11 @@ def test_calendar_google_callback_rejects_other_user_state(
 def test_calendar_google_sync_now(client, world, monkeypatch):
     _signed_in(client, role="creator", user_id="c-1")
     calls = []
+    monkeypatch.setattr(
+        oauth_module,
+        "get_google_connection",
+        lambda uid: {"scopes": [google_calendar_module.CALENDAR_SCOPE]},
+    )
 
     def _sync(uid):
         calls.append(uid)
@@ -254,3 +430,49 @@ def test_calendar_google_sync_now(client, world, monkeypatch):
     assert r.status_code == 303
     assert r.headers["location"] == "/creator/calendar?sync=done&synced=1"
     assert calls == ["c-1"]
+
+
+def test_google_refresh_save_preserves_existing_scopes(monkeypatch):
+    captured: dict[str, Any] = {}
+    existing_scopes = [
+        google_calendar_module.CALENDAR_SCOPE,
+        google_calendar_module.GMAIL_READONLY_SCOPE,
+    ]
+    monkeypatch.setattr(
+        oauth_module,
+        "get_google_connection",
+        lambda uid: {
+            "access_token": "old-access",
+            "refresh_token": "old-refresh",
+            "scopes": existing_scopes,
+        },
+    )
+
+    class _Table:
+        def upsert(self, payload, *, on_conflict):
+            captured["payload"] = payload
+            captured["on_conflict"] = on_conflict
+            return self
+
+        def execute(self):
+            return None
+
+    class _Client:
+        def table(self, name):
+            captured["table"] = name
+            return _Table()
+
+    monkeypatch.setattr(
+        oauth_module.supabase_client,
+        "get_service_client",
+        lambda: _Client(),
+    )
+
+    assert oauth_module.save_google_connection(
+        "c-1",
+        {"access_token": "new-access", "expires_in": 3600},
+    )
+    assert captured["table"] == "oauth_connections"
+    assert captured["on_conflict"] == "user_id,provider"
+    assert captured["payload"]["scopes"] == existing_scopes
+    assert captured["payload"]["refresh_token"] == "old-refresh"

@@ -6,6 +6,7 @@ from fastapi import Response
 from fastapi.testclient import TestClient
 
 from app.core.security import SESSION_COOKIE, write_session
+from app.integrations import google_calendar
 from app.routes import creator as creator_routes
 
 
@@ -177,3 +178,24 @@ def test_creator_profile_settings_page_renders(monkeypatch, client: TestClient) 
     assert response.status_code == 200
     assert "account" in response.text
     assert "not configured" in response.text
+
+
+def test_creator_profile_settings_google_states_are_scope_aware(
+    monkeypatch, client: TestClient
+) -> None:
+    _signed_in(client, role="creator")
+    monkeypatch.setattr(creator_routes.profiles, "get_creator_profile", lambda uid: _profile())
+    monkeypatch.setattr(
+        creator_routes.oauth_connections,
+        "get_google_connection",
+        lambda uid: {"scopes": [google_calendar.CALENDAR_SCOPE]},
+    )
+    monkeypatch.setattr(creator_routes.google_calendar, "is_configured", lambda: True)
+
+    response = client.get("/creator/profile/settings")
+
+    assert response.status_code == 200
+    assert "disconnect Calendar" in response.text
+    assert "connect Gmail" in response.text
+    assert "href=\"/creator/google/connect?service=gmail&next=/creator/profile/settings\"" in response.text
+    assert "/creator/gmail/connect" not in response.text

@@ -21,6 +21,9 @@ AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 TOKEN_URL = "https://oauth2.googleapis.com/token"
 EVENTS_URL = "https://www.googleapis.com/calendar/v3/calendars/primary/events"
 DEFAULT_CALLBACK_PATH = "/creator/google/calendar/callback"
+CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar.events"
+GMAIL_READONLY_SCOPE = "https://www.googleapis.com/auth/gmail.readonly"
+GMAIL_SCOPE_PREFIX = "https://www.googleapis.com/auth/gmail."
 
 
 class GoogleCalendarError(RuntimeError):
@@ -44,23 +47,65 @@ def scopes() -> list[str]:
     parsed = [scope.strip() for scope in raw.replace(",", " ").split() if scope.strip()]
     if parsed:
         return parsed
-    return ["https://www.googleapis.com/auth/calendar.events"]
+    return [CALENDAR_SCOPE]
 
 
-def auth_url(state: str) -> str:
+def scopes_for_services(services: list[str]) -> list[str]:
+    configured = scopes()
+    selected: list[str] = []
+    if "calendar" in services:
+        selected.extend([scope for scope in configured if is_calendar_scope(scope)])
+        if not selected:
+            selected.append(CALENDAR_SCOPE)
+    if "gmail" in services:
+        gmail_scopes = [scope for scope in configured if is_gmail_scope(scope)]
+        selected.extend(gmail_scopes or [GMAIL_READONLY_SCOPE])
+    return _dedupe(selected)
+
+
+def auth_url(state: str, *, scopes_override: list[str] | None = None) -> str:
     if not is_configured():
         raise GoogleCalendarError("Google OAuth is not configured")
+    selected_scopes = scopes_override or scopes()
+    if not selected_scopes:
+        raise GoogleCalendarError("Google OAuth scopes are not configured")
     params = {
         "client_id": get_settings().google_client_id,
         "redirect_uri": redirect_uri(),
         "response_type": "code",
-        "scope": " ".join(scopes()),
+        "scope": " ".join(selected_scopes),
         "state": state,
         "access_type": "offline",
         "prompt": "consent",
         "include_granted_scopes": "true",
     }
     return f"{AUTH_URL}?{urlencode(params)}"
+
+
+def is_calendar_scope(scope: str) -> bool:
+    return scope == CALENDAR_SCOPE
+
+
+def is_gmail_scope(scope: str) -> bool:
+    return scope.startswith(GMAIL_SCOPE_PREFIX)
+
+
+def has_calendar_scope(scopes_to_check: list[str] | set[str] | tuple[str, ...]) -> bool:
+    return any(is_calendar_scope(scope) for scope in scopes_to_check)
+
+
+def has_gmail_scope(scopes_to_check: list[str] | set[str] | tuple[str, ...]) -> bool:
+    return any(is_gmail_scope(scope) for scope in scopes_to_check)
+
+
+def _dedupe(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for value in values:
+        if value and value not in seen:
+            seen.add(value)
+            result.append(value)
+    return result
 
 
 def exchange_code(code: str) -> dict[str, Any]:

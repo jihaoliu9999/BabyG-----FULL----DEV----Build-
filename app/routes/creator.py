@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime, timedelta
+from urllib.parse import urlencode
 
 from fastapi import (
     APIRouter,
@@ -344,15 +345,18 @@ async def profile_settings_page(
     profile = profiles.get_creator_profile(session["user_id"]) or {}
     if not profile.get("onboarding_completed_at"):
         return RedirectResponse("/onboarding/creator", status_code=302)
+    google_connection = oauth_connections.get_google_connection(session["user_id"])
     return templates.TemplateResponse(
         request,
         "creator/profile_settings.html",
         {
             "profile": profile,
-            "google_connected": oauth_connections.get_google_connection(
-                session["user_id"]
-            )
-            is not None,
+            "google_calendar_connected": oauth_connections.google_calendar_connected(
+                google_connection
+            ),
+            "google_gmail_connected": oauth_connections.google_gmail_connected(
+                google_connection
+            ),
             "google_configured": google_calendar.is_configured(),
         },
     )
@@ -1123,7 +1127,8 @@ async def calendar_list(
     if horizon not in ("upcoming", "past", "all"):
         horizon = "upcoming"
     rows = bookings.list_for_user(session["user_id"], horizon=horizon)
-    google_connected = oauth_connections.get_google_connection(session["user_id"]) is not None
+    google_connection = oauth_connections.get_google_connection(session["user_id"])
+    google_connected = oauth_connections.google_calendar_connected(google_connection)
     return templates.TemplateResponse(
         request,
         "creator/calendar_list.html",
@@ -1141,13 +1146,77 @@ async def calendar_list(
 async def google_calendar_connect(
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
+    return RedirectResponse(
+        "/creator/google/connect?service=calendar&next=/creator/calendar",
+        status_code=302,
+    )
+
+
+@router.get("/creator/google/connect", response_class=HTMLResponse)
+async def google_connect_picker(
+    request: Request,
+    service: str | None = Query(None),
+    next_path: str = Query("/creator/profile/settings", alias="next"),
+    error: str | None = Query(None),
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
     if not google_calendar.is_configured():
-        return RedirectResponse("/creator/calendar?google=not_configured", status_code=303)
-    state = oauth_connections.create_google_state(session["user_id"])
+        return RedirectResponse(
+            _with_query(
+                safe_same_origin(next_path, default="/creator/profile/settings"),
+                "google=not_configured",
+            ),
+            status_code=303,
+        )
+    selected_services = oauth_connections.normalize_google_services(service or "")
+    google_connection = oauth_connections.get_google_connection(session["user_id"])
+    return templates.TemplateResponse(
+        request,
+        "creator/google_connect.html",
+        {
+            "selected_services": selected_services,
+            "next_path": safe_same_origin(next_path, default="/creator/profile/settings"),
+            "error": error,
+            "google_calendar_connected": oauth_connections.google_calendar_connected(
+                google_connection
+            ),
+            "google_gmail_connected": oauth_connections.google_gmail_connected(
+                google_connection
+            ),
+        },
+    )
+
+
+@router.post("/creator/google/connect")
+async def google_connect_start(
+    services: list[str] | None = Form(None),
+    next_path: str = Form("/creator/profile/settings"),
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    safe_next = safe_same_origin(next_path, default="/creator/profile/settings")
+    selected_services = oauth_connections.normalize_google_services(services)
+    if not selected_services:
+        params = urlencode({"error": "select", "next": safe_next})
+        return RedirectResponse(f"/creator/google/connect?{params}", status_code=303)
+    if not google_calendar.is_configured():
+        return RedirectResponse(
+            _with_query(safe_next, "google=not_configured"),
+            status_code=303,
+        )
+    selected_scopes = google_calendar.scopes_for_services(selected_services)
+    state = oauth_connections.create_google_state(
+        session["user_id"],
+        services=selected_services,
+        scopes=selected_scopes,
+        next_path=safe_next,
+    )
     try:
-        url = google_calendar.auth_url(state)
+        url = google_calendar.auth_url(state, scopes_override=selected_scopes)
     except google_calendar.GoogleCalendarError:
-        return RedirectResponse("/creator/calendar?google=not_configured", status_code=303)
+        return RedirectResponse(
+            _with_query(safe_next, "google=not_configured"),
+            status_code=303,
+        )
     return RedirectResponse(url, status_code=302)
 
 
@@ -1172,14 +1241,32 @@ async def google_calendar_callback(
         token_response = google_calendar.exchange_code(code)
     except google_calendar.GoogleCalendarError:
         return RedirectResponse("/creator/calendar?google=exchange_failed", status_code=303)
-    if not oauth_connections.save_google_connection(session["user_id"], token_response):
-        return RedirectResponse("/creator/calendar?google=save_failed", status_code=303)
+    requested_scopes = verified.get("scopes") or google_calendar.scopes_for_services(
+        [oauth_connections.GOOGLE_SERVICE_CALENDAR]
+    )
+    next_path = safe_same_origin(str(verified.get("next") or ""), default="/creator/calendar")
+    if not oauth_connections.save_google_connection(
+        session["user_id"],
+        token_response,
+        requested_scopes=requested_scopes,
+    ):
+        return RedirectResponse(_with_query(next_path, "google=save_failed"), status_code=303)
+
+    granted_scopes = _google_effective_callback_scopes(
+        token_response,
+        requested_scopes=requested_scopes,
+    )
+    if not google_calendar.has_calendar_scope(granted_scopes):
+        return RedirectResponse(_with_query(next_path, "google=connected"), status_code=303)
 
     result = calendar_sync.sync_google_calendar(session["user_id"])
     if result.error:
-        return RedirectResponse("/creator/calendar?google=connected&sync=failed", status_code=303)
+        return RedirectResponse(
+            _with_query(next_path, "google=connected&sync=failed"),
+            status_code=303,
+        )
     return RedirectResponse(
-        f"/creator/calendar?google=connected&synced={result.imported}",
+        _with_query(next_path, f"google=connected&synced={result.imported}"),
         status_code=303,
     )
 
@@ -1188,6 +1275,9 @@ async def google_calendar_callback(
 async def google_calendar_sync_now(
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
+    google_connection = oauth_connections.get_google_connection(session["user_id"])
+    if not oauth_connections.google_calendar_connected(google_connection):
+        return RedirectResponse("/creator/calendar?google=not_connected", status_code=303)
     result = calendar_sync.sync_google_calendar(session["user_id"])
     if result.error == "not_connected":
         return RedirectResponse("/creator/calendar?google=not_connected", status_code=303)
@@ -1203,8 +1293,20 @@ async def google_calendar_sync_now(
 async def google_calendar_disconnect(
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
-    oauth_connections.disconnect_google(session["user_id"])
+    oauth_connections.remove_google_service(
+        session["user_id"], oauth_connections.GOOGLE_SERVICE_CALENDAR
+    )
     return RedirectResponse("/creator/calendar?google=disconnected", status_code=303)
+
+
+@router.post("/creator/google/gmail/disconnect")
+async def google_gmail_disconnect(
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    oauth_connections.remove_google_service(
+        session["user_id"], oauth_connections.GOOGLE_SERVICE_GMAIL
+    )
+    return RedirectResponse("/creator/profile/settings?google=disconnected", status_code=303)
 
 
 @router.get("/creator/calendar/new", response_class=HTMLResponse)
@@ -1343,6 +1445,20 @@ def _calendar_notice(request: Request) -> str | None:
     if sync == "failed":
         return "calendar sync failed. try again."
     return None
+
+
+def _with_query(path: str, query: str) -> str:
+    separator = "&" if "?" in path else "?"
+    return f"{path}{separator}{query}"
+
+
+def _google_effective_callback_scopes(
+    token_response: dict,
+    *,
+    requested_scopes: list[str],
+) -> list[str]:
+    explicit = str(token_response.get("scope") or "").replace(",", " ").split()
+    return [scope for scope in explicit if scope] or requested_scopes
 
 
 # -----------------------------------------------------------------------------

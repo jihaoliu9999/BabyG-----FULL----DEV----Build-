@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}connect Google - babyg{% endblock %}
+
+{% block content %}
+<div class="wrap">
+  <a href="{{ next_path }}" class="back-link">back</a>
+
+  <div style="margin-bottom:22px;">
+    <span class="mono eyebrow">Google</span>
+    <h1 class="detail-title">choose services</h1>
+    <p style="color:var(--ink-dim);font-size:13.5px;margin-top:4px;">pick what babyg can connect.</p>
+  </div>
+
+  {% if error == "select" %}
+  <div style="margin-bottom:16px;padding:12px 16px;background:rgba(255,77,109,0.08);border:1px solid var(--lime);border-radius:12px;color:var(--ink-mid);font-size:13.5px;">choose at least one Google service.</div>
+  {% endif %}
+
+  <form method="post" action="/creator/google/connect" class="settings-group">
+    {% include "_partials/csrf.html" %}
+    <input type="hidden" name="next_path" value="{{ next_path }}" />
+
+    <label class="settings-row">
+      <span>Google Calendar</span>
+      <span>
+        {% if google_calendar_connected %}
+        <span class="mono" style="font-size:10px;color:var(--lime);margin-right:10px;">connected</span>
+        {% endif %}
+        <input type="checkbox" name="services" value="calendar" {% if "calendar" in selected_services %}checked{% endif %} />
+      </span>
+    </label>
+
+    <label class="settings-row">
+      <span>Gmail</span>
+      <span>
+        {% if google_gmail_connected %}
+        <span class="mono" style="font-size:10px;color:var(--lime);margin-right:10px;">connected</span>
+        {% endif %}
+        <input type="checkbox" name="services" value="gmail" {% if "gmail" in selected_services %}checked{% endif %} />
+      </span>
+    </label>
+
+    <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;">
+      <button type="submit" class="btn btn-lime btn-sm">continue to Google</button>
+      <a class="btn btn-ghost btn-sm" href="{{ next_path }}">cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

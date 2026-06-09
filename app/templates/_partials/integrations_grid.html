@@ -1,18 +1,12 @@
-{# Integrations grid — reused on the onboarding step 4 and on
-   profile/settings. One card per provider. Only Google Calendar has
-   a real backend today; the other three render as inert "coming soon"
-   cards (per docs/INTEGRATIONS.md). When Gmail / Instagram / TikTok
-   ship for real, swap their `<button disabled>` for the corresponding
-   <a class="btn btn-lime btn-sm" href="/creator/<provider>/connect">.
-
-   Expects: google_configured (bool), google_connected (bool). #}
+{# Integrations grid - reused on onboarding step 4 and profile/settings.
+   Google Calendar and Gmail share one Google OAuth connection.
+   Instagram and TikTok remain inert coming-soon cards. #}
 <div class="integrations-grid">
 
-  {# Google Calendar — real. #}
-  <article class="integration-card{% if google_connected %} integration-card-connected{% endif %}">
+  <article class="integration-card{% if google_calendar_connected %} integration-card-connected{% endif %}">
     <div class="integration-head">
       <span class="mono integration-tag">Google Calendar</span>
-      {% if google_connected %}
+      {% if google_calendar_connected %}
       <span class="status-pill"><span class="pulse-dot"></span> connected</span>
       {% elif google_configured %}
       <span class="status-pill" style="border-color:var(--hairline);color:var(--ink-mid);"><span class="pulse-dot" style="background:var(--ink-dim);box-shadow:none;"></span> ready</span>
@@ -21,50 +15,57 @@
       {% endif %}
     </div>
     <p class="integration-body">pulls your real schedule so babyg can plan around it.</p>
-    {% if google_connected %}
+    {% if google_calendar_connected %}
     <form method="post" action="/creator/google/calendar/disconnect" style="display:inline;">
       {% include "_partials/csrf.html" %}
-      <button type="submit" class="btn btn-ghost btn-sm">disconnect</button>
+      <button type="submit" class="btn btn-ghost btn-sm">disconnect Calendar</button>
     </form>
     {% elif google_configured %}
-    <a class="btn btn-lime btn-sm" href="/creator/google/calendar/connect">connect Google Calendar</a>
+    <a class="btn btn-lime btn-sm" href="/creator/google/connect?service=calendar&next=/creator/profile/settings">connect Google Calendar</a>
     {% else %}
     <button type="button" class="btn btn-ghost btn-sm" disabled>not configured</button>
     {% endif %}
   </article>
 
-  {# Gmail — coming soon. Backend: needs separate Google OAuth scopes
-     (gmail.send / gmail.readonly), scope review, separate token row.
-     See docs/INTEGRATIONS.md. #}
-  <article class="integration-card integration-card-soon">
+  <article class="integration-card{% if google_gmail_connected %} integration-card-connected{% endif %}">
     <div class="integration-head">
       <span class="mono integration-tag">Gmail</span>
-      <span class="status-pill" style="border-color:var(--hairline);color:var(--ink-dim);">coming soon</span>
+      {% if google_gmail_connected %}
+      <span class="status-pill"><span class="pulse-dot"></span> connected</span>
+      {% elif google_configured %}
+      <span class="status-pill" style="border-color:var(--hairline);color:var(--ink-mid);"><span class="pulse-dot" style="background:var(--ink-dim);box-shadow:none;"></span> ready</span>
+      {% else %}
+      <span class="status-pill" style="border-color:var(--hairline);color:var(--ink-dim);">not configured</span>
+      {% endif %}
     </div>
-    <p class="integration-body">draft and send brand replies straight from babyg, in your voice.</p>
-    <button type="button" class="btn btn-ghost btn-sm" disabled aria-disabled="true">connect later</button>
+    <p class="integration-body">connects your Gmail account for future inbox workflows.</p>
+    {% if google_gmail_connected %}
+    <form method="post" action="/creator/google/gmail/disconnect" style="display:inline;">
+      {% include "_partials/csrf.html" %}
+      <button type="submit" class="btn btn-ghost btn-sm">disconnect Gmail</button>
+    </form>
+    {% elif google_configured %}
+    <a class="btn btn-lime btn-sm" href="/creator/google/connect?service=gmail&next=/creator/profile/settings">connect Gmail</a>
+    {% else %}
+    <button type="button" class="btn btn-ghost btn-sm" disabled>not configured</button>
+    {% endif %}
   </article>
 
-  {# Instagram / Meta — coming soon. Backend: Meta dev app, FB Business
-     Page link, Instagram Graph API scopes, ~4-6 week app review.
-     See docs/INTEGRATIONS.md. #}
   <article class="integration-card integration-card-soon">
     <div class="integration-head">
       <span class="mono integration-tag">Instagram</span>
       <span class="status-pill" style="border-color:var(--hairline);color:var(--ink-dim);">coming soon</span>
     </div>
-    <p class="integration-body">live post insights — likes, comments, reach — without manual logging.</p>
+    <p class="integration-body">live post insights - likes, comments, reach - without manual logging.</p>
     <button type="button" class="btn btn-ghost btn-sm" disabled aria-disabled="true">connect later</button>
   </article>
 
-  {# TikTok — coming soon. Backend: TikTok dev app + ~2-4 week review.
-     See docs/INTEGRATIONS.md. #}
   <article class="integration-card integration-card-soon">
     <div class="integration-head">
       <span class="mono integration-tag">TikTok</span>
       <span class="status-pill" style="border-color:var(--hairline);color:var(--ink-dim);">coming soon</span>
     </div>
-    <p class="integration-body">video performance — views, shares, watch time — auto-pulled.</p>
+    <p class="integration-body">video performance - views, shares, watch time - auto-pulled.</p>
     <button type="button" class="btn btn-ghost btn-sm" disabled aria-disabled="true">connect later</button>
   </article>
 

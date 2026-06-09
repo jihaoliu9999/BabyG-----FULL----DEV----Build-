@@ -76,8 +76,8 @@ async def creator_form(
         return RedirectResponse("/creator", status_code=302)
 
     # Step 4 (integrations) renders the same partial used on
-    # profile/settings. Google Calendar is the only real connector
-    # today; the rest are coming-soon and don't read these flags.
+    # profile/settings. Google Calendar and Gmail share the Google
+    # OAuth connection; Instagram/TikTok remain coming-soon.
     # Wrapped defensively so a missing-Supabase test environment
     # doesn't blow up the wizard render — the worst case is the
     # Google connect card showing "not configured".
@@ -87,12 +87,17 @@ async def creator_form(
         logger.exception("onboarding: google_calendar.is_configured failed")
         google_configured = False
     try:
-        google_connected = (
-            oauth_connections.get_google_connection(session["user_id"]) is not None
+        google_connection = oauth_connections.get_google_connection(session["user_id"])
+        google_calendar_connected = oauth_connections.google_calendar_connected(
+            google_connection
+        )
+        google_gmail_connected = oauth_connections.google_gmail_connected(
+            google_connection
         )
     except Exception:
         logger.exception("onboarding: get_google_connection failed")
-        google_connected = False
+        google_calendar_connected = False
+        google_gmail_connected = False
 
     return templates.TemplateResponse(
         request,
@@ -102,7 +107,8 @@ async def creator_form(
             "vocab": _creator_vocab(),
             "error": None,
             "google_configured": google_configured,
-            "google_connected": google_connected,
+            "google_calendar_connected": google_calendar_connected,
+            "google_gmail_connected": google_gmail_connected,
         },
     )
 
