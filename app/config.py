@@ -46,6 +46,11 @@ class Settings(BaseSettings):
         "https://www.googleapis.com/auth/calendar.events"
     )
 
+    # Tavily — web search tool the babyg agent loop uses when current
+    # public info (events, venue openings, brand news) is needed.
+    # Empty key = tool is unavailable; the bot routes around it.
+    tavily_api_key: str = ""
+
     @property
     def is_production(self) -> bool:
         return self.env == "production"

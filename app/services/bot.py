@@ -13,7 +13,7 @@ from postgrest.exceptions import APIError as PostgrestAPIError
 from app.agent.tools import read_only
 from app.core import supabase_client
 from app.core.uuid_guard import safe_uuid
-from app.integrations import anthropic_client
+from app.integrations import anthropic_client, tavily
 from app.services import bookings, jobs, prompts, reminders
 
 logger = logging.getLogger(__name__)
@@ -44,6 +44,25 @@ TaskKind = Literal[
 MAX_USER_MESSAGE_CHARS = 4000
 MAX_HISTORY_MESSAGES = 20
 MAX_TOOL_ITERATIONS = 4
+# Per-creator daily cap on web_search invocations. Process-local —
+# resets on deploy, which is fine for an MVP cost-guard. A future
+# Redis-backed limiter (see app/core/rate_limit.py for the pattern)
+# can replace this without touching the tool surface.
+WEB_SEARCH_DAILY_CAP = 20
+_web_search_counter: dict[tuple[str, str], int] = {}
+
+
+def _today_key() -> str:
+    from datetime import UTC, datetime
+
+    return datetime.now(UTC).strftime("%Y-%m-%d")
+
+
+def _bump_web_search_counter(user_id: str) -> int:
+    key = (str(user_id), _today_key())
+    count = _web_search_counter.get(key, 0) + 1
+    _web_search_counter[key] = count
+    return count
 ALLOWED_ACTION_TYPES = (
     "create_booking",
     "create_content_reminder",
@@ -474,6 +493,8 @@ def _execute_read_tool(
             content = read_only.read_my_performance(
                 user_id, limit=tool_input.get("limit", 3)
             )
+        elif name == "web_search":
+            content = _run_web_search(user_id=user_id, tool_input=tool_input)
         elif name == "read_creator_directory":
             content = read_only.read_creator_directory(
                 user_id, limit=tool_input.get("limit", 6)
@@ -518,6 +539,61 @@ def _stage_create_booking_tool(
             "message": "No booking was saved. The creator must confirm the action card.",
         },
         "pending_action": proposal,
+    }
+
+
+def _run_web_search(*, user_id: str, tool_input: dict[str, Any]) -> dict[str, Any]:
+    """Execute one Tavily search inside the agent loop.
+
+    Returns a structured payload Claude can read. Three failure modes
+    map to `available=False` with a reason — never a thrown exception —
+    so the agent loop keeps the turn alive and can answer from local
+    context. Never leaks the API key or query bodies into logs.
+    """
+    query = str(tool_input.get("query") or "").strip()
+    if not query:
+        return {
+            "available": False,
+            "reason": "empty query",
+        }
+    if not tavily.is_configured():
+        return {
+            "available": False,
+            "reason": "web_search is not configured on this server yet",
+        }
+    used_today = _bump_web_search_counter(user_id)
+    if used_today > WEB_SEARCH_DAILY_CAP:
+        return {
+            "available": False,
+            "reason": (
+                f"daily web_search cap reached ({WEB_SEARCH_DAILY_CAP}/day). "
+                "answer from local context for the rest of today."
+            ),
+        }
+    try:
+        hits = tavily.search(query, max_results=tool_input.get("max_results", 5))
+    except tavily.TavilyNotConfiguredError:
+        return {
+            "available": False,
+            "reason": "web_search is not configured on this server yet",
+        }
+    except tavily.TavilyCallError:
+        return {
+            "available": False,
+            "reason": "web_search upstream failed — try again or answer from local context",
+        }
+    return {
+        "available": True,
+        "query": query,
+        "results": [
+            {
+                "title": hit.title,
+                "url": hit.url,
+                "snippet": hit.snippet,
+                "published": hit.published,
+            }
+            for hit in hits
+        ],
     }
 
 

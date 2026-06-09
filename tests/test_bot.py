@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from uuid import uuid4
 
+import pytest
 from fastapi import Response
 from fastapi.testclient import TestClient
 
@@ -1223,3 +1224,144 @@ def test_bot_post_without_ajax_header_still_redirects(
 
     assert r.status_code == 303
     assert r.headers["location"] == "/creator/bot"
+
+
+# ---------------------------------------------------------------------------
+# Phase 1: Tavily web_search tool through the agent loop.
+# All assertions are on the tool-execution path inside the bot service.
+# Live Tavily calls are mocked at the integration boundary.
+# ---------------------------------------------------------------------------
+
+
+def test_web_search_tool_returns_unavailable_when_key_missing(monkeypatch) -> None:
+    """No TAVILY_API_KEY → tool returns available=False with a clear
+    reason. The agent loop hands this to Claude as a tool result;
+    Claude is prompted (system) to skip search and answer from local
+    context. This is the hard-constraint guard for `no fake stats /
+    no fake connected states`."""
+    monkeypatch.setattr(
+        bot_service.tavily, "is_configured", lambda: False
+    )
+    # If is_configured was bypassed and we hit tavily.search anyway,
+    # fail loud so the bug is obvious.
+    monkeypatch.setattr(
+        bot_service.tavily,
+        "search",
+        lambda *a, **kw: pytest.fail("tavily.search must not be called when unconfigured"),
+    )
+
+    result = bot_service._run_web_search(
+        user_id="creator-1",
+        tool_input={"query": "anything"},
+    )
+
+    assert result["available"] is False
+    assert "not configured" in result["reason"].lower()
+
+
+def test_web_search_tool_returns_hits_when_configured(monkeypatch) -> None:
+    monkeypatch.setattr(bot_service.tavily, "is_configured", lambda: True)
+    monkeypatch.setattr(
+        bot_service.tavily,
+        "search",
+        lambda q, max_results=5: [
+            bot_service.tavily.SearchHit(
+                title="venue opening",
+                url="https://example.com/a",
+                snippet="snippet a",
+                published="2026-06-08",
+            ),
+        ],
+    )
+    # Reset the counter between tests to keep them order-independent.
+    bot_service._web_search_counter.clear()
+
+    result = bot_service._run_web_search(
+        user_id="creator-1",
+        tool_input={"query": "venue openings this weekend"},
+    )
+
+    assert result["available"] is True
+    assert result["query"] == "venue openings this weekend"
+    assert result["results"][0]["url"] == "https://example.com/a"
+    assert result["results"][0]["title"] == "venue opening"
+
+
+def test_web_search_tool_enforces_daily_cap(monkeypatch) -> None:
+    """A runaway model-side loop or chatty creator must not blow
+    through Tavily quota. After WEB_SEARCH_DAILY_CAP successful calls
+    on the same UTC day, further calls return available=False."""
+    monkeypatch.setattr(bot_service.tavily, "is_configured", lambda: True)
+    monkeypatch.setattr(
+        bot_service.tavily,
+        "search",
+        lambda q, max_results=5: [],
+    )
+    bot_service._web_search_counter.clear()
+
+    # Burn the budget.
+    for _ in range(bot_service.WEB_SEARCH_DAILY_CAP):
+        ok = bot_service._run_web_search(
+            user_id="creator-cap",
+            tool_input={"query": "x"},
+        )
+        assert ok["available"] is True
+
+    over = bot_service._run_web_search(
+        user_id="creator-cap",
+        tool_input={"query": "x"},
+    )
+    assert over["available"] is False
+    assert "daily" in over["reason"].lower()
+
+
+def test_web_search_tool_handles_upstream_failure(monkeypatch) -> None:
+    """A failed Tavily call must not crash the bot turn. The tool
+    returns available=False so the agent loop continues and answers
+    from local context."""
+    monkeypatch.setattr(bot_service.tavily, "is_configured", lambda: True)
+
+    def _boom(query, max_results=5):
+        raise bot_service.tavily.TavilyCallError("upstream 503")
+
+    monkeypatch.setattr(bot_service.tavily, "search", _boom)
+    bot_service._web_search_counter.clear()
+
+    result = bot_service._run_web_search(
+        user_id="creator-1",
+        tool_input={"query": "something"},
+    )
+    assert result["available"] is False
+    assert "upstream failed" in result["reason"].lower()
+
+
+def test_web_search_tool_blank_query_no_op(monkeypatch) -> None:
+    """Empty query should never hit Tavily — saves a call against the
+    daily cap and against the upstream budget."""
+    monkeypatch.setattr(
+        bot_service.tavily,
+        "search",
+        lambda *a, **kw: pytest.fail("blank query reached Tavily"),
+    )
+
+    result = bot_service._run_web_search(
+        user_id="creator-1",
+        tool_input={"query": "   "},
+    )
+    assert result["available"] is False
+
+
+def test_web_search_tool_listed_in_bot_tool_definitions() -> None:
+    """The tool must be registered so Claude can call it. This pins
+    the registration so a future refactor doesn't silently drop it."""
+    names = {t["name"] for t in bot_service.prompts.BOT_TOOL_DEFINITIONS}
+    assert "web_search" in names
+
+
+def test_system_prompt_mentions_web_search_policy() -> None:
+    """The prompt must explain when to use web_search (current public
+    facts) and when NOT to (creator-private data) so Claude doesn't
+    burn the daily cap on every turn."""
+    p = bot_service.prompts.babyg_system_prompt()
+    assert "web_search" in p
+    assert "cite" in p.lower()
