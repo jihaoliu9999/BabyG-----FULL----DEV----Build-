@@ -1365,3 +1365,228 @@ def test_system_prompt_mentions_web_search_policy() -> None:
     p = bot_service.prompts.babyg_system_prompt()
     assert "web_search" in p
     assert "cite" in p.lower()
+
+
+# ---------------------------------------------------------------------------
+# Phase 3 step 4: read_my_instagram_stats bot tool.
+# All assertions hit the agent-loop helper. Graph API + token storage
+# are mocked at the integration boundary.
+# ---------------------------------------------------------------------------
+
+
+def test_instagram_stats_unavailable_when_not_configured(monkeypatch) -> None:
+    monkeypatch.setattr(bot_service.instagram_meta, "is_configured", lambda: False)
+    # Token + graph calls must not run if config check short-circuits.
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "access_token_for_instagram",
+        lambda _u: pytest.fail("token lookup should not run when unconfigured"),
+    )
+    result = bot_service._run_instagram_stats(
+        user_id="creator-1", tool_input={"limit": 5}
+    )
+    assert result["available"] is False
+    assert "not configured" in result["reason"]
+
+
+def test_instagram_stats_unavailable_when_no_connection(monkeypatch) -> None:
+    monkeypatch.setattr(bot_service.instagram_meta, "is_configured", lambda: True)
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "access_token_for_instagram",
+        lambda _u: None,
+    )
+    bot_service._instagram_stats_counter.clear()
+    result = bot_service._run_instagram_stats(
+        user_id="creator-1", tool_input={}
+    )
+    assert result["available"] is False
+    # Creator-facing copy should mention how to connect.
+    assert "Business or Creator" in result["reason"]
+
+
+def test_instagram_stats_returns_media_and_insights_when_connected(monkeypatch) -> None:
+    monkeypatch.setattr(bot_service.instagram_meta, "is_configured", lambda: True)
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "access_token_for_instagram",
+        lambda _u: "long-token",
+    )
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "get_instagram_connection",
+        lambda _u: {"provider": "instagram", "provider_account_id": "ig-1"},
+    )
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "instagram_account_id",
+        lambda c: "ig-1",
+    )
+    monkeypatch.setattr(
+        bot_service.instagram_meta,
+        "get_user_media",
+        lambda token, *, ig_user_id, limit: [
+            bot_service.instagram_meta.InstagramMedia(
+                media_id="m1",
+                caption="dinner at boia",
+                media_type="IMAGE",
+                permalink="https://www.instagram.com/p/m1",
+                timestamp="2026-06-08T18:00:00+0000",
+                like_count=120,
+                comments_count=4,
+            ),
+        ],
+    )
+    monkeypatch.setattr(
+        bot_service.instagram_meta,
+        "get_media_insights",
+        lambda token, *, media_id: {
+            "engagement": 50,
+            "reach": 900,
+            "impressions": None,
+            "saved": 6,
+        },
+    )
+    bot_service._instagram_stats_counter.clear()
+
+    result = bot_service._run_instagram_stats(
+        user_id="creator-1", tool_input={"limit": 3}
+    )
+    assert result["available"] is True
+    assert len(result["results"]) == 1
+    row = result["results"][0]
+    assert row["media_id"] == "m1"
+    assert row["like_count"] == 120
+    assert row["permalink"] == "https://www.instagram.com/p/m1"
+    assert row["insights"]["engagement"] == 50
+    assert row["insights"]["reach"] == 900
+    # Impressions missing → comes back as None, never invented.
+    assert row["insights"]["impressions"] is None
+
+
+def test_instagram_stats_keeps_media_when_insights_fail(monkeypatch) -> None:
+    """A bad insights call for one post must not lose the whole list.
+    Skip insights for that post, keep the media metadata + like/comment
+    counts so the creator still gets something real."""
+    monkeypatch.setattr(bot_service.instagram_meta, "is_configured", lambda: True)
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "access_token_for_instagram",
+        lambda _u: "long-token",
+    )
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "get_instagram_connection",
+        lambda _u: {"provider_account_id": "ig-1"},
+    )
+    monkeypatch.setattr(
+        bot_service.oauth_connections, "instagram_account_id", lambda c: "ig-1"
+    )
+    monkeypatch.setattr(
+        bot_service.instagram_meta,
+        "get_user_media",
+        lambda token, *, ig_user_id, limit: [
+            bot_service.instagram_meta.InstagramMedia(
+                media_id="m1",
+                caption=None,
+                media_type="REEL",
+                permalink=None,
+                timestamp=None,
+                like_count=10,
+                comments_count=1,
+            )
+        ],
+    )
+
+    def _boom(_t, *, media_id):
+        raise bot_service.instagram_meta.InstagramError("insights blew up")
+
+    monkeypatch.setattr(bot_service.instagram_meta, "get_media_insights", _boom)
+    bot_service._instagram_stats_counter.clear()
+
+    result = bot_service._run_instagram_stats(
+        user_id="creator-1", tool_input={}
+    )
+    assert result["available"] is True
+    assert result["results"][0]["like_count"] == 10
+    assert result["results"][0]["insights"] == {}
+
+
+def test_instagram_stats_daily_cap_enforced(monkeypatch) -> None:
+    monkeypatch.setattr(bot_service.instagram_meta, "is_configured", lambda: True)
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "access_token_for_instagram",
+        lambda _u: "long-token",
+    )
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "get_instagram_connection",
+        lambda _u: {"provider_account_id": "ig-1"},
+    )
+    monkeypatch.setattr(
+        bot_service.oauth_connections, "instagram_account_id", lambda c: "ig-1"
+    )
+    monkeypatch.setattr(
+        bot_service.instagram_meta, "get_user_media", lambda *a, **kw: []
+    )
+    monkeypatch.setattr(
+        bot_service.instagram_meta, "get_media_insights", lambda *a, **kw: {}
+    )
+    bot_service._instagram_stats_counter.clear()
+
+    for _ in range(bot_service.INSTAGRAM_STATS_DAILY_CAP):
+        r = bot_service._run_instagram_stats(
+            user_id="creator-cap", tool_input={}
+        )
+        assert r["available"] is True
+    over = bot_service._run_instagram_stats(
+        user_id="creator-cap", tool_input={}
+    )
+    assert over["available"] is False
+    assert "daily" in over["reason"].lower()
+
+
+def test_instagram_stats_handles_graph_failure(monkeypatch) -> None:
+    monkeypatch.setattr(bot_service.instagram_meta, "is_configured", lambda: True)
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "access_token_for_instagram",
+        lambda _u: "long-token",
+    )
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "get_instagram_connection",
+        lambda _u: {"provider_account_id": "ig-1"},
+    )
+    monkeypatch.setattr(
+        bot_service.oauth_connections, "instagram_account_id", lambda c: "ig-1"
+    )
+
+    def _media_fail(*_a, **_kw):
+        raise bot_service.instagram_meta.InstagramError("graph 503")
+
+    monkeypatch.setattr(bot_service.instagram_meta, "get_user_media", _media_fail)
+    bot_service._instagram_stats_counter.clear()
+
+    result = bot_service._run_instagram_stats(
+        user_id="creator-1", tool_input={}
+    )
+    assert result["available"] is False
+    assert "graph api failed" in result["reason"].lower()
+
+
+def test_instagram_stats_tool_registered_and_prompt_updated() -> None:
+    names = {t["name"] for t in bot_service.prompts.BOT_TOOL_DEFINITIONS}
+    assert "read_my_instagram_stats" in names
+
+    p = bot_service.prompts.babyg_system_prompt()
+    # The stats reality check must mention IG-as-real-when-connected
+    # AND keep the exact-sentence fallback for the other platforms.
+    assert "read_my_instagram_stats" in p
+    assert (
+        "i don't have connected post stats yet. right now i can use "
+        "manually logged performance, and auto-sync will come after "
+        "Meta/TikTok integration."
+    ) in p
+    assert "never invent numbers" in p
