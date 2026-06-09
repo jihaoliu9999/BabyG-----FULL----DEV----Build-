@@ -15,6 +15,8 @@ Files are applied in numeric order. Each migration is plain SQL — run via the 
 | `0007_remove_brand_side.sql` | **v1 scope change**: drops `brand_profiles` (CASCADE — RLS + indexes + trigger drop with it) and removes `collab_match` from the `notifications.kind` CHECK constraint. Brand-side returns in v1.5 (full pre-removal schema preserved on the `brand-side-v1.5` branch). |
 | `0008_lint_fixes.sql` | Supabase linter fixes: relocates the `citext` extension from `public` to the `extensions` schema; revokes EXECUTE on the SECURITY DEFINER `rls_auto_enable()` function from `anon`/`authenticated` so it is no longer callable via `/rest/v1/rpc/`. |
 | `0009_oauth_connections.sql` | Adds creator-owned OAuth token storage for server-side Google Calendar sync. |
+| `0010_profile_photos_bucket.sql` | Provisions the Supabase Storage bucket for creator profile photos. |
+| `0011_oauth_connections_provider_relax.sql` | Relaxes `oauth_connections.provider` check constraint from `('google')` to `('google', 'instagram')` so the same table can hold Instagram/Meta tokens alongside Google. Phase 3 step 1. |
 
 ## Conventions
 
