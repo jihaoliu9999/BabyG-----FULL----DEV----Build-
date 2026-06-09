@@ -148,6 +148,35 @@ READ_ONLY_TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "additionalProperties": False,
         },
     },
+    {
+        "name": "read_my_instagram_stats",
+        "description": (
+            "Read the creator's recent Instagram posts and their per-post "
+            "insights (engagement, reach, impressions, saves) from a "
+            "connected Instagram Business/Creator account. Use this for "
+            "stats questions about real posts (likes, reach, engagement, "
+            "how a specific reel did) when the creator has connected "
+            "Instagram. Returns {available, results} where results is a "
+            "list of {media_id, caption, media_type, permalink, "
+            "timestamp, like_count, comments_count, insights}. If the "
+            "tool returns {available: false, reason: ...}, the creator "
+            "hasn't connected Instagram or hit the daily cap — say so "
+            "plainly and fall back to read_my_performance / "
+            "read_my_receipts. Never invent numbers."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10,
+                    "description": "How many recent posts to pull. Default 5.",
+                },
+            },
+            "additionalProperties": False,
+        },
+    },
 ]
 
 WRITE_TOOL_DEFINITIONS: list[dict[str, Any]] = [
@@ -359,13 +388,19 @@ response modes:
 reply, message, dm, email, caption, script: write it ready to send. advice: recommendation first. strategy: the practical move, not a lecture. decision: pick a side, explain briefly. rewrite: improve the language without changing the user's intent. casual dms can stay lowercase, but brand-facing emails, contracts, and professional outreach should be polished and properly formatted.
 
 stats reality check:
-live platform stats are NOT connected. instagram, tiktok, youtube, and other platform metrics cannot be read by babyg right now. the only stats available are manually-logged data from read_my_performance (weekly engagement, follower delta, posts, brand-deal value) and read_my_receipts (posts the creator has logged with optional like/comment counts).
+the only live platform that can be connected today is instagram (read-only — recent posts + per-post insights via read_my_instagram_stats). tiktok, youtube, and other platforms still cannot be read by babyg.
 
-if the creator asks about "last post stats", "how my recent reel did", "this week's likes", "my engagement rate", "platform analytics", or anything else that would require live api access, AND the read_my_performance and read_my_receipts results are empty or missing the field they asked about: respond with exactly this sentence and nothing more on that topic:
+decision tree for stats questions:
+
+1. for instagram-specific questions ("how did my last reel do", "this week's engagement on IG", "reach on the brickell post"), call read_my_instagram_stats. if the tool returns {{"available": true, "results": [...]}}, answer from those numbers and call them live instagram data. if results is empty, say there are no recent posts to read. if the tool returns {{"available": false, "reason": ...}}, the creator hasn't connected instagram or hit the daily cap — say so plainly and fall through to step 2.
+
+2. otherwise (or as the fallback above), the only stats available are manually-logged data from read_my_performance (weekly engagement, follower delta, posts, brand-deal value) and read_my_receipts (posts the creator has logged with optional like/comment counts). if read_my_performance or read_my_receipts has the data they asked about, answer from that data and call it manually logged.
+
+3. if a stats question is about tiktok, youtube, or any platform other than instagram, AND read_my_performance + read_my_receipts don't have the field they asked about, respond with exactly this sentence and nothing more on that topic:
 
 i don't have connected post stats yet. right now i can use manually logged performance, and auto-sync will come after Meta/TikTok integration.
 
-if read_my_performance or read_my_receipts has the data they asked about, answer from that data and call it manually logged. never invent numbers. never claim instagram or tiktok data exists when it doesn't.
+never invent numbers. never claim instagram, tiktok, or youtube data exists when it doesn't. when citing instagram data, name it as live instagram and include the post permalink when available.
 
 tool policy:
 - use tools when private babyg context would materially improve the answer.
@@ -374,6 +409,7 @@ tool policy:
 - call read_intel_feed for hot drops, miami venues, trends, alerts, or "what should i act on?"
 - call read_my_calendar for schedule-aware plans, deadlines, reminders, and local calendar questions.
 - call read_my_receipts and read_my_performance for stats, recap, rate guidance, or what to repeat.
+- call read_my_instagram_stats ONLY for instagram-specific stats on real posts (per-post engagement, reach, impressions, saves, likes, comments). this is the only live platform tool today. if it returns {{"available": false, ...}}, the creator hasn't connected instagram or hit the daily cap — say so and fall back to read_my_performance / read_my_receipts. never call it for tiktok, youtube, or general questions.
 - call read_creator_directory or read_my_dms for creator networking, collabs, and dm context.
 - call web_search ONLY for current public facts babyg's local tools can't answer: today's events, recent brand news, venue openings, platform rules, public news mentioning a specific person/brand. never use it for the creator's own analytics or anything internal. always cite the source url and title in the reply. if results are empty, say search came back with nothing — don't invent. if the tool returns {{"available": false, ...}}, the creator hasn't enabled web search yet — answer from local context and say live web data isn't connected, never make up sources.
 - use create_booking only to propose a local babyg calendar item.

@@ -13,8 +13,8 @@ from postgrest.exceptions import APIError as PostgrestAPIError
 from app.agent.tools import read_only
 from app.core import supabase_client
 from app.core.uuid_guard import safe_uuid
-from app.integrations import anthropic_client, tavily
-from app.services import bookings, jobs, prompts, reminders
+from app.integrations import anthropic_client, instagram_meta, tavily
+from app.services import bookings, jobs, oauth_connections, prompts, reminders
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +63,24 @@ def _bump_web_search_counter(user_id: str) -> int:
     count = _web_search_counter.get(key, 0) + 1
     _web_search_counter[key] = count
     return count
+
+
+# Parallel cap for the Instagram stats tool. Same process-local
+# counter pattern as web_search above. Conservative 30/day per
+# creator — Meta API insights are free per call, so the constraint
+# is rate-limiting babyg's traffic against Meta's per-app budget,
+# not cost.
+INSTAGRAM_STATS_DAILY_CAP = 30
+_instagram_stats_counter: dict[tuple[str, str], int] = {}
+
+
+def _bump_instagram_stats_counter(user_id: str) -> int:
+    key = (str(user_id), _today_key())
+    count = _instagram_stats_counter.get(key, 0) + 1
+    _instagram_stats_counter[key] = count
+    return count
+
+
 ALLOWED_ACTION_TYPES = (
     "create_booking",
     "create_content_reminder",
@@ -495,6 +513,8 @@ def _execute_read_tool(
             )
         elif name == "web_search":
             content = _run_web_search(user_id=user_id, tool_input=tool_input)
+        elif name == "read_my_instagram_stats":
+            content = _run_instagram_stats(user_id=user_id, tool_input=tool_input)
         elif name == "read_creator_directory":
             content = read_only.read_creator_directory(
                 user_id, limit=tool_input.get("limit", 6)
@@ -595,6 +615,99 @@ def _run_web_search(*, user_id: str, tool_input: dict[str, Any]) -> dict[str, An
             for hit in hits
         ],
     }
+
+
+def _run_instagram_stats(*, user_id: str, tool_input: dict[str, Any]) -> dict[str, Any]:
+    """Execute one read_my_instagram_stats turn inside the agent loop.
+
+    Mirrors `_run_web_search`: never raises, never crashes the bot
+    turn. Four failure modes map to `available=False` with a reason
+    so Claude can route around them per the stats-reality-check
+    section of the system prompt — and so we never claim live IG
+    data exists when it doesn't.
+
+    Never logs tokens — token is opaque to this function (only
+    `oauth_connections.access_token_for_instagram` reads it from the
+    DB and hands it straight to the Graph helpers).
+    """
+    if not instagram_meta.is_configured():
+        return {
+            "available": False,
+            "reason": "instagram integration is not configured on this server yet",
+        }
+    used_today = _bump_instagram_stats_counter(user_id)
+    if used_today > INSTAGRAM_STATS_DAILY_CAP:
+        return {
+            "available": False,
+            "reason": (
+                f"daily instagram stats cap reached "
+                f"({INSTAGRAM_STATS_DAILY_CAP}/day). fall back to "
+                "manually logged performance for the rest of today."
+            ),
+        }
+    try:
+        token = oauth_connections.access_token_for_instagram(user_id)
+    except Exception:
+        logger.exception("instagram access token lookup failed")
+        token = None
+    if not token:
+        return {
+            "available": False,
+            "reason": (
+                "instagram isn't connected for this creator. they can "
+                "connect it from /creator/profile/settings if they have "
+                "an Instagram Business or Creator account linked to a "
+                "Facebook Page."
+            ),
+        }
+    connection = oauth_connections.get_instagram_connection(user_id)
+    ig_user_id = oauth_connections.instagram_account_id(connection)
+    if not ig_user_id:
+        return {
+            "available": False,
+            "reason": "instagram connection is missing the business account id",
+        }
+    try:
+        media = instagram_meta.get_user_media(
+            token, ig_user_id=ig_user_id, limit=tool_input.get("limit", 5)
+        )
+    except instagram_meta.InstagramNotConfiguredError:
+        return {
+            "available": False,
+            "reason": "instagram integration is not configured on this server yet",
+        }
+    except instagram_meta.InstagramError:
+        return {
+            "available": False,
+            "reason": "instagram graph api failed — try again later",
+        }
+    results: list[dict[str, Any]] = []
+    for item in media:
+        # Per-post insights are best-effort: stories vs feed vs reels
+        # support different metric sets. Missing metrics come back as
+        # None so the model renders only what's real.
+        insights: dict[str, int | None] = {}
+        try:
+            insights = instagram_meta.get_media_insights(
+                token, media_id=item.media_id
+            )
+        except instagram_meta.InstagramError:
+            # Skip insights for this post but keep the metadata —
+            # like_count + comments_count are still in the media row.
+            insights = {}
+        results.append(
+            {
+                "media_id": item.media_id,
+                "caption": item.caption,
+                "media_type": item.media_type,
+                "permalink": item.permalink,
+                "timestamp": item.timestamp,
+                "like_count": item.like_count,
+                "comments_count": item.comments_count,
+                "insights": insights,
+            }
+        )
+    return {"available": True, "results": results}
 
 
 def _as_tool_list(value: Any) -> list[str]:
