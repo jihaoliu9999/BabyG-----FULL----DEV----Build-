@@ -51,6 +51,16 @@ class Settings(BaseSettings):
     # Empty key = tool is unavailable; the bot routes around it.
     tavily_api_key: str = ""
 
+    # Instagram / Meta — read-only stats integration. Same shape as
+    # the Google fields: empty values = integration unavailable, the
+    # bot tool returns {"available": false} and the integrations grid
+    # surfaces "not configured". Redirect URI defaults to
+    # `${app_url}/creator/instagram/callback` when empty (computed at
+    # use site in instagram_meta.redirect_uri).
+    instagram_app_id: str = ""
+    instagram_app_secret: str = ""
+    instagram_redirect_uri: str = ""
+
     @property
     def is_production(self) -> bool:
         return self.env == "production"

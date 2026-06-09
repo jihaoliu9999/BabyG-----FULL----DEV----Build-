@@ -14,11 +14,12 @@ from postgrest.exceptions import APIError as PostgrestAPIError
 
 from app.config import get_settings
 from app.core import supabase_client
-from app.integrations import google_calendar
+from app.integrations import google_calendar, instagram_meta
 
 logger = logging.getLogger(__name__)
 
 PROVIDER_GOOGLE = "google"
+PROVIDER_INSTAGRAM = "instagram"
 GOOGLE_SERVICE_CALENDAR = "calendar"
 GOOGLE_SERVICE_GMAIL = "gmail"
 GOOGLE_SERVICES = (GOOGLE_SERVICE_CALENDAR, GOOGLE_SERVICE_GMAIL)
@@ -257,6 +258,155 @@ def _dedupe(values: list[str]) -> list[str]:
 def _state_serializer() -> URLSafeTimedSerializer:
     return URLSafeTimedSerializer(
         get_settings().session_secret, salt="bg.google.oauth.v1"
+    )
+
+
+# -----------------------------------------------------------------------------
+# Instagram / Meta
+#
+# Parallel to the Google helpers above. Same storage table, different
+# `provider` value (allowed by migration 0011). The state is signed
+# under a separate salt so a Google state can't accidentally satisfy
+# Instagram verification and vice versa.
+# -----------------------------------------------------------------------------
+
+
+def create_instagram_state(
+    user_id: str,
+    *,
+    next_path: str = "/creator/profile/settings",
+) -> str:
+    return _instagram_state_serializer().dumps(
+        {
+            "user_id": user_id,
+            "provider": PROVIDER_INSTAGRAM,
+            "next": next_path,
+        }
+    )
+
+
+def verify_instagram_state(state: str) -> dict[str, Any] | None:
+    try:
+        data = _instagram_state_serializer().loads(state, max_age=STATE_MAX_AGE)
+    except (BadSignature, SignatureExpired):
+        return None
+    if not isinstance(data, dict):
+        return None
+    if data.get("provider") != PROVIDER_INSTAGRAM or not data.get("user_id"):
+        return None
+    return {
+        "user_id": str(data["user_id"]),
+        "next": str(data.get("next") or "/creator/profile/settings"),
+    }
+
+
+def get_instagram_connection(user_id: str) -> dict[str, Any] | None:
+    try:
+        result = (
+            supabase_client.get_service_client()
+            .table("oauth_connections")
+            .select("*")
+            .eq("user_id", user_id)
+            .eq("provider", PROVIDER_INSTAGRAM)
+            .limit(1)
+            .execute()
+        )
+    except PostgrestAPIError:
+        logger.exception("instagram oauth lookup failed: %s", user_id)
+        return None
+    rows = getattr(result, "data", None) or []
+    return rows[0] if rows else None
+
+
+def save_instagram_connection(
+    user_id: str,
+    token_response: dict[str, Any],
+    *,
+    ig_account: instagram_meta.InstagramAccount,
+) -> bool:
+    access_token = str(token_response.get("access_token") or "")
+    if not access_token:
+        return False
+    expires_at = _expires_at(token_response.get("expires_in"))
+    payload = {
+        "user_id": user_id,
+        "provider": PROVIDER_INSTAGRAM,
+        "scopes": list(instagram_meta.SCOPES),
+        "access_token": access_token,
+        # Instagram long-lived tokens are refreshed in-place via
+        # fb_exchange_token, so there's no separate refresh_token.
+        "refresh_token": None,
+        "expires_at": expires_at,
+        "provider_account_id": ig_account.ig_user_id,
+    }
+    try:
+        supabase_client.get_service_client().table("oauth_connections").upsert(
+            payload,
+            on_conflict="user_id,provider",
+        ).execute()
+    except PostgrestAPIError:
+        logger.exception("instagram oauth save failed: %s", user_id)
+        return False
+    return True
+
+
+def disconnect_instagram(user_id: str) -> bool:
+    try:
+        supabase_client.get_service_client().table("oauth_connections").delete().eq(
+            "user_id", user_id
+        ).eq("provider", PROVIDER_INSTAGRAM).execute()
+    except PostgrestAPIError:
+        logger.exception("instagram oauth delete failed: %s", user_id)
+        return False
+    return True
+
+
+def instagram_account_id(connection: dict[str, Any] | None) -> str | None:
+    if not connection:
+        return None
+    raw = connection.get("provider_account_id")
+    return str(raw) if raw else None
+
+
+def access_token_for_instagram(user_id: str) -> str | None:
+    """Return a usable Instagram long-lived token, refreshing in-place
+    if the stored token is close to expiry. Returns None when the
+    creator has no connection or refresh ultimately fails."""
+    connection = get_instagram_connection(user_id)
+    if not connection:
+        return None
+    access_token = str(connection.get("access_token") or "")
+    if access_token and not _is_expired(connection.get("expires_at")):
+        return access_token
+    if not access_token:
+        return None
+    # Long-lived tokens are refreshed by re-exchanging the current
+    # token (fb_exchange_token grant). If that fails, return the
+    # stale token — Meta may still accept it for a few minutes, and
+    # the next failed Graph call will surface as `available: false`.
+    try:
+        refreshed = instagram_meta.refresh_long_lived_token(access_token)
+    except instagram_meta.InstagramError:
+        logger.info("Instagram long-lived refresh failed for user %s", user_id)
+        return access_token or None
+    new_token = str(refreshed.get("access_token") or "")
+    if not new_token:
+        return access_token or None
+    expires_at = _expires_at(refreshed.get("expires_in"))
+    try:
+        supabase_client.get_service_client().table("oauth_connections").update(
+            {"access_token": new_token, "expires_at": expires_at}
+        ).eq("user_id", user_id).eq("provider", PROVIDER_INSTAGRAM).execute()
+    except PostgrestAPIError:
+        logger.exception("instagram oauth refresh-persist failed: %s", user_id)
+        # Token is still valid in-memory even if the persist failed —
+        # callers get a working token; the next refresh will retry.
+    return new_token
+
+
+def _instagram_state_serializer() -> URLSafeTimedSerializer:
+    return URLSafeTimedSerializer(
+        get_settings().session_secret, salt="bg.instagram.oauth.v1"
     )
 
 
