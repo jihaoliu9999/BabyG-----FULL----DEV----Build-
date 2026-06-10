@@ -539,7 +539,7 @@ h1, h2, h3, h4 {
   }
 }
 .app-sidebar .babyg-card .eyebrow {
-  display: flex; align-items: center; gap: 8px;
+  display: inline-flex; align-items: center; gap: 8px;
   color: var(--lime);
   font-size: 9.5px;
   letter-spacing: 0.22em;
@@ -547,6 +547,7 @@ h1, h2, h3, h4 {
 .app-sidebar .babyg-card .pulse-dot {
   width: 5px; height: 5px;
   animation-duration: 3.2s;
+  flex-shrink: 0;
 }
 .app-sidebar .babyg-card p {
   margin: 7px 0 11px;
@@ -1430,13 +1431,33 @@ h1, h2, h3, h4 {
   color: var(--ink-mid);
   font-size: 14px;
 }
+/* Reusable utility — any circular close button gets the centering recipe.
+   Apply `.close-x` to any circle/pill button; add `.close-x-glyph` when
+   the label is a `×` text glyph so we nudge it 1px down to optical center
+   (the multiplication-sign character sits above center in most fonts). */
+.close-x {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+  text-align: center;
+  border-radius: 999px;
+  cursor: pointer;
+  font-family: inherit;
+}
+.close-x.close-x-glyph {
+  /* push the × glyph to true optical center without changing box size */
+  padding-top: 1px;
+}
+
 .profile-chip-close {
   width: 34px;
   height: 34px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0;
+  padding: 1px 0 0;          /* nudges the × glyph down to optical center */
   border-radius: 999px;
   border: 1px solid var(--hairline-strong);
   background: var(--surface-3);
@@ -1445,6 +1466,7 @@ h1, h2, h3, h4 {
   font-size: 20px;
   line-height: 1;
   text-align: center;
+  box-sizing: border-box;
 }
 .profile-chip-close:hover { color: var(--ink); border-color: #444; }
 .profile-chip-options {
