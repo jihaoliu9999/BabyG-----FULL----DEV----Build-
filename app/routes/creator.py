@@ -45,6 +45,7 @@ from app.services import (
     performance,
     profiles,
     receipts,
+    stats_merge,
     storage,
     views,
 )
@@ -1767,9 +1768,23 @@ async def performance_list(
     request: Request,
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
-    rows = performance.list_for_user(session["user_id"])
+    user_id = session["user_id"]
+    rows = stats_merge.combined_performance(user_id)
+    # Two flags drive the page-foot copy. "configured" means the app has
+    # IG creds at all; "connected" means *this* creator has linked.
+    try:
+        instagram_configured = instagram_meta.is_configured()
+    except Exception:
+        instagram_configured = False
+    instagram_connected = stats_merge.has_instagram_data(user_id)
     return templates.TemplateResponse(
-        request, "creator/performance_list.html", {"logs": rows}
+        request,
+        "creator/performance_list.html",
+        {
+            "rows": rows,
+            "instagram_configured": instagram_configured,
+            "instagram_connected": instagram_connected,
+        },
     )
 
 
