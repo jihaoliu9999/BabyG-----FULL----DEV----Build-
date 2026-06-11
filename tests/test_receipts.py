@@ -215,8 +215,9 @@ def test_performance_list_shows_manual_pill_when_ig_not_configured(client, world
 
 
 def test_performance_list_merges_instagram_rows(client, world, monkeypatch):
-    """When stats_merge surfaces both sources, both render and the
-    page-foot copy reflects that live IG is wired."""
+    """When performance_view surfaces both sources with status=ok, both
+    render, the page-foot copy reflects live IG, and the engagement
+    bar chart appears above the cards."""
     from app.services import stats_merge as merge_module
 
     _signed_in(client, role="creator", user_id="c-1")
@@ -227,7 +228,15 @@ def test_performance_list_merges_instagram_rows(client, world, monkeypatch):
             title="dinner at boia",
             timestamp="2026-06-08T18:00:00+0000",
             permalink="https://www.instagram.com/p/m1",
-            metrics={"likes": 120, "comments": 4, "reach": 900},
+            metrics={"likes": 120, "comments": 4, "reach": 900, "engagement": 50},
+            notes=None,
+        ),
+        merge_module.StatsRow(
+            source="instagram",
+            title="brickell sunset",
+            timestamp="2026-06-05T18:00:00+0000",
+            permalink="https://www.instagram.com/p/m2",
+            metrics={"likes": 80, "comments": 2, "engagement": 30},
             notes=None,
         ),
         merge_module.StatsRow(
@@ -240,9 +249,12 @@ def test_performance_list_merges_instagram_rows(client, world, monkeypatch):
         ),
     ]
     monkeypatch.setattr(
-        merge_module, "combined_performance", lambda uid, **kw: fake_rows
+        merge_module,
+        "performance_view",
+        lambda uid, **kw: merge_module.PerformanceView(
+            rows=fake_rows, instagram_status=merge_module.IG_STATUS_OK
+        ),
     )
-    monkeypatch.setattr(merge_module, "has_instagram_data", lambda uid: True)
 
     r = client.get("/creator/performance")
     assert r.status_code == 200
@@ -256,6 +268,8 @@ def test_performance_list_merges_instagram_rows(client, world, monkeypatch):
     assert "instagram" in r.text
     # Adaptive footer reflects connected state.
     assert "manual + instagram" in r.text
+    # Bar chart renders for IG rows only when engagement values exist.
+    assert "engagement by post" in r.text
 
 
 def test_performance_list_prompts_connect_when_configured_but_not_connected(
@@ -263,17 +277,53 @@ def test_performance_list_prompts_connect_when_configured_but_not_connected(
 ):
     """The mid-state: app has IG creds, this creator hasn't linked.
     The footer should invite them to connect."""
-    from app.integrations import instagram_meta as ig_module
     from app.services import stats_merge as merge_module
 
     _signed_in(client, role="creator", user_id="c-1")
-    monkeypatch.setattr(ig_module, "is_configured", lambda: True)
-    monkeypatch.setattr(merge_module, "has_instagram_data", lambda uid: False)
     monkeypatch.setattr(
-        merge_module, "combined_performance", lambda uid, **kw: []
+        merge_module,
+        "performance_view",
+        lambda uid, **kw: merge_module.PerformanceView(
+            rows=[], instagram_status=merge_module.IG_STATUS_NOT_CONNECTED
+        ),
     )
 
     r = client.get("/creator/performance")
     assert r.status_code == 200
     assert "connect instagram" in r.text.lower()
     assert "/creator/profile/settings" in r.text
+
+
+def test_performance_list_shows_unavailable_banner_on_error(
+    client, world, monkeypatch
+):
+    """Connected creator + Meta API failing: the banner must surface
+    and the footer must drop the misleading 'live merged' copy."""
+    from app.services import stats_merge as merge_module
+
+    _signed_in(client, role="creator", user_id="c-1")
+    manual_row = merge_module.StatsRow(
+        source="manual",
+        title="week of 2026-06-01",
+        timestamp="2026-06-01",
+        permalink=None,
+        metrics={"engagement_rate": 4.2},
+        notes=None,
+    )
+    monkeypatch.setattr(
+        merge_module,
+        "performance_view",
+        lambda uid, **kw: merge_module.PerformanceView(
+            rows=[manual_row], instagram_status=merge_module.IG_STATUS_ERROR
+        ),
+    )
+
+    r = client.get("/creator/performance")
+    assert r.status_code == 200
+    assert "instagram unavailable" in r.text.lower()
+    assert "temporarily unavailable" in r.text
+    # Footer reflects the outage, not the merged-state copy.
+    assert "instagram live data unavailable" in r.text
+    assert "manual + instagram" not in r.text
+    # The chart should NOT render when there are no IG rows.
+    assert "engagement by post" not in r.text

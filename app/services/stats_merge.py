@@ -41,6 +41,14 @@ HARD_IG_LIMIT = 10
 SOURCE_MANUAL = "manual"
 SOURCE_INSTAGRAM = "instagram"
 
+# Instagram availability states the template renders against. Kept as
+# string constants (rather than an Enum) so Jinja can compare without
+# any extra import friction.
+IG_STATUS_NOT_CONFIGURED = "not_configured"  # server has no Meta creds
+IG_STATUS_NOT_CONNECTED = "not_connected"    # this creator hasn't linked
+IG_STATUS_OK = "ok"                          # Graph call succeeded
+IG_STATUS_ERROR = "error"                    # connection exists but Graph failed
+
 
 @dataclass(frozen=True)
 class StatsRow:
@@ -54,19 +62,46 @@ class StatsRow:
     notes: str | None
 
 
+@dataclass(frozen=True)
+class PerformanceView:
+    """Everything the /creator/performance template needs to render.
+
+    `instagram_status` is the canonical signal for the page-foot copy
+    and the temporarily-unavailable banner. It is independent of the
+    rows list so a creator with an active connection but a failing
+    Graph call sees a clear "unavailable" state rather than the
+    misleading "live merged" footer over zero IG rows.
+    """
+
+    rows: list[StatsRow]
+    instagram_status: str
+
+
 def combined_performance(
     user_id: str, *, ig_limit: int = DEFAULT_IG_LIMIT
 ) -> list[StatsRow]:
     """Return manual + IG rows for the creator, sorted by timestamp DESC.
 
+    Back-compat surface. New callers should prefer `performance_view`
+    which also surfaces the Instagram availability state.
+
     `ig_limit` is clamped to HARD_IG_LIMIT to keep a chatty UI from
     hammering the Graph API on every page load.
     """
+    return performance_view(user_id, ig_limit=ig_limit).rows
+
+
+def performance_view(
+    user_id: str, *, ig_limit: int = DEFAULT_IG_LIMIT
+) -> PerformanceView:
+    """Same row data as `combined_performance`, plus the IG status
+    string the template needs to render the right page-foot copy."""
     rows: list[StatsRow] = []
     rows.extend(_manual_rows(user_id))
-    rows.extend(_instagram_rows(user_id, limit=ig_limit))
+    ig_rows, ig_status = _instagram_rows_with_status(user_id, limit=ig_limit)
+    rows.extend(ig_rows)
     rows.sort(key=_sort_key, reverse=True)
-    return rows
+    return PerformanceView(rows=rows, instagram_status=ig_status)
 
 
 def has_instagram_data(user_id: str) -> bool:
@@ -110,8 +145,22 @@ def _manual_rows(user_id: str) -> list[StatsRow]:
 
 
 def _instagram_rows(user_id: str, *, limit: int) -> list[StatsRow]:
-    """Pull recent IG posts + their insights, defensively. Any
-    failure path returns [] so the page falls back to manual-only.
+    """Back-compat wrapper around the status-aware path.
+
+    Existing callers (and the bot/agent layer) don't care about the
+    Graph-vs-config distinction — they just want rows or empty."""
+    rows, _status = _instagram_rows_with_status(user_id, limit=limit)
+    return rows
+
+
+def _instagram_rows_with_status(
+    user_id: str, *, limit: int
+) -> tuple[list[StatsRow], str]:
+    """Pull recent IG posts + their insights, defensively.
+
+    Returns (rows, status). Status distinguishes legitimately-empty
+    from upstream-failure so the page can render a "temporarily
+    unavailable" state instead of silently degrading.
 
     Eligibility check happens BEFORE the Graph call so a creator
     without a connection doesn't burn an unnecessary API hit.
@@ -119,33 +168,31 @@ def _instagram_rows(user_id: str, *, limit: int) -> list[StatsRow]:
     bounded = max(1, min(int(limit or DEFAULT_IG_LIMIT), HARD_IG_LIMIT))
     try:
         if not instagram_meta.is_configured():
-            return []
+            return [], IG_STATUS_NOT_CONFIGURED
         connection = oauth_connections.get_instagram_connection(user_id)
         if not connection:
-            return []
+            return [], IG_STATUS_NOT_CONNECTED
         ig_user_id = oauth_connections.instagram_account_id(connection)
         if not ig_user_id:
-            return []
+            return [], IG_STATUS_ERROR
         token = oauth_connections.access_token_for_instagram(user_id)
         if not token:
-            return []
+            return [], IG_STATUS_ERROR
     except Exception:
-        # Treat any oauth-storage hiccup as "no IG data" rather than
-        # crashing the stats page. Manual rows still render.
+        # Connection exists in concept but oauth storage hiccuped —
+        # surface as error so the banner appears.
         logger.exception("instagram precheck failed: %s", user_id)
-        return []
+        return [], IG_STATUS_ERROR
 
     try:
         media = instagram_meta.get_user_media(
             token, ig_user_id=ig_user_id, limit=bounded
         )
     except instagram_meta.InstagramError:
-        # No live data → manual-only. Caller doesn't need to know
-        # whether the failure was config, auth, or network.
-        return []
+        return [], IG_STATUS_ERROR
     except Exception:
         logger.exception("instagram get_user_media unexpected failure")
-        return []
+        return [], IG_STATUS_ERROR
 
     out: list[StatsRow] = []
     for item in media:
@@ -184,7 +231,7 @@ def _instagram_rows(user_id: str, *, limit: int) -> list[StatsRow]:
                 notes=None,
             )
         )
-    return out
+    return out, IG_STATUS_OK
 
 
 def _title_for_media(item: instagram_meta.InstagramMedia) -> str:

@@ -1769,21 +1769,15 @@ async def performance_list(
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
     user_id = session["user_id"]
-    rows = stats_merge.combined_performance(user_id)
-    # Two flags drive the page-foot copy. "configured" means the app has
-    # IG creds at all; "connected" means *this* creator has linked.
-    try:
-        instagram_configured = instagram_meta.is_configured()
-    except Exception:
-        instagram_configured = False
-    instagram_connected = stats_merge.has_instagram_data(user_id)
+    view = stats_merge.performance_view(user_id)
+    # `instagram_status` is the single source of truth for the
+    # page-foot copy + the "temporarily unavailable" banner.
     return templates.TemplateResponse(
         request,
         "creator/performance_list.html",
         {
-            "rows": rows,
-            "instagram_configured": instagram_configured,
-            "instagram_connected": instagram_connected,
+            "rows": view.rows,
+            "instagram_status": view.instagram_status,
         },
     )
 

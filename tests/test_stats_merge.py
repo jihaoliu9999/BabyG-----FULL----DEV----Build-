@@ -359,3 +359,119 @@ def test_ig_limit_is_clamped(monkeypatch):
     monkeypatch.setattr(instagram_meta, "get_user_media", _capture)
     stats_merge.combined_performance("creator-1", ig_limit=999)
     assert seen["limit"] == stats_merge.HARD_IG_LIMIT
+
+
+# ---------------------------------------------------------------------------
+# Slice 4: performance_view + instagram_status
+# Distinguish legitimately-empty from upstream-failure so the page
+# can show a clear "temporarily unavailable" banner.
+# ---------------------------------------------------------------------------
+
+
+def test_performance_view_status_not_configured(monkeypatch):
+    monkeypatch.setattr(instagram_meta, "is_configured", lambda: False)
+    monkeypatch.setattr(performance, "list_for_user", lambda uid, **kw: [])
+    view = stats_merge.performance_view("creator-1")
+    assert view.rows == []
+    assert view.instagram_status == stats_merge.IG_STATUS_NOT_CONFIGURED
+
+
+def test_performance_view_status_not_connected(monkeypatch):
+    monkeypatch.setattr(instagram_meta, "is_configured", lambda: True)
+    monkeypatch.setattr(
+        oauth_connections, "get_instagram_connection", lambda _u: None
+    )
+    monkeypatch.setattr(
+        performance,
+        "list_for_user",
+        lambda uid, **kw: [{"week_start_date": "2026-06-01"}],
+    )
+    view = stats_merge.performance_view("creator-1")
+    assert [r.source for r in view.rows] == ["manual"]
+    assert view.instagram_status == stats_merge.IG_STATUS_NOT_CONNECTED
+
+
+def test_performance_view_status_ok_when_connected_with_data(monkeypatch):
+    _patch_connected(monkeypatch)
+    monkeypatch.setattr(performance, "list_for_user", lambda uid, **kw: [])
+    monkeypatch.setattr(
+        instagram_meta,
+        "get_user_media",
+        lambda token, *, ig_user_id, limit: [
+            _make_media(
+                media_id="m1",
+                timestamp="2026-06-08T18:00:00+0000",
+                like_count=10,
+                comments_count=1,
+            ),
+        ],
+    )
+    monkeypatch.setattr(
+        instagram_meta, "get_media_insights", lambda *_a, **_kw: {}
+    )
+    view = stats_merge.performance_view("creator-1")
+    assert any(r.source == "instagram" for r in view.rows)
+    assert view.instagram_status == stats_merge.IG_STATUS_OK
+
+
+def test_performance_view_status_error_on_graph_failure(monkeypatch):
+    """The crucial Slice 4 distinction: connected creator + Meta down
+    must NOT silently look like 'manual only'. Status must be 'error'
+    so the banner appears."""
+    _patch_connected(monkeypatch)
+    monkeypatch.setattr(
+        performance,
+        "list_for_user",
+        lambda uid, **kw: [{"week_start_date": "2026-06-01"}],
+    )
+
+    def _boom(token, **_kw):
+        raise instagram_meta.InstagramError("graph 503")
+
+    monkeypatch.setattr(instagram_meta, "get_user_media", _boom)
+
+    view = stats_merge.performance_view("creator-1")
+    # Manual row survives, IG row count is zero, but status flags the
+    # outage so the template renders the unavailable banner.
+    assert [r.source for r in view.rows] == ["manual"]
+    assert view.instagram_status == stats_merge.IG_STATUS_ERROR
+
+
+def test_performance_view_status_error_on_unexpected_exception(monkeypatch):
+    """Defensive: any non-Graph oauth/storage exception during the
+    precheck must also surface as 'error', never silently pass as
+    'not connected'."""
+    monkeypatch.setattr(instagram_meta, "is_configured", lambda: True)
+    monkeypatch.setattr(
+        oauth_connections,
+        "get_instagram_connection",
+        lambda _u: {"provider": "instagram", "provider_account_id": "ig-1"},
+    )
+    monkeypatch.setattr(
+        oauth_connections, "instagram_account_id", lambda _c: "ig-1"
+    )
+
+    def _token_boom(_u):
+        raise RuntimeError("supabase down")
+
+    monkeypatch.setattr(
+        oauth_connections, "access_token_for_instagram", _token_boom
+    )
+    monkeypatch.setattr(performance, "list_for_user", lambda uid, **kw: [])
+
+    view = stats_merge.performance_view("creator-1")
+    assert view.instagram_status == stats_merge.IG_STATUS_ERROR
+
+
+def test_combined_performance_still_returns_list(monkeypatch):
+    """Back-compat pin: the existing list-returning surface must
+    keep working for any caller that doesn't need the status."""
+    monkeypatch.setattr(instagram_meta, "is_configured", lambda: False)
+    monkeypatch.setattr(
+        performance,
+        "list_for_user",
+        lambda uid, **kw: [{"week_start_date": "2026-06-01"}],
+    )
+    result = stats_merge.combined_performance("creator-1")
+    assert isinstance(result, list)
+    assert all(isinstance(r, stats_merge.StatsRow) for r in result)
