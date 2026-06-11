@@ -404,3 +404,97 @@ def test_settings_flashes_ineligible_message(
     r = client.get("/creator/profile/settings?instagram=ineligible")
     assert r.status_code == 200
     assert "Business or Creator account linked to a Facebook Page" in r.text
+
+
+# ---------------------------------------------------------------------------
+# Slice 3 regression pins.
+# These are defensive — they don't change behavior, they freeze it so a
+# future refactor can't silently re-enable posting/DMs, flip TikTok to
+# "ready", or break the connect link's exact href.
+# ---------------------------------------------------------------------------
+
+
+def test_connect_button_href_is_pinned_on_settings(
+    monkeypatch, client: TestClient
+) -> None:
+    """The exact href is what the integrations grid template ships
+    today. Catches accidental drift (e.g. someone changing the `next`
+    param or dropping it entirely)."""
+    _signed_in(client)
+    monkeypatch.setattr(
+        creator_routes.profiles, "get_creator_profile", lambda uid: _profile()
+    )
+    monkeypatch.setattr(
+        creator_routes.oauth_connections, "get_google_connection", lambda uid: None
+    )
+    monkeypatch.setattr(
+        creator_routes.oauth_connections, "get_instagram_connection", lambda uid: None
+    )
+    monkeypatch.setattr(instagram_meta, "is_configured", lambda: True)
+
+    r = client.get("/creator/profile/settings")
+    assert r.status_code == 200
+    assert (
+        'href="/creator/instagram/connect?next=/creator/profile/settings"'
+        in r.text
+    )
+
+
+def test_tiktok_card_stays_coming_soon_in_every_instagram_state(
+    monkeypatch, client: TestClient
+) -> None:
+    """TikTok is not integrated. The grid must render it as coming-soon
+    + disabled regardless of how Instagram is configured/connected."""
+    _signed_in(client)
+    monkeypatch.setattr(
+        creator_routes.profiles, "get_creator_profile", lambda uid: _profile()
+    )
+    monkeypatch.setattr(
+        creator_routes.oauth_connections, "get_google_connection", lambda uid: None
+    )
+
+    scenarios = [
+        # (ig configured, ig connection row)
+        (False, None),
+        (True, None),
+        (True, {"provider": "instagram", "access_token": "tok"}),
+    ]
+    for configured, ig_conn in scenarios:
+        monkeypatch.setattr(instagram_meta, "is_configured", lambda c=configured: c)
+        monkeypatch.setattr(
+            creator_routes.oauth_connections,
+            "get_instagram_connection",
+            lambda uid, ig_conn=ig_conn: ig_conn,
+        )
+
+        r = client.get("/creator/profile/settings")
+        assert r.status_code == 200
+        # Tiny snapshot: TikTok must be coming soon and disabled, with
+        # no `connect Tiktok` CTA anywhere on the page.
+        assert "TikTok" in r.text
+        # The tag has `disabled aria-disabled="true"` inside the TikTok card.
+        # Easiest to assert: there's no real TikTok connect link.
+        assert "/creator/tiktok/connect" not in r.text
+        assert "coming soon" in r.text
+
+
+def test_instagram_meta_module_does_not_expose_write_surface() -> None:
+    """Belt-and-suspenders pin: even if a future contributor adds a
+    posting/DM helper here, this test fails before it ships.
+
+    Mirrors the test_module_does_not_expose_send_delete_or_modify pin
+    in tests/test_google_gmail.py for Gmail."""
+    forbidden = (
+        "post_media",
+        "publish_media",
+        "create_media",
+        "send_dm",
+        "create_comment",
+        "delete_media",
+        "delete_comment",
+        "set_media_caption",
+    )
+    for name in forbidden:
+        assert not hasattr(instagram_meta, name), (
+            f"instagram_meta must not expose {name}"
+        )
