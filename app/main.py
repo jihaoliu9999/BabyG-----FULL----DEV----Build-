@@ -182,6 +182,10 @@ class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
         # a few operator templates still use `style=`.
         # img-src includes the Supabase Storage origin so creator profile
         # photos (hosted in the `profile-photos` public bucket) render.
+        # form-action allow-lists accounts.google.com because the Google OAuth
+        # picker POSTs to a same-origin handler that 302s to Google — browsers
+        # enforce form-action across the entire navigation chain, so the
+        # redirect target must be allow-listed too or the redirect is blocked.
         settings = get_settings()
         img_src = "img-src 'self' data:"
         supabase_origin = _origin(settings.supabase_url)
@@ -191,7 +195,8 @@ class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
             f"default-src 'self'; {img_src}; "
             "script-src 'self'; style-src 'self' 'unsafe-inline'; "
             "style-src-elem 'self'; "
-            "form-action 'self'; frame-ancestors 'none';"
+            "form-action 'self' https://accounts.google.com; "
+            "frame-ancestors 'none';"
         )
         if settings.env != "dev":
             csp = f"{csp} upgrade-insecure-requests;"

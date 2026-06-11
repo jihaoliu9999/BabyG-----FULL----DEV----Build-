@@ -39,6 +39,17 @@ def test_csp_allows_same_origin_static_css(client: TestClient) -> None:
     assert "babyg - premium dark theme" in css.text
 
 
+def test_csp_form_action_allows_google_oauth_redirect(client: TestClient) -> None:
+    """The Google OAuth picker POSTs same-origin and 302s to
+    accounts.google.com. Browsers enforce form-action across the
+    entire navigation chain, so the redirect target must be
+    allow-listed or the redirect silently fails."""
+    response = client.get("/")
+    assert response.status_code == 200
+    csp = response.headers["content-security-policy"]
+    assert "form-action 'self' https://accounts.google.com" in csp
+
+
 def test_forwarded_proto_keeps_static_url_root_relative(client: TestClient) -> None:
     response = client.get("/", headers={"x-forwarded-proto": "https"})
 

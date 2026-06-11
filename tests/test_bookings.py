@@ -313,6 +313,13 @@ def test_google_connect_post_redirects_to_oauth_with_selected_scopes(
     assert parsed.scheme == "https"
     assert parsed.netloc == "accounts.google.com"
     query = parse_qs(parsed.query)
+    # Pin every OAuth query parameter Google requires. Drops are silent
+    # at the Google end (consent screen errors, redirect mismatches),
+    # so the test catches regressions before they ship.
+    assert query["client_id"] == ["client-id"]
+    assert query["redirect_uri"] == [google_calendar_module.redirect_uri()]
+    assert query["response_type"] == ["code"]
+    assert query["access_type"] == ["offline"]
     assert query["scope"] == [" ".join(expected_scopes)]
     if unexpected_scope:
         assert unexpected_scope not in query["scope"][0]
