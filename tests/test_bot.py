@@ -1590,3 +1590,201 @@ def test_instagram_stats_tool_registered_and_prompt_updated() -> None:
         "Meta/TikTok integration."
     ) in p
     assert "never invent numbers" in p
+
+
+# ---------------------------------------------------------------------------
+# Slice 1: read_my_gmail bot tool.
+# All assertions hit the agent-loop helper. Gmail HTTP + token storage
+# are mocked at the integration boundary.
+# ---------------------------------------------------------------------------
+
+
+def test_gmail_unavailable_when_google_not_configured(monkeypatch) -> None:
+    monkeypatch.setattr(bot_service.google_calendar, "is_configured", lambda: False)
+    # Connection + token lookups must not run if config check short-circuits.
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "get_google_connection",
+        lambda _u: pytest.fail("connection lookup should not run when unconfigured"),
+    )
+    result = bot_service._run_gmail_inbox(
+        user_id="creator-1", tool_input={"limit": 5}
+    )
+    assert result["available"] is False
+    assert "not configured" in result["reason"]
+
+
+def test_gmail_unavailable_when_no_gmail_scope(monkeypatch) -> None:
+    monkeypatch.setattr(bot_service.google_calendar, "is_configured", lambda: True)
+    # Connection exists but only has Calendar scope — Gmail should not surface.
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "get_google_connection",
+        lambda _u: {"provider": "google", "scopes": [bot_service.google_calendar.CALENDAR_SCOPE]},
+    )
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "access_token_for_google",
+        lambda _u: pytest.fail("token lookup must not run when gmail scope missing"),
+    )
+    bot_service._gmail_inbox_counter.clear()
+    result = bot_service._run_gmail_inbox(
+        user_id="creator-1", tool_input={}
+    )
+    assert result["available"] is False
+    assert "isn't connected" in result["reason"]
+
+
+def test_gmail_returns_threads_when_connected(monkeypatch) -> None:
+    monkeypatch.setattr(bot_service.google_calendar, "is_configured", lambda: True)
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "get_google_connection",
+        lambda _u: {
+            "provider": "google",
+            "scopes": [bot_service.google_calendar.GMAIL_READONLY_SCOPE],
+        },
+    )
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "access_token_for_google",
+        lambda _u: "tok",
+    )
+    fake_msg = bot_service.google_gmail.GmailMessage(
+        message_id="m1",
+        thread_id="t1",
+        from_="Brand <hi@brand.test>",
+        to="creator@example.com",
+        subject="re: collab",
+        snippet="snippet",
+        body_text="body",
+        internal_date="2026-06-11T00:00:00+00:00",
+        is_unread=True,
+    )
+    fake_thread = bot_service.google_gmail.GmailThread(
+        thread_id="t1",
+        snippet="preview",
+        messages=[fake_msg],
+        is_unread=True,
+    )
+    monkeypatch.setattr(
+        bot_service.google_gmail,
+        "list_recent_threads",
+        lambda token, *, limit: [fake_thread],
+    )
+    bot_service._gmail_inbox_counter.clear()
+
+    result = bot_service._run_gmail_inbox(
+        user_id="creator-1", tool_input={"limit": 3}
+    )
+    assert result["available"] is True
+    assert len(result["results"]) == 1
+    thread = result["results"][0]
+    assert thread["thread_id"] == "t1"
+    assert thread["is_unread"] is True
+    assert thread["messages"][0]["subject"] == "re: collab"
+    assert thread["messages"][0]["body_text"] == "body"
+
+
+def test_gmail_falls_back_gracefully_on_upstream_error(monkeypatch) -> None:
+    monkeypatch.setattr(bot_service.google_calendar, "is_configured", lambda: True)
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "get_google_connection",
+        lambda _u: {
+            "provider": "google",
+            "scopes": [bot_service.google_calendar.GMAIL_READONLY_SCOPE],
+        },
+    )
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "access_token_for_google",
+        lambda _u: "tok",
+    )
+
+    def _boom(*_a, **_kw):
+        raise bot_service.google_gmail.GmailError("upstream")
+
+    monkeypatch.setattr(bot_service.google_gmail, "list_recent_threads", _boom)
+    bot_service._gmail_inbox_counter.clear()
+
+    result = bot_service._run_gmail_inbox(
+        user_id="creator-1", tool_input={}
+    )
+    assert result["available"] is False
+    assert "gmail api failed" in result["reason"].lower()
+
+
+def test_gmail_unauthorized_signals_reconnect(monkeypatch) -> None:
+    monkeypatch.setattr(bot_service.google_calendar, "is_configured", lambda: True)
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "get_google_connection",
+        lambda _u: {
+            "provider": "google",
+            "scopes": [bot_service.google_calendar.GMAIL_READONLY_SCOPE],
+        },
+    )
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "access_token_for_google",
+        lambda _u: "tok",
+    )
+
+    def _boom(*_a, **_kw):
+        raise bot_service.google_gmail.GmailUnauthorizedError("expired")
+
+    monkeypatch.setattr(bot_service.google_gmail, "list_recent_threads", _boom)
+    bot_service._gmail_inbox_counter.clear()
+
+    result = bot_service._run_gmail_inbox(
+        user_id="creator-1", tool_input={}
+    )
+    assert result["available"] is False
+    assert "reconnect" in result["reason"].lower()
+
+
+def test_gmail_daily_cap_short_circuits(monkeypatch) -> None:
+    monkeypatch.setattr(bot_service.google_calendar, "is_configured", lambda: True)
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "get_google_connection",
+        lambda _u: {
+            "provider": "google",
+            "scopes": [bot_service.google_calendar.GMAIL_READONLY_SCOPE],
+        },
+    )
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "access_token_for_google",
+        lambda _u: "tok",
+    )
+    monkeypatch.setattr(
+        bot_service.google_gmail,
+        "list_recent_threads",
+        lambda token, *, limit: [],
+    )
+    bot_service._gmail_inbox_counter.clear()
+
+    for _ in range(bot_service.GMAIL_INBOX_DAILY_CAP):
+        r = bot_service._run_gmail_inbox(
+            user_id="creator-cap", tool_input={}
+        )
+        assert r["available"] is True
+
+    over = bot_service._run_gmail_inbox(
+        user_id="creator-cap", tool_input={}
+    )
+    assert over["available"] is False
+    assert "cap reached" in over["reason"]
+
+
+def test_gmail_tool_registered_and_prompt_updated() -> None:
+    names = {t["name"] for t in bot_service.prompts.BOT_TOOL_DEFINITIONS}
+    assert "read_my_gmail" in names
+
+    p = bot_service.prompts.babyg_system_prompt()
+    assert "read_my_gmail" in p
+    assert "inbox reality check" in p
+    # The exact phrasing the bot must NOT do is pinned.
+    assert "never invent email content" in p

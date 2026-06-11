@@ -13,7 +13,7 @@ from postgrest.exceptions import APIError as PostgrestAPIError
 from app.agent.tools import read_only
 from app.core import supabase_client
 from app.core.uuid_guard import safe_uuid
-from app.integrations import anthropic_client, instagram_meta, tavily
+from app.integrations import anthropic_client, google_calendar, google_gmail, instagram_meta, tavily
 from app.services import bookings, jobs, oauth_connections, prompts, reminders
 
 logger = logging.getLogger(__name__)
@@ -78,6 +78,20 @@ def _bump_instagram_stats_counter(user_id: str) -> int:
     key = (str(user_id), _today_key())
     count = _instagram_stats_counter.get(key, 0) + 1
     _instagram_stats_counter[key] = count
+    return count
+
+
+# Gmail inbox reads. Higher cap than IG stats because creators check
+# email context far more often than per-post engagement — but still
+# bounded so a runaway agent loop can't drain the daily Gmail quota.
+GMAIL_INBOX_DAILY_CAP = 50
+_gmail_inbox_counter: dict[tuple[str, str], int] = {}
+
+
+def _bump_gmail_inbox_counter(user_id: str) -> int:
+    key = (str(user_id), _today_key())
+    count = _gmail_inbox_counter.get(key, 0) + 1
+    _gmail_inbox_counter[key] = count
     return count
 
 
@@ -515,6 +529,8 @@ def _execute_read_tool(
             content = _run_web_search(user_id=user_id, tool_input=tool_input)
         elif name == "read_my_instagram_stats":
             content = _run_instagram_stats(user_id=user_id, tool_input=tool_input)
+        elif name == "read_my_gmail":
+            content = _run_gmail_inbox(user_id=user_id, tool_input=tool_input)
         elif name == "read_creator_directory":
             content = read_only.read_creator_directory(
                 user_id, limit=tool_input.get("limit", 6)
@@ -707,6 +723,102 @@ def _run_instagram_stats(*, user_id: str, tool_input: dict[str, Any]) -> dict[st
                 "insights": insights,
             }
         )
+    return {"available": True, "results": results}
+
+
+def _run_gmail_inbox(*, user_id: str, tool_input: dict[str, Any]) -> dict[str, Any]:
+    """Execute one read_my_gmail turn inside the agent loop.
+
+    Same shape as _run_instagram_stats and _run_web_search: every
+    failure mode maps to `available=False` with a `reason`, so the
+    bot loop survives a Gmail outage and can still answer from local
+    context. Never raises. Never logs tokens, subjects, or bodies.
+    """
+    if not google_calendar.is_configured():
+        return {
+            "available": False,
+            "reason": "gmail integration is not configured on this server yet",
+        }
+    used_today = _bump_gmail_inbox_counter(user_id)
+    if used_today > GMAIL_INBOX_DAILY_CAP:
+        return {
+            "available": False,
+            "reason": (
+                f"daily gmail inbox cap reached "
+                f"({GMAIL_INBOX_DAILY_CAP}/day). fall back to local "
+                "context for the rest of today."
+            ),
+        }
+    try:
+        connection = oauth_connections.get_google_connection(user_id)
+    except Exception:
+        logger.exception("gmail connection lookup failed")
+        connection = None
+    if not connection or not oauth_connections.google_gmail_connected(connection):
+        return {
+            "available": False,
+            "reason": (
+                "gmail isn't connected for this creator. they can "
+                "connect it from /creator/profile/settings under the "
+                "Google integration card."
+            ),
+        }
+    try:
+        token = oauth_connections.access_token_for_google(user_id)
+    except Exception:
+        logger.exception("gmail access token lookup failed")
+        token = None
+    if not token:
+        return {
+            "available": False,
+            "reason": "gmail token unavailable — the creator may need to reconnect",
+        }
+    try:
+        threads = google_gmail.list_recent_threads(
+            token, limit=tool_input.get("limit", 5)
+        )
+    except google_gmail.GmailUnauthorizedError:
+        return {
+            "available": False,
+            "reason": (
+                "gmail token rejected — the creator may need to "
+                "reconnect Gmail from /creator/profile/settings"
+            ),
+        }
+    except google_gmail.GmailNotConnectedError:
+        return {
+            "available": False,
+            "reason": (
+                "gmail scope is missing — the creator should reconnect "
+                "Gmail and tick the Gmail box on the picker"
+            ),
+        }
+    except google_gmail.GmailError:
+        return {
+            "available": False,
+            "reason": "gmail api failed — try again later",
+        }
+    results = [
+        {
+            "thread_id": t.thread_id,
+            "snippet": t.snippet,
+            "is_unread": t.is_unread,
+            "messages": [
+                {
+                    "message_id": m.message_id,
+                    "from": m.from_,
+                    "to": m.to,
+                    "subject": m.subject,
+                    "snippet": m.snippet,
+                    "body_text": m.body_text,
+                    "internal_date": m.internal_date,
+                    "is_unread": m.is_unread,
+                }
+                for m in t.messages
+            ],
+        }
+        for t in threads
+    ]
     return {"available": True, "results": results}
 
 

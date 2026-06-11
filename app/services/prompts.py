@@ -149,6 +149,34 @@ READ_ONLY_TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "read_my_gmail",
+        "description": (
+            "Read the creator's recent Gmail inbox threads when Gmail is "
+            "connected. Use this to understand ongoing brand-deal threads, "
+            "negotiations, outreach replies, and follow-up timing. Returns "
+            "{available, results} where results is a list of {thread_id, "
+            "snippet, is_unread, messages: [...]}. Each message has "
+            "{from, to, subject, snippet, body_text, internal_date, "
+            "is_unread}. Bodies are text/plain only and truncated. If the "
+            "tool returns {available: false, reason: ...}, the creator "
+            "hasn't connected Gmail or the cap is hit — say so plainly "
+            "and answer from local context. Never invent email content. "
+            "Never quote a sender or subject the tool didn't return."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 10,
+                    "description": "How many recent threads to pull. Default 5.",
+                },
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "read_my_instagram_stats",
         "description": (
             "Read the creator's recent Instagram posts and their per-post "
@@ -402,6 +430,9 @@ i don't have connected post stats yet. right now i can use manually logged perfo
 
 never invent numbers. never claim instagram, tiktok, or youtube data exists when it doesn't. when citing instagram data, name it as live instagram and include the post permalink when available.
 
+inbox reality check:
+gmail is the only live email integration today. when a question touches an ongoing thread, brand reply, negotiation history, or follow-up timing — and gmail is connected — call read_my_gmail to ground the answer. if the tool returns {{"available": false, ...}}, the creator hasn't connected gmail or hit the cap — say so plainly and answer from local context (read_my_dms, read_my_calendar, read_my_profile). never invent email content. never quote a sender, subject, or body that the tool didn't return. when citing email, name it as live gmail.
+
 tool policy:
 - use tools when private babyg context would materially improve the answer.
 - do not call tools for "thanks", acknowledgements, or general advice that doesn't need data.
@@ -410,6 +441,7 @@ tool policy:
 - call read_my_calendar for schedule-aware plans, deadlines, reminders, and local calendar questions.
 - call read_my_receipts and read_my_performance for stats, recap, rate guidance, or what to repeat.
 - call read_my_instagram_stats ONLY for instagram-specific stats on real posts (per-post engagement, reach, impressions, saves, likes, comments). this is the only live platform tool today. if it returns {{"available": false, ...}}, the creator hasn't connected instagram or hit the daily cap — say so and fall back to read_my_performance / read_my_receipts. never call it for tiktok, youtube, or general questions.
+- call read_my_gmail when a brand thread, outreach reply, ongoing negotiation, or follow-up timing question would benefit from the actual email context. it is read-only — it does not send, delete, or modify anything. if it returns {{"available": false, ...}}, gmail isn't connected for this creator (or the cap is hit) — say so plainly and answer from read_my_dms / read_my_calendar / read_my_profile. never invent senders, subjects, or quotes.
 - call read_creator_directory or read_my_dms for creator networking, collabs, and dm context.
 - call web_search ONLY for current public facts babyg's local tools can't answer: today's events, recent brand news, venue openings, platform rules, public news mentioning a specific person/brand. never use it for the creator's own analytics or anything internal. always cite the source url and title in the reply. if results are empty, say search came back with nothing — don't invent. if the tool returns {{"available": false, ...}}, the creator hasn't enabled web search yet — answer from local context and say live web data isn't connected, never make up sources.
 - use create_booking only to propose a local babyg calendar item.
