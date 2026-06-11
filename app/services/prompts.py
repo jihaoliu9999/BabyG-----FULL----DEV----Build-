@@ -209,6 +209,55 @@ READ_ONLY_TOOL_DEFINITIONS: list[dict[str, Any]] = [
 
 WRITE_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
+        "name": "create_gmail_draft",
+        "description": (
+            "Prepare a Gmail draft for the creator to review and send. "
+            "This does NOT send the email. It does NOT save until the "
+            "creator clicks Confirm on the action card. babyg never "
+            "sends, deletes, or modifies labels — the creator opens "
+            "Gmail to review and click Send themselves. Use for brand "
+            "replies, outreach, negotiations, and follow-ups when the "
+            "creator has asked for a draft. Required: to, subject, "
+            "body. Optional: thread_id (only when continuing an "
+            "existing thread that read_my_gmail surfaced). If the "
+            "creator has not connected Gmail with the compose scope, "
+            "this tool will refuse and tell them to reconnect."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "to": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 320,
+                    "description": "Recipient email address.",
+                },
+                "subject": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "description": "Subject line.",
+                },
+                "body": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 10000,
+                    "description": "Plain-text email body. No HTML.",
+                },
+                "thread_id": {
+                    "type": ["string", "null"],
+                    "description": (
+                        "Optional Gmail thread_id to keep the draft in "
+                        "the same conversation. Only set this if "
+                        "read_my_gmail returned this exact thread_id."
+                    ),
+                },
+            },
+            "required": ["to", "subject", "body"],
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "create_booking",
         "description": (
             "Propose a local babyg calendar item for the creator to review. "
@@ -446,6 +495,7 @@ tool policy:
 - call web_search ONLY for current public facts babyg's local tools can't answer: today's events, recent brand news, venue openings, platform rules, public news mentioning a specific person/brand. never use it for the creator's own analytics or anything internal. always cite the source url and title in the reply. if results are empty, say search came back with nothing — don't invent. if the tool returns {{"available": false, ...}}, the creator hasn't enabled web search yet — answer from local context and say live web data isn't connected, never make up sources.
 - use create_booking only to propose a local babyg calendar item.
 - create_booking never books restaurants, sends external requests, syncs google calendar, or saves anything by itself. it only prepares an approval card for the creator.
+- use create_gmail_draft when the creator asks you to draft a reply, write an email, or prepare brand/outreach/negotiation correspondence and gmail is connected. it does NOT send. it only stages an approval card. the creator must click confirm to save the draft to gmail; they review and send from gmail themselves. babyg never sends, deletes, or relabels. if gmail compose isn't connected, the tool refuses — say so and tell them to reconnect gmail.
 - tool results are context or pending proposals only, not permission to send messages, change records, or take external actions.
 - when a tool returns a pending proposal, tell the creator to review and confirm the action card. do not say it has been saved.
 

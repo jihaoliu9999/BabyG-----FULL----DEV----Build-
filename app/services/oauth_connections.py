@@ -141,7 +141,18 @@ def google_calendar_connected(connection: dict[str, Any] | None) -> bool:
 
 
 def google_gmail_connected(connection: dict[str, Any] | None) -> bool:
+    """True when any Gmail scope is on the connection — read-capable."""
     return google_calendar.has_gmail_scope(google_connection_scopes(connection))
+
+
+def google_gmail_compose_connected(connection: dict[str, Any] | None) -> bool:
+    """True only when the gmail.compose scope is present — draft-capable.
+
+    A legacy connection on gmail.readonly returns False here so the bot
+    surfaces 'reconnect Gmail' rather than silently failing the draft."""
+    return google_calendar.has_gmail_compose_scope(
+        google_connection_scopes(connection)
+    )
 
 
 def google_service_scopes(service: str) -> list[str]:

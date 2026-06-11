@@ -38,6 +38,13 @@ THREADS_DEFAULT: Final = 5
 MESSAGES_PER_THREAD: Final = 3
 BODY_MAX_CHARS: Final = 1000
 
+# Draft caps. Gmail itself accepts much larger payloads; these are
+# babyg-side guards so a runaway agent can't stash huge text under
+# the creator's name. The bot tool tells Claude the limits up front.
+DRAFT_TO_MAX_CHARS: Final = 320     # RFC 5321 path length
+DRAFT_SUBJECT_MAX_CHARS: Final = 200
+DRAFT_BODY_MAX_CHARS: Final = 10000
+
 # Strip C0 control chars except tab/newline. Email bodies can carry
 # weird unicode after MIME decoding; the bot doesn't need it and the
 # tokens hurt.
@@ -147,6 +154,92 @@ def list_recent_threads(
             logger.info("gmail thread fetch skipped (status-only)")
             continue
     return out
+
+
+def create_draft(
+    token: str,
+    *,
+    to: str,
+    subject: str,
+    body: str,
+    thread_id: str | None = None,
+) -> str:
+    """Create a Gmail draft. Returns the draft id.
+
+    Hard constraint: this module exposes NO send function and NO
+    delete/label-modify function. The OAuth scope (gmail.compose)
+    inherently grants Google the ability to do those things; babyg
+    does not. To send, the creator opens Gmail themselves and clicks
+    Send on the draft.
+
+    Inputs are truncated to module-level caps before hitting Gmail
+    so a runaway agent loop can't stash huge content.
+    """
+    to_clean = _sanitize(to)[:DRAFT_TO_MAX_CHARS]
+    subject_clean = _sanitize(subject)[:DRAFT_SUBJECT_MAX_CHARS]
+    body_clean = body[:DRAFT_BODY_MAX_CHARS] if body else ""
+    if not to_clean or not subject_clean:
+        raise GmailError("draft missing to or subject after sanitization")
+
+    raw = _build_rfc2822(to=to_clean, subject=subject_clean, body=body_clean)
+    encoded = base64.urlsafe_b64encode(raw.encode("utf-8")).decode("ascii")
+    payload: dict[str, Any] = {"message": {"raw": encoded}}
+    if thread_id:
+        payload["message"]["threadId"] = str(thread_id)
+
+    response_json = _post(token, f"{API_BASE}/drafts", json_body=payload)
+    draft_id = str(response_json.get("id") or "")
+    if not draft_id:
+        raise GmailError("gmail drafts.create returned no id")
+    return draft_id
+
+
+def _build_rfc2822(*, to: str, subject: str, body: str) -> str:
+    """Minimal RFC 2822 message. Plain text only — no html, no
+    attachments. Headers escape CR/LF defensively (sanitize already
+    stripped them, but defense in depth)."""
+    safe_to = to.replace("\r", "").replace("\n", "")
+    safe_subject = subject.replace("\r", "").replace("\n", "")
+    return (
+        f"To: {safe_to}\r\n"
+        f"Subject: {safe_subject}\r\n"
+        "MIME-Version: 1.0\r\n"
+        "Content-Type: text/plain; charset=utf-8\r\n"
+        "\r\n"
+        f"{body}"
+    )
+
+
+def _post(
+    token: str, url: str, *, json_body: dict[str, Any]
+) -> dict[str, Any]:
+    """One Gmail POST. Same status mapping as _get."""
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+    }
+    try:
+        with httpx.Client(timeout=TIMEOUT_SECONDS) as client:
+            response = client.post(url, headers=headers, json=json_body)
+    except httpx.HTTPError:
+        logger.exception("gmail request transport failure")
+        raise GmailError("gmail request failed") from None
+
+    if response.status_code == 401:
+        logger.info("gmail 401 — token likely expired")
+        raise GmailUnauthorizedError("gmail token unauthorized")
+    if response.status_code == 403:
+        logger.info("gmail 403 — likely missing compose scope")
+        raise GmailNotConnectedError("gmail scope missing or insufficient")
+    if response.status_code >= 400:
+        logger.info("gmail http error %s", response.status_code)
+        raise GmailError(f"gmail http {response.status_code}")
+
+    try:
+        return response.json()
+    except ValueError:
+        logger.exception("gmail response not json")
+        raise GmailError("gmail response not json") from None
 
 
 def _get(token: str, url: str, *, params: dict[str, str] | None = None) -> dict[str, Any]:

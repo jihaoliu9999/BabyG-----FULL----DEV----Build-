@@ -22,7 +22,13 @@ TOKEN_URL = "https://oauth2.googleapis.com/token"
 EVENTS_URL = "https://www.googleapis.com/calendar/v3/calendars/primary/events"
 DEFAULT_CALLBACK_PATH = "/creator/google/calendar/callback"
 CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar.events"
+# Legacy: pre-Slice-2 Gmail connections used the read-only scope. Kept
+# as a named constant so existing-user detection (and back-compat tests)
+# can still reference it. New Gmail connections request COMPOSE which
+# is required for drafts.create; READONLY is a strict subset of what
+# COMPOSE grants.
 GMAIL_READONLY_SCOPE = "https://www.googleapis.com/auth/gmail.readonly"
+GMAIL_COMPOSE_SCOPE = "https://www.googleapis.com/auth/gmail.compose"
 GMAIL_SCOPE_PREFIX = "https://www.googleapis.com/auth/gmail."
 
 
@@ -59,7 +65,11 @@ def scopes_for_services(services: list[str]) -> list[str]:
             selected.append(CALENDAR_SCOPE)
     if "gmail" in services:
         gmail_scopes = [scope for scope in configured if is_gmail_scope(scope)]
-        selected.extend(gmail_scopes or [GMAIL_READONLY_SCOPE])
+        # New Gmail connections grant COMPOSE so babyg can read inbox AND
+        # prepare drafts the creator approves. No send tool is exposed at
+        # any layer of this app — the scope is what Google requires for
+        # drafts.create; the module never imports a send endpoint.
+        selected.extend(gmail_scopes or [GMAIL_COMPOSE_SCOPE])
     return _dedupe(selected)
 
 
@@ -90,8 +100,20 @@ def is_gmail_scope(scope: str) -> bool:
     return scope.startswith(GMAIL_SCOPE_PREFIX)
 
 
+def is_gmail_compose_scope(scope: str) -> bool:
+    return scope == GMAIL_COMPOSE_SCOPE
+
+
 def has_calendar_scope(scopes_to_check: list[str] | set[str] | tuple[str, ...]) -> bool:
     return any(is_calendar_scope(scope) for scope in scopes_to_check)
+
+
+def has_gmail_compose_scope(
+    scopes_to_check: list[str] | set[str] | tuple[str, ...],
+) -> bool:
+    """True only when the compose scope is present. Read-only connections
+    return False — they need to reconnect before drafts can be staged."""
+    return any(is_gmail_compose_scope(scope) for scope in scopes_to_check)
 
 
 def has_gmail_scope(scopes_to_check: list[str] | set[str] | tuple[str, ...]) -> bool:

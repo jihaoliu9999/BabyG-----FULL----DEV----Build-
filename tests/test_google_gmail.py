@@ -389,3 +389,173 @@ def test_no_secrets_in_logs_on_error(install_fake_client, caplog):
         google_gmail.list_thread_ids(secret_token)
     for record in caplog.records:
         assert secret_token not in record.getMessage()
+
+
+# ---------------------------------------------------------------------------
+# Slice 2: create_draft
+# ---------------------------------------------------------------------------
+
+
+class _PostClient:
+    """httpx.Client stand-in that records POST calls and returns the
+    queued response. Verifies bot drafts traffic at the wire level."""
+
+    def __init__(self, response: _Resp):
+        self._response = response
+        self.calls: list[dict[str, Any]] = []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        return False
+
+    def post(self, url, headers=None, json=None):
+        self.calls.append(
+            {"url": url, "headers": dict(headers or {}), "json": json}
+        )
+        return self._response
+
+
+@pytest.fixture
+def install_fake_post_client(monkeypatch):
+    def _install(response: _Resp) -> _PostClient:
+        fake = _PostClient(response)
+        monkeypatch.setattr(
+            google_gmail.httpx, "Client", lambda *_a, **_kw: fake
+        )
+        return fake
+
+    return _install
+
+
+def test_create_draft_builds_rfc2822_and_base64url(install_fake_post_client):
+    fake = install_fake_post_client(_Resp(200, {"id": "draft-1", "message": {"id": "m1"}}))
+
+    draft_id = google_gmail.create_draft(
+        "tok",
+        to="brand@acme.test",
+        subject="re: collab terms",
+        body="hi team — happy to chat thursday.",
+    )
+
+    assert draft_id == "draft-1"
+    call = fake.calls[0]
+    assert call["url"].endswith("/drafts")
+    assert call["headers"]["Authorization"] == "Bearer tok"
+    raw_b64 = call["json"]["message"]["raw"]
+    # Decode and check the wire-format message looks right.
+    padded = raw_b64 + "=" * (-len(raw_b64) % 4)
+    decoded = base64.urlsafe_b64decode(padded).decode("utf-8")
+    assert "To: brand@acme.test" in decoded
+    assert "Subject: re: collab terms" in decoded
+    assert "Content-Type: text/plain; charset=utf-8" in decoded
+    assert "happy to chat thursday" in decoded
+
+
+def test_create_draft_includes_thread_id_when_replying(install_fake_post_client):
+    fake = install_fake_post_client(_Resp(200, {"id": "d2"}))
+    google_gmail.create_draft(
+        "tok",
+        to="brand@acme.test",
+        subject="re: collab",
+        body="reply body",
+        thread_id="thread-xyz",
+    )
+    assert fake.calls[0]["json"]["message"]["threadId"] == "thread-xyz"
+
+
+def test_create_draft_truncates_long_inputs(install_fake_post_client):
+    fake = install_fake_post_client(_Resp(200, {"id": "d3"}))
+    long_to = "x" * 5000 + "@acme.test"
+    long_subject = "y" * 5000
+    long_body = "z" * (google_gmail.DRAFT_BODY_MAX_CHARS + 5000)
+
+    google_gmail.create_draft(
+        "tok", to=long_to, subject=long_subject, body=long_body
+    )
+
+    raw_b64 = fake.calls[0]["json"]["message"]["raw"]
+    padded = raw_b64 + "=" * (-len(raw_b64) % 4)
+    decoded = base64.urlsafe_b64decode(padded).decode("utf-8")
+    # Header lengths obey the module caps.
+    to_line = next(
+        line for line in decoded.splitlines() if line.startswith("To: ")
+    )
+    subj_line = next(
+        line for line in decoded.splitlines() if line.startswith("Subject: ")
+    )
+    assert len(to_line) - len("To: ") <= google_gmail.DRAFT_TO_MAX_CHARS
+    assert len(subj_line) - len("Subject: ") <= google_gmail.DRAFT_SUBJECT_MAX_CHARS
+    # Body is also capped.
+    body_start = decoded.index("\r\n\r\n") + 4
+    assert len(decoded) - body_start <= google_gmail.DRAFT_BODY_MAX_CHARS
+
+
+def test_create_draft_rejects_empty_to_or_subject(install_fake_post_client):
+    install_fake_post_client(_Resp(200, {"id": "ignored"}))
+    with pytest.raises(google_gmail.GmailError):
+        google_gmail.create_draft("tok", to="", subject="hi", body="x")
+    with pytest.raises(google_gmail.GmailError):
+        google_gmail.create_draft("tok", to="x@y.test", subject="", body="x")
+
+
+def test_create_draft_401_raises_unauthorized(install_fake_post_client):
+    install_fake_post_client(_Resp(401, {"error": "expired"}))
+    with pytest.raises(google_gmail.GmailUnauthorizedError):
+        google_gmail.create_draft(
+            "tok", to="a@b.test", subject="s", body="b"
+        )
+
+
+def test_create_draft_403_raises_not_connected(install_fake_post_client):
+    install_fake_post_client(_Resp(403, {"error": "missing compose scope"}))
+    with pytest.raises(google_gmail.GmailNotConnectedError):
+        google_gmail.create_draft(
+            "tok", to="a@b.test", subject="s", body="b"
+        )
+
+
+def test_create_draft_500_raises_generic_error(install_fake_post_client):
+    install_fake_post_client(_Resp(500, {"error": "oops"}))
+    with pytest.raises(google_gmail.GmailError) as exc:
+        google_gmail.create_draft(
+            "tok", to="a@b.test", subject="s", body="b"
+        )
+    assert not isinstance(exc.value, google_gmail.GmailUnauthorizedError)
+    assert not isinstance(exc.value, google_gmail.GmailNotConnectedError)
+
+
+def test_create_draft_no_secrets_in_logs(install_fake_post_client, caplog):
+    caplog.set_level(logging.DEBUG, logger=google_gmail.logger.name)
+    secret_token = "DRAFT-SECRET-TOKEN"
+    secret_subject = "DRAFT-SECRET-SUBJECT"
+    secret_body = "DRAFT-SECRET-BODY"
+    install_fake_post_client(_Resp(500, {"error": "oops"}))
+    with pytest.raises(google_gmail.GmailError):
+        google_gmail.create_draft(
+            secret_token, to="a@b.test", subject=secret_subject, body=secret_body
+        )
+    for record in caplog.records:
+        msg = record.getMessage()
+        assert secret_token not in msg
+        assert secret_subject not in msg
+        assert secret_body not in msg
+
+
+def test_module_does_not_expose_send_delete_or_modify():
+    """Belt-and-suspenders: even with gmail.compose granted, the
+    module surface itself must never expose send/delete/label edit
+    functions. If anyone ever adds one, this test fails loudly."""
+    forbidden = (
+        "send_message",
+        "send_draft",
+        "delete_thread",
+        "delete_message",
+        "modify_labels",
+        "trash",
+    )
+    for name in forbidden:
+        assert not hasattr(google_gmail, name), (
+            f"google_gmail must not expose {name}"
+        )

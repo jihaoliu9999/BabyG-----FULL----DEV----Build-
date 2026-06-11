@@ -23,6 +23,7 @@ ActionType = Literal[
     "create_booking",
     "create_content_reminder",
     "submit_creator_listing",
+    "create_gmail_draft",
 ]
 DraftKind = Literal[
     "caption",
@@ -99,6 +100,7 @@ ALLOWED_ACTION_TYPES = (
     "create_booking",
     "create_content_reminder",
     "submit_creator_listing",
+    "create_gmail_draft",
 )
 ACTION_DATETIME_RE = re.compile(
     r"\b(\d{4}-\d{2}-\d{2}(?:[T ][0-2]\d:[0-5]\d(?::[0-5]\d)?(?:Z)?)?)\b"
@@ -494,6 +496,10 @@ def _execute_agent_tool(
 ) -> dict[str, Any]:
     if name == "create_booking":
         return _stage_create_booking_tool(tool_input, pending_action=pending_action)
+    if name == "create_gmail_draft":
+        return _stage_create_gmail_draft_tool(
+            tool_input, pending_action=pending_action, user_id=user_id
+        )
     return _execute_read_tool(user_id=user_id, name=name, tool_input=tool_input)
 
 
@@ -576,6 +582,87 @@ def _stage_create_booking_tool(
         },
         "pending_action": proposal,
     }
+
+
+def _stage_create_gmail_draft_tool(
+    tool_input: dict[str, Any],
+    *,
+    pending_action: dict[str, Any] | None,
+    user_id: str,
+) -> dict[str, Any]:
+    """Stage a Gmail draft proposal. NEVER calls Gmail itself — that
+    only happens after the creator confirms via the action card."""
+    if pending_action is not None:
+        return {
+            "kind": "write_tool",
+            "ok": False,
+            "content": "A local action is already pending for this turn.",
+        }
+    if not google_calendar.is_configured():
+        return {
+            "kind": "write_tool",
+            "ok": False,
+            "content": "Gmail integration is not configured on this server yet.",
+        }
+    try:
+        connection = oauth_connections.get_google_connection(user_id)
+    except Exception:
+        logger.exception("gmail connection lookup failed (draft stage)")
+        connection = None
+    if not connection or not oauth_connections.google_gmail_compose_connected(
+        connection
+    ):
+        return {
+            "kind": "write_tool",
+            "ok": False,
+            "content": (
+                "Gmail draft access requires the creator to reconnect Gmail "
+                "with the compose scope from /creator/profile/settings."
+            ),
+        }
+    payload = _gmail_draft_payload_from_tool(tool_input)
+    missing = [k for k in ("to", "subject", "body") if not payload.get(k)]
+    if missing:
+        return {
+            "kind": "write_tool",
+            "ok": False,
+            "content": f"Missing required Gmail draft fields: {', '.join(missing)}.",
+        }
+    proposal = _proposal_for_action(action_type="create_gmail_draft", payload=payload)
+    return {
+        "kind": "write_tool",
+        "ok": True,
+        "content": {
+            "status": "pending_confirmation",
+            "action_type": "create_gmail_draft",
+            "preview": proposal["preview"],
+            "message": (
+                "No Gmail draft was created. The creator must confirm "
+                "the action card. babyg never sends."
+            ),
+        },
+        "pending_action": proposal,
+    }
+
+
+def _gmail_draft_payload_from_tool(tool_input: dict[str, Any]) -> dict[str, Any]:
+    """Project the bot's tool_input into the draft payload shape.
+
+    Truncation here mirrors the hard caps in google_gmail so the
+    preview shown to the creator matches what would actually land
+    in Gmail on confirm."""
+    to = str(tool_input.get("to") or "").strip()[: google_gmail.DRAFT_TO_MAX_CHARS]
+    subject = (
+        str(tool_input.get("subject") or "").strip()[
+            : google_gmail.DRAFT_SUBJECT_MAX_CHARS
+        ]
+    )
+    body = str(tool_input.get("body") or "")[: google_gmail.DRAFT_BODY_MAX_CHARS]
+    thread_id = str(tool_input.get("thread_id") or "").strip() or None
+    payload: dict[str, Any] = {"to": to, "subject": subject, "body": body}
+    if thread_id:
+        payload["thread_id"] = thread_id
+    return payload
 
 
 def _run_web_search(*, user_id: str, tool_input: dict[str, Any]) -> dict[str, Any]:
@@ -1024,6 +1111,18 @@ def _action_preview(*, action_type: str, payload: dict[str, Any]) -> str:
             f"Starts: {payload['starts_at']}\n\n"
             "Nothing has been saved yet."
         )
+    if action_type == "create_gmail_draft":
+        body_preview = (payload.get("body") or "")[:200]
+        if len(payload.get("body") or "") > 200:
+            body_preview = body_preview.rstrip() + "…"
+        return (
+            "I can save this Gmail draft after you confirm:\n\n"
+            f"To: {payload['to']}\n"
+            f"Subject: {payload['subject']}\n\n"
+            f"{body_preview}\n\n"
+            "Nothing has been saved yet. babyg never sends — you "
+            "review and send from Gmail yourself."
+        )
     if action_type == "create_content_reminder":
         title = (payload.get("payload") or {}).get("title")
         return (
@@ -1049,7 +1148,44 @@ def _execute_confirmed_action(
         return reminders.create(user_id=user_id, payload=payload)
     if action_type == "submit_creator_listing":
         return jobs.create(poster_id=user_id, payload=payload)
+    if action_type == "create_gmail_draft":
+        return _execute_gmail_draft(user_id=user_id, payload=payload)
     return None
+
+
+def _execute_gmail_draft(
+    *, user_id: str, payload: dict[str, Any]
+) -> str | None:
+    """Call Gmail drafts.create with the confirmed payload. Returns
+    the draft id, or None on any failure — caller surfaces the
+    'couldn't save' message in that case."""
+    try:
+        connection = oauth_connections.get_google_connection(user_id)
+    except Exception:
+        logger.exception("gmail draft confirm: connection lookup failed")
+        return None
+    if not connection or not oauth_connections.google_gmail_compose_connected(
+        connection
+    ):
+        return None
+    try:
+        token = oauth_connections.access_token_for_google(user_id)
+    except Exception:
+        logger.exception("gmail draft confirm: token lookup failed")
+        return None
+    if not token:
+        return None
+    try:
+        return google_gmail.create_draft(
+            token,
+            to=str(payload.get("to") or ""),
+            subject=str(payload.get("subject") or ""),
+            body=str(payload.get("body") or ""),
+            thread_id=(payload.get("thread_id") or None),
+        )
+    except google_gmail.GmailError:
+        logger.exception("gmail drafts.create failed")
+        return None
 
 
 def _success_message(action_type: str, record_id: str) -> str:
@@ -1059,6 +1195,11 @@ def _success_message(action_type: str, record_id: str) -> str:
         return f"Done. I created that local content reminder in babyg. Record: {record_id}"
     if action_type == "submit_creator_listing":
         return f"Done. I submitted that creator listing in babyg. Record: {record_id}"
+    if action_type == "create_gmail_draft":
+        return (
+            f"Done. Gmail draft saved (id {record_id}). Open Gmail to review "
+            "and send — babyg does not send."
+        )
     return f"Done. I saved that local action in babyg. Record: {record_id}"
 
 
