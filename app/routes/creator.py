@@ -23,7 +23,7 @@ from fastapi import (
     UploadFile,
     status,
 )
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
 from app.core.redirects import safe_same_origin
 from app.core.security import SessionPayload
@@ -374,6 +374,55 @@ async def profile_settings_page(
             "instagram_configured": instagram_configured,
             "instagram_connected": instagram_connected,
         },
+    )
+
+
+@router.get("/creator/_debug/integrations")
+async def integrations_debug(
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    """Operational diagnostic: shows what env-driven integration state
+    the running process actually sees.
+
+    Returns booleans only — never tokens, app IDs, or secrets. The
+    resolved redirect URIs are surfaced because they must match the
+    OAuth provider's allow-list verbatim, and copy-pasting them out of
+    Railway env is the #1 cause of OAuth-side breakage.
+
+    Creator-protected (require_role) so this endpoint is not public.
+    """
+    try:
+        google_configured = google_calendar.is_configured()
+    except Exception:
+        google_configured = False
+    try:
+        google_redirect = google_calendar.redirect_uri()
+    except Exception:
+        google_redirect = None
+    try:
+        instagram_configured = instagram_meta.is_configured()
+    except Exception:
+        instagram_configured = False
+    try:
+        instagram_redirect = instagram_meta.redirect_uri()
+    except Exception:
+        instagram_redirect = None
+    from app.config import get_settings
+
+    settings = get_settings()
+    return JSONResponse(
+        {
+            "user_id": session["user_id"],
+            "app_url": settings.app_url,
+            "google": {
+                "configured": google_configured,
+                "redirect_uri_sent_to_provider": google_redirect,
+            },
+            "instagram": {
+                "configured": instagram_configured,
+                "redirect_uri_sent_to_provider": instagram_redirect,
+            },
+        }
     )
 
 

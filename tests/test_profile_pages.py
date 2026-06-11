@@ -199,3 +199,76 @@ def test_creator_profile_settings_google_states_are_scope_aware(
     assert "connect Gmail" in response.text
     assert "href=\"/creator/google/connect?service=gmail&next=/creator/profile/settings\"" in response.text
     assert "/creator/gmail/connect" not in response.text
+
+
+# ---------------------------------------------------------------------------
+# Operational diagnostic: /creator/_debug/integrations
+# Exposes only booleans + resolved redirect URIs — never tokens / IDs /
+# secrets. Used to verify Railway env vars are actually being read by
+# the running process when the integrations grid looks stale.
+# ---------------------------------------------------------------------------
+
+
+def test_integrations_debug_requires_creator(client: TestClient) -> None:
+    _signed_in(client, role="operator")
+    r = client.get("/creator/_debug/integrations")
+    assert r.status_code == 403
+
+
+def test_integrations_debug_returns_booleans_and_redirects(
+    monkeypatch, client: TestClient
+) -> None:
+    _signed_in(client, role="creator")
+    monkeypatch.setattr(creator_routes.google_calendar, "is_configured", lambda: True)
+    monkeypatch.setattr(
+        creator_routes.google_calendar,
+        "redirect_uri",
+        lambda: "https://example.test/creator/google/calendar/callback",
+    )
+    monkeypatch.setattr(creator_routes.instagram_meta, "is_configured", lambda: False)
+    monkeypatch.setattr(
+        creator_routes.instagram_meta,
+        "redirect_uri",
+        lambda: "https://example.test/creator/instagram/callback",
+    )
+
+    r = client.get("/creator/_debug/integrations")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["google"]["configured"] is True
+    assert data["google"]["redirect_uri_sent_to_provider"].endswith(
+        "/creator/google/calendar/callback"
+    )
+    assert data["instagram"]["configured"] is False
+    assert data["instagram"]["redirect_uri_sent_to_provider"].endswith(
+        "/creator/instagram/callback"
+    )
+    # Never leaks secrets.
+    raw = r.text
+    for forbidden in ("client_secret", "app_secret", "access_token", "refresh_token"):
+        assert forbidden not in raw
+
+
+def test_integrations_debug_survives_integration_module_errors(
+    monkeypatch, client: TestClient
+) -> None:
+    """Defensive: even if a future integration helper raises during the
+    redirect-resolution call, the diagnostic must still return 200 so
+    operators can see the configured booleans."""
+    _signed_in(client, role="creator")
+
+    def _boom():
+        raise RuntimeError("config broken")
+
+    monkeypatch.setattr(creator_routes.google_calendar, "is_configured", _boom)
+    monkeypatch.setattr(creator_routes.google_calendar, "redirect_uri", _boom)
+    monkeypatch.setattr(creator_routes.instagram_meta, "is_configured", _boom)
+    monkeypatch.setattr(creator_routes.instagram_meta, "redirect_uri", _boom)
+
+    r = client.get("/creator/_debug/integrations")
+    assert r.status_code == 200
+    data = r.json()
+    assert data["google"]["configured"] is False
+    assert data["google"]["redirect_uri_sent_to_provider"] is None
+    assert data["instagram"]["configured"] is False
+    assert data["instagram"]["redirect_uri_sent_to_provider"] is None
