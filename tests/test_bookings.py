@@ -266,12 +266,12 @@ def test_google_connect_prechecked_service_submits_expected_service(
             {"calendar": "1"},
             ["calendar"],
             [google_calendar_module.CALENDAR_SCOPE],
-            google_calendar_module.GMAIL_READONLY_SCOPE,
+            google_calendar_module.GMAIL_COMPOSE_SCOPE,
         ),
         (
             {"gmail": "1"},
             ["gmail"],
-            [google_calendar_module.GMAIL_READONLY_SCOPE],
+            [google_calendar_module.GMAIL_COMPOSE_SCOPE],
             google_calendar_module.CALENDAR_SCOPE,
         ),
         (
@@ -279,7 +279,7 @@ def test_google_connect_prechecked_service_submits_expected_service(
             ["calendar", "gmail"],
             [
                 google_calendar_module.CALENDAR_SCOPE,
-                google_calendar_module.GMAIL_READONLY_SCOPE,
+                google_calendar_module.GMAIL_COMPOSE_SCOPE,
             ],
             None,
         ),
@@ -313,6 +313,13 @@ def test_google_connect_post_redirects_to_oauth_with_selected_scopes(
     assert parsed.scheme == "https"
     assert parsed.netloc == "accounts.google.com"
     query = parse_qs(parsed.query)
+    # Pin every OAuth query parameter Google requires. Drops are silent
+    # at the Google end (consent screen errors, redirect mismatches),
+    # so the test catches regressions before they ship.
+    assert query["client_id"] == ["client-id"]
+    assert query["redirect_uri"] == [google_calendar_module.redirect_uri()]
+    assert query["response_type"] == ["code"]
+    assert query["access_type"] == ["offline"]
     assert query["scope"] == [" ".join(expected_scopes)]
     if unexpected_scope:
         assert unexpected_scope not in query["scope"][0]
@@ -350,7 +357,7 @@ def test_google_connect_posts_selected_services_and_scopes(
     assert calls["state"]["services"] == ["calendar", "gmail"]
     assert calls["state"]["scopes"] == [
         google_calendar_module.CALENDAR_SCOPE,
-        google_calendar_module.GMAIL_READONLY_SCOPE,
+        google_calendar_module.GMAIL_COMPOSE_SCOPE,
     ]
     assert calls["scopes"] == calls["state"]["scopes"]
 
@@ -423,7 +430,7 @@ def test_google_gmail_only_callback_does_not_sync_calendar(
             "user_id": "c-1",
             "next": "/creator/profile/settings",
             "services": ["gmail"],
-            "scopes": [google_calendar_module.GMAIL_READONLY_SCOPE],
+            "scopes": [google_calendar_module.GMAIL_COMPOSE_SCOPE],
         },
     )
     monkeypatch.setattr(
@@ -446,7 +453,7 @@ def test_google_gmail_only_callback_does_not_sync_calendar(
 
     assert r.status_code == 303
     assert r.headers["location"] == "/creator/profile/settings?google=connected"
-    assert calls["saved"] == ("c-1", [google_calendar_module.GMAIL_READONLY_SCOPE])
+    assert calls["saved"] == ("c-1", [google_calendar_module.GMAIL_COMPOSE_SCOPE])
 
 
 def test_google_both_callback_saves_both_and_syncs_calendar(
@@ -457,7 +464,7 @@ def test_google_both_callback_saves_both_and_syncs_calendar(
 
     requested = [
         google_calendar_module.CALENDAR_SCOPE,
-        google_calendar_module.GMAIL_READONLY_SCOPE,
+        google_calendar_module.GMAIL_COMPOSE_SCOPE,
     ]
     monkeypatch.setattr(
         oauth_module,
@@ -536,7 +543,7 @@ def test_google_refresh_save_preserves_existing_scopes(monkeypatch):
     captured: dict[str, Any] = {}
     existing_scopes = [
         google_calendar_module.CALENDAR_SCOPE,
-        google_calendar_module.GMAIL_READONLY_SCOPE,
+        google_calendar_module.GMAIL_COMPOSE_SCOPE,
     ]
     monkeypatch.setattr(
         oauth_module,

@@ -1590,3 +1590,438 @@ def test_instagram_stats_tool_registered_and_prompt_updated() -> None:
         "Meta/TikTok integration."
     ) in p
     assert "never invent numbers" in p
+
+
+# ---------------------------------------------------------------------------
+# Slice 1: read_my_gmail bot tool.
+# All assertions hit the agent-loop helper. Gmail HTTP + token storage
+# are mocked at the integration boundary.
+# ---------------------------------------------------------------------------
+
+
+def test_gmail_unavailable_when_google_not_configured(monkeypatch) -> None:
+    monkeypatch.setattr(bot_service.google_calendar, "is_configured", lambda: False)
+    # Connection + token lookups must not run if config check short-circuits.
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "get_google_connection",
+        lambda _u: pytest.fail("connection lookup should not run when unconfigured"),
+    )
+    result = bot_service._run_gmail_inbox(
+        user_id="creator-1", tool_input={"limit": 5}
+    )
+    assert result["available"] is False
+    assert "not configured" in result["reason"]
+
+
+def test_gmail_unavailable_when_no_gmail_scope(monkeypatch) -> None:
+    monkeypatch.setattr(bot_service.google_calendar, "is_configured", lambda: True)
+    # Connection exists but only has Calendar scope — Gmail should not surface.
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "get_google_connection",
+        lambda _u: {"provider": "google", "scopes": [bot_service.google_calendar.CALENDAR_SCOPE]},
+    )
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "access_token_for_google",
+        lambda _u: pytest.fail("token lookup must not run when gmail scope missing"),
+    )
+    bot_service._gmail_inbox_counter.clear()
+    result = bot_service._run_gmail_inbox(
+        user_id="creator-1", tool_input={}
+    )
+    assert result["available"] is False
+    assert "isn't connected" in result["reason"]
+
+
+def test_gmail_returns_threads_when_connected(monkeypatch) -> None:
+    monkeypatch.setattr(bot_service.google_calendar, "is_configured", lambda: True)
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "get_google_connection",
+        lambda _u: {
+            "provider": "google",
+            "scopes": [bot_service.google_calendar.GMAIL_READONLY_SCOPE],
+        },
+    )
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "access_token_for_google",
+        lambda _u: "tok",
+    )
+    fake_msg = bot_service.google_gmail.GmailMessage(
+        message_id="m1",
+        thread_id="t1",
+        from_="Brand <hi@brand.test>",
+        to="creator@example.com",
+        subject="re: collab",
+        snippet="snippet",
+        body_text="body",
+        internal_date="2026-06-11T00:00:00+00:00",
+        is_unread=True,
+    )
+    fake_thread = bot_service.google_gmail.GmailThread(
+        thread_id="t1",
+        snippet="preview",
+        messages=[fake_msg],
+        is_unread=True,
+    )
+    monkeypatch.setattr(
+        bot_service.google_gmail,
+        "list_recent_threads",
+        lambda token, *, limit: [fake_thread],
+    )
+    bot_service._gmail_inbox_counter.clear()
+
+    result = bot_service._run_gmail_inbox(
+        user_id="creator-1", tool_input={"limit": 3}
+    )
+    assert result["available"] is True
+    assert len(result["results"]) == 1
+    thread = result["results"][0]
+    assert thread["thread_id"] == "t1"
+    assert thread["is_unread"] is True
+    assert thread["messages"][0]["subject"] == "re: collab"
+    assert thread["messages"][0]["body_text"] == "body"
+
+
+def test_gmail_falls_back_gracefully_on_upstream_error(monkeypatch) -> None:
+    monkeypatch.setattr(bot_service.google_calendar, "is_configured", lambda: True)
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "get_google_connection",
+        lambda _u: {
+            "provider": "google",
+            "scopes": [bot_service.google_calendar.GMAIL_READONLY_SCOPE],
+        },
+    )
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "access_token_for_google",
+        lambda _u: "tok",
+    )
+
+    def _boom(*_a, **_kw):
+        raise bot_service.google_gmail.GmailError("upstream")
+
+    monkeypatch.setattr(bot_service.google_gmail, "list_recent_threads", _boom)
+    bot_service._gmail_inbox_counter.clear()
+
+    result = bot_service._run_gmail_inbox(
+        user_id="creator-1", tool_input={}
+    )
+    assert result["available"] is False
+    assert "gmail api failed" in result["reason"].lower()
+
+
+def test_gmail_unauthorized_signals_reconnect(monkeypatch) -> None:
+    monkeypatch.setattr(bot_service.google_calendar, "is_configured", lambda: True)
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "get_google_connection",
+        lambda _u: {
+            "provider": "google",
+            "scopes": [bot_service.google_calendar.GMAIL_READONLY_SCOPE],
+        },
+    )
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "access_token_for_google",
+        lambda _u: "tok",
+    )
+
+    def _boom(*_a, **_kw):
+        raise bot_service.google_gmail.GmailUnauthorizedError("expired")
+
+    monkeypatch.setattr(bot_service.google_gmail, "list_recent_threads", _boom)
+    bot_service._gmail_inbox_counter.clear()
+
+    result = bot_service._run_gmail_inbox(
+        user_id="creator-1", tool_input={}
+    )
+    assert result["available"] is False
+    assert "reconnect" in result["reason"].lower()
+
+
+def test_gmail_daily_cap_short_circuits(monkeypatch) -> None:
+    monkeypatch.setattr(bot_service.google_calendar, "is_configured", lambda: True)
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "get_google_connection",
+        lambda _u: {
+            "provider": "google",
+            "scopes": [bot_service.google_calendar.GMAIL_READONLY_SCOPE],
+        },
+    )
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "access_token_for_google",
+        lambda _u: "tok",
+    )
+    monkeypatch.setattr(
+        bot_service.google_gmail,
+        "list_recent_threads",
+        lambda token, *, limit: [],
+    )
+    bot_service._gmail_inbox_counter.clear()
+
+    for _ in range(bot_service.GMAIL_INBOX_DAILY_CAP):
+        r = bot_service._run_gmail_inbox(
+            user_id="creator-cap", tool_input={}
+        )
+        assert r["available"] is True
+
+    over = bot_service._run_gmail_inbox(
+        user_id="creator-cap", tool_input={}
+    )
+    assert over["available"] is False
+    assert "cap reached" in over["reason"]
+
+
+def test_gmail_tool_registered_and_prompt_updated() -> None:
+    names = {t["name"] for t in bot_service.prompts.BOT_TOOL_DEFINITIONS}
+    assert "read_my_gmail" in names
+
+    p = bot_service.prompts.babyg_system_prompt()
+    assert "read_my_gmail" in p
+    assert "inbox reality check" in p
+    # The exact phrasing the bot must NOT do is pinned.
+    assert "never invent email content" in p
+
+
+# ---------------------------------------------------------------------------
+# Slice 2: create_gmail_draft staged-approval flow.
+# Staging never calls Gmail; only confirm does. Cancel and double-confirm
+# guarantees come from the existing _update_message_tool_calls CAS.
+# ---------------------------------------------------------------------------
+
+
+def _gmail_compose_connection() -> dict:
+    return {
+        "provider": "google",
+        "scopes": [bot_service.google_calendar.GMAIL_COMPOSE_SCOPE],
+    }
+
+
+def test_gmail_draft_staging_does_not_create_draft(monkeypatch) -> None:
+    """The stage path must NEVER call google_gmail.create_draft. The
+    creator has to confirm first; only the confirm path writes."""
+    monkeypatch.setattr(bot_service.google_calendar, "is_configured", lambda: True)
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "get_google_connection",
+        lambda _u: _gmail_compose_connection(),
+    )
+    monkeypatch.setattr(
+        bot_service.google_gmail,
+        "create_draft",
+        lambda *a, **kw: pytest.fail("staging must not call create_draft"),
+    )
+
+    result = bot_service._stage_create_gmail_draft_tool(
+        {
+            "to": "brand@acme.test",
+            "subject": "re: collab",
+            "body": "hey team — happy to chat thursday.",
+        },
+        pending_action=None,
+        user_id="creator-1",
+    )
+    assert result["ok"] is True
+    assert result["content"]["status"] == "pending_confirmation"
+    assert result["content"]["action_type"] == "create_gmail_draft"
+    assert "never sends" in result["content"]["message"]
+    # Preview must reflect the staged payload — preview is generated
+    # from the proposal at stage time.
+    assert "brand@acme.test" in result["pending_action"]["preview"]
+    assert "re: collab" in result["pending_action"]["preview"]
+
+
+def test_gmail_draft_refused_when_compose_scope_missing(monkeypatch) -> None:
+    """Legacy gmail.readonly connection must NOT enter pending state.
+    The reason copy tells the creator to reconnect."""
+    monkeypatch.setattr(bot_service.google_calendar, "is_configured", lambda: True)
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "get_google_connection",
+        lambda _u: {
+            "provider": "google",
+            "scopes": [bot_service.google_calendar.GMAIL_READONLY_SCOPE],
+        },
+    )
+    monkeypatch.setattr(
+        bot_service.google_gmail,
+        "create_draft",
+        lambda *a, **kw: pytest.fail("must not call create_draft when scope missing"),
+    )
+
+    result = bot_service._stage_create_gmail_draft_tool(
+        {"to": "a@b.test", "subject": "s", "body": "b"},
+        pending_action=None,
+        user_id="creator-1",
+    )
+    assert result["ok"] is False
+    assert "reconnect" in result["content"].lower()
+
+
+def test_gmail_draft_refused_when_not_configured(monkeypatch) -> None:
+    monkeypatch.setattr(
+        bot_service.google_calendar, "is_configured", lambda: False
+    )
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "get_google_connection",
+        lambda _u: pytest.fail("must not lookup connection when unconfigured"),
+    )
+    result = bot_service._stage_create_gmail_draft_tool(
+        {"to": "a@b.test", "subject": "s", "body": "b"},
+        pending_action=None,
+        user_id="creator-1",
+    )
+    assert result["ok"] is False
+    assert "not configured" in result["content"]
+
+
+def test_gmail_draft_missing_fields_returns_clear_error(monkeypatch) -> None:
+    monkeypatch.setattr(bot_service.google_calendar, "is_configured", lambda: True)
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "get_google_connection",
+        lambda _u: _gmail_compose_connection(),
+    )
+    result = bot_service._stage_create_gmail_draft_tool(
+        {"to": "", "subject": "", "body": ""},
+        pending_action=None,
+        user_id="creator-1",
+    )
+    assert result["ok"] is False
+    assert "Missing required Gmail draft fields" in result["content"]
+
+
+def test_gmail_draft_confirm_calls_create_once_and_double_confirm_is_idempotent(
+    monkeypatch,
+) -> None:
+    """Pinned by the spec: 'confirm creates exactly one draft' and
+    'double confirm does not duplicate'. Idempotency is enforced by
+    the compare-and-swap on expected_status='pending'."""
+    message_id = str(uuid4())
+    tool_calls = {
+        "kind": "proposed_action",
+        "status": "pending",
+        "action_type": "create_gmail_draft",
+        "payload": {
+            "to": "brand@acme.test",
+            "subject": "re: collab",
+            "body": "draft body",
+        },
+        "preview": "Preview",
+        "result": None,
+    }
+    row = {"id": message_id, "user_id": "creator-1", "tool_calls": tool_calls}
+    stored_status = {"value": "pending"}
+    draft_calls: list[dict] = []
+
+    monkeypatch.setattr(
+        bot_service,
+        "_get_message_for_user",
+        lambda *, message_id, user_id: {
+            **row,
+            "tool_calls": {**row["tool_calls"], "status": stored_status["value"]},
+        }
+        if user_id == "creator-1"
+        else None,
+    )
+
+    def _update(*, message_id, user_id, tool_calls, expected_status=None):
+        if expected_status is not None and stored_status["value"] != expected_status:
+            return False
+        stored_status["value"] = tool_calls["status"]
+        row["tool_calls"] = tool_calls
+        return True
+
+    monkeypatch.setattr(bot_service, "_update_message_tool_calls", _update)
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "get_google_connection",
+        lambda _u: _gmail_compose_connection(),
+    )
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "access_token_for_google",
+        lambda _u: "tok",
+    )
+
+    def _create(token, *, to, subject, body, thread_id=None):
+        draft_calls.append(
+            {"token": token, "to": to, "subject": subject, "body": body}
+        )
+        return f"draft-{len(draft_calls)}"
+
+    monkeypatch.setattr(bot_service.google_gmail, "create_draft", _create)
+    monkeypatch.setattr(bot_service, "create_message", lambda **_kw: "msg-2")
+
+    first = bot_service.confirm_action(user_id="creator-1", message_id=message_id)
+    second = bot_service.confirm_action(user_id="creator-1", message_id=message_id)
+
+    assert first.executed is True
+    assert first.record_id == "draft-1"
+    assert "Gmail draft saved" in first.message
+    assert "babyg does not send" in first.message
+    # Second confirm finds non-pending status → never re-invokes create_draft.
+    assert second.executed is False
+    assert len(draft_calls) == 1
+    assert row["tool_calls"]["status"] == "confirmed"
+
+
+def test_gmail_draft_cancel_does_not_create_draft(monkeypatch) -> None:
+    """Cancel must skip the Gmail call entirely."""
+    message_id = str(uuid4())
+    row = {
+        "id": message_id,
+        "user_id": "creator-1",
+        "tool_calls": {
+            "kind": "proposed_action",
+            "status": "pending",
+            "action_type": "create_gmail_draft",
+            "payload": {
+                "to": "x@y.test",
+                "subject": "s",
+                "body": "b",
+            },
+            "preview": "Preview",
+            "result": None,
+        },
+    }
+    monkeypatch.setattr(bot_service, "_get_message_for_user", lambda **kw: row)
+    monkeypatch.setattr(
+        bot_service,
+        "_update_message_tool_calls",
+        lambda *, message_id, user_id, tool_calls, expected_status=None: row.update(
+            {"tool_calls": tool_calls}
+        )
+        or True,
+    )
+
+    def _no_create(*a, **kw):
+        raise AssertionError("cancel must not call create_draft")
+
+    monkeypatch.setattr(bot_service.google_gmail, "create_draft", _no_create)
+    monkeypatch.setattr(bot_service, "create_message", lambda **_kw: "msg-2")
+
+    result = bot_service.cancel_action(
+        user_id="creator-1", message_id=message_id
+    )
+    assert result.action_type == "create_gmail_draft"
+    assert "Cancelled" in result.message
+
+
+def test_gmail_draft_tool_registered_and_prompt_updated() -> None:
+    names = {t["name"] for t in bot_service.prompts.BOT_TOOL_DEFINITIONS}
+    assert "create_gmail_draft" in names
+    assert "create_gmail_draft" in bot_service.ALLOWED_ACTION_TYPES
+
+    p = bot_service.prompts.babyg_system_prompt()
+    assert "create_gmail_draft" in p
+    # The hard guarantee must appear in the prompt.
+    assert "babyg never sends" in p or "never sends" in p

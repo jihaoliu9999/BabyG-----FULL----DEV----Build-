@@ -193,3 +193,87 @@ def test_performance_requires_creator(client, world):
     _signed_in(client, role="operator", user_id="op-1")
     r = client.get("/creator/performance")
     assert r.status_code == 403
+
+
+# Performance — Instagram + manual merge
+
+
+def test_performance_list_shows_manual_pill_when_ig_not_configured(client, world):
+    """The page-foot copy stays at the safe default and rows carry the
+    manual pill when the app has no IG creds at all."""
+    _signed_in(client, role="creator", user_id="c-1")
+    world.perf[("c-1", "2026-05-04")] = {
+        "user_id": "c-1", "week_start_date": "2026-05-04",
+        "engagement_rate": 4.2, "notes": None,
+    }
+    r = client.get("/creator/performance")
+    assert r.status_code == 200
+    # Source pill is on the row.
+    assert "manual" in r.text
+    # Adaptive footer copy: no IG configured → original line stays.
+    assert "auto-sync requires platform api access" in r.text
+
+
+def test_performance_list_merges_instagram_rows(client, world, monkeypatch):
+    """When stats_merge surfaces both sources, both render and the
+    page-foot copy reflects that live IG is wired."""
+    from app.services import stats_merge as merge_module
+
+    _signed_in(client, role="creator", user_id="c-1")
+
+    fake_rows = [
+        merge_module.StatsRow(
+            source="instagram",
+            title="dinner at boia",
+            timestamp="2026-06-08T18:00:00+0000",
+            permalink="https://www.instagram.com/p/m1",
+            metrics={"likes": 120, "comments": 4, "reach": 900},
+            notes=None,
+        ),
+        merge_module.StatsRow(
+            source="manual",
+            title="week of 2026-06-01",
+            timestamp="2026-06-01",
+            permalink=None,
+            metrics={"engagement_rate": 4.2, "follower_delta": 120},
+            notes="good week",
+        ),
+    ]
+    monkeypatch.setattr(
+        merge_module, "combined_performance", lambda uid, **kw: fake_rows
+    )
+    monkeypatch.setattr(merge_module, "has_instagram_data", lambda uid: True)
+
+    r = client.get("/creator/performance")
+    assert r.status_code == 200
+    assert "dinner at boia" in r.text
+    assert "week of 2026-06-01" in r.text
+    # IG permalink rendered as "view post" link.
+    assert "https://www.instagram.com/p/m1" in r.text
+    assert "view post" in r.text
+    # Both source pills appear.
+    assert "manual" in r.text
+    assert "instagram" in r.text
+    # Adaptive footer reflects connected state.
+    assert "manual + instagram" in r.text
+
+
+def test_performance_list_prompts_connect_when_configured_but_not_connected(
+    client, world, monkeypatch
+):
+    """The mid-state: app has IG creds, this creator hasn't linked.
+    The footer should invite them to connect."""
+    from app.integrations import instagram_meta as ig_module
+    from app.services import stats_merge as merge_module
+
+    _signed_in(client, role="creator", user_id="c-1")
+    monkeypatch.setattr(ig_module, "is_configured", lambda: True)
+    monkeypatch.setattr(merge_module, "has_instagram_data", lambda uid: False)
+    monkeypatch.setattr(
+        merge_module, "combined_performance", lambda uid, **kw: []
+    )
+
+    r = client.get("/creator/performance")
+    assert r.status_code == 200
+    assert "connect instagram" in r.text.lower()
+    assert "/creator/profile/settings" in r.text

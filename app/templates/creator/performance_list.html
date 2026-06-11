@@ -2,12 +2,37 @@
 
 {% block title %}performance — babyg{% endblock %}
 
+{% set metric_labels = {
+  'engagement_rate': 'engagement',
+  'follower_delta': 'followers',
+  'deal_count': 'brand deals',
+  'deal_value': 'deal value',
+  'likes': 'likes',
+  'comments': 'comments',
+  'reach': 'reach',
+  'impressions': 'impressions',
+  'engagement': 'engagement',
+  'saved': 'saved'
+} %}
+
+{% macro render_metric(key, value) -%}
+  {%- if key == 'engagement_rate' -%}
+    {{ value }}%
+  {%- elif key == 'follower_delta' -%}
+    {% if value is number and value > 0 %}+{% endif %}{{ value }}
+  {%- elif key == 'deal_value' -%}
+    ${{ value }}
+  {%- else -%}
+    {{ value }}
+  {%- endif -%}
+{%- endmacro %}
+
 {% block content %}
 <div class="wrap">
   <div class="page-header">
     <div class="title-block">
       <span class="mono eyebrow">performance</span>
-      <p class="sub">weekly snapshots.</p>
+      <p class="sub">weekly snapshots + live posts.</p>
     </div>
     <div class="actions">
       <a class="btn btn-lime btn-sm" href="/creator/performance/new">log week
@@ -16,27 +41,34 @@
     </div>
   </div>
 
-  {% if logs %}
+  {% if rows %}
   <div class="stack">
-    {% for log in logs %}
+    {% for row in rows %}
     <div class="card" style="margin-bottom:12px;">
-      <span class="mono" style="font-size:11px;color:var(--ink-dim);display:block;margin-bottom:12px;">week of {{ log.week_start_date|short_date }}</span>
-      <div class="kv-list" style="border:0;padding:0;gap:0;">
-        {% if log.engagement_rate is not none %}
-        <div class="row" style="padding:5px 0;"><span class="l">engagement</span><span class="v">{{ log.engagement_rate }}%</span></div>
-        {% endif %}
-        {% if log.follower_delta is not none %}
-        <div class="row" style="padding:5px 0;"><span class="l">followers</span><span class="v">{% if log.follower_delta > 0 %}+{% endif %}{{ log.follower_delta }}</span></div>
-        {% endif %}
-        {% if log.active_brand_deals_count is not none %}
-        <div class="row" style="padding:5px 0;"><span class="l">brand deals</span><span class="v">{{ log.active_brand_deals_count }}</span></div>
-        {% endif %}
-        {% if log.active_brand_deals_value is not none %}
-        <div class="row" style="padding:5px 0;"><span class="l">deal value</span><span class="v">${{ log.active_brand_deals_value }}</span></div>
-        {% endif %}
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;">
+        <span class="mono" style="font-size:11px;color:var(--ink-dim);">
+          {% if row.source == 'instagram' %}{{ row.title }}{% else %}{{ row.title }}{% endif %}
+          {% if row.timestamp %} · {{ row.timestamp|short_date }}{% endif %}
+        </span>
+        <span class="mono" style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;padding:2px 8px;border:1px solid var(--hairline);border-radius:999px;color:var(--ink-dim);">
+          {{ row.source }}
+        </span>
       </div>
-      {% if log.notes %}
-      <p style="color:var(--ink-dim);font-size:13px;margin:10px 0 0;line-height:1.5;border-top:1px solid var(--hairline);padding-top:10px;">{{ log.notes }}</p>
+      {% if row.metrics %}
+      <div class="kv-list" style="border:0;padding:0;gap:0;">
+        {% for key, value in row.metrics.items() %}
+        <div class="row" style="padding:5px 0;">
+          <span class="l">{{ metric_labels.get(key, key) }}</span>
+          <span class="v">{{ render_metric(key, value) }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% if row.permalink %}
+      <a href="{{ row.permalink|safe_url }}" target="_blank" rel="noopener noreferrer" class="mono" style="display:inline-block;margin-top:10px;font-size:11px;color:var(--ink-dim);text-decoration:none;border-top:1px solid var(--hairline);padding-top:10px;width:100%;">view post →</a>
+      {% endif %}
+      {% if row.notes %}
+      <p style="color:var(--ink-dim);font-size:13px;margin:10px 0 0;line-height:1.5;border-top:1px solid var(--hairline);padding-top:10px;">{{ row.notes }}</p>
       {% endif %}
     </div>
     {% endfor %}
@@ -49,6 +81,14 @@
   </div>
   {% endif %}
 
-  <p class="mono" style="font-size:10px;letter-spacing:0.14em;color:var(--ink-dim);text-transform:uppercase;text-align:center;margin:32px 0 0;">manual entries for now · auto-sync requires platform api access</p>
+  <p class="mono" style="font-size:10px;letter-spacing:0.14em;color:var(--ink-dim);text-transform:uppercase;text-align:center;margin:32px 0 0;">
+    {% if instagram_connected %}
+      manual + instagram · live post stats merged
+    {% elif instagram_configured %}
+      manual entries · <a href="/creator/profile/settings" style="color:inherit;text-decoration:underline;">connect instagram</a> for live post stats
+    {% else %}
+      manual entries for now · auto-sync requires platform api access
+    {% endif %}
+  </p>
 </div>
 {% endblock %}

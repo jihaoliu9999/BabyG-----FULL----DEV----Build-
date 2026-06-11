@@ -38,7 +38,7 @@
       <span class="status-pill" style="border-color:var(--hairline);color:var(--ink-dim);">not configured</span>
       {% endif %}
     </div>
-    <p class="integration-body">connects your Gmail account for future inbox workflows.</p>
+    <p class="integration-body">Connecting Gmail lets babyg read recent threads and prepare draft replies for your approval. babyg never sends.</p>
     {% if google_gmail_connected %}
     <form method="post" action="/creator/google/gmail/disconnect" style="display:inline;">
       {% include "_partials/csrf.html" %}
