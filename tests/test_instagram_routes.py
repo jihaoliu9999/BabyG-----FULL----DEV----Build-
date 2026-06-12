@@ -403,7 +403,11 @@ def test_settings_flashes_ineligible_message(
 
     r = client.get("/creator/profile/settings?instagram=ineligible")
     assert r.status_code == 200
-    assert "Business or Creator account linked to a Facebook Page" in r.text
+    # Copy must explain the requirement; with the Instagram Login API
+    # flow, the only requirement is a Business or Creator account —
+    # no FB Page linking — so the message no longer mentions it.
+    assert "Business or Creator account" in r.text
+    assert "Facebook Page" not in r.text
 
 
 # ---------------------------------------------------------------------------
