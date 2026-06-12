@@ -13,6 +13,7 @@ lands and starts reading them.
 from functools import lru_cache
 from typing import Literal
 
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -57,9 +58,36 @@ class Settings(BaseSettings):
     # surfaces "not configured". Redirect URI defaults to
     # `${app_url}/creator/instagram/callback` when empty (computed at
     # use site in instagram_meta.redirect_uri).
-    instagram_app_id: str = ""
-    instagram_app_secret: str = ""
-    instagram_redirect_uri: str = ""
+    #
+    # AliasChoices accept the Meta-dashboard-style names (META_APP_ID
+    # / META_APP_SECRET / FACEBOOK_APP_ID / FACEBOOK_APP_SECRET) in
+    # addition to the canonical INSTAGRAM_* names, since operators
+    # routinely copy these straight from the Meta App dashboard where
+    # the field is just called "App ID" / "App Secret" without an
+    # Instagram-specific prefix. First non-empty match wins.
+    instagram_app_id: str = Field(
+        default="",
+        validation_alias=AliasChoices(
+            "INSTAGRAM_APP_ID",
+            "META_APP_ID",
+            "FACEBOOK_APP_ID",
+        ),
+    )
+    instagram_app_secret: str = Field(
+        default="",
+        validation_alias=AliasChoices(
+            "INSTAGRAM_APP_SECRET",
+            "META_APP_SECRET",
+            "FACEBOOK_APP_SECRET",
+        ),
+    )
+    instagram_redirect_uri: str = Field(
+        default="",
+        validation_alias=AliasChoices(
+            "INSTAGRAM_REDIRECT_URI",
+            "META_REDIRECT_URI",
+        ),
+    )
 
     @property
     def is_production(self) -> bool:
