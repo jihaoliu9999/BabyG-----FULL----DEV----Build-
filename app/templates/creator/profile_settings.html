@@ -20,7 +20,7 @@
     {% else %}color:var(--accent,var(--ink));border-color:var(--accent,var(--hairline));{% endif %}">
     {% if ig_flash == 'connected' %}instagram connected
     {% elif ig_flash == 'disconnected' %}instagram disconnected
-    {% elif ig_flash == 'ineligible' %}instagram connection requires an Instagram Business or Creator account linked to a Facebook Page.
+    {% elif ig_flash == 'ineligible' %}instagram connection requires an Instagram Business or Creator account. switch your account type in the Instagram app, then try again.
     {% elif ig_flash == 'denied' %}instagram connection cancelled
     {% elif ig_flash == 'bad_callback' %}instagram callback missed — try again
     {% elif ig_flash == 'exchange_failed' %}instagram token exchange failed — try again

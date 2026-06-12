@@ -1,12 +1,13 @@
-"""Instagram/Meta Graph API client tests.
+"""Instagram Login API client tests.
 
 HTTP is mocked at the httpx boundary. These cover the contract that
 later phases (routes + bot tool) depend on:
 
   - configured detection
   - missing-config raises NotConfigured
-  - exchange_code upgrades short-lived → long-lived in one call
-  - resolve_business_account: success + no-pages + no-ig-account
+  - auth_url uses instagram.com endpoint with the right scopes
+  - exchange_code upgrades short-lived (POST) → long-lived (GET)
+  - resolve_business_account: BUSINESS / MEDIA_CREATOR / PERSONAL
   - media + insights parsing
   - error mapping for HTTP and JSON failures
   - app secret + access tokens NEVER appear in log records
@@ -51,7 +52,7 @@ def _err_response(status):
         def raise_for_status(self):
             raise httpx.HTTPStatusError(
                 "boom",
-                request=httpx.Request("GET", "https://graph.facebook.com/test"),
+                request=httpx.Request("GET", "https://graph.instagram.com/test"),
                 response=self,
             )
 
@@ -90,13 +91,18 @@ def test_auth_url_includes_required_params(monkeypatch):
     get_settings.cache_clear()
 
     url = instagram_meta.auth_url("st8")
-    assert url.startswith(instagram_meta.AUTH_URL)
+    # Endpoint must be instagram.com — NOT facebook.com — for the
+    # Instagram Login API flow.
+    assert url.startswith("https://www.instagram.com/oauth/authorize")
     assert "client_id=app-123" in url
     assert "state=st8" in url
     assert "response_type=code" in url
-    assert "instagram_basic" in url
-    assert "instagram_manage_insights" in url
-    assert "pages_show_list" in url
+    # New scope set. Old facebook-login scopes must NOT appear.
+    assert "instagram_business_basic" in url
+    assert "instagram_business_manage_insights" in url
+    assert "pages_show_list" not in url
+    assert "pages_read_engagement" not in url
+    assert "instagram_basic%2C" not in url  # the old comma-joined old scope
     # default redirect_uri uses app_url + DEFAULT_CALLBACK_PATH
     assert "creator%2Finstagram%2Fcallback" in url
 
@@ -108,7 +114,7 @@ def test_redirect_uri_honors_env_override(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# exchange_code: short-lived → long-lived
+# exchange_code: short-lived (POST) → long-lived (GET)
 # ---------------------------------------------------------------------------
 
 
@@ -117,34 +123,62 @@ def test_exchange_code_upgrades_to_long_lived(monkeypatch):
     monkeypatch.setenv("INSTAGRAM_APP_SECRET", "secret")
     get_settings.cache_clear()
 
-    calls: list[dict] = []
+    posts: list[dict] = []
+    gets: list[dict] = []
 
-    def _get(url, params=None, timeout=None):
-        calls.append({"url": url, "params": dict(params or {})})
-        if len(calls) == 1:
-            # short-lived
-            return _ok_response({"access_token": "short-token", "token_type": "bearer"})
-        # long-lived exchange
+    def _post(url, data=None, timeout=None):
+        posts.append({"url": url, "data": dict(data or {})})
         return _ok_response(
-            {"access_token": "long-token", "token_type": "bearer", "expires_in": 5184000}
+            {
+                "access_token": "short-token",
+                "user_id": "1784140582230000",
+            }
         )
 
+    def _get(url, params=None, timeout=None):
+        gets.append({"url": url, "params": dict(params or {})})
+        return _ok_response(
+            {
+                "access_token": "long-token",
+                "token_type": "bearer",
+                "expires_in": 5184000,
+            }
+        )
+
+    monkeypatch.setattr(httpx, "post", _post)
     monkeypatch.setattr(httpx, "get", _get)
+
     out = instagram_meta.exchange_code("AUTH_CODE")
 
     assert out["access_token"] == "long-token"
     assert out["expires_in"] == 5184000
-    # Two calls: first with `code`, second with grant_type=fb_exchange_token.
-    assert calls[0]["params"]["code"] == "AUTH_CODE"
-    assert calls[1]["params"]["grant_type"] == "fb_exchange_token"
-    assert calls[1]["params"]["fb_exchange_token"] == "short-token"
+    # IG user id surfaces forward from the short-lived response.
+    assert out.get("user_id") == "1784140582230000"
+
+    # Short-lived call: POST to api.instagram.com with grant_type=authorization_code
+    assert len(posts) == 1
+    assert posts[0]["url"] == "https://api.instagram.com/oauth/access_token"
+    assert posts[0]["data"]["code"] == "AUTH_CODE"
+    assert posts[0]["data"]["grant_type"] == "authorization_code"
+    assert posts[0]["data"]["client_id"] == "app-123"
+
+    # Long-lived exchange: GET to graph.instagram.com with ig_exchange_token
+    assert len(gets) == 1
+    assert gets[0]["url"] == "https://graph.instagram.com/access_token"
+    assert gets[0]["params"]["grant_type"] == "ig_exchange_token"
+    assert gets[0]["params"]["access_token"] == "short-token"
 
 
 def test_exchange_code_raises_when_short_lived_missing_token(monkeypatch):
     monkeypatch.setenv("INSTAGRAM_APP_ID", "app-123")
     monkeypatch.setenv("INSTAGRAM_APP_SECRET", "secret")
     get_settings.cache_clear()
-    monkeypatch.setattr(httpx, "get", lambda *a, **kw: _ok_response({}))
+    monkeypatch.setattr(httpx, "post", lambda *a, **kw: _ok_response({}))
+    monkeypatch.setattr(
+        httpx,
+        "get",
+        lambda *a, **kw: pytest.fail("must not call long-lived when short-lived empty"),
+    )
     with pytest.raises(instagram_meta.InstagramError):
         instagram_meta.exchange_code("AUTH_CODE")
 
@@ -153,54 +187,109 @@ def test_exchange_code_maps_http_error(monkeypatch):
     monkeypatch.setenv("INSTAGRAM_APP_ID", "app-123")
     monkeypatch.setenv("INSTAGRAM_APP_SECRET", "secret")
     get_settings.cache_clear()
-    monkeypatch.setattr(httpx, "get", lambda *a, **kw: _err_response(500))
+    monkeypatch.setattr(httpx, "post", lambda *a, **kw: _err_response(500))
     with pytest.raises(instagram_meta.InstagramError):
         instagram_meta.exchange_code("AUTH_CODE")
 
 
+def test_refresh_long_lived_token_uses_ig_refresh_grant(monkeypatch):
+    monkeypatch.setenv("INSTAGRAM_APP_ID", "app-123")
+    monkeypatch.setenv("INSTAGRAM_APP_SECRET", "secret")
+    get_settings.cache_clear()
+    captured: dict = {}
+
+    def _get(url, params=None, timeout=None):
+        captured["url"] = url
+        captured["params"] = dict(params or {})
+        return _ok_response(
+            {"access_token": "refreshed-token", "expires_in": 5184000}
+        )
+
+    monkeypatch.setattr(httpx, "get", _get)
+    out = instagram_meta.refresh_long_lived_token("existing-token")
+    assert out["access_token"] == "refreshed-token"
+    assert captured["url"] == "https://graph.instagram.com/refresh_access_token"
+    assert captured["params"]["grant_type"] == "ig_refresh_token"
+    assert captured["params"]["access_token"] == "existing-token"
+
+
 # ---------------------------------------------------------------------------
-# resolve_business_account
+# resolve_business_account — /me?fields=account_type
 # ---------------------------------------------------------------------------
 
 
-def test_resolve_business_account_returns_first_eligible_account(monkeypatch):
-    pages = {"data": [{"id": "page-A", "name": "Page A"}, {"id": "page-B", "name": "Page B"}]}
-    page_b_detail = {
-        "id": "page-B",
-        "instagram_business_account": {
-            "id": "1784140582230000",
-            "username": "miacreates",
-            "name": "Mia",
-        },
-    }
-
-    seq = iter([_ok_response(pages), _ok_response({"id": "page-A"}), _ok_response(page_b_detail)])
-    monkeypatch.setattr(httpx, "get", lambda *a, **kw: next(seq))
-
+def test_resolve_business_account_accepts_business_type(monkeypatch):
+    monkeypatch.setattr(
+        httpx,
+        "get",
+        lambda *a, **kw: _ok_response(
+            {
+                "id": "1784140582230000",
+                "username": "miacreates",
+                "name": "Mia",
+                "account_type": "BUSINESS",
+            }
+        ),
+    )
     account = instagram_meta.resolve_business_account("TOKEN")
     assert account.ig_user_id == "1784140582230000"
     assert account.username == "miacreates"
     assert account.name == "Mia"
 
 
-def test_resolve_business_account_raises_when_no_pages(monkeypatch):
+def test_resolve_business_account_accepts_media_creator_type(monkeypatch):
+    """Creator accounts (MEDIA_CREATOR) are the IG-app-side equivalent
+    of a Business account for our purposes — same insights surface."""
     monkeypatch.setattr(
-        httpx, "get", lambda *a, **kw: _ok_response({"data": []})
+        httpx,
+        "get",
+        lambda *a, **kw: _ok_response(
+            {"id": "ig-99", "username": "c", "account_type": "MEDIA_CREATOR"}
+        ),
+    )
+    account = instagram_meta.resolve_business_account("TOKEN")
+    assert account.ig_user_id == "ig-99"
+
+
+def test_resolve_business_account_refuses_personal(monkeypatch):
+    """Personal IG accounts authorize but get refused at this step.
+    The route surfaces the specific copy and does NOT save a row."""
+    monkeypatch.setattr(
+        httpx,
+        "get",
+        lambda *a, **kw: _ok_response(
+            {"id": "ig-1", "username": "u", "account_type": "PERSONAL"}
+        ),
+    )
+    with pytest.raises(instagram_meta.InstagramIneligibleAccountError) as exc:
+        instagram_meta.resolve_business_account("TOKEN")
+    # Creator-facing copy must explain what to do.
+    assert "Business or" in str(exc.value)
+    assert "Creator account" in str(exc.value)
+    # New flow does NOT mention Facebook Pages — that requirement is gone.
+    assert "Facebook Page" not in str(exc.value)
+
+
+def test_resolve_business_account_refuses_unknown_account_type(monkeypatch):
+    """Defensive: an unexpected account_type value (or missing field)
+    must refuse rather than accept by default."""
+    monkeypatch.setattr(
+        httpx,
+        "get",
+        lambda *a, **kw: _ok_response({"id": "ig-1", "username": "u"}),
     )
     with pytest.raises(instagram_meta.InstagramIneligibleAccountError):
         instagram_meta.resolve_business_account("TOKEN")
 
 
-def test_resolve_business_account_raises_when_no_linked_ig(monkeypatch):
-    pages = {"data": [{"id": "page-A", "name": "Page A"}]}
-    page_detail_no_ig = {"id": "page-A"}  # no instagram_business_account block
-    seq = iter([_ok_response(pages), _ok_response(page_detail_no_ig)])
-    monkeypatch.setattr(httpx, "get", lambda *a, **kw: next(seq))
-    with pytest.raises(instagram_meta.InstagramIneligibleAccountError) as exc:
+def test_resolve_business_account_raises_when_me_missing_id(monkeypatch):
+    monkeypatch.setattr(
+        httpx,
+        "get",
+        lambda *a, **kw: _ok_response({"account_type": "BUSINESS"}),
+    )
+    with pytest.raises(instagram_meta.InstagramError):
         instagram_meta.resolve_business_account("TOKEN")
-    # Creator-facing copy must explain how to fix it.
-    assert "Business or" in str(exc.value)
-    assert "Facebook Page" in str(exc.value)
 
 
 # ---------------------------------------------------------------------------
@@ -212,6 +301,7 @@ def test_get_user_media_parses_and_clamps_limit(monkeypatch):
     sent = {}
 
     def _get(url, params=None, timeout=None):
+        sent["url"] = url
         sent["params"] = dict(params or {})
         return _ok_response(
             {
@@ -238,6 +328,8 @@ def test_get_user_media_parses_and_clamps_limit(monkeypatch):
     assert media[0].like_count == 123
     # Hard-capped at MEDIA_HARD_MAX.
     assert sent["params"]["limit"] == str(instagram_meta.MEDIA_HARD_MAX)
+    # Endpoint host must be graph.instagram.com now.
+    assert sent["url"].startswith("https://graph.instagram.com/")
 
 
 def test_get_media_insights_returns_metric_map(monkeypatch):
@@ -285,13 +377,14 @@ def test_graph_get_maps_non_json_response(monkeypatch):
 
 
 def test_no_token_or_app_secret_in_logs_on_failure(monkeypatch, caplog):
-    """Hard constraint: no token, app secret, or query body ever
-    appears in a log record. Force a failure path on both the token
-    endpoint and the Graph endpoint and assert nothing leaks."""
+    """Hard constraint: no token, app secret, code, or query body
+    appears in a log record. Force failure paths on both the token
+    endpoints and the Graph endpoint and assert nothing leaks."""
     monkeypatch.setenv("INSTAGRAM_APP_ID", "app-id-LEAK")
     monkeypatch.setenv("INSTAGRAM_APP_SECRET", "app-secret-LEAK")
     get_settings.cache_clear()
 
+    monkeypatch.setattr(httpx, "post", lambda *a, **kw: _err_response(500))
     monkeypatch.setattr(httpx, "get", lambda *a, **kw: _err_response(500))
 
     with caplog.at_level(logging.INFO):
@@ -299,8 +392,11 @@ def test_no_token_or_app_secret_in_logs_on_failure(monkeypatch, caplog):
             instagram_meta.exchange_code("CODE_LEAK")
         with pytest.raises(instagram_meta.InstagramError):
             instagram_meta.get_user_media("ACCESS_TOKEN_LEAK", ig_user_id="ig-1")
+        with pytest.raises(instagram_meta.InstagramError):
+            instagram_meta.refresh_long_lived_token("REFRESH_TOKEN_LEAK")
 
     log_text = "\n".join(r.getMessage() for r in caplog.records)
     assert "app-secret-LEAK" not in log_text
     assert "CODE_LEAK" not in log_text
     assert "ACCESS_TOKEN_LEAK" not in log_text
+    assert "REFRESH_TOKEN_LEAK" not in log_text

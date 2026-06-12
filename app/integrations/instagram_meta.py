@@ -1,19 +1,28 @@
-"""Instagram/Meta Graph API client.
+"""Instagram Login API client (Meta's v22-era flow).
+
+This module talks to the **Instagram Login API**, not the older
+Facebook-Login → Instagram-Graph-via-linked-Page path. The difference
+matters because:
+
+  - OAuth endpoint is instagram.com, not facebook.com
+  - Scopes are the `instagram_business_*` family
+  - The token authorizes the IG user directly — no FB Page traversal
+  - The account must still be an Instagram Business or Creator account,
+    but it does NOT need to be linked to a Facebook Page
 
 Server-side only. Tokens never reach templates or browser JS.
 Status-only logging — never logs tokens, app secret, query bodies,
 or response payloads.
 
-Scope is strictly read-only: instagram_basic + instagram_manage_insights
-plus the two Page scopes needed to traverse FB Page → IG Business
-Account. None of these grant publishing, DMs, comments, or any write.
-That's the OAuth-layer guarantee against the hard constraints; the
-service layer doesn't even expose a write endpoint.
+Scope is strictly read-only: instagram_business_basic +
+instagram_business_manage_insights. We never request the publish,
+comments, or messages scopes — the module surface itself doesn't
+expose write functions (test-pinned in tests/test_instagram_routes.py).
 
-Eligibility: only Instagram Business or Creator accounts that are
-linked to a Facebook Page can be connected. Personal IG accounts and
-unlinked accounts surface as InstagramIneligibleAccountError so the
-route can refuse to save a connection row — no fake connected state.
+Eligibility: only Instagram Business or Creator accounts qualify.
+A Personal account that authorizes will surface as
+InstagramIneligibleAccountError so the route can refuse to save a
+connection row — no fake connected state.
 """
 
 from __future__ import annotations
@@ -29,17 +38,26 @@ from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 
-GRAPH_VERSION: Final = "v19.0"
-GRAPH_BASE: Final = f"https://graph.facebook.com/{GRAPH_VERSION}"
-AUTH_URL: Final = f"https://www.facebook.com/{GRAPH_VERSION}/dialog/oauth"
-TOKEN_URL: Final = f"{GRAPH_BASE}/oauth/access_token"
+# Instagram Login API uses three host bases:
+#   - instagram.com   for the consent UI
+#   - api.instagram.com for the short-lived token exchange
+#   - graph.instagram.com for long-lived tokens + business data + insights
+GRAPH_VERSION: Final = "v22.0"
+AUTH_URL: Final = "https://www.instagram.com/oauth/authorize"
+SHORT_LIVED_TOKEN_URL: Final = "https://api.instagram.com/oauth/access_token"
+LONG_LIVED_TOKEN_URL: Final = "https://graph.instagram.com/access_token"
+REFRESH_TOKEN_URL: Final = "https://graph.instagram.com/refresh_access_token"
+GRAPH_BASE: Final = f"https://graph.instagram.com/{GRAPH_VERSION}"
 DEFAULT_CALLBACK_PATH: Final = "/creator/instagram/callback"
 
+# Read-only scope set. instagram_business_basic alone covers profile +
+# media listing; insights is added so we can pull engagement/reach/etc.
+# We deliberately do NOT include content_publish, manage_comments, or
+# manage_messages — those would grant write capabilities our integration
+# module never exposes.
 SCOPES: Final[tuple[str, ...]] = (
-    "instagram_basic",
-    "instagram_manage_insights",
-    "pages_show_list",
-    "pages_read_engagement",
+    "instagram_business_basic",
+    "instagram_business_manage_insights",
 )
 
 TIMEOUT_SECONDS: Final = 20.0
@@ -56,9 +74,15 @@ INSIGHT_METRICS: Final[tuple[str, ...]] = (
     "saved",
 )
 
+# Account types Instagram returns from /me?fields=account_type.
+# Only the first two pass eligibility.
+_ELIGIBLE_ACCOUNT_TYPES: Final[frozenset[str]] = frozenset(
+    {"BUSINESS", "MEDIA_CREATOR"}
+)
+
 
 class InstagramError(RuntimeError):
-    """Generic non-secret IG Graph API failure (network, 5xx, parse)."""
+    """Generic non-secret Instagram API failure (network, 5xx, parse)."""
 
 
 class InstagramNotConfiguredError(RuntimeError):
@@ -66,10 +90,9 @@ class InstagramNotConfiguredError(RuntimeError):
 
 
 class InstagramIneligibleAccountError(RuntimeError):
-    """The creator authenticated, but their account doesn't qualify:
-    no Facebook Pages, or no Page-linked Instagram Business/Creator
-    account. The route surfaces this as a specific copy so the
-    creator knows how to fix it; the connection row is NOT saved."""
+    """The creator authenticated, but their account is Personal (not
+    Business or Creator). The route surfaces this as a specific copy
+    so the creator knows how to fix it; the connection row is NOT saved."""
 
 
 @dataclass(frozen=True)
@@ -107,6 +130,12 @@ def scopes() -> list[str]:
 
 
 def auth_url(state: str) -> str:
+    """Build the instagram.com consent URL.
+
+    Scopes are comma-separated per the Instagram Login API spec. Note
+    that this is the bare instagram.com endpoint — we do not go through
+    facebook.com here.
+    """
     if not is_configured():
         raise InstagramNotConfiguredError("Instagram OAuth is not configured")
     params = {
@@ -120,14 +149,20 @@ def auth_url(state: str) -> str:
 
 
 def exchange_code(code: str) -> dict[str, Any]:
-    """Exchange auth code → short-lived access token → long-lived (60d)."""
+    """Exchange auth code → short-lived token → long-lived (60d).
+
+    Two-step on the Instagram Login API:
+      1. POST to api.instagram.com with the auth code (short-lived)
+      2. GET graph.instagram.com to exchange short → long-lived
+    """
     if not is_configured():
         raise InstagramNotConfiguredError("Instagram OAuth is not configured")
     settings = get_settings()
-    short_lived = _get_token(
+    short_lived = _post_short_lived_token(
         {
             "client_id": settings.instagram_app_id,
             "client_secret": settings.instagram_app_secret,
+            "grant_type": "authorization_code",
             "redirect_uri": redirect_uri(),
             "code": code,
         }
@@ -135,71 +170,59 @@ def exchange_code(code: str) -> dict[str, Any]:
     short_token = str(short_lived.get("access_token") or "")
     if not short_token:
         raise InstagramError("Instagram token exchange missing access_token")
-    # Immediately upgrade to a long-lived token so we don't have to
-    # re-prompt the user every hour. The long-lived token expires in
-    # ~60 days and is refreshed via the same fb_exchange_token call.
-    return refresh_long_lived_token(short_token)
+    long_lived = _exchange_long_lived(short_token)
+    # Surface the IG user id from the short-lived response so the route
+    # doesn't need a separate /me call just for the id during signup —
+    # but defensively, callers should still treat /me as the source of
+    # truth for the IG user id (it's what resolve_business_account does).
+    if "user_id" not in long_lived and short_lived.get("user_id"):
+        long_lived["user_id"] = short_lived["user_id"]
+    return long_lived
 
 
 def refresh_long_lived_token(token: str) -> dict[str, Any]:
+    """Refresh a long-lived IG token via the ig_refresh_token grant.
+
+    Long-lived IG tokens are valid for ~60 days; calling this within
+    that window mints a new 60-day token. After expiry the user has
+    to reconnect.
+    """
     if not is_configured():
         raise InstagramNotConfiguredError("Instagram OAuth is not configured")
-    settings = get_settings()
-    return _get_token(
+    return _get_token_via(
+        REFRESH_TOKEN_URL,
         {
-            "grant_type": "fb_exchange_token",
-            "client_id": settings.instagram_app_id,
-            "client_secret": settings.instagram_app_secret,
-            "fb_exchange_token": token,
-        }
+            "grant_type": "ig_refresh_token",
+            "access_token": token,
+        },
     )
 
 
 def resolve_business_account(access_token: str) -> InstagramAccount:
-    """Traverse FB Pages → linked IG Business Account.
+    """Fetch the IG user's profile and refuse Personal accounts.
 
-    Returns the first eligible IG Business/Creator account. Raises
-    InstagramIneligibleAccountError when the user has no Pages, no
-    Page has a linked IG Business Account, or the linked account is
-    personal. The route layer surfaces a creator-facing message that
-    explains the requirement.
+    With the Instagram Login API the token itself authorizes the IG
+    user directly, so we just call /me with the right fields and
+    inspect account_type. No FB Page traversal step.
     """
-    pages = _graph_get("/me/accounts", access_token, params={"fields": "id,name"})
-    page_rows = pages.get("data") if isinstance(pages, dict) else None
-    if not isinstance(page_rows, list) or not page_rows:
+    detail = _graph_get(
+        "/me",
+        access_token,
+        params={"fields": "id,username,name,account_type"},
+    )
+    ig_user_id = str(detail.get("id") or "").strip()
+    if not ig_user_id:
+        raise InstagramError("Instagram /me response missing id")
+    account_type = str(detail.get("account_type") or "").strip().upper()
+    if account_type not in _ELIGIBLE_ACCOUNT_TYPES:
         raise InstagramIneligibleAccountError(
             "Instagram connection requires an Instagram Business or "
-            "Creator account linked to a Facebook Page."
+            "Creator account."
         )
-    for page in page_rows:
-        if not isinstance(page, dict):
-            continue
-        page_id = str(page.get("id") or "").strip()
-        if not page_id:
-            continue
-        detail = _graph_get(
-            f"/{page_id}",
-            access_token,
-            params={"fields": "instagram_business_account{id,username,name}"},
-        )
-        ig_block = detail.get("instagram_business_account") if isinstance(detail, dict) else None
-        if not isinstance(ig_block, dict):
-            continue
-        ig_user_id = str(ig_block.get("id") or "").strip()
-        if not ig_user_id:
-            continue
-        return InstagramAccount(
-            ig_user_id=ig_user_id,
-            username=(str(ig_block.get("username")).strip() or None)
-            if ig_block.get("username")
-            else None,
-            name=(str(ig_block.get("name")).strip() or None)
-            if ig_block.get("name")
-            else None,
-        )
-    raise InstagramIneligibleAccountError(
-        "Instagram connection requires an Instagram Business or "
-        "Creator account linked to a Facebook Page."
+    return InstagramAccount(
+        ig_user_id=ig_user_id,
+        username=_str_or_none(detail.get("username"), max_len=80),
+        name=_str_or_none(detail.get("name"), max_len=120),
     )
 
 
@@ -209,6 +232,12 @@ def get_user_media(
     ig_user_id: str,
     limit: int = MEDIA_DEFAULT_LIMIT,
 ) -> list[InstagramMedia]:
+    """List recent media for the IG user.
+
+    `ig_user_id` is the value returned by resolve_business_account.
+    Instagram Login API also accepts "me" here, but we pass the explicit
+    id so multi-account flows (future) stay correct.
+    """
     bounded = max(1, min(int(limit or MEDIA_DEFAULT_LIMIT), MEDIA_HARD_MAX))
     data = _graph_get(
         f"/{ig_user_id}/media",
@@ -271,24 +300,63 @@ def get_media_insights(access_token: str, *, media_id: str) -> dict[str, int | N
     return out
 
 
-def _get_token(payload: dict[str, str]) -> dict[str, Any]:
-    """Token endpoint is GET with query params per Meta's docs.
-    POST body works too but GET matches their reference flow."""
+def _post_short_lived_token(payload: dict[str, str]) -> dict[str, Any]:
+    """Short-lived token exchange is POST form-encoded per the
+    Instagram Login API spec."""
     try:
-        response = httpx.get(TOKEN_URL, params=payload, timeout=TIMEOUT_SECONDS)
+        response = httpx.post(
+            SHORT_LIVED_TOKEN_URL, data=payload, timeout=TIMEOUT_SECONDS
+        )
         response.raise_for_status()
     except httpx.HTTPError as exc:
         status = getattr(getattr(exc, "response", None), "status_code", "?")
-        # Status only. Never log app secret, code, or token body.
-        logger.info("Instagram OAuth token call failed with status %s", status)
-        raise InstagramError("Instagram OAuth token request failed") from exc
+        logger.info("Instagram short-lived token call failed with status %s", status)
+        raise InstagramError("Instagram short-lived token request failed") from exc
     try:
         data = response.json()
     except ValueError as exc:
-        logger.info("Instagram OAuth token response was not JSON")
-        raise InstagramError("Instagram OAuth token response was not JSON") from exc
+        logger.info("Instagram short-lived token response was not JSON")
+        raise InstagramError(
+            "Instagram short-lived token response was not JSON"
+        ) from exc
     if not isinstance(data, dict) or not data.get("access_token"):
-        raise InstagramError("Instagram OAuth response missing access_token")
+        raise InstagramError("Instagram short-lived response missing access_token")
+    return data
+
+
+def _exchange_long_lived(short_token: str) -> dict[str, Any]:
+    settings = get_settings()
+    return _get_token_via(
+        LONG_LIVED_TOKEN_URL,
+        {
+            "grant_type": "ig_exchange_token",
+            "client_secret": settings.instagram_app_secret,
+            "access_token": short_token,
+        },
+    )
+
+
+def _get_token_via(url: str, payload: dict[str, str]) -> dict[str, Any]:
+    """Long-lived exchange and refresh are GET with query params."""
+    try:
+        response = httpx.get(url, params=payload, timeout=TIMEOUT_SECONDS)
+        response.raise_for_status()
+    except httpx.HTTPError as exc:
+        status = getattr(getattr(exc, "response", None), "status_code", "?")
+        # Status only. Never log app secret or token.
+        logger.info("Instagram long-lived token call failed with status %s", status)
+        raise InstagramError("Instagram long-lived token request failed") from exc
+    try:
+        data = response.json()
+    except ValueError as exc:
+        logger.info("Instagram long-lived token response was not JSON")
+        raise InstagramError(
+            "Instagram long-lived token response was not JSON"
+        ) from exc
+    if not isinstance(data, dict) or not data.get("access_token"):
+        raise InstagramError(
+            "Instagram long-lived response missing access_token"
+        )
     return data
 
 
@@ -312,7 +380,9 @@ def _graph_get(
         data = response.json()
     except ValueError as exc:
         logger.info("Instagram Graph %s returned non-JSON", path)
-        raise InstagramError(f"Instagram Graph response was not JSON: {path}") from exc
+        raise InstagramError(
+            f"Instagram Graph response was not JSON: {path}"
+        ) from exc
     if not isinstance(data, dict):
         raise InstagramError(f"Instagram Graph response was not an object: {path}")
     return data
