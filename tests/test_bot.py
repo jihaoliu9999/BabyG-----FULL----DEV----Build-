@@ -1034,7 +1034,7 @@ def test_bot_does_not_crash_on_stats_question_with_empty_data(monkeypatch) -> No
     )
 
     # Turn completes, response surfaces the stats reality clause.
-    assert "manually logged" in result.response.lower()
+    assert "saved performance data" in result.response.lower()
     assert "Meta/TikTok integration" in result.response
 
 
