@@ -1,12 +1,12 @@
-"""Combined performance view across manual logs and live Instagram.
+"""Combined performance view across saved snapshots and live Instagram.
 
-The `/creator/performance` page reads manually-logged weeks AND, when
+The `/creator/performance` page reads saved performance snapshots AND, when
 the creator has connected Instagram, recent IG posts + their per-post
 insights. This module merges both into one source-tagged list so the
 template never has to think about where a row came from.
 
 Hard contract:
-  - manual rows always render (the database is authoritative)
+  - saved rows always render (the database is authoritative)
   - instagram rows render only when the creator's IG connection is
     real and the Graph call returns successfully. failures fall back
     to manual-only — the page never crashes, never shows fake data,
@@ -134,7 +134,7 @@ def _manual_rows(user_id: str) -> list[StatsRow]:
         out.append(
             StatsRow(
                 source=SOURCE_MANUAL,
-                title=f"week of {week}" if week else "weekly log",
+                title=f"period starting {week}" if week else "performance snapshot",
                 timestamp=week or None,
                 permalink=None,
                 metrics={k: v for k, v in metrics.items() if v is not None},

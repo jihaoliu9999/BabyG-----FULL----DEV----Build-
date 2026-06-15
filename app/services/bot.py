@@ -745,7 +745,7 @@ def _run_instagram_stats(*, user_id: str, tool_input: dict[str, Any]) -> dict[st
             "reason": (
                 f"daily instagram stats cap reached "
                 f"({INSTAGRAM_STATS_DAILY_CAP}/day). fall back to "
-                "manually logged performance for the rest of today."
+                "saved performance data for the rest of today."
             ),
         }
     try:

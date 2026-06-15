@@ -40,95 +40,135 @@
 {%- endmacro %}
 
 {% block content %}
-<div class="wrap">
-  <div class="page-header">
+{% set ig_rows = rows | selectattr('source', 'equalto', 'instagram') | list %}
+{% set totals = namespace(likes=0, comments=0, reach=0, impressions=0) %}
+{% for row in rows %}
+  {% set totals.likes = totals.likes + (row.metrics.get('likes') | int if row.metrics.get('likes') is not none else 0) %}
+  {% set totals.comments = totals.comments + (row.metrics.get('comments') | int if row.metrics.get('comments') is not none else 0) %}
+  {% set totals.reach = totals.reach + (row.metrics.get('reach') | int if row.metrics.get('reach') is not none else 0) %}
+  {% set totals.impressions = totals.impressions + (row.metrics.get('impressions') | int if row.metrics.get('impressions') is not none else 0) %}
+{% endfor %}
+
+<div class="wrap performance-shell">
+  <header class="performance-hero">
     <div class="title-block">
       <span class="mono eyebrow">performance</span>
-      <p class="sub">weekly snapshots + live posts.</p>
+      <h1>what is working.</h1>
+      <p class="sub">live post signals and saved performance snapshots.</p>
     </div>
-    <div class="actions">
-      <a class="btn btn-lime btn-sm" href="/creator/performance/new">log week
-        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 9L9 3M9 3H4M9 3V8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </a>
+    <div class="performance-status mono">
+      {% if instagram_status == 'ok' %}
+        instagram synced
+      {% elif instagram_status == 'error' %}
+        instagram paused
+      {% elif instagram_status == 'not_connected' %}
+        instagram not connected
+      {% else %}
+        manual view
+      {% endif %}
     </div>
-  </div>
+  </header>
 
   {% if instagram_status == 'error' %}
-  <div role="status" style="margin-bottom:16px;padding:12px 14px;background:rgba(255,77,109,0.06);border:1px solid var(--hairline);border-radius:12px;color:var(--ink-mid);font-size:13px;line-height:1.5;">
-    <span class="mono" style="font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:var(--ink-dim);display:block;margin-bottom:4px;">instagram unavailable</span>
+  <div role="status" class="performance-alert">
+    <span class="mono">instagram unavailable</span>
     instagram live data is temporarily unavailable. showing manual entries only. <a href="/creator/profile/settings" style="color:inherit;text-decoration:underline;">reconnect from settings</a> if this persists.
   </div>
   {% endif %}
 
-  {# Tiny CSS bar chart: engagement (or likes fallback) for the last
-     IG posts only. Skipped entirely when IG isn't surfacing rows so
-     the page doesn't render an empty chart frame. #}
-  {% set ig_rows = rows | selectattr('source', 'equalto', 'instagram') | list %}
+  <section class="performance-overview" aria-label="performance overview">
+    <div class="performance-metric-card">
+      <span class="mono">tracked</span>
+      <strong>{{ rows|length }}</strong>
+      <small>posts and snapshots</small>
+    </div>
+    <div class="performance-metric-card">
+      <span class="mono">instagram</span>
+      <strong>{{ ig_rows|length }}</strong>
+      <small>live posts</small>
+    </div>
+    <div class="performance-metric-card">
+      <span class="mono">likes</span>
+      <strong>{{ totals.likes }}</strong>
+      <small>visible total</small>
+    </div>
+    <div class="performance-metric-card">
+      <span class="mono">comments</span>
+      <strong>{{ totals.comments }}</strong>
+      <small>visible total</small>
+    </div>
+  </section>
+
   {% if ig_rows %}
     {% set chart_values = [] %}
     {% for r in ig_rows %}{% set _ = chart_values.append(chart_value(r.metrics) | int) %}{% endfor %}
     {% set chart_max = chart_values | max %}
     {% if chart_max and chart_max > 0 %}
-    <div class="card" style="margin-bottom:16px;padding:14px 16px;">
-      <span class="mono" style="font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:var(--ink-dim);display:block;margin-bottom:10px;">instagram · engagement by post</span>
-      <div style="display:flex;flex-direction:column;gap:6px;">
+    <section class="performance-panel">
+      <div class="performance-panel-head">
+        <span class="mono">instagram · engagement by post</span>
+        <small>{{ ig_rows|length }} live signals</small>
+      </div>
+      <div class="performance-bars">
         {% for r in ig_rows %}
           {% set v = chart_value(r.metrics) | int %}
           {% set pct = ((v / chart_max) * 100) if chart_max else 0 %}
-          <div style="display:flex;align-items:center;gap:10px;font-size:12px;">
-            <span style="flex:0 0 38%;color:var(--ink-mid);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ r.title }}</span>
-            <span style="flex:1;height:8px;background:var(--hairline);border-radius:4px;overflow:hidden;">
-              <span style="display:block;height:100%;width:{{ pct }}%;background:var(--lime);"></span>
+          <div class="performance-bar-row">
+            <span class="performance-bar-title">{{ r.title }}</span>
+            <span class="performance-bar-track">
+              <span class="performance-bar-fill" style="--bar-width: {{ pct }}%;"></span>
             </span>
-            <span class="mono" style="flex:0 0 auto;min-width:48px;text-align:right;color:var(--ink-mid);">{{ v }}</span>
+            <span class="performance-bar-value mono">{{ v }}</span>
           </div>
         {% endfor %}
       </div>
-    </div>
+    </section>
     {% endif %}
   {% endif %}
 
   {% if rows %}
-  <div class="stack">
+  <div class="performance-grid">
     {% for row in rows %}
-    <div class="card" style="margin-bottom:12px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;">
-        <span class="mono" style="font-size:11px;color:var(--ink-dim);">
+    <article class="performance-card">
+      <div class="performance-card-head">
+        <span class="mono performance-card-title">
           {{ row.title }}
           {% if row.timestamp %} · {{ row.timestamp|short_date }}{% endif %}
         </span>
-        <span class="mono" style="font-size:10px;letter-spacing:0.12em;text-transform:uppercase;padding:2px 8px;border:1px solid var(--hairline);border-radius:999px;color:var(--ink-dim);">
+        <span class="performance-source mono">
           {{ row.source }}
         </span>
       </div>
       {% if row.metrics %}
-      <div class="kv-list" style="border:0;padding:0;gap:0;">
+      <div class="performance-stat-list">
         {% for key, value in row.metrics.items() %}
-        <div class="row" style="padding:5px 0;">
-          <span class="l">{{ metric_labels.get(key, key) }}</span>
-          <span class="v">{{ render_metric(key, value) }}</span>
+        <div class="performance-stat">
+          <span>{{ metric_labels.get(key, key) }}</span>
+          <strong>{{ render_metric(key, value) }}</strong>
         </div>
         {% endfor %}
       </div>
       {% endif %}
       {% if row.permalink %}
-      <a href="{{ row.permalink|safe_url }}" target="_blank" rel="noopener noreferrer" class="mono" style="display:inline-block;margin-top:10px;font-size:11px;color:var(--ink-dim);text-decoration:none;border-top:1px solid var(--hairline);padding-top:10px;width:100%;">view post →</a>
+      <a href="{{ row.permalink|safe_url }}" target="_blank" rel="noopener noreferrer" class="performance-view-link">
+        <span>view post</span>
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M4 10L10 4M10 4H5M10 4V9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </a>
       {% endif %}
       {% if row.notes %}
-      <p style="color:var(--ink-dim);font-size:13px;margin:10px 0 0;line-height:1.5;border-top:1px solid var(--hairline);padding-top:10px;">{{ row.notes }}</p>
+      <p class="performance-note">{{ row.notes }}</p>
       {% endif %}
-    </div>
+    </article>
     {% endfor %}
   </div>
   {% else %}
-  <div style="text-align:center;padding:60px 0;color:var(--ink-dim);">
-    <span class="mono">no data yet.</span>
-    <p style="margin:12px 0 0;font-size:13.5px;">start logging your weekly numbers.</p>
-    <a href="/creator/performance/new" class="btn btn-ghost btn-sm" style="margin-top:16px;">log first week</a>
+  <div class="performance-empty">
+    <span class="mono">no performance yet.</span>
+    <p>connect instagram or add post receipts to start seeing signals.</p>
   </div>
   {% endif %}
 
-  <p class="mono" style="font-size:10px;letter-spacing:0.14em;color:var(--ink-dim);text-transform:uppercase;text-align:center;margin:32px 0 0;">
+  <p class="performance-foot mono">
     {% if instagram_status == 'ok' %}
       manual + instagram · live post stats merged
     {% elif instagram_status == 'error' %}

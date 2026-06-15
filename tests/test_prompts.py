@@ -70,7 +70,7 @@ def test_prompt_contains_stats_reality_check() -> None:
     # case — that sentence is the contract.
     assert (
         "i don't have connected post stats yet. right now i can use "
-        "manually logged performance, and auto-sync will come after "
+        "saved performance data, and auto-sync will come after "
         "Meta/TikTok integration."
     ) in p
     # Must forbid invention.
