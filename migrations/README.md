@@ -17,6 +17,7 @@ Files are applied in numeric order. Each migration is plain SQL — run via the 
 | `0009_oauth_connections.sql` | Adds creator-owned OAuth token storage for server-side Google Calendar sync. |
 | `0010_profile_photos_bucket.sql` | Provisions the Supabase Storage bucket for creator profile photos. |
 | `0011_oauth_connections_provider_relax.sql` | Relaxes `oauth_connections.provider` check constraint from `('google')` to `('google', 'instagram')` so the same table can hold Instagram/Meta tokens alongside Google. Phase 3 step 1. |
+| `0012_action_proposals.sql` | Adds the approval-state table for local/external action proposals, including permanent money-action prohibition checks. |
 
 ## Conventions
 
