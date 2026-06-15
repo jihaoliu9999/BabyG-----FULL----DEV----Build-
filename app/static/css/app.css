@@ -623,7 +623,7 @@ h1, h2, h3, h4 {
   height: 500px;
   top: -155px;
   left: -165px;
-  animation: appLogoDriftOne 24s ease-in-out infinite;
+  animation: appLogoDriftOne 28s ease-in-out -7s infinite;
 }
 .app-bg-mark.m2 {
   width: 560px;
@@ -631,7 +631,7 @@ h1, h2, h3, h4 {
   right: -230px;
   top: 2%;
   opacity: 0.046;
-  animation: appLogoDriftTwo 29s ease-in-out infinite;
+  animation: appLogoDriftTwo 34s ease-in-out -16s infinite;
 }
 .app-bg-mark.m3 {
   width: 520px;
@@ -639,7 +639,7 @@ h1, h2, h3, h4 {
   left: -240px;
   bottom: -240px;
   opacity: 0.042;
-  animation: appLogoDriftThree 33s ease-in-out infinite;
+  animation: appLogoDriftThree 38s ease-in-out -11s infinite;
 }
 .app-bg-mark.m4 {
   width: 480px;
@@ -647,7 +647,7 @@ h1, h2, h3, h4 {
   right: -175px;
   bottom: -185px;
   opacity: 0.042;
-  animation: appLogoDriftFour 27s ease-in-out infinite;
+  animation: appLogoDriftFour 31s ease-in-out -19s infinite;
 }
 .app-bg-mark.m5 {
   width: 360px;
@@ -655,7 +655,7 @@ h1, h2, h3, h4 {
   left: 38%;
   top: 18%;
   opacity: 0.026;
-  animation: appLogoDriftFive 31s ease-in-out infinite;
+  animation: appLogoDriftFive 42s ease-in-out -23s infinite;
 }
 .app-bg-mark.m6 {
   width: 390px;
@@ -663,7 +663,7 @@ h1, h2, h3, h4 {
   right: 18%;
   bottom: 10%;
   opacity: 0.024;
-  animation: appLogoDriftSix 35s ease-in-out infinite;
+  animation: appLogoDriftSix 46s ease-in-out -29s infinite;
 }
 .is-chat .app-bg-mark {
   opacity: 0.026;
@@ -677,27 +677,33 @@ h1, h2, h3, h4 {
 }
 @keyframes appLogoDriftOne {
   0%, 100% { transform: translate3d(0, 0, 0) rotate(-2deg) scale(1); }
-  50% { transform: translate3d(72px, 58px, 0) rotate(3deg) scale(1.045); }
+  35% { transform: translate3d(78px, 46px, 0) rotate(3deg) scale(1.04); }
+  68% { transform: translate3d(34px, 92px, 0) rotate(-1deg) scale(1.02); }
 }
 @keyframes appLogoDriftTwo {
   0%, 100% { transform: translate3d(0, 0, 0) rotate(2deg) scale(1); }
-  50% { transform: translate3d(-84px, 46px, 0) rotate(-3deg) scale(1.04); }
+  32% { transform: translate3d(-92px, 42px, 0) rotate(-3deg) scale(1.035); }
+  72% { transform: translate3d(-46px, 102px, 0) rotate(1deg) scale(1.02); }
 }
 @keyframes appLogoDriftThree {
   0%, 100% { transform: translate3d(0, 0, 0) rotate(1deg) scale(1); }
-  50% { transform: translate3d(78px, -70px, 0) rotate(-3deg) scale(1.045); }
+  38% { transform: translate3d(86px, -76px, 0) rotate(-3deg) scale(1.04); }
+  74% { transform: translate3d(24px, -118px, 0) rotate(2deg) scale(1.018); }
 }
 @keyframes appLogoDriftFour {
   0%, 100% { transform: translate3d(0, 0, 0) rotate(-1deg) scale(1); }
-  50% { transform: translate3d(-68px, -64px, 0) rotate(3deg) scale(1.04); }
+  34% { transform: translate3d(-78px, -68px, 0) rotate(3deg) scale(1.035); }
+  70% { transform: translate3d(-26px, -116px, 0) rotate(-2deg) scale(1.02); }
 }
 @keyframes appLogoDriftFive {
   0%, 100% { transform: translate3d(0, 0, 0) rotate(2deg) scale(1); }
-  50% { transform: translate3d(-48px, 72px, 0) rotate(-2deg) scale(1.035); }
+  40% { transform: translate3d(-56px, 86px, 0) rotate(-2deg) scale(1.03); }
+  76% { transform: translate3d(34px, 48px, 0) rotate(2deg) scale(1.015); }
 }
 @keyframes appLogoDriftSix {
   0%, 100% { transform: translate3d(0, 0, 0) rotate(-2deg) scale(1); }
-  50% { transform: translate3d(56px, -58px, 0) rotate(2deg) scale(1.04); }
+  36% { transform: translate3d(68px, -72px, 0) rotate(2deg) scale(1.035); }
+  78% { transform: translate3d(-28px, -38px, 0) rotate(-1deg) scale(1.02); }
 }
 .app-main > .mobile-header,
 .app-main > #view {
@@ -2573,14 +2579,59 @@ hr.hairline {
 .auth-bg-mark {
   position: absolute;
   object-fit: contain;
-  opacity: 0.045;
-  filter: drop-shadow(0 0 30px rgba(160,200,255,0.35));
+  opacity: 0.042;
+  filter: drop-shadow(0 0 34px rgba(255,77,109,0.12));
   pointer-events: none;
+  user-select: none;
+  will-change: transform;
 }
-.auth-bg-mark.m1 { width: 440px; height: 440px; top: -150px; left: -160px; }
-.auth-bg-mark.m2 { width: 500px; height: 500px; right: -190px; top: 4%; opacity: 0.04; }
-.auth-bg-mark.m3 { width: 520px; height: 520px; left: -220px; bottom: -230px; opacity: 0.035; }
-.auth-bg-mark.m4 { width: 430px; height: 430px; right: -150px; bottom: -170px; opacity: 0.035; }
+.auth-bg-mark.m1 {
+  width: 470px;
+  height: 470px;
+  top: -155px;
+  left: -165px;
+  animation: appLogoDriftOne 30s ease-in-out -9s infinite;
+}
+.auth-bg-mark.m2 {
+  width: 540px;
+  height: 540px;
+  right: -210px;
+  top: 3%;
+  opacity: 0.038;
+  animation: appLogoDriftTwo 36s ease-in-out -18s infinite;
+}
+.auth-bg-mark.m3 {
+  width: 520px;
+  height: 520px;
+  left: -220px;
+  bottom: -230px;
+  opacity: 0.032;
+  animation: appLogoDriftThree 40s ease-in-out -13s infinite;
+}
+.auth-bg-mark.m4 {
+  width: 460px;
+  height: 460px;
+  right: -165px;
+  bottom: -175px;
+  opacity: 0.032;
+  animation: appLogoDriftFour 34s ease-in-out -21s infinite;
+}
+.auth-bg-mark.m5 {
+  width: 340px;
+  height: 340px;
+  left: 28%;
+  top: 11%;
+  opacity: 0.02;
+  animation: appLogoDriftFive 44s ease-in-out -24s infinite;
+}
+.auth-bg-mark.m6 {
+  width: 360px;
+  height: 360px;
+  right: 28%;
+  bottom: 8%;
+  opacity: 0.018;
+  animation: appLogoDriftSix 48s ease-in-out -31s infinite;
+}
 .auth-page .auth-pane {
   position: relative;
   z-index: 1;
@@ -2677,6 +2728,8 @@ hr.hairline {
   .auth-bg-mark.m2 { width: 340px; height: 340px; right: -170px; top: 8%; }
   .auth-bg-mark.m3 { width: 360px; height: 360px; left: -190px; bottom: -180px; }
   .auth-bg-mark.m4 { width: 300px; height: 300px; right: -140px; bottom: -130px; }
+  .auth-bg-mark.m5 { width: 240px; height: 240px; left: 32%; top: 24%; opacity: 0.016; }
+  .auth-bg-mark.m6 { width: 260px; height: 260px; right: -90px; bottom: 20%; opacity: 0.016; }
   .auth-page .auth-pane {
     padding: 34px 0 30px;
   }
@@ -3104,6 +3157,7 @@ hr.hairline {
 
 @media (prefers-reduced-motion: reduce) {
   .app-bg-mark,
+  .auth-bg-mark,
   .app-sidebar nav a svg,
   .app-sidebar nav a .nav-bg-icon,
   .app-sidebar nav a[data-tab="feed"] svg {
