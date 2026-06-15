@@ -132,23 +132,42 @@
   {% endif %}
 
   {% if top_signal.row and top_signal.score > 0 %}
-  <section class="performance-spotlight" aria-label="top signal">
+  {% set top_metrics = top_signal.row.metrics %}
+  {% set top_likes = top_metrics.get('likes') %}
+  {% set top_comments = top_metrics.get('comments') %}
+  {% set top_likes_i = top_likes | int if top_likes is not none else 0 %}
+  {% set top_comments_i = top_comments | int if top_comments is not none else 0 %}
+  <section class="performance-spotlight" aria-label="high engagement">
     <div>
-      <span class="mono">top signal</span>
+      <span class="performance-spotlight-label mono">high engagement</span>
       <h2>{{ top_signal.row.title }}</h2>
       <p>strongest engagement right now</p>
+      <p class="performance-next-move">
+        <span class="mono">next move</span>
+        {% if top_likes is not none and top_comments is not none %}
+          {% if top_comments_i >= top_likes_i * 0.24 %}
+            comments are the signal here. turn this into a part two before the topic cools off.
+          {% elif top_likes_i >= top_comments_i * 3 %}
+            likes are carrying this post, but comments are lighter. repost the idea with a sharper question.
+          {% else %}
+            this one is pulling the strongest reaction. post a follow-up with the same tone and make the caption ask for opinions.
+          {% endif %}
+        {% else %}
+          this one is pulling the strongest reaction. repeat the tone and hook while it is still warm.
+        {% endif %}
+      </p>
     </div>
     <div class="performance-spotlight-metrics">
-      {% if top_signal.row.metrics.get('likes') is not none %}
-      <span><strong>{{ top_signal.row.metrics.get('likes') }}</strong> likes</span>
+      {% if top_likes is not none %}
+      <span><strong>{{ top_likes }}</strong><em>likes</em></span>
       {% endif %}
-      {% if top_signal.row.metrics.get('comments') is not none %}
-      <span><strong>{{ top_signal.row.metrics.get('comments') }}</strong> comments</span>
+      {% if top_comments is not none %}
+      <span><strong>{{ top_comments }}</strong><em>comments</em></span>
       {% endif %}
-      {% if top_signal.row.metrics.get('engagement') is not none %}
-      <span><strong>{{ top_signal.row.metrics.get('engagement') }}</strong> engagement</span>
-      {% elif top_signal.row.metrics.get('engagement_rate') is not none %}
-      <span><strong>{{ top_signal.row.metrics.get('engagement_rate') }}%</strong> engagement</span>
+      {% if top_metrics.get('engagement') is not none %}
+      <span><strong>{{ top_metrics.get('engagement') }}</strong><em>engagement</em></span>
+      {% elif top_metrics.get('engagement_rate') is not none %}
+      <span><strong>{{ top_metrics.get('engagement_rate') }}%</strong><em>engagement</em></span>
       {% endif %}
     </div>
   </section>
@@ -158,10 +177,21 @@
   <div class="performance-grid">
     {% for row in rows %}
     {% set row_score = chart_value(row.metrics) | int %}
+    {% set likes_value = row.metrics.get('likes') if row.metrics else none %}
+    {% set comments_value = row.metrics.get('comments') if row.metrics else none %}
+    {% set has_signal_split = likes_value is not none and comments_value is not none %}
+    {% set detail_metrics = namespace(count=0) %}
+    {% if row.metrics %}
+      {% for key, value in row.metrics.items() %}
+        {% if not (has_signal_split and key in ['likes', 'comments']) %}
+          {% set detail_metrics.count = detail_metrics.count + 1 %}
+        {% endif %}
+      {% endfor %}
+    {% endif %}
     <article class="performance-card">
       <div class="performance-card-head">
         <div class="performance-card-identity">
-          <span class="performance-rank mono">{{ "%02d"|format(loop.index) }}</span>
+          <span class="performance-rank mono"><span>rank</span>{{ "%02d"|format(loop.index) }}</span>
           <div>
             <h2 class="performance-card-title">{{ row.title }}</h2>
             {% if row.timestamp %}<span class="performance-card-date mono">{{ row.timestamp|short_date }}</span>{% endif %}
@@ -171,13 +201,34 @@
           {{ row.source }}
         </span>
       </div>
-      {% if row.metrics %}
+      {% if has_signal_split %}
+      {% set likes_i = likes_value | int %}
+      {% set comments_i = comments_value | int %}
+      <div class="performance-mix">
+        <div class="performance-mix-values" aria-label="signal split">
+          <span><strong>{{ likes_value }}</strong><em>likes</em></span>
+          <span><strong>{{ comments_value }}</strong><em>comments</em></span>
+        </div>
+        <p>
+          {% if comments_i >= likes_i * 0.24 %}
+            comments are the signal. turn this into a reply-style follow-up.
+          {% elif likes_i >= comments_i * 3 %}
+            likes are carrying the signal. sharpen the caption into a question next.
+          {% else %}
+            likes and comments are moving together. test a second version of this hook.
+          {% endif %}
+        </p>
+      </div>
+      {% endif %}
+      {% if row.metrics and detail_metrics.count %}
       <div class="performance-stat-list">
         {% for key, value in row.metrics.items() %}
+        {% if not (has_signal_split and key in ['likes', 'comments']) %}
         <div class="performance-stat">
           <span>{{ metric_labels.get(key, key) }}</span>
           <strong>{{ render_metric(key, value) }}</strong>
         </div>
+        {% endif %}
         {% endfor %}
       </div>
       {% endif %}
