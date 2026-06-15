@@ -1,4 +1,4 @@
-"""Content receipts + weekly performance log tests."""
+"""Content receipts + performance display tests."""
 
 from __future__ import annotations
 
@@ -44,14 +44,7 @@ def world(monkeypatch) -> FakeWorld:
     def _list_perf(uid, *, limit=26):
         return [p for (u, _), p in w.perf.items() if u == uid]
 
-    def _upsert_perf(*, user_id, entered_by, payload):
-        wk = payload["week_start_date"]
-        w.perf[(user_id, wk)] = {**payload, "user_id": user_id, "entered_by_user_id": entered_by}
-        return True
-
     monkeypatch.setattr(performance_module, "list_for_user", _list_perf)
-    monkeypatch.setattr(performance_module, "upsert", _upsert_perf)
-    monkeypatch.setattr(performance_module, "last_monday_iso", lambda: "2026-05-04")
 
     monkeypatch.setattr(notifications_module, "create", lambda **kw: True)
     monkeypatch.setattr(notifications_module, "list_unread", lambda uid, *, limit=10: [])
@@ -154,41 +147,6 @@ def test_performance_list_renders(client, world):
     assert "2026-05-04" in r.text
 
 
-def test_performance_upsert(client, world):
-    _signed_in(client, role="creator", user_id="c-1")
-    r = client.post(
-        "/creator/performance",
-        data={
-            "week_start_date": "2026-05-04",
-            "engagement_rate": "4.2",
-            "follower_delta": "120",
-            "active_brand_deals_count": "2",
-            "active_brand_deals_value": "5000",
-            "notes": "Strong reel performance.",
-        },
-    )
-    assert r.status_code == 303
-    assert ("c-1", "2026-05-04") in world.perf
-    p = world.perf[("c-1", "2026-05-04")]
-    assert p["engagement_rate"] == 4.2
-    assert p["follower_delta"] == 120
-
-
-def test_performance_requires_week(client, world):
-    _signed_in(client, role="creator", user_id="c-1")
-    r = client.post("/creator/performance", data={"engagement_rate": "1.0"})
-    assert r.status_code == 400
-
-
-def test_performance_rejects_bad_engagement(client, world):
-    _signed_in(client, role="creator", user_id="c-1")
-    r = client.post(
-        "/creator/performance",
-        data={"week_start_date": "2026-05-04", "engagement_rate": "high"},
-    )
-    assert r.status_code == 400
-
-
 def test_performance_requires_creator(client, world):
     _signed_in(client, role="operator", user_id="op-1")
     r = client.get("/creator/performance")
@@ -241,7 +199,7 @@ def test_performance_list_merges_instagram_rows(client, world, monkeypatch):
         ),
         merge_module.StatsRow(
             source="manual",
-            title="week of 2026-06-01",
+            title="period starting 2026-06-01",
             timestamp="2026-06-01",
             permalink=None,
             metrics={"engagement_rate": 4.2, "follower_delta": 120},
@@ -259,7 +217,7 @@ def test_performance_list_merges_instagram_rows(client, world, monkeypatch):
     r = client.get("/creator/performance")
     assert r.status_code == 200
     assert "dinner at boia" in r.text
-    assert "week of 2026-06-01" in r.text
+    assert "period starting 2026-06-01" in r.text
     # IG permalink rendered as "view post" link.
     assert "https://www.instagram.com/p/m1" in r.text
     assert "view post" in r.text
@@ -304,7 +262,7 @@ def test_performance_list_shows_unavailable_banner_on_error(
     _signed_in(client, role="creator", user_id="c-1")
     manual_row = merge_module.StatsRow(
         source="manual",
-        title="week of 2026-06-01",
+        title="period starting 2026-06-01",
         timestamp="2026-06-01",
         permalink=None,
         metrics={"engagement_rate": 4.2},

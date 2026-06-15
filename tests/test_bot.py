@@ -1021,7 +1021,7 @@ def test_bot_does_not_crash_on_stats_question_with_empty_data(monkeypatch) -> No
         return bot_service.anthropic_client.ClaudeResponse(
             text=(
                 "i don't have connected post stats yet. right now i can use "
-                "manually logged performance, and auto-sync will come after "
+                "saved performance data, and auto-sync will come after "
                 "Meta/TikTok integration."
             )
         )
@@ -1034,7 +1034,7 @@ def test_bot_does_not_crash_on_stats_question_with_empty_data(monkeypatch) -> No
     )
 
     # Turn completes, response surfaces the stats reality clause.
-    assert "manually logged" in result.response.lower()
+    assert "saved performance data" in result.response.lower()
     assert "Meta/TikTok integration" in result.response
 
 
@@ -1586,7 +1586,7 @@ def test_instagram_stats_tool_registered_and_prompt_updated() -> None:
     assert "read_my_instagram_stats" in p
     assert (
         "i don't have connected post stats yet. right now i can use "
-        "manually logged performance, and auto-sync will come after "
+        "saved performance data, and auto-sync will come after "
         "Meta/TikTok integration."
     ) in p
     assert "never invent numbers" in p

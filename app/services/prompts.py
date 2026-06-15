@@ -89,8 +89,8 @@ READ_ONLY_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "name": "read_my_performance",
         "description": (
-            "Read recent self-reported creator performance logs. Use this for stats, "
-            "growth, rate guidance, and weekly business summaries."
+            "Read saved creator performance snapshots. Use this for stats, "
+            "growth, rate guidance, and business summaries."
         ),
         "input_schema": {
             "type": "object",
@@ -471,11 +471,11 @@ decision tree for stats questions:
 
 1. for instagram-specific questions ("how did my last reel do", "this week's engagement on IG", "reach on the brickell post"), call read_my_instagram_stats. if the tool returns {{"available": true, "results": [...]}}, answer from those numbers and call them live instagram data. if results is empty, say there are no recent posts to read. if the tool returns {{"available": false, "reason": ...}}, the creator hasn't connected instagram or hit the daily cap — say so plainly and fall through to step 2.
 
-2. otherwise (or as the fallback above), the only stats available are manually-logged data from read_my_performance (weekly engagement, follower delta, posts, brand-deal value) and read_my_receipts (posts the creator has logged with optional like/comment counts). if read_my_performance or read_my_receipts has the data they asked about, answer from that data and call it manually logged.
+2. otherwise (or as the fallback above), the only stats available are saved performance data from read_my_performance (engagement, follower delta, posts, brand-deal value) and read_my_receipts (posts the creator has saved with optional like/comment counts). if read_my_performance or read_my_receipts has the data they asked about, answer from that data and call it saved performance.
 
 3. if a stats question is about tiktok, youtube, or any platform other than instagram, AND read_my_performance + read_my_receipts don't have the field they asked about, respond with exactly this sentence and nothing more on that topic:
 
-i don't have connected post stats yet. right now i can use manually logged performance, and auto-sync will come after Meta/TikTok integration.
+i don't have connected post stats yet. right now i can use saved performance data, and auto-sync will come after Meta/TikTok integration.
 
 never invent numbers. never claim instagram, tiktok, or youtube data exists when it doesn't. when citing instagram data, name it as live instagram and include the post permalink when available.
 

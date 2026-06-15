@@ -16,7 +16,7 @@ What's actually shipped in v1:
 - **Frontend:** Server-rendered Jinja2 templates. Dark mode only.
 - **Surfaces:** marketing landing, magic-link auth, role-gated consoles
   for **Creator** and **Operator** — creator DMs, network/connections,
-  job listings, calendar, content receipts, weekly performance, intel
+  job listings, calendar, content receipts, performance insights, intel
   feed; operator intel publishing, abuse reports, member roster, audit log.
 - **Security:** signed session cookie, CSRF middleware, security headers,
   rate-limited magic-link, RLS policies on every Supabase table.

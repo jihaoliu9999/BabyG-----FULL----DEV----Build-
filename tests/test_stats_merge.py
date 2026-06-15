@@ -75,7 +75,7 @@ def test_manual_only_when_instagram_not_configured(monkeypatch):
     assert len(rows) == 1
     row = rows[0]
     assert row.source == "manual"
-    assert row.title == "week of 2026-06-01"
+    assert row.title == "period starting 2026-06-01"
     assert row.timestamp == "2026-06-01"
     assert row.permalink is None
     assert row.metrics == {
