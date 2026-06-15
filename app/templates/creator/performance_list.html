@@ -42,7 +42,13 @@
 {% block content %}
 {% set ig_rows = rows | selectattr('source', 'equalto', 'instagram') | list %}
 {% set totals = namespace(likes=0, comments=0, reach=0, impressions=0) %}
+{% set top_signal = namespace(row=None, score=-1) %}
 {% for row in rows %}
+  {% set row_score = chart_value(row.metrics) | int %}
+  {% if row_score > top_signal.score %}
+    {% set top_signal.row = row %}
+    {% set top_signal.score = row_score %}
+  {% endif %}
   {% set totals.likes = totals.likes + (row.metrics.get('likes') | int if row.metrics.get('likes') is not none else 0) %}
   {% set totals.comments = totals.comments + (row.metrics.get('comments') | int if row.metrics.get('comments') is not none else 0) %}
   {% set totals.reach = totals.reach + (row.metrics.get('reach') | int if row.metrics.get('reach') is not none else 0) %}
@@ -52,9 +58,8 @@
 <div class="wrap performance-shell">
   <header class="performance-hero">
     <div class="title-block">
-      <span class="mono eyebrow">performance</span>
       <h1>what is working.</h1>
-      <p class="sub">live post signals and saved performance snapshots.</p>
+      <p class="sub">babyg is tracking the posts pulling the most attention right now.</p>
     </div>
     <div class="performance-status mono">
       {% if instagram_status == 'ok' %}
@@ -126,15 +131,42 @@
     {% endif %}
   {% endif %}
 
+  {% if top_signal.row and top_signal.score > 0 %}
+  <section class="performance-spotlight" aria-label="top signal">
+    <div>
+      <span class="mono">top signal</span>
+      <h2>{{ top_signal.row.title }}</h2>
+      <p>strongest engagement right now</p>
+    </div>
+    <div class="performance-spotlight-metrics">
+      {% if top_signal.row.metrics.get('likes') is not none %}
+      <span><strong>{{ top_signal.row.metrics.get('likes') }}</strong> likes</span>
+      {% endif %}
+      {% if top_signal.row.metrics.get('comments') is not none %}
+      <span><strong>{{ top_signal.row.metrics.get('comments') }}</strong> comments</span>
+      {% endif %}
+      {% if top_signal.row.metrics.get('engagement') is not none %}
+      <span><strong>{{ top_signal.row.metrics.get('engagement') }}</strong> engagement</span>
+      {% elif top_signal.row.metrics.get('engagement_rate') is not none %}
+      <span><strong>{{ top_signal.row.metrics.get('engagement_rate') }}%</strong> engagement</span>
+      {% endif %}
+    </div>
+  </section>
+  {% endif %}
+
   {% if rows %}
   <div class="performance-grid">
     {% for row in rows %}
+    {% set row_score = chart_value(row.metrics) | int %}
     <article class="performance-card">
       <div class="performance-card-head">
-        <span class="mono performance-card-title">
-          {{ row.title }}
-          {% if row.timestamp %} · {{ row.timestamp|short_date }}{% endif %}
-        </span>
+        <div class="performance-card-identity">
+          <span class="performance-rank mono">{{ "%02d"|format(loop.index) }}</span>
+          <div>
+            <h2 class="performance-card-title">{{ row.title }}</h2>
+            {% if row.timestamp %}<span class="performance-card-date mono">{{ row.timestamp|short_date }}</span>{% endif %}
+          </div>
+        </div>
         <span class="performance-source mono">
           {{ row.source }}
         </span>
@@ -152,8 +184,19 @@
       {% if row.permalink %}
       <a href="{{ row.permalink|safe_url }}" target="_blank" rel="noopener noreferrer" class="performance-view-link">
         <span>view post</span>
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true"><path d="M4 10L10 4M10 4H5M10 4V9" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="performance-view-arrow">↗</span>
       </a>
+      {% endif %}
+      {% if top_signal.score > 0 and row_score > 0 %}
+      <span class="performance-signal mono">
+        {% if row_score >= top_signal.score * 0.85 %}
+          high signal
+        {% elif row_score >= top_signal.score * 0.5 %}
+          steady
+        {% else %}
+          watch this
+        {% endif %}
+      </span>
       {% endif %}
       {% if row.notes %}
       <p class="performance-note">{{ row.notes }}</p>
