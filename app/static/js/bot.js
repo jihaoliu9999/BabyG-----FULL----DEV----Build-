@@ -24,6 +24,9 @@
   if (!composer || !submit || !textarea || !messageList) return;
 
   let inFlight = false;
+  let largestVisualHeight =
+    (window.visualViewport && window.visualViewport.height) || window.innerHeight;
+  let viewportFrame = null;
 
   const isScrolledToBottom = (el) => {
     const slack = 40;
@@ -37,7 +40,50 @@
     }
   };
 
+  const updateChatViewport = () => {
+    const viewport = window.visualViewport;
+    const visualHeight = viewport ? viewport.height : window.innerHeight;
+    const focused = document.activeElement === textarea;
+    const wasAtBottom = isScrolledToBottom(messageList);
+
+    if (!focused || visualHeight > largestVisualHeight) {
+      largestVisualHeight = visualHeight;
+    }
+
+    document.documentElement.style.setProperty(
+      "--bot-visual-height",
+      `${Math.round(visualHeight)}px`
+    );
+    document.body.classList.toggle(
+      "bot-keyboard-open",
+      focused && largestVisualHeight - visualHeight > 120
+    );
+
+    if (wasAtBottom) {
+      window.requestAnimationFrame(scrollToLatest);
+    }
+  };
+
+  const scheduleViewportUpdate = () => {
+    if (viewportFrame) window.cancelAnimationFrame(viewportFrame);
+    viewportFrame = window.requestAnimationFrame(() => {
+      viewportFrame = null;
+      updateChatViewport();
+    });
+  };
+
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", scheduleViewportUpdate);
+    window.visualViewport.addEventListener("scroll", scheduleViewportUpdate);
+  }
+  window.addEventListener("resize", scheduleViewportUpdate);
+  textarea.addEventListener("focus", scheduleViewportUpdate);
+  textarea.addEventListener("blur", () => {
+    window.setTimeout(scheduleViewportUpdate, 80);
+  });
+
   // Initial scroll on page load: pin to the latest message.
+  scheduleViewportUpdate();
   scrollToLatest();
 
   const setBusy = (busy) => {
