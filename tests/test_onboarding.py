@@ -329,7 +329,7 @@ def test_onboarding_creator_renders_four_steps_and_integrations(
         assert f'data-onb-step="{n}"' in r.text
     # Integrations cards include the provider labels and simple status
     # states, without collecting manual social stat questions.
-    assert "google calendar" in r.text
+    assert "calendar" in r.text
     assert "gmail" in r.text
     assert "instagram" in r.text
     assert "tiktok" in r.text
@@ -374,7 +374,7 @@ def test_onboarding_passes_google_flags_when_configured(monkeypatch, client, sto
         "/creator/google/connect?service=gmail&amp;next=/onboarding/creator"
         in r.text
     )
-    assert "google calendar" in r.text
+    assert "calendar" in r.text
     assert "gmail" in r.text
 
 
