@@ -4,51 +4,129 @@
 {% block legal_eyebrow %}accessibility statement{% endblock %}
 {% block legal_title %}accessibility.{% endblock %}
 
+{% block legal_status_pill %}{% endblock %}
+{% block legal_callout %}{% endblock %}
+
 {% block legal_body %}
-<p>babyg should be usable for every creator, on every device, with every assistive technology. we're not there yet. this page describes what we work toward and how to tell us when we miss.</p>
+<p>babyg is built for creators, and we want the platform to be usable by as many people as possible across devices, browsers, input methods, and assistive technologies.</p>
+
+<p>this accessibility statement explains what we work toward, what areas we focus on, where limitations may exist, how third-party services fit in, and how to report an accessibility issue.</p>
 
 <h2>our commitment</h2>
-<p>we aim to make babyg conform to the <strong>web content accessibility guidelines (WCAG) 2.1 level AA</strong> as a baseline. this is an ongoing effort, not a finished claim, and we treat accessibility bugs the same way we treat any other production bug.</p>
+<p>we aim to make babyg accessible, usable, and understandable for all users.</p>
+<p>our goal is to align with widely recognized accessibility practices, including the web content accessibility guidelines, commonly known as wcag, with level aa as our working target.</p>
+<p>accessibility is an ongoing effort. we do not treat it as a one-time checklist. when we find or receive accessibility issues, we review them and work to improve the product.</p>
+
+<h2>what this applies to</h2>
+<p>this accessibility statement applies to the babyg website, sign-up flow, creator dashboard, chatbot, ai assistant, ai agent features, sms-based ai agent, profile pages, settings, legal pages, connected account flows, uploads, messages, bookings, listings, opportunities, and other babyg web-based features.</p>
+<p>some connected services, such as instagram, tiktok, google, gmail, google calendar, sms providers, payment providers, or other third-party services, may have their own accessibility practices. babyg does not control third-party platforms, but we work to make the parts of the experience we control as accessible as reasonably possible.</p>
 
 <h2>mobile-first design</h2>
-<p>babyg is built mobile-first. specifically:</p>
-<ul>
-  <li>form inputs use a 16px minimum font size so mobile safari doesn't zoom and lose context on focus.</li>
-  <li>safe-area insets are respected on iphone notch and home-indicator devices.</li>
-  <li>tap targets follow a minimum 44×44 px guidance where practical.</li>
-  <li>color contrast is checked against the babyg dark palette during design review.</li>
-</ul>
+<p>babyg is designed with mobile use in mind.</p>
+<p>we work to support readable layouts, clear spacing, touch-friendly controls, responsive screens, and usable forms across phone, tablet, and desktop sizes.</p>
+<p>where practical, we aim to use tap targets large enough for comfortable mobile use, avoid layouts that require unnecessary zooming, respect device safe areas, and keep important actions visible and easy to reach.</p>
 
-<h2>keyboard and screen reader goals</h2>
-<p>we work to make every interactive element reachable by keyboard alone, and every meaningful image, button, or icon labeled for screen readers.</p>
-<ul>
-  <li>semantic HTML for headings, lists, forms, and landmarks.</li>
-  <li>visible focus states on all keyboard-focusable elements.</li>
-  <li><code>aria-label</code> on icon-only buttons and avatars.</li>
-  <li>form fields with associated <code>&lt;label&gt;</code> elements.</li>
-</ul>
-<p>we know there are gaps. some pages still rely on motion or visual cues that aren't yet announced to screen readers. fixing those is on the roadmap.</p>
+<h2>readability and visual clarity</h2>
+<p>we work to make text, buttons, forms, and navigation easy to read and understand.</p>
+<p>this includes using clear labels, readable font sizes, enough spacing, logical page structure, and color contrast that supports visibility across the babyg design system.</p>
+<p>we try not to rely on color alone to communicate important information. where possible, we use text, labels, icons, states, or other cues along with color.</p>
+
+<h2>keyboard access</h2>
+<p>we work to make interactive elements reachable and usable with a keyboard.</p>
+<p>this includes navigation links, buttons, forms, menus, account settings, chatbot controls, upload controls, connected account actions, profile controls, listing controls, booking controls, and other key interactive features.</p>
+<p>we aim to provide visible focus states so users can understand where they are on the page while navigating by keyboard.</p>
+
+<h2>screen reader support</h2>
+<p>we work to make babyg understandable with screen readers and other assistive technologies.</p>
+<p>where practical, we use semantic html, proper headings, form labels, descriptive buttons, accessible names for icon-only controls, and meaningful page structure.</p>
+<p>we aim to label important images, buttons, inputs, navigation elements, status messages, error messages, and confirmation messages so users can understand what each item does.</p>
+
+<h2>forms and sign-up flow</h2>
+<p>we work to make forms clear, direct, and easy to complete.</p>
+<p>form fields should have understandable labels, helpful instructions, readable error messages, and logical tab order.</p>
+<p>this applies to sign-up, onboarding, connected account setup, phone number consent, sms opt-in, location permission flows, profile setup, settings, data deletion requests, and other forms inside babyg.</p>
+
+<h2>connected account prompts</h2>
+<p>babyg may ask users to connect accounts or approve permissions, including instagram, tiktok, gmail, google calendar, location, or sms features.</p>
+<p>we work to make these prompts clear, readable, and understandable before a user chooses to continue.</p>
+<p>users should be able to understand what they are connecting, why it is being requested, and what action they are taking.</p>
+
+<h2>location prompts</h2>
+<p>babyg may ask users to share location for location-based features.</p>
+<p>we work to make location prompts clear and understandable, including whether the feature is asking for general location, current location, precise location, or live location access.</p>
+<p>users should be able to deny or turn off location access through their browser, device settings, or account settings where available.</p>
+
+<h2>ai chatbot and ai agent accessibility</h2>
+<p>babyg includes ai-powered features, including the chatbot, ai assistant, ai agent, and sms-based ai agent.</p>
+<p>we work to make these features understandable and usable by providing clear input areas, readable responses, visible actions, and user control before important outputs are sent, posted, published, or relied on.</p>
+<p>where possible, chatbot and ai agent interfaces should support keyboard navigation, screen reader labels, readable message structure, clear action buttons, and understandable status updates.</p>
+
+<h2>sms accessibility</h2>
+<p>babyg may allow users to text the babyg ai agent by sms.</p>
+<p>sms can be helpful for users who prefer text-based workflows outside the website. however, sms availability and accessibility may depend on the user's mobile carrier, phone settings, messaging app, and assistive technology.</p>
+<p>users can reply stop to opt out of sms messages and help for help.</p>
 
 <h2>motion and animation</h2>
-<p>the landing page uses subtle scroll-reveal and parallax. these honor <code>prefers-reduced-motion</code> in most places, and we're working to add it everywhere it's missing.</p>
+<p>babyg may use animations, transitions, floating elements, hover effects, scroll effects, or other motion-based design.</p>
+<p>we aim to keep motion subtle and avoid effects that interfere with usability.</p>
+<p>where practical, babyg should respect reduced-motion settings and avoid relying only on animation to explain important information.</p>
 
-<h2>ongoing improvements</h2>
-<p>we audit accessibility periodically and treat findings as bugs to be fixed in the next release. when a report comes in, we triage it on the same schedule as any other production issue.</p>
+<h2>uploads, media, and visual content</h2>
+<p>babyg may allow users to upload profile photos, images, videos, documents, screenshots, audio, or other files.</p>
+<p>we work to make upload controls clear and usable.</p>
+<p>where user-generated media appears publicly or inside the product, accessibility may depend on the content uploaded by users. users are responsible for the accessibility of content they choose to publish, share, or upload, including captions, descriptions, alt text, transcripts, or other supporting information where available.</p>
 
-<h2>report an issue</h2>
-<p>if you hit an accessibility barrier — a button you can't reach with a keyboard, an unlabeled icon, a contrast problem, a screen-reader misread — please tell us:</p>
+<h2>public profiles, listings, and creator directory</h2>
+<p>babyg may include public creator profiles, listings, opportunities, and creator directory features.</p>
+<p>we work to make public profile pages, listing cards, opportunity details, buttons, filters, and navigation easy to read, keyboard accessible, and understandable with assistive technologies.</p>
+<p>users are responsible for the accuracy and accessibility of the public content they choose to add.</p>
+
+<h2>legal and account pages</h2>
+<p>we work to make important pages easy to find and read, including privacy, terms, data deletion, accessibility, account settings, connected account controls, and support information.</p>
+<p>users should be able to access key account and legal information without relying only on visual cues, animation, or hidden controls.</p>
+
+<h2>known limitations</h2>
+<p>babyg is still evolving. some areas may not yet work perfectly for every user, device, browser, or assistive technology.</p>
+<p>possible limitations may include incomplete labels, imperfect focus order, contrast issues in newer designs, motion settings that need improvement, third-party connected account screens we do not control, user-generated content without descriptions, or ai-generated content that may need editing for clarity.</p>
+<p>we treat accessibility issues as product issues and work to improve them over time.</p>
+
+<h2>third-party services</h2>
+<p>babyg connects with or links to third-party services such as instagram, tiktok, google, gmail, google calendar, sms providers, payment providers, hosting providers, ai providers, and other tools.</p>
+<p>third-party services may have their own accessibility features, limitations, terms, and support processes.</p>
+<p>babyg is not responsible for the accessibility of third-party platforms, but we want the babyg-controlled parts of the experience to remain as clear and usable as possible.</p>
+
+<h2>report an accessibility issue</h2>
+<p>if you experience an accessibility barrier on babyg, contact us at:</p>
+<p><a href="mailto:{{ contact_email }}">{{ contact_email }}</a></p>
+<p>please include as much of the following as you can:</p>
 <ul>
-  <li>email <a href="mailto:{{ contact_email }}">{{ contact_email }}</a></li>
-  <li>include the page url, the device and browser you're using, and a short description of what didn't work.</li>
-  <li>if you use a screen reader, please tell us which one and which version.</li>
+  <li>the page or feature where the issue happened</li>
+  <li>what you were trying to do</li>
+  <li>what went wrong</li>
+  <li>your device and browser</li>
+  <li>whether you were using a keyboard, screen reader, voice control, zoom, reduced motion, or another assistive technology</li>
+  <li>the name and version of any assistive technology, if applicable</li>
+  <li>a screenshot or screen recording, if helpful and comfortable for you to share</li>
 </ul>
 
 <h2>response process</h2>
-<p>we aim to acknowledge accessibility reports within two business days and tell you whether a fix is in the next release or further out. urgent issues (something that fully blocks access) get triaged immediately.</p>
+<p>we aim to acknowledge accessibility reports within two business days.</p>
+<p>we review reported issues and prioritize fixes based on severity, user impact, complexity, and whether the issue blocks access to an important feature.</p>
+<p>urgent issues that prevent access to core account, safety, deletion, privacy, communication, or connected account features may be prioritized faster.</p>
+
+<h2>alternative access</h2>
+<p>if you cannot access a feature or page because of an accessibility issue, email <a href="mailto:{{ contact_email }}">{{ contact_email }}</a> and we will try to provide a reasonable alternative way to get support or complete the requested action.</p>
+<p>this may include help with account access, privacy requests, data deletion requests, connected account questions, sms opt-out questions, location access questions, or other essential support needs.</p>
+
+<h2>ongoing improvements</h2>
+<p>we continue to improve accessibility as babyg changes.</p>
+<p>accessibility work may include reviewing page structure, improving labels, testing keyboard navigation, improving contrast, reducing motion issues, making forms clearer, improving screen reader support, improving mobile layouts, and updating design components.</p>
 
 <h2>what this statement is not</h2>
-<p>this is not a claim of full compliance with any specific standard. we aim toward WCAG 2.1 AA but have not been audited by a third party. the words "we aim to" and "we work to" are deliberate. they describe an ongoing commitment, not a finished state.</p>
+<p>this statement is not a guarantee that babyg is fully compliant with every accessibility standard or law in every jurisdiction.</p>
+<p>it is a statement of our current accessibility goals, practices, and reporting process.</p>
 
 <h2>contact</h2>
-<p>accessibility questions or reports: <a href="mailto:{{ contact_email }}">{{ contact_email }}</a>.</p>
+<p>accessibility questions, requests, or reports can be sent to:</p>
+<p><a href="mailto:{{ contact_email }}">{{ contact_email }}</a></p>
 {% endblock %}
