@@ -1785,8 +1785,7 @@ h1, h2, h3, h4 {
 }
 @media (max-width: 999px) {
   .is-chat.chat-keyboard-open #view {
-    height: calc(100vh - 54px - env(safe-area-inset-top, 0px));
-    height: calc(100dvh - 54px - env(safe-area-inset-top, 0px));
+    height: calc(var(--bot-visual-height, 100dvh) - 54px - env(safe-area-inset-top, 0px));
   }
   .is-chat.chat-keyboard-open .app-tabbar {
     transform: translateY(110%);
@@ -1794,7 +1793,7 @@ h1, h2, h3, h4 {
     pointer-events: none;
   }
   .is-chat.chat-keyboard-open .bot-composer {
-    padding-bottom: max(env(safe-area-inset-bottom, 8px), 8px);
+    padding-bottom: 10px;
   }
 }
 .is-chat .bot-screen { flex: 1; min-height: 0; }
@@ -1809,7 +1808,6 @@ h1, h2, h3, h4 {
   margin: 0;
   padding: 0;
 }
-
 /* DM thread: same full-height behavior as bot chat, separate body flag
    so the marketing/dashboard pages keep their normal scroll. */
 .is-dm-thread .app-main { padding-bottom: 0; }
