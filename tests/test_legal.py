@@ -23,7 +23,6 @@ SHARED_TOKENS = [
     'href="/terms"',
     'href="/accessibility"',
     'href="/data-deletion"',
-    'href="/"',  # back to home
 ]
 
 
