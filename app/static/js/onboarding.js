@@ -1,10 +1,8 @@
 /* onboarding.js — small stepper for the creator signup wizard.
  *
  * All <fieldset data-onb-step="N"> sections live in the same form. With JS,
- * we show one at a time and the user clicks back / continue / finish.
- * The final "finish" button is the only real submit — it posts the
- * complete form to the existing /onboarding/creator endpoint, exactly
- * like the legacy single-page form.
+ * we show one at a time and the user clicks back / continue. The one
+ * primary button becomes the submit action on the final step.
  *
  * Without JS, every fieldset renders visible (no `display:none` is set
  * in CSS), and the form still submits cleanly. Hard fallback to today's
@@ -22,8 +20,7 @@
 
   const pips = Array.from(document.querySelectorAll("[data-onb-step-pip]"));
   const prevBtn = document.querySelector("[data-onb-prev]");
-  const nextBtn = document.querySelector("[data-onb-next]");
-  const finishBtn = document.querySelector("[data-onb-finish]");
+  const primaryBtn = document.querySelector("[data-onb-primary]");
   const otherToggle = form.querySelector("[data-onb-other-toggle]");
   const otherField = form.querySelector("[data-onb-other-field]");
   const otherInput = form.querySelector('input[name="niche_other"]');
@@ -45,38 +42,6 @@
     }
   };
 
-  const selectedLabels = (name) => {
-    const checked = Array.from(
-      form.querySelectorAll(`[name="${name}"]:checked`)
-    ).map((input) => {
-      const label = input.closest("label");
-      return label ? label.textContent.trim() : input.value;
-    }).filter(Boolean);
-    if (name === "niches" && otherToggle && otherToggle.checked && otherInput) {
-      const custom = otherInput.value.trim();
-      return checked
-        .filter((value) => value.toLowerCase() !== "other")
-        .concat(custom ? [custom] : []);
-    }
-    return checked;
-  };
-
-  const updateReview = () => {
-    const reviewFields = form.querySelectorAll("[data-onb-review]");
-    if (!reviewFields.length) return;
-    reviewFields.forEach((el) => {
-      const key = el.dataset.onbReview;
-      let value = "";
-      if (key === "niches" || key === "content_formats") {
-        value = selectedLabels(key).join(", ");
-      } else {
-        const field = form.querySelector(`[name="${key}"]`);
-        value = field ? field.value.trim() : "";
-      }
-      el.textContent = value || "not set";
-    });
-  };
-
   const renderStep = () => {
     steps.forEach((s) => {
       s.hidden = s.dataset.onbStep !== String(current);
@@ -95,9 +60,11 @@
       }
     });
     if (prevBtn) prevBtn.hidden = current === 1;
-    if (nextBtn) nextBtn.hidden = current === total;
-    if (finishBtn) finishBtn.hidden = current !== total;
-    updateReview();
+    if (primaryBtn) {
+      primaryBtn.innerHTML = current === total
+        ? 'finish setup <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 9L9 3M9 3H4M9 3V8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>'
+        : 'continue <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 9L9 3M9 3H4M9 3V8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    }
     // Focus the first field of the new step so keyboard users land in
     // the right place.
     const focusTarget = stepEl(current).querySelector(
@@ -164,10 +131,14 @@
     return true;
   };
 
-  if (nextBtn) {
-    nextBtn.addEventListener("click", () => {
-      if (!validateStep(current)) return;
+  if (primaryBtn) {
+    primaryBtn.addEventListener("click", (e) => {
+      if (!validateStep(current)) {
+        e.preventDefault();
+        return;
+      }
       if (current < total) {
+        e.preventDefault();
         current += 1;
         renderStep();
       }
@@ -181,18 +152,6 @@
       }
     });
   }
-  // The finish button is `type=submit` — clicking it posts the form
-  // natively. We just gate it on the last step's validation; the
-  // earlier steps were validated when the user advanced through them.
-  if (finishBtn) {
-    finishBtn.addEventListener("click", (e) => {
-      // Don't preventDefault on success — let the form submit.
-      if (!validateStep(current)) {
-        e.preventDefault();
-      }
-    });
-  }
-
   // Block Enter-in-text-input from submitting before the user reaches
   // step N. Textareas keep newline behavior.
   form.addEventListener("keydown", (e) => {
@@ -200,17 +159,13 @@
     if (e.target.tagName === "TEXTAREA") return;
     if (current < total) {
       e.preventDefault();
-      if (nextBtn) nextBtn.click();
+      if (primaryBtn) primaryBtn.click();
     }
   });
 
   if (otherToggle) {
     otherToggle.addEventListener("change", syncOtherField);
   }
-  if (otherInput) {
-    otherInput.addEventListener("input", updateReview);
-  }
-  form.addEventListener("change", updateReview);
   syncOtherField();
   renderStep();
 })();

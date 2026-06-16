@@ -43,15 +43,13 @@ CREATOR_NICHES = [
     "food", "fashion", "beauty", "fitness", "wellness", "travel",
     "lifestyle", "nightlife", "music", "art", "real-estate", "tech",
 ]
-CREATOR_FORMATS = [
-    "reels", "carousels", "stories", "static", "long-form", "ugc",
-]
+CREATOR_FORMATS = ["reels", "stories", "static", "long-form"]
 CREATOR_NEIGHBORHOODS = [
     "Wynwood", "Brickell", "Miami Beach", "Coconut Grove", "Coral Gables",
     "Edgewater", "Downtown", "Little Havana", "Design District", "Aventura",
     "Other",
 ]
-CREATOR_PLATFORMS = ["Instagram", "TikTok", "YouTube"]
+CREATOR_PLATFORMS = ["Instagram", "TikTok"]
 CREATOR_HARD_LIMITS = [
     "no alcohol", "no nicotine", "no fast fashion", "no crypto",
     "no MLM", "no gambling", "no political",
@@ -140,7 +138,19 @@ async def creator_submit(
     request: Request, session: SessionPayload = Depends(require_role("creator"))
 ):
     form = await request.form()
-    payload, error = _validate_creator(form)
+    profile = profiles.get_creator_profile(session["user_id"]) or {}
+    try:
+        instagram_connection = oauth_connections.get_instagram_connection(
+            session["user_id"]
+        )
+    except Exception:
+        logger.exception("onboarding: get_instagram_connection failed")
+        instagram_connection = None
+    payload, error = _validate_creator(
+        form,
+        existing_profile=profile,
+        instagram_connection=instagram_connection,
+    )
     if error:
         return _creator_error(request, form, error)
 
@@ -149,7 +159,7 @@ async def creator_submit(
     except profiles.HandleAlreadyTakenError:
         return _creator_error(
             request, form,
-            "that instagram handle is already in use on babyg. pick a different one.",
+            "that instagram account is already in use on babyg. connect a different account.",
         )
     if not ok:
         return _creator_error(
@@ -170,18 +180,25 @@ async def operator_welcome(
 # -----------------------------------------------------------------------------
 
 
-def _validate_creator(form) -> tuple[dict[str, Any], str | None]:
+def _validate_creator(
+    form,
+    *,
+    existing_profile: dict[str, Any] | None = None,
+    instagram_connection: dict[str, Any] | None = None,
+) -> tuple[dict[str, Any], str | None]:
     full_name = _str(form.get("full_name"), 120)
-    handle = _str(form.get("instagram_handle"), 64)
-    if handle.startswith("@"):
-        handle = handle[1:]
     bio = _str(form.get("bio"), 600)
     neighborhood = _str(form.get("neighborhood"), 64)
+    handle = _str(
+        (existing_profile or {}).get("instagram_handle")
+        or _instagram_username_from_connection(instagram_connection),
+        64,
+    )
+    if handle.startswith("@"):
+        handle = handle[1:]
 
     if not full_name:
         return {}, "please enter your full name."
-    if not handle:
-        return {}, "please enter your instagram handle."
     if neighborhood and neighborhood not in CREATOR_NEIGHBORHOODS:
         return {}, "pick a neighborhood from the list or leave it blank."
 
@@ -196,7 +213,7 @@ def _validate_creator(form) -> tuple[dict[str, Any], str | None]:
 
     payload: dict[str, Any] = {
         "full_name": full_name,
-        "instagram_handle": handle.lower(),
+        "instagram_handle": handle.lower() or None,
         "neighborhood": neighborhood or None,
         "bio": bio or None,
         "niches": niches,
