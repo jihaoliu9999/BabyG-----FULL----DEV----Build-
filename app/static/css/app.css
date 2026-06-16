@@ -1290,21 +1290,26 @@ h1, h2, h3, h4 {
   animation: appLogoDriftSix 44s ease-in-out -25s infinite;
 }
 .onb-shell {
-  width: min(100%, 1120px);
+  min-height: 100vh;
+  min-height: 100dvh;
+  width: min(100%, 760px);
   margin: 0 auto;
-  padding: clamp(30px, 6vw, 72px) 20px max(env(safe-area-inset-bottom, 48px), 56px);
+  padding: clamp(24px, 5vw, 54px) 16px max(env(safe-area-inset-bottom, 28px), 32px);
   position: relative;
   z-index: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 .onb-hero {
-  max-width: 680px;
-  margin: 0 auto 24px;
+  max-width: 560px;
+  margin: 0 auto 18px;
   text-align: center;
 }
 .onb-logo {
-  width: 44px;
-  height: 44px;
-  margin: 0 auto 18px;
+  width: 38px;
+  height: 38px;
+  margin: 0 auto 14px;
   display: block;
 }
 .onb-eyebrow,
@@ -1318,42 +1323,42 @@ h1, h2, h3, h4 {
 }
 .onb-eyebrow { margin-bottom: 14px; }
 .onb-h1 {
-  max-width: 780px;
-  margin: 0 auto 14px;
-  font-size: clamp(38px, 7vw, 78px);
-  line-height: .95;
+  max-width: 560px;
+  margin: 0 auto 10px;
+  font-size: clamp(36px, 9vw, 64px);
+  line-height: 1;
   letter-spacing: var(--display-track);
   font-weight: var(--display-weight);
 }
 .onb-sub {
-  max-width: 600px;
+  max-width: 420px;
   margin: 0 auto;
   color: var(--ink-mid);
-  font-size: clamp(15px, 1.6vw, 18px);
-  line-height: 1.55;
+  font-size: 15px;
+  line-height: 1.4;
 }
 .onb-progress {
-  width: min(100%, 980px);
+  width: min(100%, 620px);
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 8px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
   list-style: none;
-  margin: 0 auto 14px;
+  margin: 0 auto 10px;
   padding: 0;
 }
 .onb-progress li {
-  min-height: 38px;
+  min-height: 34px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  padding: 9px 10px;
+  padding: 8px 9px;
   border: 1px solid var(--hairline);
   border-radius: 14px;
   background: rgba(22,22,22,.42);
   font-family: var(--mono);
-  font-size: 9.5px;
-  letter-spacing: .18em;
+  font-size: 8.5px;
+  letter-spacing: .14em;
   text-transform: uppercase;
   color: var(--ink-dim);
   text-align: center;
@@ -1371,32 +1376,33 @@ h1, h2, h3, h4 {
   border-color: var(--hairline-strong);
 }
 .onb-card {
-  width: min(100%, 980px);
+  width: min(100%, 620px);
   margin: 0 auto;
-  padding: clamp(22px, 3.5vw, 42px);
+  padding: clamp(20px, 4vw, 30px);
   border: 1px solid rgba(255,255,255,.08);
-  border-radius: 28px;
+  border-radius: 24px;
   background:
     linear-gradient(145deg, rgba(255,255,255,.045), rgba(255,255,255,0) 34%),
     rgba(17,17,17,.82);
   box-shadow: 0 28px 90px rgba(0,0,0,.28);
   backdrop-filter: blur(14px);
 }
-.onb-section {
+.onb-card .onb-section {
   border: 0;
   padding: 0;
   margin: 0;
 }
-.onb-section h2 {
-  max-width: 680px;
-  margin: 12px 0 12px;
-  font-size: clamp(32px, 5vw, 58px);
+.onb-card .onb-section h2 {
+  max-width: 100%;
+  margin: 10px 0 10px;
+  font-size: clamp(30px, 7vw, 44px);
   line-height: 1;
   letter-spacing: var(--display-track);
   font-weight: var(--display-weight);
+  text-align: center;
 }
 .onb-card .field {
-  margin-bottom: 18px;
+  margin-bottom: 14px;
 }
 .onb-card .field:last-child {
   margin-bottom: 0;
@@ -1410,26 +1416,27 @@ h1, h2, h3, h4 {
 }
 .onb-step-copy,
 .onb-intro p {
-  max-width: 620px;
-  margin: 0 0 26px;
+  max-width: 420px;
+  margin: 0 auto 20px;
   color: var(--ink-mid);
-  font-size: 16px;
-  line-height: 1.55;
+  font-size: 14px;
+  line-height: 1.45;
+  text-align: center;
 }
 .onb-intro-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-  margin-top: 30px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 22px;
 }
 .onb-intro-grid span,
 .onb-review-grid > div {
-  min-height: 96px;
+  min-height: 64px;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   gap: 14px;
-  padding: 16px;
+  padding: 14px;
   border: 1px solid var(--hairline);
   border-radius: 18px;
   background: rgba(10,10,10,.36);
@@ -1444,7 +1451,7 @@ h1, h2, h3, h4 {
 }
 .onb-review-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: 1fr;
   gap: 10px;
 }
 .onb-review-grid strong {
@@ -1477,7 +1484,7 @@ h1, h2, h3, h4 {
   background: rgba(255,77,109,.08);
 }
 .onb-other-field {
-  max-width: 420px;
+  max-width: 100%;
   margin-top: 10px;
 }
 .onb-other-field[hidden] {
@@ -1485,28 +1492,29 @@ h1, h2, h3, h4 {
 }
 .onb-integrations {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: 1fr;
+  gap: 8px;
 }
-.onb-integration-card {
-  min-height: 150px;
+.onb-integration-row {
+  min-height: 72px;
   display: flex;
-  flex-direction: column;
+  align-items: center;
   justify-content: space-between;
-  gap: 18px;
-  padding: 18px;
+  gap: 12px;
+  padding: 14px;
   border: 1px solid var(--hairline);
-  border-radius: 20px;
+  border-radius: 18px;
   background: rgba(10,10,10,.34);
 }
-.onb-integration-card p {
-  margin: 8px 0 0;
+.onb-integration-row p {
+  margin: 3px 0 0;
   color: var(--ink-mid);
-  font-size: 14px;
-  line-height: 1.45;
+  font-size: 13px;
+  line-height: 1.3;
 }
-.onb-integration-card strong,
+.onb-integration-row strong,
 .onb-muted {
+  flex: 0 0 auto;
   width: fit-content;
   padding: 7px 10px;
   border: 1px solid var(--hairline-strong);
@@ -1515,71 +1523,106 @@ h1, h2, h3, h4 {
   font-size: 12px;
   line-height: 1;
 }
-.onb-integration-card.is-connected {
+.onb-integration-row.is-connected {
   border-color: rgba(255,77,109,.42);
   background: rgba(255,77,109,.06);
 }
-.onb-integration-card.is-connected strong {
+.onb-integration-row.is-connected strong {
   color: var(--lime);
   border-color: rgba(255,77,109,.46);
 }
-.onb-integration-card.is-muted {
+.onb-integration-row.is-muted {
   opacity: .72;
 }
-.onb-actions {
+.onb-card .onb-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-top: 34px;
-}
-.onb-actions .btn {
-  min-height: 48px;
   justify-content: center;
+  gap: 12px;
+  margin-top: 24px;
 }
-.onb-actions .btn-prev {
+.onb-card .onb-actions [hidden] {
+  display: none !important;
+}
+.onb-card .onb-actions .btn {
+  min-height: 50px;
+  justify-content: center;
+  display: inline-flex;
+  align-items: center;
+  line-height: 1;
+}
+.onb-card .onb-actions .btn-prev {
   flex: 0 0 auto;
-  min-width: 104px;
+  min-width: 82px;
+  min-height: 42px;
 }
-.onb-actions .btn-wide {
+.onb-card .onb-actions .btn-wide {
   flex: 1 1 auto;
+  max-width: 420px;
 }
 
-@media (max-width: 840px) {
-  .onb-progress {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-  .onb-intro-grid,
+@media (min-width: 720px) {
   .onb-integrations {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 @media (max-width: 640px) {
   .onb-shell {
-    padding-inline: 14px;
+    justify-content: flex-start;
+    padding: 18px 12px max(env(safe-area-inset-bottom, 18px), 22px);
+  }
+  .onb-logo {
+    width: 34px;
+    height: 34px;
+    margin-bottom: 10px;
+  }
+  .onb-hero {
+    margin-bottom: 14px;
+  }
+  .onb-h1 {
+    font-size: clamp(34px, 11vw, 44px);
+    white-space: nowrap;
+  }
+  .onb-sub {
+    font-size: 14px;
   }
   .onb-card {
-    padding: 20px;
+    padding: 18px;
     border-radius: 22px;
   }
   .onb-progress {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 5px;
   }
   .onb-progress li {
-    min-height: 34px;
-    font-size: 8.5px;
-    letter-spacing: .14em;
+    min-height: 30px;
+    padding: 7px 4px;
+    font-size: 7.5px;
+    letter-spacing: .1em;
   }
-  .onb-intro-grid,
-  .onb-review-grid,
-  .onb-integrations {
-    grid-template-columns: 1fr;
+  .onb-card .onb-section h2 {
+    font-size: clamp(30px, 9vw, 38px);
+    white-space: nowrap;
   }
-  .onb-actions {
-    position: sticky;
-    bottom: max(env(safe-area-inset-bottom, 12px), 12px);
-    z-index: 3;
-    padding-top: 8px;
-    background: linear-gradient(to top, rgba(10,10,10,.9), rgba(10,10,10,0));
+  .onb-card .field input,
+  .onb-card .field textarea,
+  .onb-card .field select {
+    min-height: 46px;
+  }
+  .onb-integration-row {
+    min-height: 66px;
+    padding: 12px;
+  }
+  .onb-card .onb-actions {
+    gap: 8px;
+    margin-top: 20px;
+  }
+  .onb-card .onb-actions .btn-wide {
+    width: 100%;
+    max-width: none;
+  }
+  .onb-card .onb-actions .btn-prev:not([hidden]) + .btn-wide {
+    width: auto;
   }
 }
 @media (max-width: 720px) {

@@ -85,7 +85,7 @@ def test_creator_wizard_renders_blank_for_new_user(client, store):
     _signed_in(client, role="creator")
     r = client.get("/onboarding/creator")
     assert r.status_code == 200
-    assert "set up babyg around your creator life" in r.text
+    assert "set up babyg." in r.text
     # All chip groups should be present.
     for niche in ["food", "fashion", "fitness"]:
         assert f'value="{niche}"' in r.text
@@ -117,7 +117,8 @@ def test_creator_wizard_pre_fills_existing_values(client, store):
     r = client.get("/onboarding/creator")
     assert r.status_code == 200
     assert 'value="Anna Reyes"' in r.text
-    assert 'value="annareyes"' in r.text
+    assert 'name="instagram_handle"' not in r.text
+    assert "@annareyes" in r.text
     # Selected chips for fashion + lifestyle should be checked. The macro
     # renders `<input ... value="fashion" checked />` (whitespace-collapsed).
     text_squashed = " ".join(r.text.split())
@@ -133,11 +134,10 @@ def test_creator_wizard_pre_fills_existing_values(client, store):
 def _valid_creator_form() -> dict:
     return {
         "full_name": "Anna Reyes",
-        "instagram_handle": "@AnnaReyes",
         "neighborhood": "Wynwood",
         "bio": "Miami food + fashion.",
         "niches": ["food", "fashion"],
-        "content_formats": ["reels", "carousels"],
+        "content_formats": ["reels", "stories"],
         "primary_platform": "Instagram",
         "hard_limits": ["no fast fashion"],
         "tier": "pro",
@@ -154,10 +154,10 @@ def test_creator_submit_saves_and_redirects(client, store):
     assert store.last_creator_payload is not None
     p = store.last_creator_payload
     assert p["full_name"] == "Anna Reyes"
-    assert p["instagram_handle"] == "annareyes"      # @ stripped, lowercased
+    assert p["instagram_handle"] is None
     assert p["neighborhood"] == "Wynwood"
     assert p["niches"] == ["food", "fashion"]
-    assert p["content_formats"] == ["reels", "carousels"]
+    assert p["content_formats"] == ["reels", "stories"]
     assert p["primary_platform"] == "Instagram"
     assert p["follower_range"] is None
     assert p["engagement_range"] is None
@@ -190,12 +190,34 @@ def test_creator_submit_drops_unknown_enum_values(client, store):
     form = _valid_creator_form()
     form["niches"] = [*form["niches"], "<script>"]
     form["follower_range"] = "9999G"
+    form["content_formats"] = ["reels", "carousels", "ugc"]
+    form["primary_platform"] = "YouTube"
 
     r = client.post("/onboarding/creator", data=form)
     assert r.status_code == 303
     p = store.last_creator_payload
     assert "<script>" not in p["niches"]
     assert p["follower_range"] is None
+    assert p["content_formats"] == ["reels"]
+    assert p["primary_platform"] is None
+
+
+def test_creator_submit_uses_instagram_connection_handle(
+    monkeypatch, client, store
+):
+    from app.routes import onboarding as onboarding_routes
+
+    _signed_in(client, role="creator", user_id="u-1")
+    monkeypatch.setattr(
+        onboarding_routes.oauth_connections,
+        "get_instagram_connection",
+        lambda uid: {"metadata": {"username": "MiaCreates"}},
+    )
+
+    r = client.post("/onboarding/creator", data=_valid_creator_form())
+
+    assert r.status_code == 303
+    assert store.last_creator_payload["instagram_handle"] == "miacreates"
 
 
 def test_creator_submit_saves_custom_other_niche(client, store):
@@ -263,13 +285,13 @@ def test_onboarding_creator_requires_auth(client, store):
 
 
 # ---------------------------------------------------------------------------
-# Stepped wizard structure: the form is organized into six focused
+# Stepped wizard structure: the form is organized into four focused
 # <fieldset data-onb-step="N"> sections. Pin the markers so a future
 # refactor that drops one of the steps surfaces clearly.
 # ---------------------------------------------------------------------------
 
 
-def test_onboarding_creator_renders_six_steps_and_integrations(
+def test_onboarding_creator_renders_four_steps_and_integrations(
     monkeypatch, client, store
 ):
     from app.routes import onboarding as onboarding_routes
@@ -299,11 +321,11 @@ def test_onboarding_creator_renders_six_steps_and_integrations(
 
     r = client.get("/onboarding/creator")
     assert r.status_code == 200
-    # Six step pips.
-    for n in range(1, 7):
+    # Four step pips.
+    for n in range(1, 5):
         assert f'data-onb-step-pip="{n}"' in r.text
-    # Six step fieldsets.
-    for n in range(1, 7):
+    # Four step fieldsets.
+    for n in range(1, 5):
         assert f'data-onb-step="{n}"' in r.text
     # Integrations cards include the provider labels and simple status
     # states, without collecting manual social stat questions.
@@ -317,6 +339,10 @@ def test_onboarding_creator_renders_six_steps_and_integrations(
     assert "follower range" not in r.text
     assert "engagement rate" not in r.text
     assert "creator tenure" not in r.text
+    assert 'name="instagram_handle"' not in r.text
+    assert 'value="ugc"' not in r.text
+    assert 'value="carousels"' not in r.text
+    assert 'value="YouTube"' not in r.text
 
 
 def test_onboarding_passes_google_flags_when_configured(monkeypatch, client, store):
@@ -377,4 +403,5 @@ def test_onboarding_prefills_handle_from_instagram_metadata(
     r = client.get("/onboarding/creator")
 
     assert r.status_code == 200
-    assert 'value="miacreates"' in r.text
+    assert "@miacreates" in r.text
+    assert 'name="instagram_handle"' not in r.text
