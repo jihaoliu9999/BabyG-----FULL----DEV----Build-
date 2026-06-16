@@ -30,47 +30,30 @@
   <div class="onb-hero">
     <img src="/static/assets/logo-bg.png" alt="babyg" class="onb-logo" />
     <span class="onb-eyebrow">creator setup</span>
-    <h1 class="onb-h1">set up babyg.</h1>
-    <p class="onb-sub">quick basics. no manual stats.</p>
   </div>
 
   {% if error %}<div class="auth-error">{{ error }}</div>{% endif %}
 
   <ol class="onb-progress" data-onb-progress>
-    <li data-onb-step-pip="1" aria-current="step"><span class="n">1</span> welcome</li>
-    <li data-onb-step-pip="2"><span class="n">2</span> basics</li>
-    <li data-onb-step-pip="3"><span class="n">3</span> style</li>
-    <li data-onb-step-pip="4"><span class="n">4</span> connect</li>
+    <li data-onb-step-pip="1" aria-current="step"><span class="n">1</span> basics</li>
+    <li data-onb-step-pip="2"><span class="n">2</span> style</li>
+    <li data-onb-step-pip="3"><span class="n">3</span> connect</li>
   </ol>
 
   <form method="post" action="/onboarding/creator" data-onb-form class="onb-card">
     {% include "_partials/csrf.html" %}
 
-    <fieldset class="onb-section onb-intro" data-onb-step="1">
-      <span class="onb-section-kicker">01 / welcome</span>
-      <h2>you’re almost in.</h2>
-      <p>babyg needs a few details to start managing the right things.</p>
-      <div class="onb-intro-grid">
-        <span>basics</span>
-        <span>style</span>
-        <span>limits</span>
-        <span>accounts</span>
-      </div>
-    </fieldset>
-
-    <fieldset class="onb-section" data-onb-step="2">
-      <span class="onb-section-kicker">02 / basics</span>
+    <fieldset class="onb-section" data-onb-step="1">
+      <span class="onb-section-kicker">01 / basics</span>
       <h2>tell us the basics.</h2>
-      <p class="onb-step-copy">who you are and where you work.</p>
       {{ f.field("full name", "full_name", profile.get("full_name", ""), required=True) }}
       {{ f.select("neighborhood", "neighborhood", vocab.neighborhoods, selected=profile.get("neighborhood")) }}
       {{ f.textarea("short bio", "bio", profile.get("bio", ""), placeholder="what do you make?", rows=3) }}
     </fieldset>
 
-    <fieldset class="onb-section" data-onb-step="3">
-      <span class="onb-section-kicker">03 / content style</span>
+    <fieldset class="onb-section" data-onb-step="2">
+      <span class="onb-section-kicker">02 / style</span>
       <h2>what do you create?</h2>
-      <p class="onb-step-copy">pick the lanes babyg should watch.</p>
 
       <div class="field">
         <label class="field-label">niches <span class="req">*</span></label>
@@ -102,10 +85,9 @@
       <input type="hidden" name="tier" value="{{ profile.get('tier') or 'basic' }}" />
     </fieldset>
 
-    <fieldset class="onb-section" data-onb-step="4">
-      <span class="onb-section-kicker">04 / connect + finish</span>
+    <fieldset class="onb-section" data-onb-step="3">
+      <span class="onb-section-kicker">03 / connect</span>
       <h2>connect your accounts.</h2>
-      <p class="onb-step-copy">you're ready. connect now, or finish and do it later.</p>
       <div class="onb-integrations">
         <article class="onb-integration-row{% if instagram_connected %} is-connected{% endif %}">
           <div>

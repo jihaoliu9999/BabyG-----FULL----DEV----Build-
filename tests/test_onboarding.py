@@ -85,7 +85,8 @@ def test_creator_wizard_renders_blank_for_new_user(client, store):
     _signed_in(client, role="creator")
     r = client.get("/onboarding/creator")
     assert r.status_code == 200
-    assert "set up babyg." in r.text
+    assert "tell us the basics." in r.text
+    assert "you're almost in." not in r.text
     # All chip groups should be present.
     for niche in ["food", "fashion", "fitness"]:
         assert f'value="{niche}"' in r.text
@@ -190,7 +191,7 @@ def test_creator_submit_drops_unknown_enum_values(client, store):
     form = _valid_creator_form()
     form["niches"] = [*form["niches"], "<script>"]
     form["follower_range"] = "9999G"
-    form["content_formats"] = ["reels", "carousels", "ugc"]
+    form["content_formats"] = ["reels", "static", "carousels", "ugc"]
     form["primary_platform"] = "YouTube"
 
     r = client.post("/onboarding/creator", data=form)
@@ -285,13 +286,13 @@ def test_onboarding_creator_requires_auth(client, store):
 
 
 # ---------------------------------------------------------------------------
-# Stepped wizard structure: the form is organized into four focused
+# Stepped wizard structure: the form is organized into three focused
 # <fieldset data-onb-step="N"> sections. Pin the markers so a future
 # refactor that drops one of the steps surfaces clearly.
 # ---------------------------------------------------------------------------
 
 
-def test_onboarding_creator_renders_four_steps_and_integrations(
+def test_onboarding_creator_renders_three_steps_and_integrations(
     monkeypatch, client, store
 ):
     from app.routes import onboarding as onboarding_routes
@@ -321,12 +322,17 @@ def test_onboarding_creator_renders_four_steps_and_integrations(
 
     r = client.get("/onboarding/creator")
     assert r.status_code == 200
-    # Four step pips.
-    for n in range(1, 5):
+    # Three step pips.
+    for n in range(1, 4):
         assert f'data-onb-step-pip="{n}"' in r.text
-    # Four step fieldsets.
-    for n in range(1, 5):
+    assert 'data-onb-step-pip="4"' not in r.text
+    # Three step fieldsets.
+    for n in range(1, 4):
         assert f'data-onb-step="{n}"' in r.text
+    assert 'data-onb-step="4"' not in r.text
+    assert "welcome" not in r.text.lower()
+    assert "you're almost in." not in r.text
+    assert "basics</span>" not in r.text
     # Integrations cards include the provider labels and simple status
     # states, without collecting manual social stat questions.
     assert "calendar" in r.text
@@ -340,6 +346,7 @@ def test_onboarding_creator_renders_four_steps_and_integrations(
     assert "engagement rate" not in r.text
     assert "creator tenure" not in r.text
     assert 'name="instagram_handle"' not in r.text
+    assert 'value="static"' not in r.text
     assert 'value="ugc"' not in r.text
     assert 'value="carousels"' not in r.text
     assert 'value="YouTube"' not in r.text
