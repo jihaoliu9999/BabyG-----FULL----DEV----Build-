@@ -197,6 +197,56 @@ def list_primary_events(
     return items if isinstance(items, list) else []
 
 
+def create_primary_event(
+    access_token: str,
+    *,
+    title: str,
+    starts_at: str,
+    ends_at: str | None = None,
+    notes: str | None = None,
+    location: str | None = None,
+) -> str:
+    """Create one Google Calendar event. Returns the Google event id.
+
+    Must only be called by an approved action executor after explicit
+    creator confirmation. This does not delete, update, invite guests,
+    book restaurants, collect payment, or create paid reservations.
+    """
+    summary = " ".join(str(title or "").split())[:140]
+    start = _clean_datetime(starts_at)
+    end = _clean_datetime(ends_at) if ends_at else _default_end(start)
+    if not summary or not start:
+        raise GoogleCalendarError("Google Calendar event missing title or start")
+    payload: dict[str, Any] = {
+        "summary": summary,
+        "start": {"dateTime": start},
+        "end": {"dateTime": end},
+    }
+    description = str(notes or "").strip()[:2000]
+    venue = str(location or "").strip()[:160]
+    if description:
+        payload["description"] = description
+    if venue:
+        payload["location"] = venue
+
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json",
+    }
+    try:
+        response = httpx.post(EVENTS_URL, json=payload, headers=headers, timeout=20.0)
+        response.raise_for_status()
+    except httpx.HTTPError as exc:
+        status = getattr(getattr(exc, "response", None), "status_code", "?")
+        logger.info("Google Calendar events.insert failed with status %s", status)
+        raise GoogleCalendarError("Google Calendar event create failed") from exc
+    data = response.json()
+    event_id = str(data.get("id") or "")
+    if not event_id:
+        raise GoogleCalendarError("Google Calendar event create returned no id")
+    return event_id
+
+
 def event_to_booking_payload(event: dict[str, Any]) -> dict[str, Any] | None:
     event_id = str(event.get("id") or "").strip()
     if not event_id or event.get("status") == "cancelled":
@@ -251,6 +301,32 @@ def _event_time(value: dict[str, Any]) -> str | None:
     except ValueError:
         return None
     return datetime(all_day.year, all_day.month, all_day.day, tzinfo=UTC).isoformat()
+
+
+def _clean_datetime(value: str | None) -> str:
+    raw = str(value or "").strip()[:64]
+    if not raw:
+        return ""
+    # Accept the app's common datetime-local shape and normalize to an
+    # explicit UTC timestamp for Google Calendar.
+    candidate = raw.replace("Z", "+00:00") if raw.endswith("Z") else raw
+    try:
+        parsed = datetime.fromisoformat(candidate)
+    except ValueError as exc:
+        raise GoogleCalendarError("Google Calendar event datetime invalid") from exc
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC).isoformat().replace("+00:00", "Z")
+
+
+def _default_end(starts_at: str) -> str:
+    try:
+        parsed = datetime.fromisoformat(starts_at.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise GoogleCalendarError("Google Calendar event datetime invalid") from exc
+    return (parsed + timedelta(hours=1)).astimezone(UTC).isoformat().replace(
+        "+00:00", "Z"
+    )
 
 
 def _google_dt(value: datetime) -> str:

@@ -33,6 +33,7 @@ ActionType = Literal[
     "create_gmail_draft",
     "gmail.create_draft",
     "gmail.send_email",
+    "calendar.create_event",
 ]
 DraftKind = Literal[
     "caption",
@@ -112,6 +113,7 @@ ALLOWED_ACTION_TYPES = (
     "create_gmail_draft",
     "gmail.create_draft",
     "gmail.send_email",
+    "calendar.create_event",
 )
 ACTION_DATETIME_RE = re.compile(
     r"\b(\d{4}-\d{2}-\d{2}(?:[T ][0-2]\d:[0-5]\d(?::[0-5]\d)?(?:Z)?)?)\b"
@@ -344,6 +346,13 @@ def confirm_action(*, user_id: str, message_id: str) -> BotActionResult:
             tool_calls=tool_calls,
             action_type=action_type,
         )
+    if _is_calendar_create_action(action_type):
+        return _confirm_calendar_create_action(
+            user_id=user_id,
+            message_id=message_id,
+            tool_calls=tool_calls,
+            action_type=action_type,
+        )
 
     locked = {
         **tool_calls,
@@ -417,6 +426,13 @@ def cancel_action(*, user_id: str, message_id: str) -> BotActionResult:
         )
     if _is_gmail_send_action(action_type):
         return _cancel_gmail_send_action(
+            user_id=user_id,
+            message_id=message_id,
+            tool_calls=tool_calls,
+            action_type=action_type,
+        )
+    if _is_calendar_create_action(action_type):
+        return _cancel_calendar_create_action(
             user_id=user_id,
             message_id=message_id,
             tool_calls=tool_calls,
@@ -700,6 +716,137 @@ def _cancel_gmail_send_action(
     return BotActionResult(message=message, action_type=action_type)
 
 
+def _confirm_calendar_create_action(
+    *,
+    user_id: str,
+    message_id: str,
+    tool_calls: dict[str, Any],
+    action_type: str,
+) -> BotActionResult:
+    """Confirm and execute exactly one Google Calendar create action."""
+    proposal_id = str(tool_calls.get("proposal_id") or "")
+    if not proposal_id:
+        message = "That calendar event proposal is missing its approval record."
+        create_message(user_id=user_id, role="assistant", content=message)
+        return BotActionResult(message=message, action_type=action_type)
+
+    if not action_proposals.confirm_proposal(
+        proposal_id=proposal_id, user_id=user_id
+    ):
+        refreshed = action_proposals.get_for_user(
+            proposal_id=proposal_id, user_id=user_id
+        )
+        status = str((refreshed or {}).get("status") or "handled")
+        updated = {
+            **tool_calls,
+            "status": status,
+            "result": {
+                "ok": False,
+                "record_id": None,
+                "error": (refreshed or {}).get("error_code"),
+            },
+        }
+        _update_message_tool_calls(
+            message_id=message_id,
+            user_id=user_id,
+            tool_calls=updated,
+        )
+        message = (
+            "That Google Calendar event could not be approved. Reconnect "
+            "Calendar access, then try again."
+        )
+        create_message(user_id=user_id, role="assistant", content=message)
+        return BotActionResult(message=message, action_type=action_type)
+
+    if not action_proposals.mark_executing(
+        proposal_id=proposal_id, user_id=user_id
+    ):
+        message = "That calendar event was already handled."
+        create_message(user_id=user_id, role="assistant", content=message)
+        return BotActionResult(message=message, action_type=action_type)
+
+    executing = {
+        **tool_calls,
+        "status": "executing",
+        "result": {"ok": None, "record_id": None},
+    }
+    _update_message_tool_calls(
+        message_id=message_id,
+        user_id=user_id,
+        tool_calls=executing,
+    )
+
+    payload = tool_calls.get("payload")
+    if not isinstance(payload, dict):
+        payload = {}
+    event_id = _execute_calendar_create(user_id=user_id, payload=payload)
+    if event_id:
+        action_proposals.mark_executed(
+            proposal_id=proposal_id,
+            user_id=user_id,
+            external_result_id=event_id,
+        )
+        final_status = "executed"
+        message = _success_message("calendar.create_event", event_id)
+        ok = True
+    else:
+        action_proposals.mark_failed(
+            proposal_id=proposal_id,
+            user_id=user_id,
+            error_code="calendar_create_failed",
+            error_message=(
+                "Google Calendar events.insert failed or token was unavailable."
+            ),
+        )
+        final_status = "failed"
+        message = "I couldn't create that Google Calendar event. Nothing else happened."
+        ok = False
+
+    result_tool_calls = {
+        **tool_calls,
+        "status": final_status,
+        "result": {"ok": ok, "record_id": event_id},
+    }
+    _update_message_tool_calls(
+        message_id=message_id,
+        user_id=user_id,
+        tool_calls=result_tool_calls,
+    )
+    create_message(user_id=user_id, role="assistant", content=message)
+    return BotActionResult(
+        message=message,
+        executed=ok,
+        action_type=action_type,
+        record_id=event_id,
+    )
+
+
+def _cancel_calendar_create_action(
+    *,
+    user_id: str,
+    message_id: str,
+    tool_calls: dict[str, Any],
+    action_type: str,
+) -> BotActionResult:
+    proposal_id = str(tool_calls.get("proposal_id") or "")
+    if proposal_id:
+        action_proposals.cancel_proposal(proposal_id=proposal_id, user_id=user_id)
+    cancelled = {
+        **tool_calls,
+        "status": "cancelled",
+        "result": {"ok": False, "record_id": None},
+    }
+    _update_message_tool_calls(
+        message_id=message_id,
+        user_id=user_id,
+        tool_calls=cancelled,
+        expected_status="pending",
+    )
+    message = "Cancelled. No Google Calendar event was created."
+    create_message(user_id=user_id, role="assistant", content=message)
+    return BotActionResult(message=message, action_type=action_type)
+
+
 def build_context(user_id: str) -> dict[str, Any]:
     return read_only.collect_context(user_id)
 
@@ -804,6 +951,10 @@ def _execute_agent_tool(
         )
     if name == "send_gmail_email":
         return _stage_send_gmail_email_tool(
+            tool_input, pending_action=pending_action, user_id=user_id
+        )
+    if name == "create_google_calendar_event":
+        return _stage_google_calendar_event_tool(
             tool_input, pending_action=pending_action, user_id=user_id
         )
     return _execute_read_tool(user_id=user_id, name=name, tool_input=tool_input)
@@ -1081,6 +1232,111 @@ def _stage_send_gmail_email_tool(
             ),
         },
         "pending_action": proposal,
+    }
+
+
+def _stage_google_calendar_event_tool(
+    tool_input: dict[str, Any],
+    *,
+    pending_action: dict[str, Any] | None,
+    user_id: str,
+) -> dict[str, Any]:
+    """Stage a Google Calendar event proposal. NEVER calls Google."""
+    if pending_action is not None:
+        return {
+            "kind": "write_tool",
+            "ok": False,
+            "content": "An action is already pending for this turn.",
+        }
+    if not google_calendar.is_configured():
+        return {
+            "kind": "write_tool",
+            "ok": False,
+            "content": "Google Calendar is not configured on this server yet.",
+        }
+    try:
+        connection = oauth_connections.get_google_connection(user_id)
+    except Exception:
+        logger.exception("google calendar connection lookup failed (stage)")
+        connection = None
+    if not connection or not oauth_connections.google_calendar_connected(connection):
+        return {
+            "kind": "write_tool",
+            "ok": False,
+            "content": (
+                "Google Calendar writes require the creator to connect Calendar "
+                "from /creator/profile/settings."
+            ),
+        }
+    payload = _calendar_event_payload_from_tool(tool_input)
+    missing = [k for k in ("title", "starts_at") if not payload.get(k)]
+    if missing:
+        return {
+            "kind": "write_tool",
+            "ok": False,
+            "content": (
+                f"Missing required Google Calendar fields: {', '.join(missing)}."
+            ),
+        }
+    preview = _action_preview(action_type="calendar.create_event", payload=payload)
+    proposal_row = action_proposals.create_proposal(
+        user_id=user_id,
+        action_type="calendar.create_event",
+        payload=payload,
+        preview={
+            "title": payload["title"],
+            "starts_at": payload["starts_at"],
+            "ends_at": payload.get("ends_at"),
+            "location": payload.get("location"),
+            "notes": payload.get("notes"),
+        },
+    )
+    if not proposal_row:
+        return {
+            "kind": "write_tool",
+            "ok": False,
+            "content": (
+                "I couldn't stage that Google Calendar event. Nothing was created."
+            ),
+        }
+    proposal = {
+        "kind": "proposed_action",
+        "status": "pending",
+        "action_type": "calendar.create_event",
+        "proposal_id": str(proposal_row["id"]),
+        "payload": payload,
+        "preview": preview,
+        "result": None,
+    }
+    return {
+        "kind": "write_tool",
+        "ok": True,
+        "content": {
+            "status": "pending_confirmation",
+            "action_type": "calendar.create_event",
+            "proposal_id": proposal["proposal_id"],
+            "preview": preview,
+            "message": (
+                "No Google Calendar event was created. The creator must confirm "
+                "the action card."
+            ),
+        },
+        "pending_action": proposal,
+    }
+
+
+def _calendar_event_payload_from_tool(tool_input: dict[str, Any]) -> dict[str, Any]:
+    title = str(tool_input.get("title") or "").strip()[:140]
+    starts_at = str(tool_input.get("starts_at") or "").strip()[:64]
+    ends_at = tool_input.get("ends_at")
+    location = tool_input.get("location")
+    notes = tool_input.get("notes")
+    return {
+        "title": title,
+        "starts_at": starts_at,
+        "ends_at": str(ends_at).strip()[:64] if ends_at else None,
+        "location": str(location).strip()[:160] if location else None,
+        "notes": str(notes).strip()[:2000] if notes else None,
     }
 
 
@@ -1436,6 +1692,10 @@ def _is_gmail_send_action(action_type: str) -> bool:
     return action_type == "gmail.send_email"
 
 
+def _is_calendar_create_action(action_type: str) -> bool:
+    return action_type == "calendar.create_event"
+
+
 def _action_type(content: str) -> ActionType | None:
     lowered = content.lower()
     if not any(word in lowered for word in ("create", "add", "make", "post", "submit")):
@@ -1561,6 +1821,21 @@ def _action_preview(*, action_type: str, payload: dict[str, Any]) -> str:
             f"{body_preview}\n\n"
             "Nothing has been sent yet. Confirming sends exactly one email."
         )
+    if _is_calendar_create_action(action_type):
+        lines = [
+            "I can create this Google Calendar event after you confirm:",
+            "",
+            f"Title: {payload['title']}",
+            f"Starts: {payload['starts_at']}",
+        ]
+        if payload.get("ends_at"):
+            lines.append(f"Ends: {payload['ends_at']}")
+        if payload.get("location"):
+            lines.append(f"Location: {payload['location']}")
+        if payload.get("notes"):
+            lines.extend(["", str(payload["notes"])[:200]])
+        lines.extend(["", "Nothing has been created yet."])
+        return "\n".join(lines)
     if action_type == "create_content_reminder":
         title = (payload.get("payload") or {}).get("title")
         return (
@@ -1653,6 +1928,36 @@ def _execute_gmail_send(*, user_id: str, payload: dict[str, Any]) -> str | None:
         return None
 
 
+def _execute_calendar_create(*, user_id: str, payload: dict[str, Any]) -> str | None:
+    """Call Google Calendar events.insert with the confirmed payload."""
+    try:
+        connection = oauth_connections.get_google_connection(user_id)
+    except Exception:
+        logger.exception("google calendar confirm: connection lookup failed")
+        return None
+    if not connection or not oauth_connections.google_calendar_connected(connection):
+        return None
+    try:
+        token = oauth_connections.access_token_for_google(user_id)
+    except Exception:
+        logger.exception("google calendar confirm: token lookup failed")
+        return None
+    if not token:
+        return None
+    try:
+        return google_calendar.create_primary_event(
+            token,
+            title=str(payload.get("title") or ""),
+            starts_at=str(payload.get("starts_at") or ""),
+            ends_at=payload.get("ends_at") or None,
+            notes=payload.get("notes") or None,
+            location=payload.get("location") or None,
+        )
+    except google_calendar.GoogleCalendarError:
+        logger.exception("google calendar events.insert failed")
+        return None
+
+
 def _success_message(action_type: str, record_id: str) -> str:
     if action_type == "create_booking":
         return f"Done. I created that local calendar item in babyg. Record: {record_id}"
@@ -1667,6 +1972,8 @@ def _success_message(action_type: str, record_id: str) -> str:
         )
     if _is_gmail_send_action(action_type):
         return f"Done. Email sent through Gmail. Message id: {record_id}"
+    if _is_calendar_create_action(action_type):
+        return f"Done. Google Calendar event created. Event id: {record_id}"
     return f"Done. I saved that local action in babyg. Record: {record_id}"
 
 
