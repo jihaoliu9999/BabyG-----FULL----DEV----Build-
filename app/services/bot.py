@@ -14,7 +14,14 @@ from app.agent.tools import read_only
 from app.core import supabase_client
 from app.core.uuid_guard import safe_uuid
 from app.integrations import anthropic_client, google_calendar, google_gmail, instagram_meta, tavily
-from app.services import bookings, jobs, oauth_connections, prompts, reminders
+from app.services import (
+    action_proposals,
+    bookings,
+    jobs,
+    oauth_connections,
+    prompts,
+    reminders,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -24,6 +31,7 @@ ActionType = Literal[
     "create_content_reminder",
     "submit_creator_listing",
     "create_gmail_draft",
+    "gmail.create_draft",
 ]
 DraftKind = Literal[
     "caption",
@@ -101,6 +109,7 @@ ALLOWED_ACTION_TYPES = (
     "create_content_reminder",
     "submit_creator_listing",
     "create_gmail_draft",
+    "gmail.create_draft",
 )
 ACTION_DATETIME_RE = re.compile(
     r"\b(\d{4}-\d{2}-\d{2}(?:[T ][0-2]\d:[0-5]\d(?::[0-5]\d)?(?:Z)?)?)\b"
@@ -319,6 +328,14 @@ def confirm_action(*, user_id: str, message_id: str) -> BotActionResult:
     if action_type not in ALLOWED_ACTION_TYPES:
         return BotActionResult(message="That action is not allowed.")
 
+    if _is_gmail_draft_action(action_type):
+        return _confirm_gmail_draft_action(
+            user_id=user_id,
+            message_id=message_id,
+            tool_calls=tool_calls,
+            action_type=action_type,
+        )
+
     locked = {
         **tool_calls,
         "status": "confirmed",
@@ -382,6 +399,13 @@ def cancel_action(*, user_id: str, message_id: str) -> BotActionResult:
             message=f"That action is already {status}.",
             action_type=action_type or None,
         )
+    if _is_gmail_draft_action(action_type):
+        return _cancel_gmail_draft_action(
+            user_id=user_id,
+            message_id=message_id,
+            tool_calls=tool_calls,
+            action_type=action_type,
+        )
     cancelled = {
         **tool_calls,
         "status": "cancelled",
@@ -394,6 +418,139 @@ def cancel_action(*, user_id: str, message_id: str) -> BotActionResult:
         expected_status="pending",
     )
     message = "Cancelled. Nothing was saved."
+    create_message(user_id=user_id, role="assistant", content=message)
+    return BotActionResult(message=message, action_type=action_type)
+
+
+def _confirm_gmail_draft_action(
+    *,
+    user_id: str,
+    message_id: str,
+    tool_calls: dict[str, Any],
+    action_type: str,
+) -> BotActionResult:
+    """Confirm and execute exactly one Gmail draft action.
+
+    External writes are locked on the action_proposals row. The chat
+    message is only the rendered approval card.
+    """
+    proposal_id = str(tool_calls.get("proposal_id") or "")
+    if not proposal_id:
+        message = "That Gmail draft proposal is missing its approval record."
+        create_message(user_id=user_id, role="assistant", content=message)
+        return BotActionResult(message=message, action_type=action_type)
+
+    if not action_proposals.confirm_proposal(
+        proposal_id=proposal_id, user_id=user_id
+    ):
+        refreshed = action_proposals.get_for_user(
+            proposal_id=proposal_id, user_id=user_id
+        )
+        status = str((refreshed or {}).get("status") or "handled")
+        updated = {
+            **tool_calls,
+            "status": status,
+            "result": {
+                "ok": False,
+                "record_id": None,
+                "error": (refreshed or {}).get("error_code"),
+            },
+        }
+        _update_message_tool_calls(
+            message_id=message_id,
+            user_id=user_id,
+            tool_calls=updated,
+        )
+        message = (
+            "That Gmail draft could not be approved. Reconnect Gmail "
+            "with compose access, then try again."
+        )
+        create_message(user_id=user_id, role="assistant", content=message)
+        return BotActionResult(message=message, action_type=action_type)
+
+    if not action_proposals.mark_executing(
+        proposal_id=proposal_id, user_id=user_id
+    ):
+        message = "That Gmail draft was already handled."
+        create_message(user_id=user_id, role="assistant", content=message)
+        return BotActionResult(message=message, action_type=action_type)
+
+    executing = {
+        **tool_calls,
+        "status": "executing",
+        "result": {"ok": None, "record_id": None},
+    }
+    _update_message_tool_calls(
+        message_id=message_id,
+        user_id=user_id,
+        tool_calls=executing,
+    )
+
+    payload = tool_calls.get("payload")
+    if not isinstance(payload, dict):
+        payload = {}
+    draft_id = _execute_gmail_draft(user_id=user_id, payload=payload)
+    if draft_id:
+        action_proposals.mark_executed(
+            proposal_id=proposal_id,
+            user_id=user_id,
+            external_result_id=draft_id,
+        )
+        final_status = "executed"
+        message = _success_message("gmail.create_draft", draft_id)
+        ok = True
+    else:
+        action_proposals.mark_failed(
+            proposal_id=proposal_id,
+            user_id=user_id,
+            error_code="gmail_draft_failed",
+            error_message="Gmail drafts.create failed or token was unavailable.",
+        )
+        final_status = "failed"
+        message = "I couldn't save that Gmail draft. Nothing was sent."
+        ok = False
+
+    result_tool_calls = {
+        **tool_calls,
+        "status": final_status,
+        "result": {"ok": ok, "record_id": draft_id},
+    }
+    _update_message_tool_calls(
+        message_id=message_id,
+        user_id=user_id,
+        tool_calls=result_tool_calls,
+    )
+    create_message(user_id=user_id, role="assistant", content=message)
+    return BotActionResult(
+        message=message,
+        executed=ok,
+        action_type=action_type,
+        record_id=draft_id,
+    )
+
+
+def _cancel_gmail_draft_action(
+    *,
+    user_id: str,
+    message_id: str,
+    tool_calls: dict[str, Any],
+    action_type: str,
+) -> BotActionResult:
+    proposal_id = str(tool_calls.get("proposal_id") or "")
+    if proposal_id:
+        action_proposals.cancel_proposal(proposal_id=proposal_id, user_id=user_id)
+    cancelled = {
+        **tool_calls,
+        "status": "cancelled",
+        "result": {"ok": False, "record_id": None},
+    }
+    _update_message_tool_calls(
+        message_id=message_id,
+        user_id=user_id,
+        tool_calls=cancelled,
+        expected_status="pending",
+    )
+    message = "Cancelled. No Gmail draft was created."
     create_message(user_id=user_id, role="assistant", content=message)
     return BotActionResult(message=message, action_type=action_type)
 
@@ -628,14 +785,42 @@ def _stage_create_gmail_draft_tool(
             "ok": False,
             "content": f"Missing required Gmail draft fields: {', '.join(missing)}.",
         }
-    proposal = _proposal_for_action(action_type="create_gmail_draft", payload=payload)
+    preview = _action_preview(action_type="gmail.create_draft", payload=payload)
+    proposal_row = action_proposals.create_proposal(
+        user_id=user_id,
+        action_type="gmail.create_draft",
+        payload=payload,
+        preview={
+            "title": "save Gmail draft",
+            "to": payload["to"],
+            "subject": payload["subject"],
+            "body": payload["body"],
+            "thread_id": payload.get("thread_id"),
+        },
+    )
+    if not proposal_row:
+        return {
+            "kind": "write_tool",
+            "ok": False,
+            "content": "I couldn't stage that Gmail draft. Nothing was created.",
+        }
+    proposal = {
+        "kind": "proposed_action",
+        "status": "pending",
+        "action_type": "gmail.create_draft",
+        "proposal_id": str(proposal_row["id"]),
+        "payload": payload,
+        "preview": preview,
+        "result": None,
+    }
     return {
         "kind": "write_tool",
         "ok": True,
         "content": {
             "status": "pending_confirmation",
-            "action_type": "create_gmail_draft",
-            "preview": proposal["preview"],
+            "action_type": "gmail.create_draft",
+            "proposal_id": proposal["proposal_id"],
+            "preview": preview,
             "message": (
                 "No Gmail draft was created. The creator must confirm "
                 "the action card. babyg never sends."
@@ -1009,6 +1194,10 @@ def _proposal_for_action(*, action_type: str, payload: dict[str, Any]) -> dict[s
     }
 
 
+def _is_gmail_draft_action(action_type: str) -> bool:
+    return action_type in {"create_gmail_draft", "gmail.create_draft"}
+
+
 def _action_type(content: str) -> ActionType | None:
     lowered = content.lower()
     if not any(word in lowered for word in ("create", "add", "make", "post", "submit")):
@@ -1111,7 +1300,7 @@ def _action_preview(*, action_type: str, payload: dict[str, Any]) -> str:
             f"Starts: {payload['starts_at']}\n\n"
             "Nothing has been saved yet."
         )
-    if action_type == "create_gmail_draft":
+    if _is_gmail_draft_action(action_type):
         body_preview = (payload.get("body") or "")[:200]
         if len(payload.get("body") or "") > 200:
             body_preview = body_preview.rstrip() + "…"
@@ -1148,8 +1337,6 @@ def _execute_confirmed_action(
         return reminders.create(user_id=user_id, payload=payload)
     if action_type == "submit_creator_listing":
         return jobs.create(poster_id=user_id, payload=payload)
-    if action_type == "create_gmail_draft":
-        return _execute_gmail_draft(user_id=user_id, payload=payload)
     return None
 
 
@@ -1195,7 +1382,7 @@ def _success_message(action_type: str, record_id: str) -> str:
         return f"Done. I created that local content reminder in babyg. Record: {record_id}"
     if action_type == "submit_creator_listing":
         return f"Done. I submitted that creator listing in babyg. Record: {record_id}"
-    if action_type == "create_gmail_draft":
+    if _is_gmail_draft_action(action_type):
         return (
             f"Done. Gmail draft saved (id {record_id}). Open Gmail to review "
             "and send — babyg does not send."
