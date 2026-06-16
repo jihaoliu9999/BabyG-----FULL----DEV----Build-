@@ -247,6 +247,105 @@ def create_primary_event(
     return event_id
 
 
+def update_primary_event(
+    access_token: str,
+    *,
+    event_id: str,
+    title: str | None = None,
+    starts_at: str | None = None,
+    ends_at: str | None = None,
+    notes: str | None = None,
+    location: str | None = None,
+) -> str:
+    """Partial-update one Google Calendar event the creator already owns.
+
+    Only the fields explicitly provided are sent — Google's PATCH
+    semantics leave omitted fields untouched. Returns the event id on
+    success (echoes input; lets callers chain without re-parsing).
+
+    Must only be called by an approved action executor after explicit
+    creator confirmation. This does not invite guests, change
+    organizers, attach payment, or escalate access.
+    """
+    clean_event_id = _clean_event_id(event_id)
+    payload: dict[str, Any] = {}
+    if title is not None:
+        summary = " ".join(str(title).split())[:140]
+        if not summary:
+            raise GoogleCalendarError("Google Calendar update title empty")
+        payload["summary"] = summary
+    if starts_at is not None:
+        start = _clean_datetime(starts_at)
+        if not start:
+            raise GoogleCalendarError("Google Calendar update starts_at invalid")
+        payload["start"] = {"dateTime": start}
+        # If a start was given without an explicit end, default end so
+        # Google doesn't reject a half-updated time range.
+        if ends_at is None:
+            payload["end"] = {"dateTime": _default_end(start)}
+    if ends_at is not None:
+        end = _clean_datetime(ends_at)
+        if not end:
+            raise GoogleCalendarError("Google Calendar update ends_at invalid")
+        payload["end"] = {"dateTime": end}
+    if notes is not None:
+        payload["description"] = str(notes or "").strip()[:2000] or ""
+    if location is not None:
+        payload["location"] = str(location or "").strip()[:160] or ""
+    if not payload:
+        raise GoogleCalendarError("Google Calendar update missing all fields")
+
+    url = f"{EVENTS_URL}/{clean_event_id}"
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json",
+    }
+    try:
+        response = httpx.patch(url, json=payload, headers=headers, timeout=20.0)
+        response.raise_for_status()
+    except httpx.HTTPError as exc:
+        status = getattr(getattr(exc, "response", None), "status_code", "?")
+        logger.info("Google Calendar events.patch failed with status %s", status)
+        raise GoogleCalendarError("Google Calendar event update failed") from exc
+    return clean_event_id
+
+
+def delete_primary_event(access_token: str, *, event_id: str) -> str:
+    """Hard-delete one Google Calendar event the creator already owns.
+
+    Must only be called by an approved action executor after explicit
+    creator confirmation. Returns the event id that was deleted (for
+    logging / success-message use).
+    """
+    clean_event_id = _clean_event_id(event_id)
+    url = f"{EVENTS_URL}/{clean_event_id}"
+    headers = {"Authorization": f"Bearer {access_token}"}
+    try:
+        response = httpx.delete(url, headers=headers, timeout=20.0)
+        response.raise_for_status()
+    except httpx.HTTPError as exc:
+        status = getattr(getattr(exc, "response", None), "status_code", "?")
+        logger.info("Google Calendar events.delete failed with status %s", status)
+        raise GoogleCalendarError("Google Calendar event delete failed") from exc
+    return clean_event_id
+
+
+def _clean_event_id(value: str) -> str:
+    """Defensive guard against junk event ids — never substitutes a
+    fallback, always raises so the staging layer surfaces the error
+    to the creator before any Google call. Google event IDs are
+    base32hex-ish (lowercase letters + digits + underscore + dash)."""
+    raw = str(value or "").strip()
+    if not raw:
+        raise GoogleCalendarError("Google Calendar event id missing")
+    if len(raw) > 1024:
+        raise GoogleCalendarError("Google Calendar event id too long")
+    # Whitespace and path separators are never valid in event ids.
+    if any(ch in raw for ch in (" ", "/", "?", "#")):
+        raise GoogleCalendarError("Google Calendar event id contains invalid characters")
+    return raw
+
+
 def event_to_booking_payload(event: dict[str, Any]) -> dict[str, Any] | None:
     event_id = str(event.get("id") or "").strip()
     if not event_id or event.get("status") == "cancelled":

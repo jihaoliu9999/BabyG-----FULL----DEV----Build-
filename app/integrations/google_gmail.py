@@ -226,6 +226,43 @@ def send_message(
     return message_id
 
 
+def send_draft(token: str, *, draft_id: str) -> str:
+    """Send an existing Gmail draft by its draft id. Returns the
+    resulting message id.
+
+    Gmail removes the draft from /drafts and creates the message in
+    /sent atomically — so this is the right primitive for the
+    'draft then send' workflow. No orphaned draft, no duplicate
+    message in /sent.
+
+    Must only be called by an action proposal executor after explicit
+    creator confirmation. The draft_id MUST come from a prior
+    gmail.create_draft confirmation — callers never invent draft ids.
+    """
+    clean_draft_id = _clean_draft_id(draft_id)
+    response_json = _post(
+        token, f"{API_BASE}/drafts/send", json_body={"id": clean_draft_id}
+    )
+    message_id = str(response_json.get("id") or "")
+    if not message_id:
+        raise GmailError("gmail drafts.send returned no id")
+    return message_id
+
+
+def _clean_draft_id(value: str) -> str:
+    """Defensive guard against junk draft ids — refuse with a typed
+    error before any HTTP call. Gmail draft ids are short alphanumeric
+    strings; whitespace and path separators are never valid."""
+    raw = str(value or "").strip()
+    if not raw:
+        raise GmailError("Gmail draft id missing")
+    if len(raw) > 1024:
+        raise GmailError("Gmail draft id too long")
+    if any(ch in raw for ch in (" ", "/", "?", "#")):
+        raise GmailError("Gmail draft id contains invalid characters")
+    return raw
+
+
 def _build_rfc2822(*, to: str, subject: str, body: str) -> str:
     """Minimal RFC 2822 message. Plain text only — no html, no
     attachments. Headers escape CR/LF defensively (sanitize already

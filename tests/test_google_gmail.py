@@ -626,9 +626,10 @@ def test_send_message_no_secrets_in_logs(install_fake_post_client, caplog):
 def test_module_does_not_expose_delete_archive_or_modify():
     """Belt-and-suspenders: the module surface must never expose
     delete/archive/label edit functions. If anyone ever adds one, this
-    test fails loudly."""
+    test fails loudly. send_draft IS allowed here (it sends a draft
+    the creator already explicitly approved via the action_proposals
+    lifecycle); delete/archive/modify-labels still forbidden."""
     forbidden = (
-        "send_draft",
         "delete_thread",
         "delete_message",
         "modify_labels",
@@ -638,3 +639,117 @@ def test_module_does_not_expose_delete_archive_or_modify():
         assert not hasattr(google_gmail, name), (
             f"google_gmail must not expose {name}"
         )
+
+
+# ---------------------------------------------------------------------------
+# Slice 5.3: send_draft (Gap #2 from the agent capability audit)
+# ---------------------------------------------------------------------------
+
+
+def test_send_draft_posts_to_drafts_send_with_draft_id(monkeypatch):
+    captured: dict = {}
+
+    class _PostClient:
+        def __init__(self):
+            self.calls = []
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def post(self, url, headers=None, json=None):
+            captured["url"] = url
+            captured["json"] = json
+            captured["headers"] = dict(headers or {})
+
+            class _Resp:
+                status_code = 200
+
+                def json(self):
+                    return {"id": "msg_999"}
+
+            return _Resp()
+
+    monkeypatch.setattr(google_gmail.httpx, "Client", lambda *a, **kw: _PostClient())
+
+    out = google_gmail.send_draft("TOKEN", draft_id="draft_abc")
+    assert out == "msg_999"
+    assert captured["url"].endswith("/drafts/send")
+    assert captured["json"] == {"id": "draft_abc"}
+    assert captured["headers"]["Authorization"] == "Bearer TOKEN"
+
+
+def test_send_draft_rejects_empty_draft_id(monkeypatch):
+    """Refuse with a typed error BEFORE any HTTP call."""
+    monkeypatch.setattr(
+        google_gmail.httpx,
+        "Client",
+        lambda *a, **kw: pytest.fail("must not call Gmail for empty draft_id"),
+    )
+    with pytest.raises(google_gmail.GmailError):
+        google_gmail.send_draft("tok", draft_id="")
+
+
+def test_send_draft_rejects_draft_id_with_invalid_chars(monkeypatch):
+    """Draft ids never legitimately contain slashes or whitespace —
+    refuse before any HTTP call so we don't silently target a wrong
+    endpoint."""
+    monkeypatch.setattr(
+        google_gmail.httpx,
+        "Client",
+        lambda *a, **kw: pytest.fail("must not call Gmail for malformed id"),
+    )
+    with pytest.raises(google_gmail.GmailError):
+        google_gmail.send_draft("tok", draft_id="draft/abc")
+    with pytest.raises(google_gmail.GmailError):
+        google_gmail.send_draft("tok", draft_id="draft abc")
+
+
+def test_send_draft_raises_when_response_missing_id(monkeypatch):
+    class _Client:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def post(self, url, headers=None, json=None):
+            class _Resp:
+                status_code = 200
+
+                def json(self):
+                    return {}
+
+            return _Resp()
+
+    monkeypatch.setattr(google_gmail.httpx, "Client", lambda *a, **kw: _Client())
+    with pytest.raises(google_gmail.GmailError):
+        google_gmail.send_draft("tok", draft_id="draft_abc")
+
+
+def test_send_draft_no_secrets_in_logs(monkeypatch, caplog):
+    """Hard constraint: token + draft_id never end up in log records
+    on failure paths."""
+    import httpx as _httpx
+
+    class _Client:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def post(self, url, headers=None, json=None):
+            raise _httpx.ConnectError("network down")
+
+    monkeypatch.setattr(google_gmail.httpx, "Client", lambda *a, **kw: _Client())
+
+    secret_token = "TOKEN-LEAK-SEND-DRAFT"
+    secret_id = "DRAFT-ID-LEAK"
+    with caplog.at_level("DEBUG"), pytest.raises(google_gmail.GmailError):
+        google_gmail.send_draft(secret_token, draft_id=secret_id)
+    text = "\n".join(r.getMessage() for r in caplog.records)
+    assert secret_token not in text
+    assert secret_id not in text
