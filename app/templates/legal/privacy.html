@@ -8,23 +8,23 @@
 {% block legal_callout %}{% endblock %}
 
 {% block legal_body %}
-<p>babyg is an ai manager for creators. this privacy policy explains what information we collect, how we use it, who can access it, how connected accounts work, how location sharing works, and how you can request deletion of your data.</p>
+<p>babyg is an ai manager for creators. this privacy policy explains what information we collect, how we use it, who can access it, how connected accounts work, how location sharing works, how sms features work, how ai agent features work, and how you can request deletion of your data.</p>
 
 <p>by using babyg, you agree to the collection and use of information described in this policy.</p>
 
 <h2>what we collect</h2>
 
 <h3>account information</h3>
-<p>we collect your email address, account type, account status, sign-in method, and timestamps for when your account is created, updated, and last signed in.</p>
-<p>we use this information to create your account, keep you signed in, manage access, and protect the platform.</p>
+<p>we collect your email address, phone number if you choose to provide it, account type, account status, sign-in method, sms consent status, connected account status, and timestamps for when your account is created, updated, and last signed in.</p>
+<p>we use this information to create your account, keep you signed in, manage access, verify your identity, support sms features if enabled, and protect the platform.</p>
 
 <h3>profile information</h3>
-<p>we collect information you choose to add to your creator profile, such as your name, creator name, social handles, primary platform, location or neighborhood, niche, content formats, public bio, writing preferences, and creator limits.</p>
+<p>we collect information you choose to add to your creator profile, such as your name, creator name, social handles, primary platform, location or neighborhood, niche, content formats, public bio, writing preferences, creator limits, and other profile details you choose to provide.</p>
 <p>if your niche is not listed, you may enter a custom niche.</p>
 
 <h3>onboarding answers</h3>
-<p>we collect answers you provide during onboarding, including your creator goals, content preferences, tone preferences, writing samples, and any instructions you give babyg about how you want the assistant to support you.</p>
-<p>we use this information to personalize your experience and help babyg draft content, replies, plans, and next steps that match your style.</p>
+<p>we collect answers you provide during onboarding, including your creator goals, content preferences, tone preferences, writing samples, task preferences, and any instructions you give babyg about how you want the assistant or ai agent to support you.</p>
+<p>we use this information to personalize your experience and help babyg draft content, replies, plans, recommendations, and next steps that match your style.</p>
 
 <h3>location information</h3>
 <p>babyg may ask for permission to access your location during sign-up or while using certain location-based features.</p>
@@ -38,7 +38,20 @@
 <p>public profile or directory features may show general location information you choose to provide, such as city, neighborhood, or market.</p>
 <p>you can turn off location access through your browser, device settings, or account settings where available.</p>
 <p>after location access is turned off, babyg will stop collecting new location data unless you grant permission again.</p>
-<p>we keep location data only as long as needed to provide the feature, maintain account records, protect the service, resolve disputes, or comply with legal obligations.</p>
+<p>previously collected location information may remain in your account records until deleted under this policy or through a verified deletion request.</p>
+
+<h3>phone number and sms information</h3>
+<p>babyg may ask for your phone number so you can use sms-based features, including texting the babyg ai agent to complete tasks, receive updates, manage creator workflows, continue conversations outside the website, or receive account-related messages.</p>
+<p>providing your phone number is optional unless you choose to use an sms-based feature.</p>
+<p>if you provide your phone number and opt in to sms, babyg may collect and use your phone number, sms consent status, message history, timestamps, delivery status, opt-in and opt-out records, and related sms metadata.</p>
+<p>we use sms information to send and receive messages you request, let you text the babyg ai agent, complete tasks through sms, send account or workflow updates, provide support, prevent abuse, and maintain reliable messaging.</p>
+<p>babyg does not sell phone numbers.</p>
+<p>babyg does not use phone numbers for third-party advertising.</p>
+<p>babyg does not use sms messages to train ai models.</p>
+<p>if you text the babyg ai agent, your message content may be processed by our ai service provider only to generate the response or complete the task you requested.</p>
+<p>standard message and data rates may apply. message frequency may vary depending on how you use babyg.</p>
+<p>you can opt out of sms messages at any time by replying stop. you may also reply help for help or contact <a href="mailto:{{ contact_email }}">{{ contact_email }}</a>.</p>
+<p>after you opt out, babyg will stop sending sms messages unless you opt back in or unless a limited confirmation, security, transactional, or legally required message is permitted.</p>
 
 <h3>connected accounts</h3>
 <p>you may choose to connect third-party accounts, including instagram, tiktok, gmail, and google calendar. connecting an account is optional unless a specific feature clearly requires it.</p>
@@ -52,7 +65,7 @@
 <h3>instagram data</h3>
 <p>if you connect an instagram account, babyg may collect and use instagram account information made available through meta's instagram apis, depending on the permissions you approve.</p>
 <p>this may include your instagram account id, username or handle, profile information, connected account status, media or content information, comments, message-related data, and performance insights if those features are enabled and approved.</p>
-<p>we use instagram data to connect your account, detect your instagram handle, display relevant account information inside babyg, help manage creator workflows, draft content or replies, organize messages or content tasks, and support features you choose to use.</p>
+<p>we use instagram data to connect your account, detect your instagram handle, display relevant account information inside babyg, help manage creator workflows, draft content or replies, organize messages or content tasks, review content performance, and support features you choose to use.</p>
 <p>you can disconnect your instagram account at any time. you can also request deletion of data collected from your connected instagram account by following the instructions on our <a href="/data-deletion">data deletion</a> page or emailing <a href="mailto:{{ contact_email }}">{{ contact_email }}</a> from the email tied to your babyg account.</p>
 
 <h3>tiktok data</h3>
@@ -64,7 +77,7 @@
 <h3>gmail data</h3>
 <p>if you connect gmail, babyg may access email information made available through google's apis, depending on the permissions you approve.</p>
 <p>this may include your email address, email metadata, sender and recipient information, subject lines, message snippets, message bodies, attachments, labels, and timestamps where authorized.</p>
-<p>we use gmail data only to provide the gmail-connected features you choose to use, such as helping you review messages, draft responses, organize communication, and manage creator-related workflows.</p>
+<p>we use gmail data only to provide the gmail-connected features you choose to use, such as helping you review messages, draft responses, summarize communication, organize creator-related emails, manage workflow tasks, and support user-requested ai agent actions.</p>
 <p>babyg does not sell gmail data, use gmail data for advertising, use gmail data to train ai models, or allow humans to read gmail data unless necessary to provide support you request, investigate abuse or security issues, comply with law, or protect the service.</p>
 <p>if you ask babyg to use gmail context in an ai feature, relevant gmail information may be processed by our ai service provider only to provide the user-facing feature you requested.</p>
 <p>babyg's use and transfer of information received from google apis will adhere to the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener">google api services user data policy</a>, including the limited use requirements.</p>
@@ -72,20 +85,39 @@
 <h3>google calendar data</h3>
 <p>if you connect google calendar, babyg may access calendar information made available through google's apis, depending on the permissions you approve.</p>
 <p>this may include calendar names, event titles, event times, event locations, event descriptions, attendees, reminders, availability information, and calendar identifiers.</p>
-<p>we use calendar data to help you view upcoming events, create calendar items, organize creator bookings, avoid scheduling conflicts, and manage your workflow inside babyg.</p>
+<p>we use calendar data to help you view upcoming events, create calendar items, organize creator bookings, avoid scheduling conflicts, manage your workflow inside babyg, and support user-requested ai agent actions.</p>
 <p>babyg does not sell calendar data, use calendar data for advertising, use calendar data to train ai models, or share calendar data with third parties except as needed to provide the service, comply with legal obligations, or protect the service.</p>
 <p>if you ask babyg to use calendar context in an ai feature, relevant calendar information may be processed by our ai service provider only to provide the user-facing feature you requested.</p>
 <p>babyg's use and transfer of information received from google apis will adhere to the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener">google api services user data policy</a>, including the limited use requirements.</p>
 
 <h3>messages and platform communication</h3>
-<p>babyg may collect messages sent or received inside the babyg platform, including message body, sender, recipient, timestamps, and related metadata.</p>
+<p>babyg may collect messages sent or received inside the babyg platform, including message body, sender, recipient, timestamps, attachments, and related metadata.</p>
 <p>messages are visible to the sender and recipient.</p>
 <p>babyg team members may access messages only when necessary to provide support, investigate abuse reports, enforce safety rules, fix technical issues, comply with legal obligations, or protect the service.</p>
 
 <h3>bot conversations</h3>
-<p>we collect your conversations with the babyg ai assistant, including your prompts, uploaded context, assistant responses, drafts, and related timestamps.</p>
-<p>we use this information to provide ai assistance, maintain context during your session, improve your experience, and help the assistant draft content or replies based on your instructions.</p>
-<p>babyg does not use your conversations to train ai models.</p>
+<p>babyg may collect your conversations with the babyg chatbot, including your prompts, uploaded context, assistant responses, drafts, task requests, and related timestamps.</p>
+<p>we use chatbot conversations to provide ai assistance, maintain context during your session, personalize your experience, draft content and replies, summarize information, recommend next steps, and complete tasks you ask babyg to perform.</p>
+<p>babyg does not use your chatbot conversations to train ai models.</p>
+
+<h3>ai agent features</h3>
+<p>babyg includes ai agent features that may help you complete creator-related tasks across the website, sms, and connected accounts.</p>
+<p>depending on the features you choose to use, the babyg ai agent may use information from your profile, onboarding answers, chatbot conversations, sms messages, connected instagram account, connected tiktok account, connected gmail account, connected google calendar account, uploaded media, bookings, content receipts, performance snapshots, and location information.</p>
+<p>we use this information only to complete the task you request, generate drafts or recommendations, organize your workflow, manage creator-related information, and support features you choose to use.</p>
+<p>examples of ai agent tasks may include drafting a reply, summarizing a message, preparing a content idea, organizing a booking, creating a calendar item, helping review email context, suggesting a next move, reviewing content performance, or continuing a conversation by sms.</p>
+<p>babyg may generate drafts, summaries, recommendations, or task outputs, but you are responsible for reviewing and approving important outputs before sending, posting, publishing, or relying on them.</p>
+<p>babyg does not sell ai agent data.</p>
+<p>babyg does not use ai agent data for third-party advertising.</p>
+<p>babyg does not use ai agent data to train ai models.</p>
+<p>babyg does not intentionally make high-impact decisions about employment, credit, housing, insurance, healthcare, legal rights, or similar matters through the ai agent.</p>
+
+<h3>ai processing</h3>
+<p>babyg uses ai service providers to power chatbot and ai agent features.</p>
+<p>when you use the chatbot or ai agent, relevant information may be processed by ai service providers so babyg can generate useful drafts, summaries, recommendations, actions, and next steps.</p>
+<p>this may include your prompts, profile details, connected workflow context, sms context, message context, email context, social account context, calendar context, uploaded content, content notes, performance information, and location-based context.</p>
+<p>babyg does not use your data to train ai models.</p>
+<p>babyg does not allow ai service providers to use your personal information for third-party advertising.</p>
+<p>babyg limits ai processing to the information reasonably needed to provide the user-facing feature you choose to use.</p>
 
 <h3>bookings and calendar items</h3>
 <p>we collect bookings and calendar items created inside babyg, including titles, times, locations, attendees, notes, and related timestamps.</p>
@@ -96,29 +128,43 @@
 <p>this may include post titles, links, captions, views, likes, comments, shares, saves, engagement metrics, notes, and performance snapshots.</p>
 <p>we use this information to help you understand content performance, organize creator work, and improve your content planning.</p>
 
-<h3>uploaded media</h3>
-<p>babyg may collect media you upload, including profile photos, images, videos, documents, and other files you choose to add to your account.</p>
-<p>profile photos and other uploaded media may be resized, compressed, processed, and stored so they can be displayed in your account or used for features you choose to use.</p>
+<h3>uploaded media and files</h3>
+<p>babyg may collect media or files you upload, including profile photos, images, videos, documents, audio, screenshots, and other files you choose to add to your account.</p>
+<p>uploaded media and files may be resized, compressed, processed, analyzed, displayed, stored, or used for features you choose to use.</p>
 <p>where possible, uploaded images may be stripped of unnecessary metadata before storage.</p>
 
+<h3>public profile and directory information</h3>
+<p>babyg may allow you to create a creator profile or appear in a creator directory.</p>
+<p>information you choose to make public may be visible to other users, such as creator name, handle, niche, public bio, city, neighborhood, market, content formats, and public profile media.</p>
+<p>do not add information to public profile fields that you do not want other users to see.</p>
+
+<h3>payments and billing</h3>
+<p>if babyg offers paid features, subscriptions, invoices, or paid creator services, we may collect billing-related information such as billing name, billing email, plan information, payment status, transaction history, invoice details, and related timestamps.</p>
+<p>payment card details may be processed by a payment provider. babyg does not intend to store full payment card numbers on its own servers.</p>
+<p>payment information is used to process payments, prevent fraud, manage subscriptions, issue receipts, and comply with financial or legal obligations.</p>
+
 <h3>cookies and session data</h3>
-<p>babyg uses cookies and similar technologies to keep you signed in, protect forms from abuse, maintain account sessions, and support secure authentication.</p>
+<p>babyg uses cookies and similar technologies to keep you signed in, protect forms from abuse, maintain account sessions, support secure authentication, remember preferences, and improve the service.</p>
 <p>we do not currently use third-party advertising cookies.</p>
 
 <h3>device, usage, and log data</h3>
-<p>babyg may collect basic technical information such as browser type, device type, ip address, pages visited, actions taken, error logs, timestamps, and server request data.</p>
-<p>we use this information to operate the service, debug errors, protect against abuse, improve performance, and understand how the product is used.</p>
-<p>we do not intentionally log private message bodies, connected account message bodies, or bot prompts in server error logs. however, limited identifiers may appear in logs for security, debugging, or abuse prevention.</p>
+<p>babyg may collect basic technical information such as browser type, device type, operating system, ip address, pages visited, actions taken, referring pages, error logs, timestamps, and server request data.</p>
+<p>we use this information to operate the service, debug errors, protect against abuse, improve performance, understand product usage, and maintain platform security.</p>
+<p>we do not intentionally log private message bodies, connected account message bodies, or bot prompts in server error logs. however, limited identifiers or technical details may appear in logs for security, debugging, or abuse prevention.</p>
+
+<h3>sensitive information</h3>
+<p>some information processed by babyg may be considered sensitive depending on where you live or how you use the service. this may include precise location, live location, private messages, connected email content, connected social account data, uploaded files, or other information you choose to provide.</p>
+<p>babyg uses sensitive information only to provide the features you choose to use, protect the service, comply with legal obligations, or complete actions you request.</p>
+<p>babyg does not sell sensitive information.</p>
+<p>babyg does not use sensitive information for third-party advertising.</p>
+<p>babyg does not use sensitive information to train ai models.</p>
 
 <h2>how we use information</h2>
-<p>we use the information we collect to create and manage your account, authenticate sign-ins, connect third-party accounts you authorize, detect connected social handles, personalize your creator profile, draft content and replies, help manage messages, bookings, and content workflows, support location-based features, sync calendar information when authorized, support gmail-connected workflows when authorized, display social account and content performance information when authorized, provide customer support, investigate abuse or security issues, protect the platform, debug errors, improve reliability, comply with legal obligations, and improve the product using aggregated or non-identifying information.</p>
+<p>we use the information we collect to create and manage your account, authenticate sign-ins, connect third-party accounts you authorize, detect connected social handles, personalize your creator profile, draft content and replies, help manage messages, bookings, and content workflows, support location-based features, support sms-based features, sync calendar information when authorized, support gmail-connected workflows when authorized, display social account and content performance information when authorized, provide customer support, investigate abuse or security issues, protect the platform, debug errors, improve reliability, comply with legal obligations, and improve the product using aggregated or non-identifying information.</p>
 
-<h2>ai processing</h2>
-<p>babyg uses ai service providers to power assistant features.</p>
-<p>when you use the ai assistant, relevant information such as your prompts, profile details, connected workflow context, messages, content notes, email context, social account context, calendar context, or location-based context may be processed by ai service providers so the assistant can generate useful drafts, summaries, recommendations, and next steps.</p>
-<p>babyg does not use your data to train ai models.</p>
-<p>babyg does not allow ai service providers to use your personal information for third-party advertising.</p>
-<p>you are responsible for reviewing and approving any ai-generated draft before using, sending, or publishing it.</p>
+<h2>aggregated and non-identifying information</h2>
+<p>babyg may use aggregated or non-identifying information to understand how the product is used, improve features, measure performance, debug issues, and plan future updates.</p>
+<p>aggregated or non-identifying information does not identify you personally.</p>
 
 <h2>who can access your information</h2>
 <p>you can access information connected to your own account.</p>
@@ -144,6 +190,10 @@
   <dd>instagram account connection, instagram data access, and instagram workflow features when authorized by the user.</dd>
   <dt>TikTok</dt>
   <dd>tiktok account connection, tiktok data access, and tiktok workflow features when authorized by the user.</dd>
+  <dt>Twilio</dt>
+  <dd>sms messaging, phone number verification, delivery status, opt-in and opt-out handling, and text-based communication features when authorized by the user.</dd>
+  <dt>payment providers</dt>
+  <dd>payment processing, subscription management, invoices, receipts, fraud prevention, and billing support if paid features are offered.</dd>
   <dt>other infrastructure providers</dt>
   <dd>babyg may use additional vendors for hosting, security, monitoring, analytics, email delivery, storage, product operations, or technical support. any added provider will be used only to support the service.</dd>
 </dl>
@@ -164,12 +214,13 @@
 <p>connected account tokens are kept only while your account remains connected or as otherwise needed to provide the connected feature.</p>
 <p>if you disconnect an account, babyg will stop using that connection and will delete or disable related tokens where technically possible.</p>
 <p>location data is kept only as long as needed for the location-based feature, account record, security purpose, legal purpose, or operational reason described in this policy.</p>
+<p>sms opt-in and opt-out records may be retained as needed to prove consent, honor opt-out requests, prevent abuse, or comply with messaging rules and legal obligations.</p>
 
 <h2>data deletion</h2>
 <p>you can request deletion of your account or personal data at any time.</p>
 <p>to request deletion, visit the <a href="/data-deletion">data deletion</a> page or email <a href="mailto:{{ contact_email }}">{{ contact_email }}</a> from the email address tied to your babyg account.</p>
 <p>we may ask you to verify your identity before completing the request.</p>
-<p>after verification, we will take reasonable steps to delete your account data and connected account data from active systems, unless we need to keep limited information for security, legal, fraud prevention, backup, or compliance reasons.</p>
+<p>after verification, we will take reasonable steps to delete your account data and connected account data from active systems, unless we need to keep limited information for security, legal, fraud prevention, backup, dispute resolution, or compliance reasons.</p>
 <p>we aim to complete verified deletion requests within 30 days.</p>
 <p>some deleted information may remain in backups for a limited period before being permanently removed through normal backup cycles.</p>
 
@@ -177,15 +228,29 @@
 <p>you may disconnect instagram, tiktok, gmail, or google calendar from inside babyg if the feature is available.</p>
 <p>you may also revoke access directly through the platform provider's account settings.</p>
 <p>after disconnection, babyg will stop collecting new data from that connected account unless you reconnect it.</p>
+<p>disconnecting a connected account does not automatically delete historical data already stored in babyg. you may request deletion of stored connected account data through the <a href="/data-deletion">data deletion</a> page or by emailing <a href="mailto:{{ contact_email }}">{{ contact_email }}</a>.</p>
 
 <h2>turning off location access</h2>
 <p>you may turn off location access through your browser, device settings, or account settings where available.</p>
 <p>after location access is turned off, babyg will stop collecting new location data unless you grant permission again.</p>
 <p>previously collected location information may remain in your account records until deleted under this policy or through a verified deletion request.</p>
 
+<h2>sms opt-out</h2>
+<p>you may opt out of sms messages at any time by replying stop.</p>
+<p>you may reply help for help.</p>
+<p>after you opt out, babyg will stop sending sms messages unless you opt back in or unless a limited confirmation, security, transactional, or legally required message is permitted.</p>
+
+<h2>your privacy choices and rights</h2>
+<p>depending on where you live, you may have the right to request access to your personal information, correction of inaccurate information, deletion of personal information, a copy of certain personal information, restriction of certain processing, or information about how your data is shared.</p>
+<p>you may also have the right to opt out of the sale of personal information, sharing of personal information for targeted advertising, or certain uses of sensitive information.</p>
+<p>babyg does not sell personal information.</p>
+<p>babyg does not use personal information for third-party advertising.</p>
+<p>to make a privacy request, email <a href="mailto:{{ contact_email }}">{{ contact_email }}</a> from the email address tied to your babyg account.</p>
+<p>we may ask you to verify your identity before completing a request.</p>
+
 <h2>security</h2>
 <p>babyg uses reasonable technical and organizational safeguards to protect user information.</p>
-<p>these safeguards may include secure connections, authentication controls, database access controls, row-level security, restricted internal access, token protection practices, and monitoring for abuse or errors.</p>
+<p>these safeguards may include secure connections, authentication controls, database access controls, row-level security, restricted internal access, token protection practices, monitoring for abuse or errors, and other security measures appropriate for the service.</p>
 <p>no internet service is completely secure. we cannot guarantee absolute security, but we work to protect user data and respond quickly to known issues.</p>
 
 <h2>children</h2>
@@ -193,11 +258,21 @@
 <p>we do not knowingly collect personal information from anyone under 18.</p>
 <p>if you believe a minor has created an account, contact <a href="mailto:{{ contact_email }}">{{ contact_email }}</a> and we will review the account.</p>
 
+<h2>international users</h2>
+<p>babyg may process and store information in the united states or other locations where our service providers operate.</p>
+<p>by using babyg, you understand that your information may be processed in locations outside of your state, province, or country.</p>
+
+<h2>third-party links and services</h2>
+<p>babyg may include links to third-party websites, platforms, or services.</p>
+<p>this privacy policy does not apply to third-party websites or services that babyg does not control.</p>
+<p>when you connect or use a third-party service, that service may process your information under its own privacy policy and terms.</p>
+
 <h2>your choices</h2>
 <p>you can choose not to provide certain profile information.</p>
 <p>you can choose not to connect third-party accounts.</p>
 <p>you can disconnect connected accounts.</p>
 <p>you can turn off location access.</p>
+<p>you can opt out of sms messages.</p>
 <p>you can request deletion of your account or data.</p>
 <p>you can contact us with privacy questions at any time.</p>
 
