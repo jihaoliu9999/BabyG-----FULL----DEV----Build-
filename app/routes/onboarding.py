@@ -101,6 +101,9 @@ async def creator_form(
     except Exception:
         logger.exception("onboarding: instagram_meta.is_configured failed")
         instagram_configured = False
+    # Default to None so the template-context dict construction below
+    # can always reference `instagram_connection` — _instagram_username_
+    # _from_connection() tolerates None and returns "".
     instagram_connection: dict[str, Any] | None = None
     try:
         instagram_connection = oauth_connections.get_instagram_connection(

@@ -304,6 +304,60 @@ WRITE_TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "send_gmail_draft",
+        "description": (
+            "Send a Gmail draft the creator previously approved in this "
+            "same conversation. Use this when the creator says 'send "
+            "that draft' / 'go ahead and send it' / 'send the email "
+            "we just drafted' AFTER they confirmed a gmail.create_draft "
+            "in this conversation. Stages an approval card; only the "
+            "Confirm click triggers Gmail to send. Gmail moves the "
+            "draft from /drafts to /sent atomically — no duplicate "
+            "message. Required: draft_id (must come from a prior "
+            "gmail.create_draft confirmation in this conversation — "
+            "look in earlier assistant messages for 'Gmail draft saved "
+            "(id <X>)' and quote that X exactly. NEVER invent or "
+            "guess a draft_id, and never use this tool for a draft the "
+            "creator wrote in Gmail directly — only for drafts babyg "
+            "staged + the creator approved in this thread)."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "draft_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1024,
+                    "description": (
+                        "Gmail draft id. Extract from a prior assistant "
+                        "message of the form: 'Gmail draft saved (id "
+                        "<X>)'. Quote X exactly."
+                    ),
+                },
+                "to": {
+                    "type": ["string", "null"],
+                    "maxLength": 320,
+                    "description": (
+                        "Optional. Recipient address as previously "
+                        "staged. Only carried into the preview card "
+                        "so the creator can verify which draft is "
+                        "about to go out."
+                    ),
+                },
+                "subject": {
+                    "type": ["string", "null"],
+                    "maxLength": 200,
+                    "description": (
+                        "Optional. Subject line as previously staged. "
+                        "Only carried into the preview card."
+                    ),
+                },
+            },
+            "required": ["draft_id"],
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "create_booking",
         "description": (
             "Propose a local babyg calendar item for the creator to review. "
@@ -386,6 +440,103 @@ WRITE_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 },
             },
             "required": ["title", "starts_at"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "update_google_calendar_event",
+        "description": (
+            "Update one Google Calendar event the creator already owns. "
+            "Stages an approval card; nothing changes until the creator "
+            "clicks Confirm. Only fields the bot provides are changed — "
+            "omitted fields stay untouched on the real event. Required: "
+            "event_id (must come from read_my_calendar.google_event_id "
+            "or a prior calendar.create_event confirmation — never "
+            "invent or guess an event id). Plus at least one of: title, "
+            "starts_at, ends_at, location, notes. Does not invite "
+            "guests, attach payment, transfer ownership, or change "
+            "recurrence rules."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "event_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1024,
+                    "description": (
+                        "The Google Calendar event id. Get this from "
+                        "read_my_calendar's google_event_id field for the "
+                        "matching event."
+                    ),
+                },
+                "title": {
+                    "type": ["string", "null"],
+                    "maxLength": 140,
+                    "description": "New title, if changing.",
+                },
+                "starts_at": {
+                    "type": ["string", "null"],
+                    "description": (
+                        "New start datetime as ISO 8601, if changing. "
+                        "Include the timezone offset when known."
+                    ),
+                },
+                "ends_at": {
+                    "type": ["string", "null"],
+                    "description": "New end datetime as ISO 8601, if changing.",
+                },
+                "location": {
+                    "type": ["string", "null"],
+                    "maxLength": 160,
+                    "description": "New location text, if changing.",
+                },
+                "notes": {
+                    "type": ["string", "null"],
+                    "maxLength": 2000,
+                    "description": "New event notes, if changing.",
+                },
+            },
+            "required": ["event_id"],
+            "additionalProperties": False,
+        },
+    },
+    {
+        "name": "cancel_google_calendar_event",
+        "description": (
+            "Hard-delete one Google Calendar event the creator already "
+            "owns. Stages an approval card; the event is removed from "
+            "the real calendar only after the creator clicks Confirm. "
+            "Use when the creator clearly asks to cancel, remove, or "
+            "delete an event. Required: event_id (must come from "
+            "read_my_calendar.google_event_id or a prior "
+            "calendar.create_event confirmation — never invent or "
+            "guess an event id). Optional: title (carried into the "
+            "preview so the creator can verify which event will be "
+            "removed)."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "event_id": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1024,
+                    "description": (
+                        "The Google Calendar event id. Get this from "
+                        "read_my_calendar's google_event_id field."
+                    ),
+                },
+                "title": {
+                    "type": ["string", "null"],
+                    "maxLength": 140,
+                    "description": (
+                        "Optional event title carried into the preview "
+                        "card so the creator can verify the right event."
+                    ),
+                },
+            },
+            "required": ["event_id"],
             "additionalProperties": False,
         },
     },
@@ -584,8 +735,11 @@ tool policy:
 - use create_booking only to propose a local babyg calendar item.
 - create_booking never books restaurants, sends external requests, syncs google calendar, or saves anything by itself. it only prepares an approval card for the creator.
 - use create_gmail_draft when the creator asks you to draft a reply, write an email, or prepare brand/outreach/negotiation correspondence and gmail is connected. it does NOT send. it only stages an approval card. the creator must click confirm to save the draft to gmail; they review and send from gmail themselves. babyg never sends, deletes, or relabels. if gmail compose isn't connected, the tool refuses — say so and tell them to reconnect gmail.
-- use send_gmail_email only when the creator clearly asks babyg to send an email. it does NOT send by itself. it stages an approval card with exact to, subject, and body. the creator must click confirm before the server sends exactly one email. never use it for a draft request. never send attachments, cc/bcc, bulk email, labels, deletes, archives, or anything involving money/payment.
-- use create_google_calendar_event only when the creator clearly asks babyg to add something to Google Calendar. it does NOT create anything by itself. it stages an approval card with exact title, time, location, and notes. the creator must click confirm before the server creates exactly one Google Calendar event. never use it for restaurant booking, guest invites, deleting/updating events, or anything involving money/payment.
+- use send_gmail_email only when the creator clearly asks babyg to send an email AND you have NOT already staged a draft for that same email in this conversation. it does NOT send by itself. it stages an approval card with exact to, subject, and body. the creator must click confirm before the server sends exactly one email. never use it for a draft request. never send attachments, cc/bcc, bulk email, labels, deletes, archives, or anything involving money/payment.
+- use send_gmail_draft when the creator says to send a draft babyg already created and the creator confirmed in this same conversation. it stages an approval card; only the confirm click sends the draft. preserve the original draft body — do NOT use send_gmail_email to send the same content (that creates a duplicate message and leaves the original draft abandoned in /drafts). find the draft_id in the assistant message history of this conversation: 'Gmail draft saved (id <X>)'. quote X exactly. never invent or guess a draft_id, and never use this tool for drafts the creator wrote themselves in Gmail.
+- use create_google_calendar_event only when the creator clearly asks babyg to add something to Google Calendar. it does NOT create anything by itself. it stages an approval card with exact title, time, location, and notes. the creator must click confirm before the server creates exactly one Google Calendar event. never use it for restaurant booking, guest invites, or anything involving money/payment.
+- use update_google_calendar_event when the creator asks to move, rename, or change details of a Google Calendar event they already have on their real calendar. it stages an approval card showing only the fields that will change; nothing untouched on the event is altered. you MUST get the event_id from read_my_calendar (google_event_id field) or from a prior calendar.create_event confirmation — never invent an event_id. if you don't know which event the creator means, ask them or call read_my_calendar first.
+- use cancel_google_calendar_event when the creator asks to cancel, remove, or delete an event from Google Calendar. it stages an approval card; the event is only deleted after the creator clicks confirm. same event_id rule — get it from read_my_calendar (google_event_id) or a prior create confirmation, never invent it.
 - tool results are context or pending proposals only, not permission to send messages, change records, or take external actions.
 - when a tool returns a pending proposal, tell the creator to review and confirm the action card. do not say it has been saved.
 

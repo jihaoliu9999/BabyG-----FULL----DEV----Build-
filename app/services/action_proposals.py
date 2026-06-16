@@ -56,6 +56,7 @@ GMAIL_MODIFY_SCOPE = "https://www.googleapis.com/auth/gmail.modify"
 EXTERNAL_WRITE_ACTIONS: dict[str, tuple[str, tuple[str, ...]]] = {
     "gmail.create_draft": ("google", (GMAIL_COMPOSE_SCOPE,)),
     "gmail.send_email": ("google", (GMAIL_SEND_SCOPE,)),
+    "gmail.send_draft": ("google", (GMAIL_SEND_SCOPE,)),
     "gmail.modify_labels": ("google", (GMAIL_MODIFY_SCOPE,)),
     "calendar.create_event": ("google", (GOOGLE_CALENDAR_EVENTS_SCOPE,)),
     "calendar.update_event": ("google", (GOOGLE_CALENDAR_EVENTS_SCOPE,)),

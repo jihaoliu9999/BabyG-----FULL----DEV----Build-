@@ -13,12 +13,10 @@
 
   <div class="legal-meta">
     <span class="legal-pill">last updated · {{ last_updated }}</span>
-    <span class="legal-pill">private beta · v1</span>
+    {% block legal_status_pill %}<span class="legal-pill">private beta · v1</span>{% endblock %}
   </div>
 
-  <div class="legal-callout">
-    {% block legal_callout %}this is an MVP draft written for clarity, not a final lawyer-reviewed document. we'll publish a fuller revision before we open to the public. if anything here is unclear, email <a href="mailto:{{ contact_email }}">{{ contact_email }}</a>.{% endblock %}
-  </div>
+  <div class="legal-callout">{% block legal_callout %}this is an MVP draft written for clarity, not a final lawyer-reviewed document. we'll publish a fuller revision before we open to the public. if anything here is unclear, email <a href="mailto:{{ contact_email }}">{{ contact_email }}</a>.{% endblock %}</div>
 
   {% block legal_body %}{% endblock %}
 
