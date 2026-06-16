@@ -5,90 +5,96 @@
 
 {% block head_extra %}
 <script src="/static/js/onboarding.js" defer></script>
-<script src="/static/js/profile.js" defer></script>
-<style>
-.onb-wrap{max-width:520px;width:100%;margin:0 auto;padding:32px 20px max(env(safe-area-inset-bottom,40px),60px);}
-.onb-eyebrow{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--lime);letter-spacing:.08em;text-transform:uppercase;display:block;margin-bottom:10px;}
-.onb-h1{font-size:28px;font-weight:700;line-height:1.1;margin:0 0 10px;}
-.onb-sub{color:var(--ink-mid);font-size:14px;line-height:1.55;margin:0 0 22px;}
-.onb-progress{list-style:none;padding:0;margin:0 0 32px;display:flex;gap:8px;flex-wrap:wrap;}
-.onb-progress li{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-dim);display:flex;align-items:center;gap:6px;}
-.onb-progress li .n{background:var(--surface-2);border:1px solid var(--hairline);border-radius:50%;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;font-size:10px;transition:background .15s,border-color .15s,color .15s;}
-.onb-progress li[aria-current="step"] .n{background:var(--lime);border-color:var(--lime);color:var(--obsidian);}
-.onb-progress li[data-done] .n{border-color:var(--lime);color:var(--lime);}
-.onb-section{margin-bottom:32px;padding-bottom:32px;border-bottom:1px solid var(--hairline);}
-.onb-section:last-of-type{border-bottom:0;}
-.onb-section-title{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-dim);text-transform:uppercase;letter-spacing:.08em;margin:0 0 20px;}
-/* `minmax(0, 1fr)` forces columns to honor the container width even when
-   the field content (long select option labels) would otherwise push the
-   row wider than the viewport. */
-.onb-row{display:grid;grid-template-columns:repeat(2, minmax(0, 1fr));gap:12px;}
-.onb-actions{padding-top:8px;display:flex;gap:10px;flex-wrap:wrap;}
-.onb-actions .btn{flex:1 1 auto;min-width:140px;}
-.onb-actions .btn-prev{flex:0 0 auto;min-width:90px;}
-.field{margin-bottom:16px;min-width:0;}
-.field-label{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--ink-dim);display:block;margin-bottom:6px;letter-spacing:.04em;}
-.field-hint{font-size:12px;color:var(--ink-dim);margin-top:4px;line-height:1.4;}
-.req{color:var(--lime);}
-.field input[type=text],.field input[type=email],.field input[type=number],.field textarea,.field select{width:100%;max-width:100%;background:var(--surface-2);border:1px solid var(--hairline);border-radius:10px;color:var(--ink);font-family:inherit;padding:10px 14px;outline:none;box-sizing:border-box;-webkit-appearance:none;}
-.field input:focus,.field textarea:focus,.field select:focus{border-color:var(--lime);}
-.field textarea{resize:vertical;min-height:80px;}
-.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;}
-.chips .chip{position:relative;display:inline-flex;align-items:center;cursor:pointer;padding:6px 12px;border-radius:999px;border:1px solid var(--hairline);font-size:13px;color:var(--ink-mid);background:var(--surface-2);transition:border-color .15s,color .15s;max-width:100%;}
-.chips .chip>span{overflow-wrap:anywhere;}
-.chips .chip input{position:absolute;opacity:0;width:0;height:0;pointer-events:none;}
-.chips .chip:has(input:checked){border-color:var(--lime);color:var(--lime);background:rgba(255,77,109,0.08);}
-.auth-error{background:rgba(255,77,109,0.08);border:1px solid var(--lime);border-radius:10px;color:var(--lime);font-size:13px;padding:12px 14px;margin-bottom:20px;}
-.btn-wide{width:100%;justify-content:center;}
-.onb-photo-block{display:flex;flex-direction:column;align-items:flex-start;gap:14px;}
-.onb-photo-block .avatar{width:96px;height:96px;border-radius:50%;background:var(--surface-2);border:1px solid var(--hairline);overflow:hidden;display:inline-flex;align-items:center;justify-content:center;color:var(--ink-mid);font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:0.12em;text-transform:uppercase;}
-.onb-photo-block .avatar img{width:100%;height:100%;object-fit:cover;display:block;}
-</style>
 {% endblock %}
 
 {% block content %}
-<div class="onb-wrap" data-onb-wrap>
-  <div style="margin-bottom:28px;">
-    <img src="/static/assets/logo-bg.png" alt="babyg" style="width:36px;height:36px;margin-bottom:20px;" />
+{% set selected_niches = profile.get("niches", []) or [] %}
+{% set standard_niches = [] %}
+{% set custom_niches = [] %}
+{% for niche in selected_niches %}
+  {% if niche in vocab.niches %}
+    {% set _ = standard_niches.append(niche) %}
+  {% elif niche %}
+    {% set _ = custom_niches.append(niche) %}
+  {% endif %}
+{% endfor %}
+{% set suggested_handle = profile.get("instagram_handle") or instagram_suggested_handle %}
+
+<div class="onb-bg-watermarks" aria-hidden="true">
+  <img class="onb-bg-mark m1" src="/static/assets/logo-bg.png" alt="" />
+  <img class="onb-bg-mark m2" src="/static/assets/logo-bg.png" alt="" />
+  <img class="onb-bg-mark m3" src="/static/assets/logo-bg.png" alt="" />
+</div>
+
+<section class="onb-shell" data-onb-wrap>
+  <div class="onb-hero">
+    <img src="/static/assets/logo-bg.png" alt="babyg" class="onb-logo" />
     <span class="onb-eyebrow">private beta setup</span>
-    <h1 class="onb-h1">tell us about your work.</h1>
-    <p class="onb-sub">this shapes your updates, matches, schedule, and rate guidance. you can change any of it later.</p>
-    <ol class="onb-progress" data-onb-progress>
-      <li data-onb-step-pip="1" aria-current="step"><span class="n">1</span> basics</li>
-      <li data-onb-step-pip="2"><span class="n">2</span> niches</li>
-      <li data-onb-step-pip="3"><span class="n">3</span> photo</li>
-      <li data-onb-step-pip="4"><span class="n">4</span> integrations</li>
-    </ol>
+    <h1 class="onb-h1">set up babyg around your creator life.</h1>
+    <p class="onb-sub">a few clean answers help babyg manage replies, deals, schedule, and next moves without asking for manual stats.</p>
   </div>
 
   {% if error %}<div class="auth-error">{{ error }}</div>{% endif %}
 
-  <form method="post" action="/onboarding/creator" data-onb-form>
+  <ol class="onb-progress" data-onb-progress>
+    <li data-onb-step-pip="1" aria-current="step"><span class="n">1</span> welcome</li>
+    <li data-onb-step-pip="2"><span class="n">2</span> basics</li>
+    <li data-onb-step-pip="3"><span class="n">3</span> create</li>
+    <li data-onb-step-pip="4"><span class="n">4</span> boundaries</li>
+    <li data-onb-step-pip="5"><span class="n">5</span> connect</li>
+    <li data-onb-step-pip="6"><span class="n">6</span> review</li>
+  </ol>
+
+  <form method="post" action="/onboarding/creator" data-onb-form class="onb-card">
     {% include "_partials/csrf.html" %}
 
-    {# Step 1: identity. Required: full_name + instagram_handle. #}
-    <fieldset class="onb-section" data-onb-step="1" style="border:0;padding:0;margin:0 0 24px;">
-      <h2 class="onb-section-title">01 / basics</h2>
-      {{ f.field("full name", "full_name", profile.get("full_name", ""), required=True) }}
-      {{ f.field("instagram handle", "instagram_handle", profile.get("instagram_handle", ""), placeholder="yourhandle", required=True, hint="no need to include the @.") }}
-      {{ f.select("neighborhood", "neighborhood", vocab.neighborhoods, selected=profile.get("neighborhood")) }}
-      {{ f.textarea("short bio", "bio", profile.get("bio", ""), placeholder="two or three sentences about who you are and what you cover.", rows=3) }}
+    <fieldset class="onb-section onb-intro" data-onb-step="1">
+      <span class="onb-section-kicker">01 / welcome</span>
+      <h2>babyg works better when it knows the shape of your work.</h2>
+      <p>this setup keeps the questions light. your connected accounts handle real stats in the background when you are ready.</p>
+      <div class="onb-intro-grid">
+        <span>identity</span>
+        <span>content</span>
+        <span>boundaries</span>
+        <span>connections</span>
+      </div>
     </fieldset>
 
-    {# Step 2: niches + content world + vibe/limits/tier. Merged because
-       these are all "what you make and don't make" — same mental load. #}
-    <fieldset class="onb-section" data-onb-step="2" style="border:0;padding:0;margin:0 0 24px;">
-      <h2 class="onb-section-title">02 / niches & format</h2>
+    <fieldset class="onb-section" data-onb-step="2">
+      <span class="onb-section-kicker">02 / basics</span>
+      <h2>who should babyg represent?</h2>
+      <p class="onb-step-copy">keep this close to how you want brands, collaborators, and replies to see you.</p>
+      {{ f.field("full name", "full_name", profile.get("full_name", ""), required=True) }}
+      {{ f.field("instagram handle", "instagram_handle", suggested_handle or "", placeholder="yourhandle", required=True, hint="no need to include the @.") }}
+      {{ f.select("neighborhood", "neighborhood", vocab.neighborhoods, selected=profile.get("neighborhood")) }}
+      {{ f.textarea("short bio", "bio", profile.get("bio", ""), placeholder="two or three sentences about who you are and what you cover.", rows=4) }}
+      {% if instagram_connected and instagram_suggested_handle and not profile.get("instagram_handle") %}
+      <p class="onb-note">instagram is connected. babyg filled the handle it found.</p>
+      {% endif %}
+    </fieldset>
+
+    <fieldset class="onb-section" data-onb-step="3">
+      <span class="onb-section-kicker">03 / what you create</span>
+      <h2>what should babyg look for?</h2>
+      <p class="onb-step-copy">choose the content lanes and formats that actually match your work.</p>
 
       <div class="field">
         <label class="field-label">niches <span class="req">*</span></label>
-        <div class="field-hint" style="margin-bottom:8px;">pick everything that applies. multiple ok.</div>
-        {{ f.chip_group("niches", vocab.niches, profile.get("niches", [])) }}
+        <div class="field-hint">pick everything that applies. add your own if none fit.</div>
+        {{ f.chip_group("niches", vocab.niches, standard_niches) }}
+        <label class="chip onb-other-chip">
+          <input type="checkbox" name="niches" value="__other__" data-onb-other-toggle
+                 {% if custom_niches or profile.get("niche_other") %}checked{% endif %} />
+          <span>other</span>
+        </label>
+        <div class="onb-other-field" data-onb-other-field>
+          {{ f.field("custom niche", "niche_other", profile.get("niche_other") or (custom_niches[0] if custom_niches else ""), placeholder="for example, car culture") }}
+        </div>
       </div>
 
       <div class="field">
         <label class="field-label">content formats <span class="req">*</span></label>
-        <div class="field-hint" style="margin-bottom:8px;">what do you actually post?</div>
+        <div class="field-hint">what do you actually post?</div>
         {{ f.chip_group("content_formats", vocab.formats, profile.get("content_formats", [])) }}
       </div>
 
@@ -96,69 +102,87 @@
         <label class="field-label">primary platform</label>
         {{ f.radio_group("primary_platform", vocab.platforms, profile.get("primary_platform")) }}
       </div>
+    </fieldset>
 
-      <div class="onb-row">
-        {{ f.select("follower range", "follower_range", vocab.follower_ranges, selected=profile.get("follower_range")) }}
-        {{ f.select("engagement rate", "engagement_range", vocab.engagement_ranges, selected=profile.get("engagement_range")) }}
-      </div>
-      {{ f.select("creator tenure", "creator_tenure", vocab.tenures, selected=profile.get("creator_tenure")) }}
-
+    <fieldset class="onb-section" data-onb-step="4">
+      <span class="onb-section-kicker">04 / brand boundaries</span>
+      <h2>what should babyg keep off the table?</h2>
+      <p class="onb-step-copy">these limits help babyg screen opportunities before they reach you.</p>
       <div class="field">
         <label class="field-label">hard limits</label>
-        <div class="field-hint" style="margin-bottom:8px;">categories or asks you will not promote.</div>
+        <div class="field-hint">categories or asks you will not promote.</div>
         {{ f.chip_group("hard_limits", vocab.hard_limits, profile.get("hard_limits", [])) }}
       </div>
-
-      <div class="field">
-        <label class="field-label">tier</label>
-        <div class="field-hint" style="margin-bottom:8px;">basic is free. pro and VIP unlock daily intel, deeper analytics, and higher-touch creator ops. change anytime.</div>
-        {{ f.radio_group("tier", vocab.tiers, profile.get("tier", "basic")) }}
-      </div>
+      <input type="hidden" name="tier" value="{{ profile.get('tier') or 'basic' }}" />
     </fieldset>
 
-    {# Step 3: profile photo. Real upload — posts to /creator/profile/photo
-       and immediately comes back to this page. We DON'T submit the
-       wizard form here; this is a side trip. The route's
-       onboarding_completed_at guard is intentionally absent so this
-       works during signup. #}
-    <fieldset class="onb-section" data-onb-step="3" style="border:0;padding:0;margin:0 0 24px;">
-      <h2 class="onb-section-title">03 / profile photo</h2>
-      <p class="field-hint" style="margin-bottom:14px;">optional. you can add or change it any time from your profile.</p>
-
-      <div class="onb-photo-block">
-        <span class="avatar">
-          {% if profile.profile_photo_url %}
-          <img src="{{ profile.profile_photo_url }}" alt="" data-profile-photo-preview />
+    <fieldset class="onb-section" data-onb-step="5">
+      <span class="onb-section-kicker">05 / connect accounts</span>
+      <h2>connect what is ready.</h2>
+      <p class="onb-step-copy">babyg can work without these today. connected accounts make schedule, inbox, and post stats more useful.</p>
+      <div class="onb-integrations">
+        <article class="onb-integration-card{% if google_calendar_connected %} is-connected{% endif %}">
+          <div>
+            <span class="mono">google calendar</span>
+            <p>schedule context for plans and deadlines.</p>
+          </div>
+          {% if google_calendar_connected %}
+          <strong>connected</strong>
+          {% elif google_configured %}
+          <a class="btn btn-lime btn-sm" href="/creator/google/connect?service=calendar&next=/onboarding/creator">connect</a>
           {% else %}
-          <img hidden alt="" data-profile-photo-preview />
-          <span data-profile-photo-initials>{{ (profile.get('full_name') or 'creator')[:1]|upper }}</span>
+          <span class="onb-muted">not configured</span>
           {% endif %}
-        </span>
+        </article>
 
-        {# Nested form — submits independently to the photo endpoint, not
-           the wizard. After submit, the route redirects back to the
-           profile page; the wizard re-renders with the saved photo. #}
-        <form method="post" action="/creator/profile/photo" enctype="multipart/form-data"
-              data-profile-photo-form style="display:inline-flex;align-items:center;gap:10px;margin:0;">
-          {% include "_partials/csrf.html" %}
-          <label class="btn btn-ghost btn-sm" style="cursor:pointer;margin:0;">
-            <span data-profile-photo-label>{% if profile.profile_photo_url %}change photo{% else %}upload photo{% endif %}</span>
-            <input type="file" name="photo" accept="image/jpeg,image/png,image/webp"
-                   data-profile-photo-input style="display:none;" />
-          </label>
-          <button type="submit" class="btn btn-lime btn-sm" hidden data-profile-photo-submit>save</button>
-          <span class="mono" data-profile-photo-status hidden
-                style="font-size:10px;letter-spacing:0.14em;color:var(--ink-dim);text-transform:uppercase;margin-left:4px;"></span>
-        </form>
+        <article class="onb-integration-card{% if google_gmail_connected %} is-connected{% endif %}">
+          <div>
+            <span class="mono">gmail</span>
+            <p>recent threads for draft replies. babyg never sends without approval.</p>
+          </div>
+          {% if google_gmail_connected %}
+          <strong>connected</strong>
+          {% elif google_configured %}
+          <a class="btn btn-lime btn-sm" href="/creator/google/connect?service=gmail&next=/onboarding/creator">connect</a>
+          {% else %}
+          <span class="onb-muted">not configured</span>
+          {% endif %}
+        </article>
+
+        <article class="onb-integration-card{% if instagram_connected %} is-connected{% endif %}">
+          <div>
+            <span class="mono">instagram</span>
+            <p>post performance from the account you connect.</p>
+          </div>
+          {% if instagram_connected %}
+          <strong>connected</strong>
+          {% elif instagram_configured %}
+          <a class="btn btn-lime btn-sm" href="/creator/instagram/connect?next=/onboarding/creator">connect</a>
+          {% else %}
+          <span class="onb-muted">coming soon</span>
+          {% endif %}
+        </article>
+
+        <article class="onb-integration-card is-muted">
+          <div>
+            <span class="mono">tiktok</span>
+            <p>video performance sync.</p>
+          </div>
+          <span class="onb-muted">coming soon</span>
+        </article>
       </div>
     </fieldset>
 
-    {# Step 4: integrations. Google Calendar is real; the rest are
-       coming-soon per docs/INTEGRATIONS.md. No fake connect states. #}
-    <fieldset class="onb-section" data-onb-step="4" style="border:0;padding:0;margin:0 0 24px;">
-      <h2 class="onb-section-title">04 / integrations</h2>
-      <p class="field-hint" style="margin-bottom:14px;">connect what you have, skip what isn't ready. you can do this later from settings.</p>
-      {% include "_partials/integrations_grid.html" %}
+    <fieldset class="onb-section onb-review" data-onb-step="6">
+      <span class="onb-section-kicker">06 / review</span>
+      <h2>ready when you are.</h2>
+      <p class="onb-step-copy">babyg will use this as the starting point. you can adjust it later from profile and settings.</p>
+      <div class="onb-review-grid">
+        <div><span>name</span><strong data-onb-review="full_name">{{ profile.get("full_name") or "not set" }}</strong></div>
+        <div><span>handle</span><strong data-onb-review="instagram_handle">{{ suggested_handle or "not set" }}</strong></div>
+        <div><span>niches</span><strong data-onb-review="niches">{{ (selected_niches or ["not set"])|join(", ") }}</strong></div>
+        <div><span>formats</span><strong data-onb-review="content_formats">{{ (profile.get("content_formats", []) or ["not set"])|join(", ") }}</strong></div>
+      </div>
     </fieldset>
 
     <div class="onb-actions">
@@ -171,5 +195,5 @@
       </button>
     </div>
   </form>
-</div>
+</section>
 {% endblock %}

@@ -85,7 +85,7 @@ def test_creator_wizard_renders_blank_for_new_user(client, store):
     _signed_in(client, role="creator")
     r = client.get("/onboarding/creator")
     assert r.status_code == 200
-    assert "tell us about your work" in r.text
+    assert "set up babyg around your creator life" in r.text
     # All chip groups should be present.
     for niche in ["food", "fashion", "fitness"]:
         assert f'value="{niche}"' in r.text
@@ -139,9 +139,6 @@ def _valid_creator_form() -> dict:
         "niches": ["food", "fashion"],
         "content_formats": ["reels", "carousels"],
         "primary_platform": "Instagram",
-        "follower_range": "10-50k",
-        "engagement_range": "4-7%",
-        "creator_tenure": "1-2y",
         "hard_limits": ["no fast fashion"],
         "tier": "pro",
     }
@@ -162,7 +159,9 @@ def test_creator_submit_saves_and_redirects(client, store):
     assert p["niches"] == ["food", "fashion"]
     assert p["content_formats"] == ["reels", "carousels"]
     assert p["primary_platform"] == "Instagram"
-    assert p["follower_range"] == "10-50k"
+    assert p["follower_range"] is None
+    assert p["engagement_range"] is None
+    assert p["creator_tenure"] is None
     assert p["tier"] == "pro"
     assert "onboarding_completed_at" in p
 
@@ -197,6 +196,18 @@ def test_creator_submit_drops_unknown_enum_values(client, store):
     p = store.last_creator_payload
     assert "<script>" not in p["niches"]
     assert p["follower_range"] is None
+
+
+def test_creator_submit_saves_custom_other_niche(client, store):
+    _signed_in(client, role="creator")
+    form = _valid_creator_form()
+    form["niches"] = ["food", "__other__"]
+    form["niche_other"] = "Car Culture"
+
+    r = client.post("/onboarding/creator", data=form)
+
+    assert r.status_code == 303
+    assert store.last_creator_payload["niches"] == ["food", "car culture"]
 
 
 def test_creator_submit_rejects_invalid_neighborhood(client, store):
@@ -252,14 +263,13 @@ def test_onboarding_creator_requires_auth(client, store):
 
 
 # ---------------------------------------------------------------------------
-# Stepped wizard structure (Part B): the form is now organized into
-# four <fieldset data-onb-step="N"> sections plus the integrations
-# grid partial. Pin the markers so a future refactor that drops one
-# of the steps surfaces clearly.
+# Stepped wizard structure: the form is organized into six focused
+# <fieldset data-onb-step="N"> sections. Pin the markers so a future
+# refactor that drops one of the steps surfaces clearly.
 # ---------------------------------------------------------------------------
 
 
-def test_onboarding_creator_renders_four_steps_and_integrations(
+def test_onboarding_creator_renders_six_steps_and_integrations(
     monkeypatch, client, store
 ):
     from app.routes import onboarding as onboarding_routes
@@ -276,26 +286,37 @@ def test_onboarding_creator_renders_four_steps_and_integrations(
         "get_google_connection",
         lambda uid: None,
     )
+    monkeypatch.setattr(
+        onboarding_routes.instagram_meta,
+        "is_configured",
+        lambda: False,
+    )
+    monkeypatch.setattr(
+        onboarding_routes.oauth_connections,
+        "get_instagram_connection",
+        lambda uid: None,
+    )
 
     r = client.get("/onboarding/creator")
     assert r.status_code == 200
-    # Four step pips.
-    for n in range(1, 5):
+    # Six step pips.
+    for n in range(1, 7):
         assert f'data-onb-step-pip="{n}"' in r.text
-    # Four step fieldsets.
-    for n in range(1, 5):
+    # Six step fieldsets.
+    for n in range(1, 7):
         assert f'data-onb-step="{n}"' in r.text
-    # Integrations partial included — has the brand labels and a
-    # coming-soon marker for the non-Google providers.
-    assert "Google Calendar" in r.text
-    assert "Gmail" in r.text
-    assert "Instagram" in r.text
-    assert "TikTok" in r.text
+    # Integrations cards include the provider labels and simple status
+    # states, without collecting manual social stat questions.
+    assert "google calendar" in r.text
+    assert "gmail" in r.text
+    assert "instagram" in r.text
+    assert "tiktok" in r.text
     assert "coming soon" in r.text
-    # No fake connect buttons for the non-Google providers — they
-    # render as <button disabled>, not <a href="/creator/.../connect">.
     assert "/creator/instagram/connect" not in r.text
     assert "/creator/tiktok/connect" not in r.text
+    assert "follower range" not in r.text
+    assert "engagement rate" not in r.text
+    assert "creator tenure" not in r.text
 
 
 def test_onboarding_passes_google_flags_when_configured(monkeypatch, client, store):
@@ -310,11 +331,50 @@ def test_onboarding_passes_google_flags_when_configured(monkeypatch, client, sto
         "get_google_connection",
         lambda uid: None,
     )
+    monkeypatch.setattr(
+        onboarding_routes.oauth_connections,
+        "get_instagram_connection",
+        lambda uid: None,
+    )
 
     r = client.get("/onboarding/creator")
     assert r.status_code == 200
     # Real connect link visible for Google Calendar.
-    assert "/creator/google/connect?service=calendar" in r.text
-    assert "/creator/google/connect?service=gmail" in r.text
-    assert "connect Google Calendar" in r.text
-    assert "connect Gmail" in r.text
+    assert (
+        "/creator/google/connect?service=calendar&amp;next=/onboarding/creator"
+        in r.text
+    )
+    assert (
+        "/creator/google/connect?service=gmail&amp;next=/onboarding/creator"
+        in r.text
+    )
+    assert "google calendar" in r.text
+    assert "gmail" in r.text
+
+
+def test_onboarding_prefills_handle_from_instagram_metadata(
+    monkeypatch, client, store
+):
+    from app.routes import onboarding as onboarding_routes
+
+    _signed_in(client, role="creator", user_id="u-1")
+    monkeypatch.setattr(
+        onboarding_routes.oauth_connections,
+        "get_google_connection",
+        lambda uid: None,
+    )
+    monkeypatch.setattr(
+        onboarding_routes.oauth_connections,
+        "get_instagram_connection",
+        lambda uid: {"metadata": {"username": "miacreates"}},
+    )
+    monkeypatch.setattr(
+        onboarding_routes.instagram_meta,
+        "is_configured",
+        lambda: True,
+    )
+
+    r = client.get("/onboarding/creator")
+
+    assert r.status_code == 200
+    assert 'value="miacreates"' in r.text
