@@ -2026,7 +2026,10 @@ def test_gmail_draft_confirm_calls_create_once_and_double_confirm_is_idempotent(
     assert first.executed is True
     assert first.record_id == "draft-1"
     assert "Gmail draft saved" in first.message
-    assert "babyg does not send" in first.message
+    # The "(id <X>)" format is now the bot's reliable handle for the
+    # send_gmail_draft tool on a later turn, so success copy must keep
+    # it.
+    assert "(id draft-1)" in first.message
     # Second confirm finds non-pending status → never re-invokes create_draft.
     assert second.executed is False
     assert len(draft_calls) == 1
@@ -3174,6 +3177,340 @@ def test_calendar_modify_tools_registered_and_prompt_updated() -> None:
     assert "cancel_google_calendar_event" in p
     # The bot must NOT invent event_ids — that's pinned in the prompt.
     assert "never invent" in p
+
+
+# ---------------------------------------------------------------------------
+# Slice 5.3: send_gmail_draft (Gap #2 from the agent capability audit).
+# Sends a Gmail draft the creator previously confirmed in this thread,
+# instead of creating a duplicate via send_gmail_email.
+# ---------------------------------------------------------------------------
+
+
+def _gmail_send_connection():
+    return {
+        "provider": "google",
+        "scopes": [bot_service.google_calendar.GMAIL_SEND_SCOPE],
+    }
+
+
+def test_send_gmail_draft_staging_refuses_when_draft_id_missing(monkeypatch) -> None:
+    monkeypatch.setattr(bot_service.google_calendar, "is_configured", lambda: True)
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "get_google_connection",
+        lambda _u: _gmail_send_connection(),
+    )
+    monkeypatch.setattr(
+        bot_service.google_gmail,
+        "send_draft",
+        lambda *a, **kw: pytest.fail("staging must not call Gmail"),
+    )
+
+    result = bot_service._stage_send_gmail_draft_tool(
+        {"to": "x@y.test"},
+        pending_action=None,
+        user_id="creator-1",
+    )
+    assert result["ok"] is False
+    assert "draft_id" in result["content"]
+    assert "never invent" in result["content"]
+
+
+def test_send_gmail_draft_staging_refuses_when_send_scope_missing(monkeypatch) -> None:
+    """A draft-create scope alone isn't enough — sending requires the
+    send scope. Refuse before any proposal row."""
+    monkeypatch.setattr(bot_service.google_calendar, "is_configured", lambda: True)
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "get_google_connection",
+        lambda _u: {
+            "provider": "google",
+            "scopes": [bot_service.google_calendar.GMAIL_COMPOSE_SCOPE],
+        },
+    )
+    monkeypatch.setattr(
+        bot_service.google_gmail,
+        "send_draft",
+        lambda *a, **kw: pytest.fail("must not call Gmail without send scope"),
+    )
+
+    result = bot_service._stage_send_gmail_draft_tool(
+        {"draft_id": "draft_42"},
+        pending_action=None,
+        user_id="creator-1",
+    )
+    assert result["ok"] is False
+    assert "send scope" in result["content"]
+
+
+def test_send_gmail_draft_staging_returns_pending_proposal(monkeypatch) -> None:
+    monkeypatch.setattr(bot_service.google_calendar, "is_configured", lambda: True)
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "get_google_connection",
+        lambda _u: _gmail_send_connection(),
+    )
+    monkeypatch.setattr(
+        bot_service.action_proposals,
+        "create_proposal",
+        lambda *, user_id, action_type, payload, preview: {
+            "id": "proposal-sd",
+            "action_type": action_type,
+            "payload": payload,
+        },
+    )
+    monkeypatch.setattr(
+        bot_service.google_gmail,
+        "send_draft",
+        lambda *a, **kw: pytest.fail("staging must not call Gmail"),
+    )
+
+    result = bot_service._stage_send_gmail_draft_tool(
+        {
+            "draft_id": "draft_42",
+            "to": "brand@acme.test",
+            "subject": "re: collab",
+        },
+        pending_action=None,
+        user_id="creator-1",
+    )
+    assert result["ok"] is True
+    assert result["content"]["status"] == "pending_confirmation"
+    assert result["content"]["action_type"] == "gmail.send_draft"
+    assert "draft is unchanged" in result["content"]["message"]
+
+
+def test_send_gmail_draft_confirm_calls_drafts_send_once(monkeypatch) -> None:
+    """Confirming triggers the executor → google_gmail.send_draft is
+    called exactly once with the staged draft_id. Result message id
+    is recorded as external_result_id on the action_proposal."""
+    proposal_id = str(uuid4())
+    message_id = str(uuid4())
+    row = {
+        "id": message_id,
+        "user_id": "creator-1",
+        "tool_calls": {
+            "kind": "proposed_action",
+            "status": "pending",
+            "action_type": "gmail.send_draft",
+            "proposal_id": proposal_id,
+            "payload": {
+                "draft_id": "draft_42",
+                "to": "brand@acme.test",
+                "subject": "re: collab",
+            },
+            "preview": "Preview",
+            "result": None,
+        },
+    }
+    monkeypatch.setattr(bot_service, "_get_message_for_user", lambda **kw: row)
+    monkeypatch.setattr(
+        bot_service,
+        "_update_message_tool_calls",
+        lambda *, message_id, user_id, tool_calls, expected_status=None: row.update(
+            {"tool_calls": tool_calls}
+        )
+        or True,
+    )
+    monkeypatch.setattr(
+        bot_service.action_proposals,
+        "confirm_proposal",
+        lambda *, proposal_id, user_id: True,
+    )
+    monkeypatch.setattr(
+        bot_service.action_proposals,
+        "mark_executing",
+        lambda *, proposal_id, user_id: True,
+    )
+    executed_args: dict = {}
+
+    def _mark_executed(*, proposal_id, user_id, external_result_id):
+        executed_args["external_result_id"] = external_result_id
+
+    monkeypatch.setattr(
+        bot_service.action_proposals, "mark_executed", _mark_executed
+    )
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "get_google_connection",
+        lambda _u: _gmail_send_connection(),
+    )
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "access_token_for_google",
+        lambda _u: "tok",
+    )
+    send_calls = {"n": 0}
+
+    def _send_draft(token, *, draft_id):
+        send_calls["n"] += 1
+        send_calls["draft_id"] = draft_id
+        return "msg_real"
+
+    monkeypatch.setattr(bot_service.google_gmail, "send_draft", _send_draft)
+    monkeypatch.setattr(
+        bot_service.google_gmail,
+        "send_message",
+        lambda *a, **kw: pytest.fail("send_draft path must not call send_message"),
+    )
+    monkeypatch.setattr(bot_service, "create_message", lambda **_kw: "msg-2")
+
+    result = bot_service.confirm_action(
+        user_id="creator-1", message_id=message_id
+    )
+    assert result.executed is True
+    assert send_calls["n"] == 1
+    assert send_calls["draft_id"] == "draft_42"
+    assert executed_args["external_result_id"] == "msg_real"
+    assert "draft has been sent" in result.message.lower()
+
+
+def test_send_gmail_draft_failure_marks_proposal_failed(monkeypatch) -> None:
+    proposal_id = str(uuid4())
+    message_id = str(uuid4())
+    row = {
+        "id": message_id,
+        "user_id": "creator-1",
+        "tool_calls": {
+            "kind": "proposed_action",
+            "status": "pending",
+            "action_type": "gmail.send_draft",
+            "proposal_id": proposal_id,
+            "payload": {"draft_id": "draft_500"},
+            "preview": "Preview",
+            "result": None,
+        },
+    }
+    monkeypatch.setattr(bot_service, "_get_message_for_user", lambda **kw: row)
+    monkeypatch.setattr(
+        bot_service,
+        "_update_message_tool_calls",
+        lambda *, message_id, user_id, tool_calls, expected_status=None: row.update(
+            {"tool_calls": tool_calls}
+        )
+        or True,
+    )
+    monkeypatch.setattr(
+        bot_service.action_proposals,
+        "confirm_proposal",
+        lambda *, proposal_id, user_id: True,
+    )
+    monkeypatch.setattr(
+        bot_service.action_proposals,
+        "mark_executing",
+        lambda *, proposal_id, user_id: True,
+    )
+    monkeypatch.setattr(
+        bot_service.action_proposals,
+        "mark_executed",
+        lambda **_kw: pytest.fail("must not mark executed on failure"),
+    )
+    failed_args: dict = {}
+
+    def _mark_failed(*, proposal_id, user_id, error_code, error_message):
+        failed_args["error_code"] = error_code
+
+    monkeypatch.setattr(
+        bot_service.action_proposals, "mark_failed", _mark_failed
+    )
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "get_google_connection",
+        lambda _u: _gmail_send_connection(),
+    )
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "access_token_for_google",
+        lambda _u: "tok",
+    )
+
+    def _boom(*a, **kw):
+        raise bot_service.google_gmail.GmailError("api down")
+
+    monkeypatch.setattr(bot_service.google_gmail, "send_draft", _boom)
+    monkeypatch.setattr(bot_service, "create_message", lambda **_kw: "msg-2")
+
+    result = bot_service.confirm_action(
+        user_id="creator-1", message_id=message_id
+    )
+    assert result.executed is False
+    assert failed_args["error_code"] == "gmail_send_draft_failed"
+    assert "draft is still in Gmail" in result.message
+
+
+def test_send_gmail_draft_cancel_never_calls_gmail(monkeypatch) -> None:
+    """Cancel path leaves the draft alone — no API call."""
+    message_id = str(uuid4())
+    proposal_id = str(uuid4())
+    row = {
+        "id": message_id,
+        "user_id": "creator-1",
+        "tool_calls": {
+            "kind": "proposed_action",
+            "status": "pending",
+            "action_type": "gmail.send_draft",
+            "proposal_id": proposal_id,
+            "payload": {"draft_id": "draft_keep"},
+            "preview": "Preview",
+            "result": None,
+        },
+    }
+    monkeypatch.setattr(bot_service, "_get_message_for_user", lambda **kw: row)
+    monkeypatch.setattr(
+        bot_service,
+        "_update_message_tool_calls",
+        lambda *, message_id, user_id, tool_calls, expected_status=None: row.update(
+            {"tool_calls": tool_calls}
+        )
+        or True,
+    )
+    monkeypatch.setattr(
+        bot_service.google_gmail,
+        "send_draft",
+        lambda *a, **kw: pytest.fail("cancel must not call send_draft"),
+    )
+    monkeypatch.setattr(
+        bot_service.google_gmail,
+        "send_message",
+        lambda *a, **kw: pytest.fail("cancel must not call send_message"),
+    )
+    cancelled: list[str] = []
+    monkeypatch.setattr(
+        bot_service.action_proposals,
+        "cancel_proposal",
+        lambda *, proposal_id, user_id: cancelled.append(proposal_id) or True,
+    )
+    monkeypatch.setattr(bot_service, "create_message", lambda **_kw: "msg-2")
+
+    result = bot_service.cancel_action(
+        user_id="creator-1", message_id=message_id
+    )
+    assert result.action_type == "gmail.send_draft"
+    assert "draft is still in your Gmail" in result.message
+    assert cancelled == [proposal_id]
+
+
+def test_send_gmail_draft_tool_registered_and_prompt_updated() -> None:
+    names = {t["name"] for t in bot_service.prompts.BOT_TOOL_DEFINITIONS}
+    assert "send_gmail_draft" in names
+    assert "gmail.send_draft" in bot_service.ALLOWED_ACTION_TYPES
+
+    p = bot_service.prompts.babyg_system_prompt()
+    assert "send_gmail_draft" in p
+    # The prompt must instruct the bot to find the draft_id in prior
+    # assistant messages — no inventing.
+    assert "Gmail draft saved" in p
+    assert "quote X exactly" in p
+    assert "never invent" in p
+
+
+def test_draft_success_copy_carries_id_in_stable_format() -> None:
+    """The bot extracts draft_id from this success message on later
+    turns; the '(id <X>)' format MUST stay stable."""
+    msg = bot_service._success_message("gmail.create_draft", "draft_abc123")
+    assert "(id draft_abc123)" in msg
+    msg2 = bot_service._success_message("create_gmail_draft", "draft_xyz")
+    assert "(id draft_xyz)" in msg2
 
 
 def test_read_my_calendar_surfaces_google_event_id(monkeypatch) -> None:

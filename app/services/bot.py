@@ -33,6 +33,7 @@ ActionType = Literal[
     "create_gmail_draft",
     "gmail.create_draft",
     "gmail.send_email",
+    "gmail.send_draft",
     "calendar.create_event",
     "calendar.update_event",
     "calendar.delete_event",
@@ -115,6 +116,7 @@ ALLOWED_ACTION_TYPES = (
     "create_gmail_draft",
     "gmail.create_draft",
     "gmail.send_email",
+    "gmail.send_draft",
     "calendar.create_event",
     "calendar.update_event",
     "calendar.delete_event",
@@ -343,7 +345,9 @@ def confirm_action(*, user_id: str, message_id: str) -> BotActionResult:
             tool_calls=tool_calls,
             action_type=action_type,
         )
-    if _is_gmail_send_action(action_type):
+    if _is_gmail_send_action(action_type) or _is_gmail_send_draft_action(
+        action_type
+    ):
         return _confirm_gmail_send_action(
             user_id=user_id,
             message_id=message_id,
@@ -437,7 +441,9 @@ def cancel_action(*, user_id: str, message_id: str) -> BotActionResult:
             tool_calls=tool_calls,
             action_type=action_type,
         )
-    if _is_gmail_send_action(action_type):
+    if _is_gmail_send_action(action_type) or _is_gmail_send_draft_action(
+        action_type
+    ):
         return _cancel_gmail_send_action(
             user_id=user_id,
             message_id=message_id,
@@ -672,7 +678,31 @@ def _confirm_gmail_send_action(
     payload = tool_calls.get("payload")
     if not isinstance(payload, dict):
         payload = {}
-    message_id_sent = _execute_gmail_send(user_id=user_id, payload=payload)
+
+    # Dispatch by action_type: send_draft hits drafts/send (preserves the
+    # original draft as the sent message — no duplicate); send_email hits
+    # messages/send for a fresh outbound. Both produce a Gmail message id.
+    if _is_gmail_send_draft_action(action_type):
+        message_id_sent = _execute_gmail_send_draft(
+            user_id=user_id, payload=payload
+        )
+        fail_error_code = "gmail_send_draft_failed"
+        fail_error_message = (
+            "Gmail drafts.send failed or token was unavailable."
+        )
+        fail_message_to_user = (
+            "I couldn't send that draft. The draft is still in Gmail."
+        )
+    else:
+        message_id_sent = _execute_gmail_send(user_id=user_id, payload=payload)
+        fail_error_code = "gmail_send_failed"
+        fail_error_message = (
+            "Gmail messages.send failed or token was unavailable."
+        )
+        fail_message_to_user = (
+            "I couldn't send that email. Nothing else happened."
+        )
+
     if message_id_sent:
         action_proposals.mark_executed(
             proposal_id=proposal_id,
@@ -680,17 +710,17 @@ def _confirm_gmail_send_action(
             external_result_id=message_id_sent,
         )
         final_status = "executed"
-        message = _success_message("gmail.send_email", message_id_sent)
+        message = _success_message(action_type, message_id_sent)
         ok = True
     else:
         action_proposals.mark_failed(
             proposal_id=proposal_id,
             user_id=user_id,
-            error_code="gmail_send_failed",
-            error_message="Gmail messages.send failed or token was unavailable.",
+            error_code=fail_error_code,
+            error_message=fail_error_message,
         )
         final_status = "failed"
-        message = "I couldn't send that email. Nothing else happened."
+        message = fail_message_to_user
         ok = False
 
     result_tool_calls = {
@@ -733,7 +763,10 @@ def _cancel_gmail_send_action(
         tool_calls=cancelled,
         expected_status="pending",
     )
-    message = "Cancelled. No email was sent."
+    if _is_gmail_send_draft_action(action_type):
+        message = "Cancelled. The draft is still in your Gmail."
+    else:
+        message = "Cancelled. No email was sent."
     create_message(user_id=user_id, role="assistant", content=message)
     return BotActionResult(message=message, action_type=action_type)
 
@@ -1123,6 +1156,10 @@ def _execute_agent_tool(
         return _stage_send_gmail_email_tool(
             tool_input, pending_action=pending_action, user_id=user_id
         )
+    if name == "send_gmail_draft":
+        return _stage_send_gmail_draft_tool(
+            tool_input, pending_action=pending_action, user_id=user_id
+        )
     if name == "create_google_calendar_event":
         return _stage_google_calendar_event_tool(
             tool_input, pending_action=pending_action, user_id=user_id
@@ -1410,6 +1447,119 @@ def _stage_send_gmail_email_tool(
             ),
         },
         "pending_action": proposal,
+    }
+
+
+def _stage_send_gmail_draft_tool(
+    tool_input: dict[str, Any],
+    *,
+    pending_action: dict[str, Any] | None,
+    user_id: str,
+) -> dict[str, Any]:
+    """Stage a Gmail send-draft proposal. NEVER calls Gmail itself.
+
+    The draft_id must come from a prior gmail.create_draft confirmation
+    in the same conversation — the bot finds it in the assistant
+    message history (success copy includes the id in `(id <X>)` form).
+    """
+    if pending_action is not None:
+        return {
+            "kind": "write_tool",
+            "ok": False,
+            "content": "An action is already pending for this turn.",
+        }
+    if not google_calendar.is_configured():
+        return {
+            "kind": "write_tool",
+            "ok": False,
+            "content": "Gmail integration is not configured on this server yet.",
+        }
+    try:
+        connection = oauth_connections.get_google_connection(user_id)
+    except Exception:
+        logger.exception("gmail connection lookup failed (send-draft stage)")
+        connection = None
+    if not connection or not oauth_connections.google_gmail_send_connected(
+        connection
+    ):
+        return {
+            "kind": "write_tool",
+            "ok": False,
+            "content": (
+                "Sending requires the creator to reconnect Gmail with "
+                "the send scope from /creator/profile/settings."
+            ),
+        }
+    payload = _gmail_send_draft_payload_from_tool(tool_input)
+    if not payload.get("draft_id"):
+        return {
+            "kind": "write_tool",
+            "ok": False,
+            "content": (
+                "Missing required Gmail field: draft_id. Get this from "
+                "the success message of a prior gmail.create_draft "
+                "confirmation — never invent a draft id."
+            ),
+        }
+    preview = _action_preview(action_type="gmail.send_draft", payload=payload)
+    proposal_row = action_proposals.create_proposal(
+        user_id=user_id,
+        action_type="gmail.send_draft",
+        payload=payload,
+        preview={
+            "title": "send Gmail draft",
+            "draft_id": payload["draft_id"],
+            "to": payload.get("to"),
+            "subject": payload.get("subject"),
+        },
+    )
+    if not proposal_row:
+        return {
+            "kind": "write_tool",
+            "ok": False,
+            "content": (
+                "I couldn't stage that Gmail send. The draft is unchanged."
+            ),
+        }
+    proposal = {
+        "kind": "proposed_action",
+        "status": "pending",
+        "action_type": "gmail.send_draft",
+        "proposal_id": str(proposal_row["id"]),
+        "payload": payload,
+        "preview": preview,
+        "result": None,
+    }
+    return {
+        "kind": "write_tool",
+        "ok": True,
+        "content": {
+            "status": "pending_confirmation",
+            "action_type": "gmail.send_draft",
+            "proposal_id": proposal["proposal_id"],
+            "preview": preview,
+            "message": (
+                "No email was sent. The draft is unchanged. The creator "
+                "must confirm the action card."
+            ),
+        },
+        "pending_action": proposal,
+    }
+
+
+def _gmail_send_draft_payload_from_tool(
+    tool_input: dict[str, Any],
+) -> dict[str, Any]:
+    """Project the bot's send-draft tool_input. draft_id is the only
+    field the executor needs; to and subject are carried for the
+    preview card so the creator can verify which draft will go out."""
+    draft_id = str(tool_input.get("draft_id") or "").strip()[:1024]
+    to = tool_input.get("to")
+    subject = tool_input.get("subject")
+    return {
+        "draft_id": draft_id,
+        "to": str(to).strip()[:320] if to else None,
+        "subject": str(subject).strip()[:200] if subject else None,
     }
 
 
@@ -2100,6 +2250,10 @@ def _is_gmail_send_action(action_type: str) -> bool:
     return action_type == "gmail.send_email"
 
 
+def _is_gmail_send_draft_action(action_type: str) -> bool:
+    return action_type == "gmail.send_draft"
+
+
 def _is_calendar_create_action(action_type: str) -> bool:
     return action_type == "calendar.create_event"
 
@@ -2245,6 +2399,25 @@ def _action_preview(*, action_type: str, payload: dict[str, Any]) -> str:
             f"{body_preview}\n\n"
             "Nothing has been sent yet. Confirming sends exactly one email."
         )
+    if _is_gmail_send_draft_action(action_type):
+        lines = [
+            "I can send the draft you already approved:",
+            "",
+            f"Draft id: {payload['draft_id']}",
+        ]
+        if payload.get("to"):
+            lines.append(f"To: {payload['to']}")
+        if payload.get("subject"):
+            lines.append(f"Subject: {payload['subject']}")
+        lines.extend(
+            [
+                "",
+                "Nothing has been sent yet. Confirming sends the draft "
+                "as-is — the draft disappears from /drafts and appears "
+                "in /sent. No duplicate.",
+            ]
+        )
+        return "\n".join(lines)
     if _is_calendar_create_action(action_type):
         lines = [
             "I can create this Google Calendar event after you confirm:",
@@ -2350,6 +2523,37 @@ def _execute_gmail_draft(
         )
     except google_gmail.GmailError:
         logger.exception("gmail drafts.create failed")
+        return None
+
+
+def _execute_gmail_send_draft(
+    *, user_id: str, payload: dict[str, Any]
+) -> str | None:
+    """Call Gmail drafts.send with the confirmed draft_id. Returns the
+    resulting message id (the draft becomes the sent message)."""
+    try:
+        connection = oauth_connections.get_google_connection(user_id)
+    except Exception:
+        logger.exception("gmail send-draft confirm: connection lookup failed")
+        return None
+    if not connection or not oauth_connections.google_gmail_send_connected(
+        connection
+    ):
+        return None
+    try:
+        token = oauth_connections.access_token_for_google(user_id)
+    except Exception:
+        logger.exception("gmail send-draft confirm: token lookup failed")
+        return None
+    if not token:
+        return None
+    draft_id = str(payload.get("draft_id") or "").strip()
+    if not draft_id:
+        return None
+    try:
+        return google_gmail.send_draft(token, draft_id=draft_id)
+    except google_gmail.GmailError:
+        logger.exception("gmail drafts.send failed")
         return None
 
 
@@ -2478,11 +2682,20 @@ def _success_message(action_type: str, record_id: str) -> str:
         return f"Done. I submitted that creator listing in babyg. Record: {record_id}"
     if _is_gmail_draft_action(action_type):
         return (
-            f"Done. Gmail draft saved (id {record_id}). Open Gmail to review "
-            "and send — babyg does not send."
+            # The "(id <X>)" format is the bot's reliable handle for
+            # send_gmail_draft on a later turn — keep it stable. Copy
+            # acknowledges send is allowed via separate approval; the
+            # draft itself is not auto-sent.
+            f"Done. Gmail draft saved (id {record_id}). Open Gmail to review, "
+            "or ask me to send this exact draft when you're ready."
         )
     if _is_gmail_send_action(action_type):
         return f"Done. Email sent through Gmail. Message id: {record_id}"
+    if _is_gmail_send_draft_action(action_type):
+        return (
+            "Done. The draft has been sent through Gmail. Message id: "
+            f"{record_id}"
+        )
     if _is_calendar_create_action(action_type):
         return f"Done. Google Calendar event created. Event id: {record_id}"
     if _is_calendar_update_action(action_type):
