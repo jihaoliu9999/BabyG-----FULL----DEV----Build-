@@ -79,12 +79,12 @@ def test_terms_page_covers_required_topics(client: TestClient) -> None:
     r = client.get("/terms")
     text = r.text.lower()
     for topic in [
-        "eligibility",
+        "who can use babyg",
         "acceptable use",
-        "ai assistance",
-        "not legal, tax, or financial advice",
+        "ai chatbot and ai agent",
+        "not professional advice",
         "brand deals",
-        "platform availability",
+        "service availability",
         "account termination",
         "limitation of liability",
     ]:
