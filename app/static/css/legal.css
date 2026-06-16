@@ -78,6 +78,11 @@
   line-height: 1.55;
   margin: 0 0 36px;
 }
+/* Pages that intentionally omit the callout (e.g. a finalized policy)
+   leave the wrapper empty — don't render an empty styled box. */
+.legal-pane .legal-callout:empty {
+  display: none;
+}
 
 .legal-pane h2 {
   font-weight: 500;
