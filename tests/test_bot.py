@@ -2727,3 +2727,472 @@ def test_calendar_event_tool_registered_and_prompt_updated() -> None:
     p = bot_service.prompts.babyg_system_prompt()
     assert "create_google_calendar_event" in p
     assert "creator must click confirm" in p
+
+
+# ---------------------------------------------------------------------------
+# Slice 5.2: update + cancel Google Calendar events through approval.
+# Staging never calls Google; only confirm does. Cancel never calls
+# Google. event_id missing → refused before any proposal row.
+# ---------------------------------------------------------------------------
+
+
+def _calendar_connection():
+    return {
+        "provider": "google",
+        "scopes": [bot_service.google_calendar.CALENDAR_SCOPE],
+    }
+
+
+def _stage_calendar_update_world(monkeypatch):
+    """Shared world for update-staging tests: configured, calendar
+    connected, action_proposals.create_proposal returns a row."""
+    monkeypatch.setattr(bot_service.google_calendar, "is_configured", lambda: True)
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "get_google_connection",
+        lambda _u: _calendar_connection(),
+    )
+    monkeypatch.setattr(
+        bot_service.action_proposals,
+        "create_proposal",
+        lambda *, user_id, action_type, payload, preview: {
+            "id": "proposal-uup",
+            "action_type": action_type,
+            "payload": payload,
+        },
+    )
+
+
+def test_calendar_update_staging_refuses_when_event_id_missing(monkeypatch) -> None:
+    _stage_calendar_update_world(monkeypatch)
+    monkeypatch.setattr(
+        bot_service.google_calendar,
+        "update_primary_event",
+        lambda *a, **kw: pytest.fail("staging must not call Google"),
+    )
+
+    result = bot_service._stage_update_google_calendar_event_tool(
+        {"title": "renamed"},
+        pending_action=None,
+        user_id="creator-1",
+    )
+    assert result["ok"] is False
+    assert "event_id" in result["content"]
+
+
+def test_calendar_update_staging_refuses_when_no_changed_fields(monkeypatch) -> None:
+    _stage_calendar_update_world(monkeypatch)
+    result = bot_service._stage_update_google_calendar_event_tool(
+        {"event_id": "evt_1"},
+        pending_action=None,
+        user_id="creator-1",
+    )
+    assert result["ok"] is False
+    assert "at least one" in result["content"]
+
+
+def test_calendar_update_staging_refuses_when_calendar_not_connected(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(bot_service.google_calendar, "is_configured", lambda: True)
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "get_google_connection",
+        lambda _u: {
+            "provider": "google",
+            "scopes": [bot_service.google_calendar.GMAIL_COMPOSE_SCOPE],
+        },
+    )
+    monkeypatch.setattr(
+        bot_service.google_calendar,
+        "update_primary_event",
+        lambda *a, **kw: pytest.fail("must not call Google without calendar scope"),
+    )
+
+    result = bot_service._stage_update_google_calendar_event_tool(
+        {"event_id": "evt_1", "title": "new"},
+        pending_action=None,
+        user_id="creator-1",
+    )
+    assert result["ok"] is False
+    assert "connect Calendar" in result["content"]
+
+
+def test_calendar_update_staging_returns_pending_proposal(monkeypatch) -> None:
+    _stage_calendar_update_world(monkeypatch)
+    monkeypatch.setattr(
+        bot_service.google_calendar,
+        "update_primary_event",
+        lambda *a, **kw: pytest.fail("staging must not call Google"),
+    )
+
+    result = bot_service._stage_update_google_calendar_event_tool(
+        {"event_id": "evt_42", "starts_at": "2099-05-08T16:00:00Z"},
+        pending_action=None,
+        user_id="creator-1",
+    )
+    assert result["ok"] is True
+    assert result["content"]["status"] == "pending_confirmation"
+    assert result["content"]["action_type"] == "calendar.update_event"
+    assert "creator must" in result["content"]["message"]
+
+
+def test_calendar_update_confirm_calls_google_once(monkeypatch) -> None:
+    """confirm → action_proposals lifecycle → calls update_primary_event
+    exactly once with the staged payload."""
+    proposal_id = str(uuid4())
+    message_id = str(uuid4())
+    row = {
+        "id": message_id,
+        "user_id": "creator-1",
+        "tool_calls": {
+            "kind": "proposed_action",
+            "status": "pending",
+            "action_type": "calendar.update_event",
+            "proposal_id": proposal_id,
+            "payload": {
+                "event_id": "evt_42",
+                "starts_at": "2099-05-08T16:00:00Z",
+                "title": None,
+                "ends_at": None,
+                "location": None,
+                "notes": None,
+            },
+            "preview": "Preview",
+            "result": None,
+        },
+    }
+    monkeypatch.setattr(bot_service, "_get_message_for_user", lambda **kw: row)
+    monkeypatch.setattr(
+        bot_service,
+        "_update_message_tool_calls",
+        lambda *, message_id, user_id, tool_calls, expected_status=None: row.update(
+            {"tool_calls": tool_calls}
+        )
+        or True,
+    )
+    monkeypatch.setattr(
+        bot_service.action_proposals,
+        "confirm_proposal",
+        lambda *, proposal_id, user_id: True,
+    )
+    monkeypatch.setattr(
+        bot_service.action_proposals,
+        "mark_executing",
+        lambda *, proposal_id, user_id: True,
+    )
+    executed_args: dict = {}
+
+    def _mark_executed(*, proposal_id, user_id, external_result_id):
+        executed_args["external_result_id"] = external_result_id
+
+    monkeypatch.setattr(
+        bot_service.action_proposals, "mark_executed", _mark_executed
+    )
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "get_google_connection",
+        lambda _u: _calendar_connection(),
+    )
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "access_token_for_google",
+        lambda _u: "tok",
+    )
+    call_count = {"n": 0}
+
+    def _update_event(token, **kw):
+        call_count["n"] += 1
+        return kw.get("event_id")
+
+    monkeypatch.setattr(
+        bot_service.google_calendar, "update_primary_event", _update_event
+    )
+    monkeypatch.setattr(bot_service, "create_message", lambda **_kw: "msg-2")
+
+    result = bot_service.confirm_action(
+        user_id="creator-1", message_id=message_id
+    )
+    assert result.executed is True
+    assert call_count["n"] == 1
+    assert executed_args["external_result_id"] == "evt_42"
+    assert "updated" in result.message.lower()
+
+
+def test_calendar_update_failure_marks_proposal_failed(monkeypatch) -> None:
+    """Google API failure → proposal marked failed, fail message
+    surfaces, no executed marker."""
+    proposal_id = str(uuid4())
+    message_id = str(uuid4())
+    row = {
+        "id": message_id,
+        "user_id": "creator-1",
+        "tool_calls": {
+            "kind": "proposed_action",
+            "status": "pending",
+            "action_type": "calendar.update_event",
+            "proposal_id": proposal_id,
+            "payload": {
+                "event_id": "evt_500",
+                "starts_at": "2099-05-08T16:00:00Z",
+            },
+            "preview": "Preview",
+            "result": None,
+        },
+    }
+    monkeypatch.setattr(bot_service, "_get_message_for_user", lambda **kw: row)
+    monkeypatch.setattr(
+        bot_service,
+        "_update_message_tool_calls",
+        lambda *, message_id, user_id, tool_calls, expected_status=None: row.update(
+            {"tool_calls": tool_calls}
+        )
+        or True,
+    )
+    monkeypatch.setattr(
+        bot_service.action_proposals,
+        "confirm_proposal",
+        lambda *, proposal_id, user_id: True,
+    )
+    monkeypatch.setattr(
+        bot_service.action_proposals,
+        "mark_executing",
+        lambda *, proposal_id, user_id: True,
+    )
+    failed_args: dict = {}
+
+    def _mark_failed(*, proposal_id, user_id, error_code, error_message):
+        failed_args["error_code"] = error_code
+
+    monkeypatch.setattr(
+        bot_service.action_proposals, "mark_failed", _mark_failed
+    )
+    monkeypatch.setattr(
+        bot_service.action_proposals,
+        "mark_executed",
+        lambda **_kw: pytest.fail("must not mark executed on failure"),
+    )
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "get_google_connection",
+        lambda _u: _calendar_connection(),
+    )
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "access_token_for_google",
+        lambda _u: "tok",
+    )
+
+    def _boom(*a, **kw):
+        raise bot_service.google_calendar.GoogleCalendarError("graph 500")
+
+    monkeypatch.setattr(bot_service.google_calendar, "update_primary_event", _boom)
+    monkeypatch.setattr(bot_service, "create_message", lambda **_kw: "msg-2")
+
+    result = bot_service.confirm_action(
+        user_id="creator-1", message_id=message_id
+    )
+    assert result.executed is False
+    assert failed_args["error_code"] == "calendar_update_failed"
+
+
+def test_calendar_cancel_staging_refuses_when_event_id_missing(monkeypatch) -> None:
+    monkeypatch.setattr(bot_service.google_calendar, "is_configured", lambda: True)
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "get_google_connection",
+        lambda _u: _calendar_connection(),
+    )
+    result = bot_service._stage_cancel_google_calendar_event_tool(
+        {"title": "old"},
+        pending_action=None,
+        user_id="creator-1",
+    )
+    assert result["ok"] is False
+    assert "event_id" in result["content"]
+
+
+def test_calendar_cancel_staging_returns_pending(monkeypatch) -> None:
+    monkeypatch.setattr(bot_service.google_calendar, "is_configured", lambda: True)
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "get_google_connection",
+        lambda _u: _calendar_connection(),
+    )
+    monkeypatch.setattr(
+        bot_service.action_proposals,
+        "create_proposal",
+        lambda *, user_id, action_type, payload, preview: {
+            "id": "proposal-del",
+            "action_type": action_type,
+            "payload": payload,
+        },
+    )
+    monkeypatch.setattr(
+        bot_service.google_calendar,
+        "delete_primary_event",
+        lambda *a, **kw: pytest.fail("staging must not call Google"),
+    )
+
+    result = bot_service._stage_cancel_google_calendar_event_tool(
+        {"event_id": "evt_del", "title": "old brand call"},
+        pending_action=None,
+        user_id="creator-1",
+    )
+    assert result["ok"] is True
+    assert result["content"]["action_type"] == "calendar.delete_event"
+
+
+def test_calendar_cancel_confirm_calls_delete_once(monkeypatch) -> None:
+    proposal_id = str(uuid4())
+    message_id = str(uuid4())
+    row = {
+        "id": message_id,
+        "user_id": "creator-1",
+        "tool_calls": {
+            "kind": "proposed_action",
+            "status": "pending",
+            "action_type": "calendar.delete_event",
+            "proposal_id": proposal_id,
+            "payload": {"event_id": "evt_del", "title": "old call"},
+            "preview": "Preview",
+            "result": None,
+        },
+    }
+    monkeypatch.setattr(bot_service, "_get_message_for_user", lambda **kw: row)
+    monkeypatch.setattr(
+        bot_service,
+        "_update_message_tool_calls",
+        lambda *, message_id, user_id, tool_calls, expected_status=None: row.update(
+            {"tool_calls": tool_calls}
+        )
+        or True,
+    )
+    monkeypatch.setattr(
+        bot_service.action_proposals,
+        "confirm_proposal",
+        lambda *, proposal_id, user_id: True,
+    )
+    monkeypatch.setattr(
+        bot_service.action_proposals,
+        "mark_executing",
+        lambda *, proposal_id, user_id: True,
+    )
+    monkeypatch.setattr(
+        bot_service.action_proposals,
+        "mark_executed",
+        lambda **_kw: None,
+    )
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "get_google_connection",
+        lambda _u: _calendar_connection(),
+    )
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "access_token_for_google",
+        lambda _u: "tok",
+    )
+    delete_calls = {"n": 0}
+
+    def _delete(token, *, event_id):
+        delete_calls["n"] += 1
+        return event_id
+
+    monkeypatch.setattr(bot_service.google_calendar, "delete_primary_event", _delete)
+    monkeypatch.setattr(bot_service, "create_message", lambda **_kw: "msg-2")
+
+    result = bot_service.confirm_action(
+        user_id="creator-1", message_id=message_id
+    )
+    assert result.executed is True
+    assert delete_calls["n"] == 1
+    assert "cancelled" in result.message.lower()
+
+
+def test_calendar_modify_cancel_never_calls_google(monkeypatch) -> None:
+    """Cancel path must not touch Google for either update or delete."""
+    message_id = str(uuid4())
+    proposal_id = str(uuid4())
+    row = {
+        "id": message_id,
+        "user_id": "creator-1",
+        "tool_calls": {
+            "kind": "proposed_action",
+            "status": "pending",
+            "action_type": "calendar.update_event",
+            "proposal_id": proposal_id,
+            "payload": {"event_id": "evt_keep", "title": "renamed"},
+            "preview": "Preview",
+            "result": None,
+        },
+    }
+    monkeypatch.setattr(bot_service, "_get_message_for_user", lambda **kw: row)
+    monkeypatch.setattr(
+        bot_service,
+        "_update_message_tool_calls",
+        lambda *, message_id, user_id, tool_calls, expected_status=None: row.update(
+            {"tool_calls": tool_calls}
+        )
+        or True,
+    )
+    monkeypatch.setattr(
+        bot_service.google_calendar,
+        "update_primary_event",
+        lambda *a, **kw: pytest.fail("cancel must not call update"),
+    )
+    monkeypatch.setattr(
+        bot_service.google_calendar,
+        "delete_primary_event",
+        lambda *a, **kw: pytest.fail("cancel must not call delete"),
+    )
+    cancelled: list[str] = []
+    monkeypatch.setattr(
+        bot_service.action_proposals,
+        "cancel_proposal",
+        lambda *, proposal_id, user_id: cancelled.append(proposal_id) or True,
+    )
+    monkeypatch.setattr(bot_service, "create_message", lambda **_kw: "msg-2")
+
+    result = bot_service.cancel_action(
+        user_id="creator-1", message_id=message_id
+    )
+    assert result.action_type == "calendar.update_event"
+    assert "Cancelled" in result.message
+    assert cancelled == [proposal_id]
+
+
+def test_calendar_modify_tools_registered_and_prompt_updated() -> None:
+    names = {t["name"] for t in bot_service.prompts.BOT_TOOL_DEFINITIONS}
+    assert "update_google_calendar_event" in names
+    assert "cancel_google_calendar_event" in names
+    assert "calendar.update_event" in bot_service.ALLOWED_ACTION_TYPES
+    assert "calendar.delete_event" in bot_service.ALLOWED_ACTION_TYPES
+
+    p = bot_service.prompts.babyg_system_prompt()
+    assert "update_google_calendar_event" in p
+    assert "cancel_google_calendar_event" in p
+    # The bot must NOT invent event_ids — that's pinned in the prompt.
+    assert "never invent" in p
+
+
+def test_read_my_calendar_surfaces_google_event_id(monkeypatch) -> None:
+    """The bot must be able to find a real event_id from read_my_calendar
+    output. Pinning this output shape so update/cancel tools have an
+    upstream source they can quote in their tool_input."""
+    monkeypatch.setattr(
+        read_only.bookings,
+        "list_for_user",
+        lambda uid, *, horizon, limit: [
+            {
+                "title": "Brand call",
+                "starts_at": "2099-05-08T10:00:00Z",
+                "type": "event",
+                "status": "confirmed",
+                "location": "Zoom",
+                "google_event_id": "evt_real",
+            }
+        ],
+    )
+    out = read_only.read_my_calendar("creator-1", limit=5)
+    assert out[0]["google_event_id"] == "evt_real"

@@ -64,6 +64,9 @@ def read_intel_feed(
 
 
 def read_my_calendar(user_id: str, *, limit: int = 5) -> list[dict[str, Any]]:
+    # google_event_id is surfaced so the agent can reference a real
+    # Google Calendar event by id when staging calendar.update_event
+    # or calendar.delete_event. Local-only items have it as None.
     return [
         {
             "starts_at": row.get("starts_at"),
@@ -71,6 +74,7 @@ def read_my_calendar(user_id: str, *, limit: int = 5) -> list[dict[str, Any]]:
             "type": row.get("type"),
             "status": row.get("status"),
             "location": row.get("location"),
+            "google_event_id": row.get("google_event_id"),
         }
         for row in bookings.list_for_user(
             user_id, horizon="upcoming", limit=_bounded_limit(limit)
