@@ -376,6 +376,7 @@ h1, h2, h3, h4 {
   padding: 10px 12px max(env(safe-area-inset-bottom, 14px), 14px);
   min-height: var(--tabbar-h);
   height: auto;
+  transition: transform .18s cubic-bezier(.2,.7,.2,1), opacity .18s ease;
 }
 .app-tabbar a {
   display: flex; flex-direction: column;
@@ -581,6 +582,7 @@ h1, h2, h3, h4 {
 }
 .app-sidebar .babyg-card-cta:active { transform: translateY(0); }
 @media (prefers-reduced-motion: reduce) {
+  .app-tabbar { transition: none; }
   .app-sidebar .babyg-card { animation: none; }
   .app-sidebar .babyg-card .pulse-dot { animation: none; }
   .app-sidebar .babyg-card-cta,
@@ -1780,6 +1782,20 @@ h1, h2, h3, h4 {
 }
 @media (min-width: 1000px) {
   .is-chat #view { height: calc(100vh - var(--topbar-h)); height: calc(100dvh - var(--topbar-h)); }
+}
+@media (max-width: 999px) {
+  .is-chat.chat-keyboard-open #view {
+    height: calc(100vh - 54px - env(safe-area-inset-top, 0px));
+    height: calc(100dvh - 54px - env(safe-area-inset-top, 0px));
+  }
+  .is-chat.chat-keyboard-open .app-tabbar {
+    transform: translateY(110%);
+    opacity: 0;
+    pointer-events: none;
+  }
+  .is-chat.chat-keyboard-open .bot-composer {
+    padding-bottom: max(env(safe-area-inset-bottom, 8px), 8px);
+  }
 }
 .is-chat .bot-screen { flex: 1; min-height: 0; }
 .is-chat .bot-messages { min-height: 0; }
