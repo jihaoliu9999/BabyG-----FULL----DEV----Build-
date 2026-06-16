@@ -1818,6 +1818,16 @@ def test_gmail_draft_staging_does_not_create_draft(monkeypatch) -> None:
         "create_draft",
         lambda *a, **kw: pytest.fail("staging must not call create_draft"),
     )
+    proposal_id = str(uuid4())
+    created_proposals: list[dict] = []
+
+    def _create_proposal(**kwargs):
+        created_proposals.append(kwargs)
+        return {"id": proposal_id, **kwargs}
+
+    monkeypatch.setattr(
+        bot_service.action_proposals, "create_proposal", _create_proposal
+    )
 
     result = bot_service._stage_create_gmail_draft_tool(
         {
@@ -1830,12 +1840,20 @@ def test_gmail_draft_staging_does_not_create_draft(monkeypatch) -> None:
     )
     assert result["ok"] is True
     assert result["content"]["status"] == "pending_confirmation"
-    assert result["content"]["action_type"] == "create_gmail_draft"
+    assert result["content"]["action_type"] == "gmail.create_draft"
+    assert result["content"]["proposal_id"] == proposal_id
     assert "never sends" in result["content"]["message"]
+    assert created_proposals[0]["action_type"] == "gmail.create_draft"
+    preview = created_proposals[0]["preview"]
+    assert preview["to"] == "brand@acme.test"
+    assert preview["subject"] == "re: collab"
+    assert preview["body"].startswith("hey team")
     # Preview must reflect the staged payload — preview is generated
     # from the proposal at stage time.
     assert "brand@acme.test" in result["pending_action"]["preview"]
     assert "re: collab" in result["pending_action"]["preview"]
+    assert result["pending_action"]["action_type"] == "gmail.create_draft"
+    assert result["pending_action"]["proposal_id"] == proposal_id
 
 
 def test_gmail_draft_refused_when_compose_scope_missing(monkeypatch) -> None:
@@ -1906,10 +1924,12 @@ def test_gmail_draft_confirm_calls_create_once_and_double_confirm_is_idempotent(
     'double confirm does not duplicate'. Idempotency is enforced by
     the compare-and-swap on expected_status='pending'."""
     message_id = str(uuid4())
+    proposal_id = str(uuid4())
     tool_calls = {
         "kind": "proposed_action",
         "status": "pending",
-        "action_type": "create_gmail_draft",
+        "action_type": "gmail.create_draft",
+        "proposal_id": proposal_id,
         "payload": {
             "to": "brand@acme.test",
             "subject": "re: collab",
@@ -1920,6 +1940,7 @@ def test_gmail_draft_confirm_calls_create_once_and_double_confirm_is_idempotent(
     }
     row = {"id": message_id, "user_id": "creator-1", "tool_calls": tool_calls}
     stored_status = {"value": "pending"}
+    proposal_status = {"value": "pending"}
     draft_calls: list[dict] = []
 
     monkeypatch.setattr(
@@ -1941,6 +1962,27 @@ def test_gmail_draft_confirm_calls_create_once_and_double_confirm_is_idempotent(
         return True
 
     monkeypatch.setattr(bot_service, "_update_message_tool_calls", _update)
+    monkeypatch.setattr(
+        bot_service.action_proposals,
+        "confirm_proposal",
+        lambda *, proposal_id, user_id: proposal_status["value"] == "pending"
+        and not proposal_status.update({"value": "confirmed"}),
+    )
+    monkeypatch.setattr(
+        bot_service.action_proposals,
+        "mark_executing",
+        lambda *, proposal_id, user_id: proposal_status["value"] == "confirmed"
+        and not proposal_status.update({"value": "executing"}),
+    )
+    monkeypatch.setattr(
+        bot_service.action_proposals,
+        "mark_executed",
+        lambda *, proposal_id, user_id, external_result_id=None: proposal_status[
+            "value"
+        ]
+        == "executing"
+        and not proposal_status.update({"value": "executed"}),
+    )
     monkeypatch.setattr(
         bot_service.oauth_connections,
         "get_google_connection",
@@ -1971,7 +2013,67 @@ def test_gmail_draft_confirm_calls_create_once_and_double_confirm_is_idempotent(
     # Second confirm finds non-pending status → never re-invokes create_draft.
     assert second.executed is False
     assert len(draft_calls) == 1
-    assert row["tool_calls"]["status"] == "confirmed"
+    assert row["tool_calls"]["status"] == "executed"
+    assert proposal_status["value"] == "executed"
+
+
+def test_gmail_draft_confirm_missing_scope_blocks_create(monkeypatch) -> None:
+    message_id = str(uuid4())
+    proposal_id = str(uuid4())
+    row = {
+        "id": message_id,
+        "user_id": "creator-1",
+        "tool_calls": {
+            "kind": "proposed_action",
+            "status": "pending",
+            "action_type": "gmail.create_draft",
+            "proposal_id": proposal_id,
+            "payload": {
+                "to": "brand@acme.test",
+                "subject": "re: collab",
+                "body": "draft body",
+            },
+            "preview": "Preview",
+            "result": None,
+        },
+    }
+
+    monkeypatch.setattr(bot_service, "_get_message_for_user", lambda **kw: row)
+    monkeypatch.setattr(
+        bot_service,
+        "_update_message_tool_calls",
+        lambda *, message_id, user_id, tool_calls, expected_status=None: row.update(
+            {"tool_calls": tool_calls}
+        )
+        or True,
+    )
+    monkeypatch.setattr(
+        bot_service.action_proposals,
+        "confirm_proposal",
+        lambda *, proposal_id, user_id: False,
+    )
+    monkeypatch.setattr(
+        bot_service.action_proposals,
+        "get_for_user",
+        lambda *, proposal_id, user_id: {
+            "id": proposal_id,
+            "status": "failed",
+            "error_code": "missing_required_scope",
+        },
+    )
+    monkeypatch.setattr(
+        bot_service.google_gmail,
+        "create_draft",
+        lambda *a, **kw: pytest.fail("missing scope must block create_draft"),
+    )
+    monkeypatch.setattr(bot_service, "create_message", lambda **_kw: "msg-2")
+
+    result = bot_service.confirm_action(user_id="creator-1", message_id=message_id)
+
+    assert result.executed is False
+    assert result.action_type == "gmail.create_draft"
+    assert row["tool_calls"]["status"] == "failed"
+    assert row["tool_calls"]["result"]["error"] == "missing_required_scope"
 
 
 def test_gmail_draft_cancel_does_not_create_draft(monkeypatch) -> None:
@@ -1983,7 +2085,8 @@ def test_gmail_draft_cancel_does_not_create_draft(monkeypatch) -> None:
         "tool_calls": {
             "kind": "proposed_action",
             "status": "pending",
-            "action_type": "create_gmail_draft",
+            "action_type": "gmail.create_draft",
+            "proposal_id": str(uuid4()),
             "payload": {
                 "to": "x@y.test",
                 "subject": "s",
@@ -2007,19 +2110,27 @@ def test_gmail_draft_cancel_does_not_create_draft(monkeypatch) -> None:
         raise AssertionError("cancel must not call create_draft")
 
     monkeypatch.setattr(bot_service.google_gmail, "create_draft", _no_create)
+    cancelled: list[str] = []
+    monkeypatch.setattr(
+        bot_service.action_proposals,
+        "cancel_proposal",
+        lambda *, proposal_id, user_id: cancelled.append(proposal_id) or True,
+    )
     monkeypatch.setattr(bot_service, "create_message", lambda **_kw: "msg-2")
 
     result = bot_service.cancel_action(
         user_id="creator-1", message_id=message_id
     )
-    assert result.action_type == "create_gmail_draft"
+    assert result.action_type == "gmail.create_draft"
     assert "Cancelled" in result.message
+    assert cancelled == [row["tool_calls"]["proposal_id"]]
 
 
 def test_gmail_draft_tool_registered_and_prompt_updated() -> None:
     names = {t["name"] for t in bot_service.prompts.BOT_TOOL_DEFINITIONS}
     assert "create_gmail_draft" in names
     assert "create_gmail_draft" in bot_service.ALLOWED_ACTION_TYPES
+    assert "gmail.create_draft" in bot_service.ALLOWED_ACTION_TYPES
 
     p = bot_service.prompts.babyg_system_prompt()
     assert "create_gmail_draft" in p
