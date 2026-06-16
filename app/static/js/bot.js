@@ -27,6 +27,7 @@
   let largestVisualHeight =
     (window.visualViewport && window.visualViewport.height) || window.innerHeight;
   let viewportFrame = null;
+  let blurTimer = null;
 
   const isScrolledToBottom = (el) => {
     const slack = 40;
@@ -55,7 +56,7 @@
       `${Math.round(visualHeight)}px`
     );
     document.body.classList.toggle(
-      "bot-keyboard-open",
+      "chat-keyboard-open",
       focused && largestVisualHeight - visualHeight > 120
     );
 
@@ -77,10 +78,6 @@
     window.visualViewport.addEventListener("scroll", scheduleViewportUpdate);
   }
   window.addEventListener("resize", scheduleViewportUpdate);
-  textarea.addEventListener("focus", scheduleViewportUpdate);
-  textarea.addEventListener("blur", () => {
-    window.setTimeout(scheduleViewportUpdate, 80);
-  });
 
   // Initial scroll on page load: pin to the latest message.
   scheduleViewportUpdate();
@@ -109,6 +106,19 @@
     messageList.appendChild(li);
     scrollToLatest();
     return li;
+  };
+
+  const addUserMessage = (text) => {
+    const li = document.createElement("li");
+    li.className = "bot-message user";
+    li.setAttribute("data-bot-optimistic", "");
+    li.innerHTML =
+      '<span class="meta">you</span>' +
+      '<div class="bubble">' +
+      escapeHtml(text) +
+      "</div>";
+    messageList.appendChild(li);
+    scrollToLatest();
   };
 
   const removeTyping = () => {
@@ -175,22 +185,44 @@
     });
   }
 
+  async function postComposer(fd) {
+    return fetch(composer.action, {
+      method: composer.method || "POST",
+      body: fd,
+      headers: { "X-Requested-With": "fetch" },
+      credentials: "same-origin",
+    });
+  }
+
+  const resetTextarea = () => {
+    textarea.value = "";
+    textarea.defaultValue = "";
+    textarea.textContent = "";
+    textarea.removeAttribute("value");
+    textarea.style.height = "";
+    composer.reset();
+    textarea.value = "";
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+  };
+
   async function send() {
     if (inFlight) return;
     const value = textarea.value.trim();
     if (!value) return;
 
     clearInlineError();
+    const fd = new FormData(composer);
+    resetTextarea();
     setBusy(true);
+    addUserMessage(value);
     addTyping();
 
     try {
-      const resp = await postForm(composer);
+      const resp = await postComposer(fd);
       const html = await resp.text();
       removeTyping();
       if (resp.ok) {
         applyPartial(html);
-        textarea.value = "";
       } else {
         // The 400 response is still the same partial with an embedded
         // banner — apply it so the existing history doesn't vanish.
@@ -210,6 +242,15 @@
   composer.addEventListener("submit", (e) => {
     e.preventDefault();
     send();
+  });
+
+  textarea.addEventListener("focus", () => {
+    if (blurTimer) window.clearTimeout(blurTimer);
+    scheduleViewportUpdate();
+  });
+
+  textarea.addEventListener("blur", () => {
+    blurTimer = window.setTimeout(scheduleViewportUpdate, 120);
   });
 
   textarea.addEventListener("keydown", (event) => {
