@@ -70,7 +70,8 @@ def test_privacy_page_covers_required_topics(client: TestClient) -> None:
         "data retention",
         "deletion",
         "security",
-        "no selling",
+        "do not sell",
+        "location",
     ]:
         assert topic in text, f"privacy page missing topic: {topic!r}"
 

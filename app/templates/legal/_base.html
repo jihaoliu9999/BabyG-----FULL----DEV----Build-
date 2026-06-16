@@ -16,9 +16,16 @@
     <span class="legal-pill">private beta · v1</span>
   </div>
 
+  {# Capture the callout block so we can skip the bordered box entirely
+     when a page overrides legal_callout with an empty block (e.g. the
+     full privacy policy, which is authoritative and needs no draft
+     disclaimer). Pages that don't override keep the default text. #}
+  {% set _callout %}{% block legal_callout %}this is an MVP draft written for clarity, not a final lawyer-reviewed document. we'll publish a fuller revision before we open to the public. if anything here is unclear, email <a href="mailto:{{ contact_email }}">{{ contact_email }}</a>.{% endblock %}{% endset %}
+  {% if _callout | trim %}
   <div class="legal-callout">
-    {% block legal_callout %}this is an MVP draft written for clarity, not a final lawyer-reviewed document. we'll publish a fuller revision before we open to the public. if anything here is unclear, email <a href="mailto:{{ contact_email }}">{{ contact_email }}</a>.{% endblock %}
+    {{ _callout }}
   </div>
+  {% endif %}
 
   {% block legal_body %}{% endblock %}
 
