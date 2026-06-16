@@ -50,7 +50,7 @@
   <div class="field">
     <label for="f-{{ name }}" class="field-label">{{ label }}</label>
     <select id="f-{{ name }}" name="{{ name }}">
-      <option value="">Select one</option>
+      <option value="">select one</option>
       {% for opt in options %}
       <option value="{{ opt }}" {% if opt == selected %}selected{% endif %}>{{ opt }}</option>
       {% endfor %}
