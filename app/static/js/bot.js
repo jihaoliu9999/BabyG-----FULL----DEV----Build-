@@ -24,6 +24,7 @@
   if (!composer || !submit || !textarea || !messageList) return;
 
   let inFlight = false;
+  let blurTimer = null;
 
   const isScrolledToBottom = (el) => {
     const slack = 40;
@@ -63,6 +64,19 @@
     messageList.appendChild(li);
     scrollToLatest();
     return li;
+  };
+
+  const addUserMessage = (text) => {
+    const li = document.createElement("li");
+    li.className = "bot-message user";
+    li.setAttribute("data-bot-optimistic", "");
+    li.innerHTML =
+      '<span class="meta">you</span>' +
+      '<div class="bubble">' +
+      escapeHtml(text) +
+      "</div>";
+    messageList.appendChild(li);
+    scrollToLatest();
   };
 
   const removeTyping = () => {
@@ -129,22 +143,42 @@
     });
   }
 
+  async function postComposer(fd) {
+    return fetch(composer.action, {
+      method: composer.method || "POST",
+      body: fd,
+      headers: { "X-Requested-With": "fetch" },
+      credentials: "same-origin",
+    });
+  }
+
+  const resetTextarea = () => {
+    textarea.value = "";
+    textarea.style.height = "";
+  };
+
+  const setKeyboardOpen = (open) => {
+    document.body.classList.toggle("chat-keyboard-open", open);
+  };
+
   async function send() {
     if (inFlight) return;
     const value = textarea.value.trim();
     if (!value) return;
 
     clearInlineError();
+    const fd = new FormData(composer);
+    resetTextarea();
     setBusy(true);
+    addUserMessage(value);
     addTyping();
 
     try {
-      const resp = await postForm(composer);
+      const resp = await postComposer(fd);
       const html = await resp.text();
       removeTyping();
       if (resp.ok) {
         applyPartial(html);
-        textarea.value = "";
       } else {
         // The 400 response is still the same partial with an embedded
         // banner — apply it so the existing history doesn't vanish.
@@ -164,6 +198,15 @@
   composer.addEventListener("submit", (e) => {
     e.preventDefault();
     send();
+  });
+
+  textarea.addEventListener("focus", () => {
+    if (blurTimer) window.clearTimeout(blurTimer);
+    setKeyboardOpen(true);
+  });
+
+  textarea.addEventListener("blur", () => {
+    blurTimer = window.setTimeout(() => setKeyboardOpen(false), 120);
   });
 
   textarea.addEventListener("keydown", (event) => {
