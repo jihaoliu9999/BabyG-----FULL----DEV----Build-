@@ -106,7 +106,7 @@ def test_data_deletion_page_does_not_claim_automated_flow(
 ) -> None:
     r = client.get("/data-deletion")
     text = r.text.lower()
-    assert "manual review" in text
+    assert "verify your identity" in text
     # Don't fake a self-serve delete button. The page must be explicit
     # that this is an email-based process today.
     assert "email us" in text or "email" in text
