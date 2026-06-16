@@ -154,7 +154,13 @@
 
   const resetTextarea = () => {
     textarea.value = "";
+    textarea.defaultValue = "";
+    textarea.textContent = "";
+    textarea.removeAttribute("value");
     textarea.style.height = "";
+    composer.reset();
+    textarea.value = "";
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
   };
 
   const setKeyboardOpen = (open) => {
