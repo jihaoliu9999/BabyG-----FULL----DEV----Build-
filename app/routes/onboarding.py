@@ -51,9 +51,6 @@ CREATOR_NEIGHBORHOODS = [
     "Edgewater", "Downtown", "Little Havana", "Design District", "Aventura",
     "Other",
 ]
-CREATOR_FOLLOWER_RANGES = ["<10k", "10-50k", "50-100k", "100-500k", "500k+"]
-CREATOR_ENGAGEMENT_RANGES = ["<2%", "2-4%", "4-7%", "7%+"]
-CREATOR_TENURES = ["<6mo", "6-12mo", "1-2y", "2-5y", "5+y"]
 CREATOR_PLATFORMS = ["Instagram", "TikTok", "YouTube"]
 CREATOR_HARD_LIMITS = [
     "no alcohol", "no nicotine", "no fast fashion", "no crypto",
@@ -75,9 +72,9 @@ async def creator_form(
     if profile.get("onboarding_completed_at"):
         return RedirectResponse("/creator", status_code=302)
 
-    # Step 4 (integrations) renders the same partial used on
-    # profile/settings. Google Calendar and Gmail share the Google
-    # OAuth connection; Instagram/TikTok remain coming-soon.
+    # Step 5 (integrations) keeps the existing OAuth buttons, but the
+    # onboarding page itself stays simple. Google Calendar and Gmail
+    # share the Google OAuth connection.
     # Wrapped defensively so a missing-Supabase test environment
     # doesn't blow up the wizard render — the worst case is the
     # Google connect card showing "not configured".
@@ -127,6 +124,9 @@ async def creator_form(
             "google_gmail_connected": google_gmail_connected,
             "instagram_configured": instagram_configured,
             "instagram_connected": instagram_connected,
+            "instagram_suggested_handle": _instagram_username_from_connection(
+                instagram_connection
+            ),
         },
     )
 
@@ -145,11 +145,11 @@ async def creator_submit(
     except profiles.HandleAlreadyTakenError:
         return _creator_error(
             request, form,
-            "That Instagram handle is already in use on babyg. Pick a different one.",
+            "that instagram handle is already in use on babyg. pick a different one.",
         )
     if not ok:
         return _creator_error(
-            request, form, "We couldn't save your profile. Try again."
+            request, form, "we couldn't save your profile. try again."
         )
     return RedirectResponse("/creator", status_code=303)
 
@@ -175,33 +175,45 @@ def _validate_creator(form) -> tuple[dict[str, Any], str | None]:
     neighborhood = _str(form.get("neighborhood"), 64)
 
     if not full_name:
-        return {}, "Please enter your full name."
+        return {}, "please enter your full name."
     if not handle:
-        return {}, "Please enter your Instagram handle."
+        return {}, "please enter your instagram handle."
     if neighborhood and neighborhood not in CREATOR_NEIGHBORHOODS:
-        return {}, "Pick a neighborhood from the list (or leave it blank)."
+        return {}, "pick a neighborhood from the list or leave it blank."
+
+    niches = _multi(form.getlist("niches"), CREATOR_NICHES)
+    custom_niche = _custom_niche(form.get("niche_other"))
+    if "__other__" in [str(v).strip() for v in form.getlist("niches")]:
+        if custom_niche:
+            if custom_niche not in niches:
+                niches.append(custom_niche)
+        else:
+            return {}, "name your other niche or choose one from the list."
 
     payload: dict[str, Any] = {
         "full_name": full_name,
         "instagram_handle": handle.lower(),
         "neighborhood": neighborhood or None,
         "bio": bio or None,
-        "niches": _multi(form.getlist("niches"), CREATOR_NICHES),
+        "niches": niches,
         "content_formats": _multi(form.getlist("content_formats"), CREATOR_FORMATS),
         "lifestyle_tags": [],   # reserved for later; not collected at v1
         "brand_preferences": [],
         "hard_limits": _multi(form.getlist("hard_limits"), CREATOR_HARD_LIMITS),
-        "follower_range": _enum(form.get("follower_range"), CREATOR_FOLLOWER_RANGES),
-        "engagement_range": _enum(form.get("engagement_range"), CREATOR_ENGAGEMENT_RANGES),
-        "creator_tenure": _enum(form.get("creator_tenure"), CREATOR_TENURES),
+        # These legacy manual stats questions are intentionally no
+        # longer collected. Platform stats should come from the
+        # connected account sync instead.
+        "follower_range": None,
+        "engagement_range": None,
+        "creator_tenure": None,
         "primary_platform": _enum(form.get("primary_platform"), CREATOR_PLATFORMS),
         "tier": _enum(form.get("tier"), CREATOR_TIERS) or "basic",
     }
 
     if not payload["niches"]:
-        return {}, "Pick at least one niche."
+        return {}, "pick at least one niche."
     if not payload["content_formats"]:
-        return {}, "Pick at least one content format."
+        return {}, "pick at least one content format."
 
     return payload, None
 
@@ -215,6 +227,12 @@ def _str(value: Any, max_len: int) -> str:
     if value is None:
         return ""
     return str(value).strip()[:max_len]
+
+
+def _custom_niche(value: Any) -> str:
+    raw = _str(value, 40).lower()
+    cleaned = "".join(ch for ch in raw if ch.isalnum() or ch in {" ", "-", "&", "/"}).strip()
+    return " ".join(cleaned.split())
 
 
 def _enum(value: Any, allowed: list[str]) -> str | None:
@@ -239,9 +257,6 @@ def _creator_vocab() -> dict[str, list[str]]:
         "niches": CREATOR_NICHES,
         "formats": CREATOR_FORMATS,
         "neighborhoods": CREATOR_NEIGHBORHOODS,
-        "follower_ranges": CREATOR_FOLLOWER_RANGES,
-        "engagement_ranges": CREATOR_ENGAGEMENT_RANGES,
-        "tenures": CREATOR_TENURES,
         "platforms": CREATOR_PLATFORMS,
         "hard_limits": CREATOR_HARD_LIMITS,
         "tiers": CREATOR_TIERS,
@@ -256,6 +271,12 @@ def _creator_error(request: Request, form, message: str) -> Response:
             "profile": _form_to_profile(form),
             "vocab": _creator_vocab(),
             "error": message,
+            "google_configured": False,
+            "google_calendar_connected": False,
+            "google_gmail_connected": False,
+            "instagram_configured": False,
+            "instagram_connected": False,
+            "instagram_suggested_handle": None,
         },
         status_code=400,
     )
@@ -272,3 +293,32 @@ def _form_to_profile(form) -> dict[str, Any]:
         else:
             out[key] = form.get(key)
     return out
+
+
+def _instagram_username_from_connection(connection: dict[str, Any] | None) -> str | None:
+    """Best-effort handle extraction for connection rows that include it.
+
+    Current rows store the account id only, but this keeps onboarding ready
+    for rows/tests that carry provider metadata without changing OAuth storage.
+    """
+    if not connection:
+        return None
+    candidates: list[Any] = [
+        connection.get("username"),
+        connection.get("provider_username"),
+    ]
+    for key in ("metadata", "provider_metadata", "account"):
+        value = connection.get(key)
+        if isinstance(value, dict):
+            candidates.extend(
+                [
+                    value.get("username"),
+                    value.get("handle"),
+                    value.get("instagram_handle"),
+                ]
+            )
+    for candidate in candidates:
+        handle = _str(candidate, 64)
+        if handle:
+            return handle[1:] if handle.startswith("@") else handle
+    return None

@@ -1,14 +1,14 @@
 /* onboarding.js — small stepper for the creator signup wizard.
  *
- * All four <fieldset data-onb-step="N"> live in the same form. With JS,
+ * All <fieldset data-onb-step="N"> sections live in the same form. With JS,
  * we show one at a time and the user clicks back / continue / finish.
  * The final "finish" button is the only real submit — it posts the
  * complete form to the existing /onboarding/creator endpoint, exactly
  * like the legacy single-page form.
  *
  * Without JS, every fieldset renders visible (no `display:none` is set
- * in CSS), the back/continue/finish buttons all show, and the form
- * still submits cleanly. Hard fallback to today's behavior.
+ * in CSS), and the form still submits cleanly. Hard fallback to today's
+ * behavior.
  *
  * Per-step required-field validation runs before "continue" advances —
  * the browser's native :invalid hints surface inline.
@@ -24,12 +24,58 @@
   const prevBtn = document.querySelector("[data-onb-prev]");
   const nextBtn = document.querySelector("[data-onb-next]");
   const finishBtn = document.querySelector("[data-onb-finish]");
+  const otherToggle = form.querySelector("[data-onb-other-toggle]");
+  const otherField = form.querySelector("[data-onb-other-field]");
+  const otherInput = form.querySelector('input[name="niche_other"]');
 
   const total = steps.length;
   let current = 1;
 
   const stepEl = (n) => steps.find((s) => s.dataset.onbStep === String(n));
   const pipEl = (n) => pips.find((p) => p.dataset.onbStepPip === String(n));
+
+  const syncOtherField = () => {
+    if (!otherToggle || !otherField) return;
+    otherField.hidden = !otherToggle.checked;
+    if (otherInput) {
+      otherInput.required = otherToggle.checked;
+    }
+    if (!otherToggle.checked && otherInput) {
+      otherInput.value = "";
+    }
+  };
+
+  const selectedLabels = (name) => {
+    const checked = Array.from(
+      form.querySelectorAll(`[name="${name}"]:checked`)
+    ).map((input) => {
+      const label = input.closest("label");
+      return label ? label.textContent.trim() : input.value;
+    }).filter(Boolean);
+    if (name === "niches" && otherToggle && otherToggle.checked && otherInput) {
+      const custom = otherInput.value.trim();
+      return checked
+        .filter((value) => value.toLowerCase() !== "other")
+        .concat(custom ? [custom] : []);
+    }
+    return checked;
+  };
+
+  const updateReview = () => {
+    const reviewFields = form.querySelectorAll("[data-onb-review]");
+    if (!reviewFields.length) return;
+    reviewFields.forEach((el) => {
+      const key = el.dataset.onbReview;
+      let value = "";
+      if (key === "niches" || key === "content_formats") {
+        value = selectedLabels(key).join(", ");
+      } else {
+        const field = form.querySelector(`[name="${key}"]`);
+        value = field ? field.value.trim() : "";
+      }
+      el.textContent = value || "not set";
+    });
+  };
 
   const renderStep = () => {
     steps.forEach((s) => {
@@ -51,6 +97,7 @@
     if (prevBtn) prevBtn.hidden = current === 1;
     if (nextBtn) nextBtn.hidden = current === total;
     if (finishBtn) finishBtn.hidden = current !== total;
+    updateReview();
     // Focus the first field of the new step so keyboard users land in
     // the right place.
     const focusTarget = stepEl(current).querySelector(
@@ -91,7 +138,7 @@
       const labelMark = fld.querySelector(".req");
       if (!labelMark) continue;
       const inputs = fld.querySelectorAll(
-        ".chips input[type=checkbox], .chips input[type=radio]"
+        ".chips input[type=checkbox], .chips input[type=radio], [data-onb-other-toggle]"
       );
       if (inputs.length === 0) continue;
       const anyChecked = Array.from(inputs).some((i) => i.checked);
@@ -102,6 +149,15 @@
           hint.style.color = "var(--lime)";
           setTimeout(() => { hint.style.color = ""; }, 2400);
         }
+        return false;
+      }
+      if (
+        fld.querySelector("[data-onb-other-toggle]:checked") &&
+        otherInput &&
+        !otherInput.value.trim()
+      ) {
+        otherInput.focus();
+        otherInput.reportValidity();
         return false;
       }
     }
@@ -148,5 +204,13 @@
     }
   });
 
+  if (otherToggle) {
+    otherToggle.addEventListener("change", syncOtherField);
+  }
+  if (otherInput) {
+    otherInput.addEventListener("input", updateReview);
+  }
+  form.addEventListener("change", updateReview);
+  syncOtherField();
   renderStep();
 })();
