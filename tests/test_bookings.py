@@ -271,7 +271,10 @@ def test_google_connect_prechecked_service_submits_expected_service(
         (
             {"gmail": "1"},
             ["gmail"],
-            [google_calendar_module.GMAIL_COMPOSE_SCOPE],
+            [
+                google_calendar_module.GMAIL_COMPOSE_SCOPE,
+                google_calendar_module.GMAIL_SEND_SCOPE,
+            ],
             google_calendar_module.CALENDAR_SCOPE,
         ),
         (
@@ -280,6 +283,7 @@ def test_google_connect_prechecked_service_submits_expected_service(
             [
                 google_calendar_module.CALENDAR_SCOPE,
                 google_calendar_module.GMAIL_COMPOSE_SCOPE,
+                google_calendar_module.GMAIL_SEND_SCOPE,
             ],
             None,
         ),
@@ -358,6 +362,7 @@ def test_google_connect_posts_selected_services_and_scopes(
     assert calls["state"]["scopes"] == [
         google_calendar_module.CALENDAR_SCOPE,
         google_calendar_module.GMAIL_COMPOSE_SCOPE,
+        google_calendar_module.GMAIL_SEND_SCOPE,
     ]
     assert calls["scopes"] == calls["state"]["scopes"]
 
@@ -430,7 +435,10 @@ def test_google_gmail_only_callback_does_not_sync_calendar(
             "user_id": "c-1",
             "next": "/creator/profile/settings",
             "services": ["gmail"],
-            "scopes": [google_calendar_module.GMAIL_COMPOSE_SCOPE],
+            "scopes": [
+                google_calendar_module.GMAIL_COMPOSE_SCOPE,
+                google_calendar_module.GMAIL_SEND_SCOPE,
+            ],
         },
     )
     monkeypatch.setattr(
@@ -453,7 +461,13 @@ def test_google_gmail_only_callback_does_not_sync_calendar(
 
     assert r.status_code == 303
     assert r.headers["location"] == "/creator/profile/settings?google=connected"
-    assert calls["saved"] == ("c-1", [google_calendar_module.GMAIL_COMPOSE_SCOPE])
+    assert calls["saved"] == (
+        "c-1",
+        [
+            google_calendar_module.GMAIL_COMPOSE_SCOPE,
+            google_calendar_module.GMAIL_SEND_SCOPE,
+        ],
+    )
 
 
 def test_google_both_callback_saves_both_and_syncs_calendar(
@@ -465,6 +479,7 @@ def test_google_both_callback_saves_both_and_syncs_calendar(
     requested = [
         google_calendar_module.CALENDAR_SCOPE,
         google_calendar_module.GMAIL_COMPOSE_SCOPE,
+        google_calendar_module.GMAIL_SEND_SCOPE,
     ]
     monkeypatch.setattr(
         oauth_module,
@@ -583,3 +598,99 @@ def test_google_refresh_save_preserves_existing_scopes(monkeypatch):
     assert captured["on_conflict"] == "user_id,provider"
     assert captured["payload"]["scopes"] == existing_scopes
     assert captured["payload"]["refresh_token"] == "old-refresh"
+
+
+class _CalendarResp:
+    def __init__(self, status_code: int, payload: dict[str, Any]):
+        self.status_code = status_code
+        self._payload = payload
+
+    def raise_for_status(self):
+        if self.status_code >= 400:
+            raise google_calendar_module.httpx.HTTPStatusError(
+                "bad",
+                request=google_calendar_module.httpx.Request(
+                    "POST", google_calendar_module.EVENTS_URL
+                ),
+                response=google_calendar_module.httpx.Response(self.status_code),
+            )
+
+    def json(self):
+        return self._payload
+
+
+def test_google_calendar_create_primary_event_posts_sanitized_payload(monkeypatch):
+    calls: list[dict[str, Any]] = []
+
+    def _post(url, *, json, headers, timeout):
+        calls.append(
+            {"url": url, "json": json, "headers": headers, "timeout": timeout}
+        )
+        return _CalendarResp(200, {"id": "gcal-1"})
+
+    monkeypatch.setattr(google_calendar_module.httpx, "post", _post)
+
+    event_id = google_calendar_module.create_primary_event(
+        "tok",
+        title="  Brand call  ",
+        starts_at="2099-05-08T10:00:00Z",
+        ends_at="2099-05-08T10:30:00Z",
+        notes="Pitch the capsule.",
+        location="Zoom",
+    )
+
+    assert event_id == "gcal-1"
+    call = calls[0]
+    assert call["url"] == google_calendar_module.EVENTS_URL
+    assert call["headers"]["Authorization"] == "Bearer tok"
+    assert call["json"]["summary"] == "Brand call"
+    assert call["json"]["start"]["dateTime"] == "2099-05-08T10:00:00Z"
+    assert call["json"]["end"]["dateTime"] == "2099-05-08T10:30:00Z"
+    assert call["json"]["description"] == "Pitch the capsule."
+    assert call["json"]["location"] == "Zoom"
+
+
+def test_google_calendar_create_primary_event_defaults_one_hour_end(monkeypatch):
+    calls: list[dict[str, Any]] = []
+
+    def _post(url, *, json, headers, timeout):
+        calls.append({"json": json})
+        return _CalendarResp(200, {"id": "gcal-2"})
+
+    monkeypatch.setattr(google_calendar_module.httpx, "post", _post)
+
+    google_calendar_module.create_primary_event(
+        "tok",
+        title="Content day",
+        starts_at="2099-05-08T10:00:00Z",
+    )
+
+    assert calls[0]["json"]["end"]["dateTime"] == "2099-05-08T11:00:00Z"
+
+
+def test_google_calendar_create_primary_event_failure_logs_status_only(
+    monkeypatch, caplog
+):
+    secret_token = "CAL-SECRET-TOKEN"
+    secret_title = "CAL-SECRET-TITLE"
+    secret_notes = "CAL-SECRET-NOTES"
+
+    def _post(url, *, json, headers, timeout):
+        return _CalendarResp(500, {"error": "oops"})
+
+    monkeypatch.setattr(google_calendar_module.httpx, "post", _post)
+    caplog.set_level("INFO", logger=google_calendar_module.logger.name)
+
+    with pytest.raises(google_calendar_module.GoogleCalendarError):
+        google_calendar_module.create_primary_event(
+            secret_token,
+            title=secret_title,
+            starts_at="2099-05-08T10:00:00Z",
+            notes=secret_notes,
+        )
+
+    for record in caplog.records:
+        msg = record.getMessage()
+        assert secret_token not in msg
+        assert secret_title not in msg
+        assert secret_notes not in msg

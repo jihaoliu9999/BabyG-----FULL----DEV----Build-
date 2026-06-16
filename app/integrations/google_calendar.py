@@ -29,6 +29,7 @@ CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar.events"
 # COMPOSE grants.
 GMAIL_READONLY_SCOPE = "https://www.googleapis.com/auth/gmail.readonly"
 GMAIL_COMPOSE_SCOPE = "https://www.googleapis.com/auth/gmail.compose"
+GMAIL_SEND_SCOPE = "https://www.googleapis.com/auth/gmail.send"
 GMAIL_SCOPE_PREFIX = "https://www.googleapis.com/auth/gmail."
 
 
@@ -65,11 +66,10 @@ def scopes_for_services(services: list[str]) -> list[str]:
             selected.append(CALENDAR_SCOPE)
     if "gmail" in services:
         gmail_scopes = [scope for scope in configured if is_gmail_scope(scope)]
-        # New Gmail connections grant COMPOSE so babyg can read inbox AND
-        # prepare drafts the creator approves. No send tool is exposed at
-        # any layer of this app — the scope is what Google requires for
-        # drafts.create; the module never imports a send endpoint.
-        selected.extend(gmail_scopes or [GMAIL_COMPOSE_SCOPE])
+        # New Gmail connections grant COMPOSE for approved drafts and
+        # SEND for approved one-off sends. The action proposal system
+        # remains the runtime gate for every external write.
+        selected.extend(gmail_scopes or [GMAIL_COMPOSE_SCOPE, GMAIL_SEND_SCOPE])
     return _dedupe(selected)
 
 
@@ -104,6 +104,10 @@ def is_gmail_compose_scope(scope: str) -> bool:
     return scope == GMAIL_COMPOSE_SCOPE
 
 
+def is_gmail_send_scope(scope: str) -> bool:
+    return scope == GMAIL_SEND_SCOPE
+
+
 def has_calendar_scope(scopes_to_check: list[str] | set[str] | tuple[str, ...]) -> bool:
     return any(is_calendar_scope(scope) for scope in scopes_to_check)
 
@@ -114,6 +118,14 @@ def has_gmail_compose_scope(
     """True only when the compose scope is present. Read-only connections
     return False — they need to reconnect before drafts can be staged."""
     return any(is_gmail_compose_scope(scope) for scope in scopes_to_check)
+
+
+def has_gmail_send_scope(
+    scopes_to_check: list[str] | set[str] | tuple[str, ...],
+) -> bool:
+    """True only when gmail.send is present. Compose-only connections
+    can draft but must reconnect before approved sends are available."""
+    return any(is_gmail_send_scope(scope) for scope in scopes_to_check)
 
 
 def has_gmail_scope(scopes_to_check: list[str] | set[str] | tuple[str, ...]) -> bool:
@@ -185,6 +197,56 @@ def list_primary_events(
     return items if isinstance(items, list) else []
 
 
+def create_primary_event(
+    access_token: str,
+    *,
+    title: str,
+    starts_at: str,
+    ends_at: str | None = None,
+    notes: str | None = None,
+    location: str | None = None,
+) -> str:
+    """Create one Google Calendar event. Returns the Google event id.
+
+    Must only be called by an approved action executor after explicit
+    creator confirmation. This does not delete, update, invite guests,
+    book restaurants, collect payment, or create paid reservations.
+    """
+    summary = " ".join(str(title or "").split())[:140]
+    start = _clean_datetime(starts_at)
+    end = _clean_datetime(ends_at) if ends_at else _default_end(start)
+    if not summary or not start:
+        raise GoogleCalendarError("Google Calendar event missing title or start")
+    payload: dict[str, Any] = {
+        "summary": summary,
+        "start": {"dateTime": start},
+        "end": {"dateTime": end},
+    }
+    description = str(notes or "").strip()[:2000]
+    venue = str(location or "").strip()[:160]
+    if description:
+        payload["description"] = description
+    if venue:
+        payload["location"] = venue
+
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Content-Type": "application/json",
+    }
+    try:
+        response = httpx.post(EVENTS_URL, json=payload, headers=headers, timeout=20.0)
+        response.raise_for_status()
+    except httpx.HTTPError as exc:
+        status = getattr(getattr(exc, "response", None), "status_code", "?")
+        logger.info("Google Calendar events.insert failed with status %s", status)
+        raise GoogleCalendarError("Google Calendar event create failed") from exc
+    data = response.json()
+    event_id = str(data.get("id") or "")
+    if not event_id:
+        raise GoogleCalendarError("Google Calendar event create returned no id")
+    return event_id
+
+
 def event_to_booking_payload(event: dict[str, Any]) -> dict[str, Any] | None:
     event_id = str(event.get("id") or "").strip()
     if not event_id or event.get("status") == "cancelled":
@@ -239,6 +301,32 @@ def _event_time(value: dict[str, Any]) -> str | None:
     except ValueError:
         return None
     return datetime(all_day.year, all_day.month, all_day.day, tzinfo=UTC).isoformat()
+
+
+def _clean_datetime(value: str | None) -> str:
+    raw = str(value or "").strip()[:64]
+    if not raw:
+        return ""
+    # Accept the app's common datetime-local shape and normalize to an
+    # explicit UTC timestamp for Google Calendar.
+    candidate = raw.replace("Z", "+00:00") if raw.endswith("Z") else raw
+    try:
+        parsed = datetime.fromisoformat(candidate)
+    except ValueError as exc:
+        raise GoogleCalendarError("Google Calendar event datetime invalid") from exc
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC).isoformat().replace("+00:00", "Z")
+
+
+def _default_end(starts_at: str) -> str:
+    try:
+        parsed = datetime.fromisoformat(starts_at.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise GoogleCalendarError("Google Calendar event datetime invalid") from exc
+    return (parsed + timedelta(hours=1)).astimezone(UTC).isoformat().replace(
+        "+00:00", "Z"
+    )
 
 
 def _google_dt(value: datetime) -> str:

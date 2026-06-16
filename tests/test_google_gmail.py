@@ -543,12 +543,91 @@ def test_create_draft_no_secrets_in_logs(install_fake_post_client, caplog):
         assert secret_body not in msg
 
 
-def test_module_does_not_expose_send_delete_or_modify():
-    """Belt-and-suspenders: even with gmail.compose granted, the
-    module surface itself must never expose send/delete/label edit
-    functions. If anyone ever adds one, this test fails loudly."""
+def test_send_message_builds_rfc2822_and_base64url(install_fake_post_client):
+    fake = install_fake_post_client(_Resp(200, {"id": "msg-1"}))
+
+    message_id = google_gmail.send_message(
+        "tok",
+        to="brand@acme.test",
+        subject="re: collab terms",
+        body="hi team - approved to send.",
+    )
+
+    assert message_id == "msg-1"
+    call = fake.calls[0]
+    assert call["url"].endswith("/messages/send")
+    assert call["headers"]["Authorization"] == "Bearer tok"
+    raw_b64 = call["json"]["raw"]
+    padded = raw_b64 + "=" * (-len(raw_b64) % 4)
+    decoded = base64.urlsafe_b64decode(padded).decode("utf-8")
+    assert "To: brand@acme.test" in decoded
+    assert "Subject: re: collab terms" in decoded
+    assert "Content-Type: text/plain; charset=utf-8" in decoded
+    assert "approved to send" in decoded
+
+
+def test_send_message_includes_thread_id_when_replying(install_fake_post_client):
+    fake = install_fake_post_client(_Resp(200, {"id": "msg-2"}))
+    google_gmail.send_message(
+        "tok",
+        to="brand@acme.test",
+        subject="re: collab",
+        body="reply body",
+        thread_id="thread-xyz",
+    )
+    assert fake.calls[0]["json"]["threadId"] == "thread-xyz"
+
+
+def test_send_message_rejects_empty_to_or_subject(install_fake_post_client):
+    install_fake_post_client(_Resp(200, {"id": "ignored"}))
+    with pytest.raises(google_gmail.GmailError):
+        google_gmail.send_message("tok", to="", subject="hi", body="x")
+    with pytest.raises(google_gmail.GmailError):
+        google_gmail.send_message("tok", to="x@y.test", subject="", body="x")
+
+
+def test_send_message_401_raises_unauthorized(install_fake_post_client):
+    install_fake_post_client(_Resp(401, {"error": "expired"}))
+    with pytest.raises(google_gmail.GmailUnauthorizedError):
+        google_gmail.send_message("tok", to="a@b.test", subject="s", body="b")
+
+
+def test_send_message_403_raises_not_connected(install_fake_post_client):
+    install_fake_post_client(_Resp(403, {"error": "missing send scope"}))
+    with pytest.raises(google_gmail.GmailNotConnectedError):
+        google_gmail.send_message("tok", to="a@b.test", subject="s", body="b")
+
+
+def test_send_message_500_raises_generic_error(install_fake_post_client):
+    install_fake_post_client(_Resp(500, {"error": "oops"}))
+    with pytest.raises(google_gmail.GmailError) as exc:
+        google_gmail.send_message("tok", to="a@b.test", subject="s", body="b")
+    assert not isinstance(exc.value, google_gmail.GmailUnauthorizedError)
+    assert not isinstance(exc.value, google_gmail.GmailNotConnectedError)
+
+
+def test_send_message_no_secrets_in_logs(install_fake_post_client, caplog):
+    caplog.set_level(logging.DEBUG, logger=google_gmail.logger.name)
+    secret_token = "SEND-SECRET-TOKEN"
+    secret_subject = "SEND-SECRET-SUBJECT"
+    secret_body = "SEND-SECRET-BODY"
+    install_fake_post_client(_Resp(500, {"error": "oops"}))
+    with pytest.raises(google_gmail.GmailError):
+        google_gmail.send_message(
+            secret_token, to="a@b.test", subject=secret_subject, body=secret_body
+        )
+    for record in caplog.records:
+        msg = record.getMessage()
+        assert secret_token not in msg
+        assert secret_subject not in msg
+        assert secret_body not in msg
+
+
+def test_module_does_not_expose_delete_archive_or_modify():
+    """Belt-and-suspenders: the module surface must never expose
+    delete/archive/label edit functions. If anyone ever adds one, this
+    test fails loudly."""
     forbidden = (
-        "send_message",
         "send_draft",
         "delete_thread",
         "delete_message",

@@ -1,11 +1,10 @@
 """Gmail v1 API client.
 
-Read-only by construction. The module only exposes `list_threads` and
-`get_thread`; no `send`, no `delete`, no `modify`, no draft. Slice 2
-will add a separate `create_draft` surface — kept out of this module
-to make the read/write split explicit at the file level.
+Server-side only. The module exposes inbox reads, approved draft creation,
+and approved one-off sends. It does not expose delete, archive, label modify,
+bulk send, attachment, scheduled send, or payment-related behavior.
 
-Server-side only. Tokens never reach templates or browser JS.
+Tokens never reach templates or browser JS.
 Status-only logging: never logs the token, subject, body, recipients,
 or any header values. Test pin asserts caplog records are clean.
 
@@ -192,6 +191,39 @@ def create_draft(
     if not draft_id:
         raise GmailError("gmail drafts.create returned no id")
     return draft_id
+
+
+def send_message(
+    token: str,
+    *,
+    to: str,
+    subject: str,
+    body: str,
+    thread_id: str | None = None,
+) -> str:
+    """Send one plain-text Gmail message. Returns the Gmail message id.
+
+    Must only be called by an action proposal executor after explicit
+    creator confirmation. No attachments, cc/bcc, labels, delete/archive,
+    scheduled sends, bulk sends, or payment behavior.
+    """
+    to_clean = _sanitize(to)[:DRAFT_TO_MAX_CHARS]
+    subject_clean = _sanitize(subject)[:DRAFT_SUBJECT_MAX_CHARS]
+    body_clean = body[:DRAFT_BODY_MAX_CHARS] if body else ""
+    if not to_clean or not subject_clean:
+        raise GmailError("send missing to or subject after sanitization")
+
+    raw = _build_rfc2822(to=to_clean, subject=subject_clean, body=body_clean)
+    encoded = base64.urlsafe_b64encode(raw.encode("utf-8")).decode("ascii")
+    payload: dict[str, Any] = {"raw": encoded}
+    if thread_id:
+        payload["threadId"] = str(thread_id)
+
+    response_json = _post(token, f"{API_BASE}/messages/send", json_body=payload)
+    message_id = str(response_json.get("id") or "")
+    if not message_id:
+        raise GmailError("gmail messages.send returned no id")
+    return message_id
 
 
 def _build_rfc2822(*, to: str, subject: str, body: str) -> str:

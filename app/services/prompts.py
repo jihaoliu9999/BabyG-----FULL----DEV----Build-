@@ -258,6 +258,52 @@ WRITE_TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "send_gmail_email",
+        "description": (
+            "Prepare one Gmail email to send after explicit creator approval. "
+            "Use only when the creator clearly asks babyg to send an email, "
+            "not when they only ask for a draft. This tool does NOT send by "
+            "itself; it stages an approval card showing exact To, Subject, "
+            "and Body. The server sends exactly one email only after the "
+            "creator clicks Confirm. Required: to, subject, body. Optional: "
+            "thread_id only when read_my_gmail returned that exact thread_id. "
+            "No attachments, cc/bcc, labels, delete/archive, bulk sending, "
+            "or money/payment behavior."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "to": {
+                    "type": "string",
+                    "minLength": 3,
+                    "maxLength": 320,
+                    "description": "Recipient email address.",
+                },
+                "subject": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200,
+                    "description": "Subject line.",
+                },
+                "body": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 10000,
+                    "description": "Plain-text email body. No HTML.",
+                },
+                "thread_id": {
+                    "type": ["string", "null"],
+                    "description": (
+                        "Optional Gmail thread_id for replying in an existing "
+                        "thread. Only set it if read_my_gmail returned it."
+                    ),
+                },
+            },
+            "required": ["to", "subject", "body"],
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "create_booking",
         "description": (
             "Propose a local babyg calendar item for the creator to review. "
@@ -300,7 +346,49 @@ WRITE_TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "required": ["title", "starts_at"],
             "additionalProperties": False,
         },
-    }
+    },
+    {
+        "name": "create_google_calendar_event",
+        "description": (
+            "Prepare one Google Calendar event after explicit creator approval. "
+            "This writes to the creator's connected Google Calendar only after "
+            "they click Confirm on the action card. It does not book restaurants, "
+            "invite guests, delete/update events, sync local babyg records, or "
+            "handle money/payment. Required: title and starts_at. Optional: "
+            "ends_at, location, notes."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 140,
+                    "description": "Calendar event title.",
+                },
+                "starts_at": {
+                    "type": "string",
+                    "description": "Start datetime as ISO 8601, including timezone when known.",
+                },
+                "ends_at": {
+                    "type": ["string", "null"],
+                    "description": "Optional end datetime as ISO 8601.",
+                },
+                "location": {
+                    "type": ["string", "null"],
+                    "maxLength": 160,
+                    "description": "Optional location text.",
+                },
+                "notes": {
+                    "type": ["string", "null"],
+                    "maxLength": 2000,
+                    "description": "Optional private event notes.",
+                },
+            },
+            "required": ["title", "starts_at"],
+            "additionalProperties": False,
+        },
+    },
 ]
 
 BOT_TOOL_DEFINITIONS = READ_ONLY_TOOL_DEFINITIONS + WRITE_TOOL_DEFINITIONS
@@ -496,6 +584,8 @@ tool policy:
 - use create_booking only to propose a local babyg calendar item.
 - create_booking never books restaurants, sends external requests, syncs google calendar, or saves anything by itself. it only prepares an approval card for the creator.
 - use create_gmail_draft when the creator asks you to draft a reply, write an email, or prepare brand/outreach/negotiation correspondence and gmail is connected. it does NOT send. it only stages an approval card. the creator must click confirm to save the draft to gmail; they review and send from gmail themselves. babyg never sends, deletes, or relabels. if gmail compose isn't connected, the tool refuses — say so and tell them to reconnect gmail.
+- use send_gmail_email only when the creator clearly asks babyg to send an email. it does NOT send by itself. it stages an approval card with exact to, subject, and body. the creator must click confirm before the server sends exactly one email. never use it for a draft request. never send attachments, cc/bcc, bulk email, labels, deletes, archives, or anything involving money/payment.
+- use create_google_calendar_event only when the creator clearly asks babyg to add something to Google Calendar. it does NOT create anything by itself. it stages an approval card with exact title, time, location, and notes. the creator must click confirm before the server creates exactly one Google Calendar event. never use it for restaurant booking, guest invites, deleting/updating events, or anything involving money/payment.
 - tool results are context or pending proposals only, not permission to send messages, change records, or take external actions.
 - when a tool returns a pending proposal, tell the creator to review and confirm the action card. do not say it has been saved.
 
