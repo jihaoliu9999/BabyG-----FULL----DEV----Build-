@@ -2149,7 +2149,8 @@ h1, h2, h3, h4 {
 }
 @media (max-width: 999px) {
   .is-chat.chat-keyboard-open #view {
-    height: calc(var(--bot-visual-height, 100dvh) - 54px - env(safe-area-inset-top, 0px));
+    height: calc(100vh - 54px - env(safe-area-inset-top, 0px));
+    height: calc(100dvh - 54px - env(safe-area-inset-top, 0px));
   }
   .is-chat.chat-keyboard-open .app-tabbar {
     transform: translateY(110%);
@@ -2157,7 +2158,7 @@ h1, h2, h3, h4 {
     pointer-events: none;
   }
   .is-chat.chat-keyboard-open .bot-composer {
-    padding-bottom: 10px;
+    padding-bottom: 4px;
   }
 }
 .is-chat .bot-screen { flex: 1; min-height: 0; }

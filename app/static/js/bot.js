@@ -24,9 +24,6 @@
   if (!composer || !submit || !textarea || !messageList) return;
 
   let inFlight = false;
-  let largestVisualHeight =
-    (window.visualViewport && window.visualViewport.height) || window.innerHeight;
-  let viewportFrame = null;
   let blurTimer = null;
 
   const isScrolledToBottom = (el) => {
@@ -41,46 +38,7 @@
     }
   };
 
-  const updateChatViewport = () => {
-    const viewport = window.visualViewport;
-    const visualHeight = viewport ? viewport.height : window.innerHeight;
-    const focused = document.activeElement === textarea;
-    const wasAtBottom = isScrolledToBottom(messageList);
-
-    if (!focused || visualHeight > largestVisualHeight) {
-      largestVisualHeight = visualHeight;
-    }
-
-    document.documentElement.style.setProperty(
-      "--bot-visual-height",
-      `${Math.round(visualHeight)}px`
-    );
-    document.body.classList.toggle(
-      "chat-keyboard-open",
-      focused && largestVisualHeight - visualHeight > 120
-    );
-
-    if (wasAtBottom) {
-      window.requestAnimationFrame(scrollToLatest);
-    }
-  };
-
-  const scheduleViewportUpdate = () => {
-    if (viewportFrame) window.cancelAnimationFrame(viewportFrame);
-    viewportFrame = window.requestAnimationFrame(() => {
-      viewportFrame = null;
-      updateChatViewport();
-    });
-  };
-
-  if (window.visualViewport) {
-    window.visualViewport.addEventListener("resize", scheduleViewportUpdate);
-    window.visualViewport.addEventListener("scroll", scheduleViewportUpdate);
-  }
-  window.addEventListener("resize", scheduleViewportUpdate);
-
   // Initial scroll on page load: pin to the latest message.
-  scheduleViewportUpdate();
   scrollToLatest();
 
   const setBusy = (busy) => {
@@ -205,6 +163,10 @@
     textarea.dispatchEvent(new Event("input", { bubbles: true }));
   };
 
+  const setKeyboardOpen = (open) => {
+    document.body.classList.toggle("chat-keyboard-open", open);
+  };
+
   async function send() {
     if (inFlight) return;
     const value = textarea.value.trim();
@@ -246,11 +208,11 @@
 
   textarea.addEventListener("focus", () => {
     if (blurTimer) window.clearTimeout(blurTimer);
-    scheduleViewportUpdate();
+    setKeyboardOpen(true);
   });
 
   textarea.addEventListener("blur", () => {
-    blurTimer = window.setTimeout(scheduleViewportUpdate, 120);
+    blurTimer = window.setTimeout(() => setKeyboardOpen(false), 120);
   });
 
   textarea.addEventListener("keydown", (event) => {
