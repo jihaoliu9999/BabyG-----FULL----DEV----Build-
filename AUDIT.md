@@ -116,7 +116,7 @@ boundary. Two functions:
 ```python
 PUBLIC_CREATOR_FIELDS = (
     "user_id", "full_name", "instagram_handle", "primary_platform",
-    "neighborhood", "niches", "content_formats", "follower_range",
+    "location_city", "location_region", "location_country", "niches", "content_formats", "follower_range",
     "engagement_range", "creator_tenure", "bio",
     # hard_limits debatable — keep if PRD explicitly wants it
 )

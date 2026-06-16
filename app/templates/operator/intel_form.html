@@ -59,7 +59,7 @@
         <label class="field-label">Target tiers</label>
         {{ f.chip_group("target_tiers", vocab.tiers, post.get("target_tiers", ["basic", "pro", "vip"])) }}
       </div>
-      {{ f.field("City", "city", post.get("city", "Miami")) }}
+      {{ f.field("City or region", "city", post.get("city", "")) }}
     </section>
 
     <section class="onb-section">

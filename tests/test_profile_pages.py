@@ -22,7 +22,9 @@ def _profile() -> dict:
         "onboarding_completed_at": "2026-05-01T00:00:00Z",
         "full_name": "Mia Creator",
         "instagram_handle": "miacreates",
-        "neighborhood": "miami",
+        "location_city": "Los Angeles",
+        "location_region": "California",
+        "location_country": "United States",
         "primary_platform": "instagram",
         "follower_range": "10k-25k",
         "engagement_range": "3-5%",
@@ -52,7 +54,8 @@ def test_creator_profile_page_renders(monkeypatch, client: TestClient) -> None:
     assert 'class="chip profile-chip-static"></span>' not in response.text
     assert "edit bio" in response.text
     assert "what should babyg know about how you show up?" in response.text
-    assert 'action="/creator/profile/neighborhood"' in response.text
+    assert 'action="/creator/profile/location"' in response.text
+    assert "Los Angeles, California" in response.text
     assert "creator_tenure" not in response.text
     assert "tenure" not in response.text
     assert "/auth/logout" in response.text
@@ -136,7 +139,7 @@ def test_creator_profile_bio_update_clears_blank_bio(
     assert saved == {"bio": None}
 
 
-def test_creator_profile_neighborhood_update_saves_existing_field(
+def test_creator_profile_location_update_saves_manual_location(
     monkeypatch, client: TestClient
 ) -> None:
     _signed_in(client, role="creator", user_id="creator-1")
@@ -150,8 +153,12 @@ def test_creator_profile_neighborhood_update_saves_existing_field(
     )
 
     response = client.post(
-        "/creator/profile/neighborhood",
-        data={"neighborhood": "  Coral   Gables  "},
+        "/creator/profile/location",
+        data={
+            "location_city": "  New   York  ",
+            "location_region": "New York",
+            "location_country": "United States",
+        },
         follow_redirects=False,
     )
 
@@ -159,8 +166,45 @@ def test_creator_profile_neighborhood_update_saves_existing_field(
     assert response.headers["location"] == "/creator/profile?details=ok"
     assert saved == {
         "uid": "creator-1",
-        "payload": {"neighborhood": "Coral Gables"},
+        "payload": {
+            "location_city": "New York",
+            "location_region": "New York",
+            "location_country": "United States",
+            "location_lat": None,
+            "location_lng": None,
+            "location_source": "manual",
+            "location_updated_at": saved["payload"]["location_updated_at"],
+        },
     }
+
+
+def test_creator_profile_location_rejects_invalid_lat_lng(
+    monkeypatch, client: TestClient
+) -> None:
+    _signed_in(client, role="creator", user_id="creator-1")
+    saved: dict = {}
+
+    monkeypatch.setattr(creator_routes.profiles, "get_creator_profile", lambda uid: _profile())
+    monkeypatch.setattr(
+        creator_routes.profiles,
+        "update_creator_profile",
+        lambda uid, payload: saved.update(payload) or True,
+    )
+
+    response = client.post(
+        "/creator/profile/location",
+        data={
+            "location_city": "Los Angeles",
+            "location_source": "browser",
+            "location_lat": "34.0522",
+            "location_lng": "-181",
+        },
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/creator/profile?details=invalid_location"
+    assert saved == {}
 
 
 def test_creator_profile_settings_page_renders(monkeypatch, client: TestClient) -> None:

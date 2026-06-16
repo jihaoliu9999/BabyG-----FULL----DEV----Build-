@@ -100,7 +100,7 @@ async def intel_new_form(
                 "valid_until": default_until,
                 "status": "draft",
                 "confidence": "medium",
-                "city": "Miami",
+                "city": "",
                 "target_tiers": ["basic", "pro", "vip"],
             },
             "vocab": _vocab(),
@@ -192,7 +192,7 @@ def _validate_intel(form) -> tuple[dict[str, Any], str | None]:
     valid_until = _str(form.get("valid_until"), 64)
     valid_from = _str(form.get("valid_from"), 64)
     source = _str(form.get("source"), 500)
-    city = _str(form.get("city"), 60) or "Miami"
+    city = _str(form.get("city"), 60)
     # Accept any DB-valid status from the form so editing a `scheduled`
     # or `expired` post doesn't silently demote it. The form only
     # *renders* draft/active radios, but a rendered hidden input or a
@@ -222,7 +222,7 @@ def _validate_intel(form) -> tuple[dict[str, Any], str | None]:
         "confidence": confidence,
         "valid_until": valid_until,
         "source": source or None,
-        "city": city,
+        "city": city or "global",
         "status": publish_status,
         "target_niches": target_niches,        # may be empty (= all niches)
         "target_tiers": target_tiers,

@@ -86,7 +86,7 @@ def _add_creator(world, *, user_id, tier="basic"):
         "follower_range": "10-50k",
         "onboarding_completed_at": "2026-05-07T00:00:00Z",
         "engagement_range": None, "creator_tenure": None,
-        "neighborhood": None, "primary_platform": "Instagram",
+        "location_city": None, "location_region": None, "primary_platform": "Instagram",
         "content_formats": ["reels"], "hard_limits": [], "bio": None,
     }
 

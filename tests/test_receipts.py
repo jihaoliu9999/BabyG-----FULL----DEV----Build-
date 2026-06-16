@@ -191,7 +191,7 @@ def test_performance_list_merges_instagram_rows(client, world, monkeypatch):
         ),
         merge_module.StatsRow(
             source="instagram",
-            title="brickell sunset",
+            title="sunset",
             timestamp="2026-06-05T18:00:00+0000",
             permalink="https://www.instagram.com/p/m2",
             metrics={"likes": 80, "comments": 2, "engagement": 30},

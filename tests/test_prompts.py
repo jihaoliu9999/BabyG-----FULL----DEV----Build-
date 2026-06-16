@@ -36,8 +36,8 @@ def test_prompt_contains_load_bearing_sections() -> None:
 
 
 def test_prompt_includes_creator_context() -> None:
-    p = prompts.babyg_system_prompt(context={"city": "miami", "niche": "lifestyle"})
-    assert "city: miami" in p
+    p = prompts.babyg_system_prompt(context={"location": "los angeles, california", "niche": "lifestyle"})
+    assert "location: los angeles, california" in p
     assert "niche: lifestyle" in p
 
 

@@ -24,6 +24,11 @@
   const otherToggle = form.querySelector("[data-onb-other-toggle]");
   const otherField = form.querySelector("[data-onb-other-field]");
   const otherInput = form.querySelector('input[name="niche_other"]');
+  const locationButton = form.querySelector("[data-location-button]");
+  const locationStatus = form.querySelector("[data-location-status]");
+  const locationLat = form.querySelector("[data-location-lat]");
+  const locationLng = form.querySelector("[data-location-lng]");
+  const locationSource = form.querySelector("[data-location-source]");
 
   const total = steps.length;
   let current = 1;
@@ -165,6 +170,34 @@
 
   if (otherToggle) {
     otherToggle.addEventListener("change", syncOtherField);
+  }
+  if (locationButton) {
+    locationButton.addEventListener("click", () => {
+      if (!("geolocation" in navigator)) {
+        if (locationStatus) locationStatus.textContent = "browser location is not available here.";
+        return;
+      }
+      locationButton.setAttribute("disabled", "disabled");
+      if (locationStatus) locationStatus.textContent = "asking for location permission...";
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          if (locationLat) locationLat.value = String(position.coords.latitude);
+          if (locationLng) locationLng.value = String(position.coords.longitude);
+          if (locationSource) locationSource.value = "browser";
+          if (locationStatus) {
+            locationStatus.textContent = "location captured. keep your city or region filled in.";
+          }
+          locationButton.removeAttribute("disabled");
+        },
+        () => {
+          if (locationStatus) {
+            locationStatus.textContent = "location not shared. enter your city manually.";
+          }
+          locationButton.removeAttribute("disabled");
+        },
+        { enableHighAccuracy: false, timeout: 8000, maximumAge: 600000 }
+      );
+    });
   }
   syncOtherField();
   renderStep();

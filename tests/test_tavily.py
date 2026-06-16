@@ -84,8 +84,8 @@ def test_search_parses_hits(monkeypatch):
     payload = {
         "results": [
             {
-                "title": "Wynwood opening this weekend",
-                "url": "https://example.com/wynwood",
+                "title": "Gallery opening this weekend",
+                "url": "https://example.com/gallery",
                 "content": "venue note...",
                 "published_date": "2026-06-08",
             },
@@ -104,11 +104,11 @@ def test_search_parses_hits(monkeypatch):
     post, sent = _fake_post(payload)
     monkeypatch.setattr(httpx, "post", post)
 
-    hits = tavily.search("wynwood opening", max_results=3)
+    hits = tavily.search("gallery opening", max_results=3)
 
     assert len(hits) == 2
-    assert hits[0].title == "Wynwood opening this weekend"
-    assert hits[0].url == "https://example.com/wynwood"
+    assert hits[0].title == "Gallery opening this weekend"
+    assert hits[0].url == "https://example.com/gallery"
     assert hits[0].snippet == "venue note..."
     assert hits[0].published == "2026-06-08"
     assert hits[1].published is None
@@ -116,7 +116,7 @@ def test_search_parses_hits(monkeypatch):
     # The POST shape Tavily expects.
     assert sent["url"] == tavily.API_URL
     assert sent["json"]["api_key"] == "tk-test"
-    assert sent["json"]["query"] == "wynwood opening"
+    assert sent["json"]["query"] == "gallery opening"
     assert sent["json"]["max_results"] == 3
 
 

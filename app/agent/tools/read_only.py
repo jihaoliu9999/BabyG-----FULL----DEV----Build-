@@ -31,10 +31,14 @@ def collect_context(user_id: str) -> dict[str, Any]:
 
 def read_my_profile(user_id: str) -> dict[str, Any]:
     row = profiles.get_creator_profile(user_id) or {}
+    location_label = profiles.safe_location_label(row)
     return {
         "name": row.get("full_name"),
         "instagram": row.get("instagram_handle"),
-        "city": row.get("neighborhood") or "Miami",
+        "location": location_label or "location not set",
+        "city": row.get("location_city"),
+        "region": row.get("location_region"),
+        "country": row.get("location_country"),
         "niches": _as_list(row.get("niches")),
         "formats": _as_list(row.get("content_formats")),
         "topics": _as_list(row.get("topics")),
@@ -129,7 +133,7 @@ def read_creator_directory(user_id: str, *, limit: int = 6) -> list[dict[str, An
             "user_id": row.get("user_id"),
             "name": row.get("full_name"),
             "instagram": row.get("instagram_handle"),
-            "city": row.get("neighborhood"),
+            "location": row.get("location_label"),
             "niches": _as_list(row.get("niches"))[:4],
             "follower_range": row.get("follower_range"),
         }

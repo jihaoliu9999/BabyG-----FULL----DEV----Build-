@@ -432,7 +432,7 @@ In rough priority for a real launch:
 1. **Phase 2: the bot.** Anthropic SDK + Claude Sonnet 4.6 + tool use
    (intel lookup, calendar, brief drafting, scope precheck). This is
    the actual product.
-2. **Phase 3: Celery workers.** Daily intel push (5am Miami time),
+2. **Phase 3: Celery workers.** Daily intel push (configured local send time),
    scheduled-intel auto-publish, posting reminders, weekly digest,
    flagged-message scan. Needs Redis (Upstash on Railway is easy).
 3. **Phase 4: analytics + dashboards.** PostHog for product analytics,

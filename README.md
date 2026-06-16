@@ -1,6 +1,6 @@
 # babyg
 
-AI-assisted social media management platform for lifestyle creators in Miami.
+AI-assisted social media management platform for lifestyle creators.
 
 ## v1 scope (current)
 

@@ -39,6 +39,7 @@ from app.services import (
     dms,
     intel,
     jobs,
+    locations,
     network,
     notifications,
     oauth_connections,
@@ -265,6 +266,7 @@ async def profile_page(
     profile = profiles.get_creator_profile(session["user_id"]) or {}
     if not profile.get("onboarding_completed_at"):
         return RedirectResponse("/onboarding/creator", status_code=302)
+    profile = {**profile, "location_label": profiles.safe_location_label(profile)}
     chip_values = _profile_chip_values(profile)
     return templates.TemplateResponse(
         request,
@@ -319,19 +321,20 @@ async def profile_bio_update(
     return RedirectResponse("/creator/profile?bio=ok", status_code=303)
 
 
-@router.post("/creator/profile/neighborhood")
-async def profile_neighborhood_update(
-    neighborhood: str = Form(""),
+@router.post("/creator/profile/location")
+async def profile_location_update(
+    request: Request,
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
     profile = profiles.get_creator_profile(session["user_id"]) or {}
     if not profile.get("onboarding_completed_at"):
         return RedirectResponse("/onboarding/creator", status_code=302)
 
-    cleaned = " ".join(neighborhood.strip().split())[:80]
-    if not profiles.update_creator_profile(
-        session["user_id"], {"neighborhood": cleaned or None}
-    ):
+    form = await request.form()
+    payload, error = locations.profile_location_payload(form)
+    if error:
+        return RedirectResponse("/creator/profile?details=invalid_location", status_code=303)
+    if not profiles.update_creator_profile(session["user_id"], payload):
         return RedirectResponse("/creator/profile?details=save_failed", status_code=303)
     return RedirectResponse("/creator/profile?details=ok", status_code=303)
 
@@ -344,6 +347,7 @@ async def profile_settings_page(
     profile = profiles.get_creator_profile(session["user_id"]) or {}
     if not profile.get("onboarding_completed_at"):
         return RedirectResponse("/onboarding/creator", status_code=302)
+    profile = {**profile, "location_label": profiles.safe_location_label(profile)}
     google_connection = oauth_connections.get_google_connection(session["user_id"])
     # Defensive: a test environment without Supabase configured must
     # still render the page. The worst case is the IG card showing
@@ -715,8 +719,11 @@ async def network_profile(
     if peer_user_id == session["user_id"]:
         return RedirectResponse("/creator/network", status_code=302)
 
-    peer = profiles.get_creator_profile(peer_user_id)
-    if peer is None or not peer.get("onboarding_completed_at"):
+    peer_full = profiles.get_creator_profile(peer_user_id)
+    if peer_full is None or not peer_full.get("onboarding_completed_at"):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    peer = profiles.public_creator(peer_full)
+    if peer is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
     connection = network.get_connection_between(session["user_id"], peer_user_id)

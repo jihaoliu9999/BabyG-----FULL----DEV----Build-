@@ -49,7 +49,7 @@ class FakeIntelStore:
             "valid_until": kwargs.get("valid_until", "2099-01-01T00:00:00Z"),
             "target_niches": kwargs.get("target_niches", []),
             "target_tiers": kwargs.get("target_tiers", ["basic", "pro", "vip"]),
-            "city": kwargs.get("city", "Miami"),
+            "city": kwargs.get("city", "global"),
             "source": kwargs.get("source"),
             "created_at": kwargs.get("created_at", "2026-05-01T00:00:00Z"),
             "created_by": kwargs.get("created_by", "op-1"),
@@ -197,13 +197,13 @@ def _signed_in(client: TestClient, *, role: str, user_id: str = "u-1") -> None:
 
 def test_feed_returns_targeted_active_posts(client, store, fake_creator):
     _signed_in(client, role="creator")
-    store.add_post(title="Wynwood opening", target_niches=["food"])
+    store.add_post(title="Gallery opening", target_niches=["food"])
     store.add_post(title="Beauty trend",  target_niches=["beauty"])
     store.add_post(title="Anywhere drop", target_niches=[])    # all niches
 
     r = client.get("/creator")
     assert r.status_code == 200
-    assert "Wynwood opening" in r.text
+    assert "Gallery opening" in r.text
     assert "Anywhere drop" in r.text
     assert "Beauty trend" not in r.text
 
@@ -365,7 +365,7 @@ def test_intel_create_succeeds(client, store):
             "valid_until": "2099-01-01T00:00",
             "target_niches": ["food", "fashion"],
             "target_tiers": ["basic", "pro", "vip"],
-            "city": "Miami",
+            "city": "Los Angeles",
             "status": "active",
             "source": "https://example.com/source",
         },

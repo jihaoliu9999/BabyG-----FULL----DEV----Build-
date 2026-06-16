@@ -47,7 +47,26 @@
       <span class="onb-section-kicker">01 / profile</span>
       <h2>tell us the basics.</h2>
       {{ f.field("full name", "full_name", profile.get("full_name", ""), required=True) }}
-      {{ f.select("neighborhood", "neighborhood", vocab.neighborhoods, selected=profile.get("neighborhood")) }}
+      <div class="field" data-location-field>
+        <label for="location-city" class="field-label">location</label>
+        <div class="field-hint">city or region is enough. exact location stays private.</div>
+        <input id="location-city" name="location_city" class="input"
+               value="{{ profile.get('location_city') or '' }}"
+               placeholder="los angeles" autocomplete="address-level2" />
+        <input name="location_region" class="input" style="margin-top:8px;"
+               value="{{ profile.get('location_region') or '' }}"
+               placeholder="california, optional" autocomplete="address-level1" />
+        <input name="location_country" class="input" style="margin-top:8px;"
+               value="{{ profile.get('location_country') or '' }}"
+               placeholder="united states, optional" autocomplete="country-name" />
+        <input type="hidden" name="location_lat" data-location-lat value="{{ profile.get('location_lat') or '' }}" />
+        <input type="hidden" name="location_lng" data-location-lng value="{{ profile.get('location_lng') or '' }}" />
+        <input type="hidden" name="location_source" data-location-source value="{{ profile.get('location_source') or '' }}" />
+        <button type="button" class="btn btn-ghost btn-sm" data-location-button style="margin-top:10px;">
+          let babyg use my location
+        </button>
+        <div class="field-hint" data-location-status>or enter your city manually.</div>
+      </div>
       {{ f.textarea("short bio", "bio", profile.get("bio", ""), placeholder="what do you make?", rows=3) }}
     </fieldset>
 

@@ -56,7 +56,7 @@
 
   <span class="mono" style="display:block;margin-bottom:10px;">profile</span>
   <div class="kv-list" style="margin-bottom:18px;">
-    <div class="row"><span class="l">neighborhood</span><span class="v">{{ peer.neighborhood or 'not set' }}</span></div>
+    <div class="row"><span class="l">location</span><span class="v">{{ peer.location_label or 'location not set' }}</span></div>
     <div class="row"><span class="l">followers</span><span class="v">{{ peer.follower_range or 'not set' }}</span></div>
     <div class="row"><span class="l">engagement</span><span class="v">{{ peer.engagement_range or 'not set' }}</span></div>
     <div class="row"><span class="l">tenure</span><span class="v">{{ peer.creator_tenure or 'not set' }}</span></div>

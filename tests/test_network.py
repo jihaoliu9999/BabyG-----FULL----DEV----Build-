@@ -46,7 +46,10 @@ class FakeWorld:
             "follower_range": kwargs.get("follower_range", "10-50k"),
             "tier": kwargs.get("tier", "basic"),
             "bio": kwargs.get("bio"),
-            "neighborhood": kwargs.get("neighborhood"),
+            "location_city": kwargs.get("location_city"),
+            "location_region": kwargs.get("location_region"),
+            "location_lat": kwargs.get("location_lat"),
+            "location_lng": kwargs.get("location_lng"),
             "primary_platform": kwargs.get("primary_platform", "Instagram"),
             "engagement_range": kwargs.get("engagement_range"),
             "creator_tenure": kwargs.get("creator_tenure"),
@@ -94,7 +97,7 @@ def world(monkeypatch) -> FakeWorld:
                 )
                 blocked.add(peer)
         return [
-            r for r in w.creators.values()
+            profiles_module.public_creator(r) for r in w.creators.values()
             if r.get("user_id") != uid
             and r.get("user_id") not in blocked
             and r.get("onboarding_completed_at")

@@ -41,7 +41,9 @@ PUBLIC_CREATOR_FIELDS: tuple[str, ...] = (
     "full_name",
     "instagram_handle",
     "primary_platform",
-    "neighborhood",
+    "location_city",
+    "location_region",
+    "location_country",
     "niches",
     "content_formats",
     "follower_range",
@@ -56,7 +58,25 @@ def public_creator(row: dict[str, Any] | None) -> dict[str, Any] | None:
     """Project a creator row to fields safe to render to non-owners."""
     if row is None:
         return None
-    return {k: row.get(k) for k in PUBLIC_CREATOR_FIELDS}
+    projected = {k: row.get(k) for k in PUBLIC_CREATOR_FIELDS}
+    projected["location_label"] = safe_location_label(row)
+    return projected
+
+
+def safe_location_label(row: dict[str, Any] | None) -> str | None:
+    """Return city/region-level location text safe for public rendering.
+
+    Exact coordinates intentionally never appear in this label.
+    """
+    if not row:
+        return None
+    city = _clean_location_part(row.get("location_city"))
+    region = _clean_location_part(row.get("location_region"))
+    country = _clean_location_part(row.get("location_country"))
+    parts = [p for p in (city, region) if p]
+    if len(parts) < 2 and country:
+        parts.append(country)
+    return ", ".join(parts[:2]) or None
 
 
 # -----------------------------------------------------------------------------
@@ -177,3 +197,7 @@ def _update_profile(table: str, user_id: str, payload: dict[str, Any]) -> bool:
 
 def _now_iso() -> str:
     return datetime.now(UTC).isoformat()
+
+
+def _clean_location_part(value: Any) -> str:
+    return " ".join(str(value or "").strip().split())

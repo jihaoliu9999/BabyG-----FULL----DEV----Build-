@@ -210,7 +210,7 @@ def test_normal_bot_turn_persists_user_and_assistant_messages(monkeypatch) -> No
         bot_service.anthropic_client,
         "complete_chat",
         lambda **kwargs: bot_service.anthropic_client.ClaudeResponse(
-            text="Post a quick Miami reset reel."
+            text="Post a quick reset reel."
         ),
     )
 
@@ -219,10 +219,10 @@ def test_normal_bot_turn_persists_user_and_assistant_messages(monkeypatch) -> No
         content="What should I post today?",
     )
 
-    assert result.response == "Post a quick Miami reset reel."
+    assert result.response == "Post a quick reset reel."
     assert [m["role"] for m in created] == ["user", "assistant"]
     assert created[0]["content"] == "What should I post today?"
-    assert created[1]["content"] == "Post a quick Miami reset reel."
+    assert created[1]["content"] == "Post a quick reset reel."
 
 
 def test_normal_bot_turn_does_not_collect_full_context(monkeypatch) -> None:
@@ -857,7 +857,10 @@ def test_read_only_context_collects_creator_data(monkeypatch) -> None:
         lambda uid: {
             "full_name": "Mia Creator",
             "instagram_handle": "miacreates",
-            "neighborhood": "Miami",
+            "location_city": "Los Angeles",
+            "location_region": "California",
+            "location_lat": 34.0522,
+            "location_lng": -118.2437,
             "niches": ["food", "wellness"],
             "content_formats": ["reel"],
             "topics": ["new openings"],
@@ -892,7 +895,7 @@ def test_read_only_context_collects_creator_data(monkeypatch) -> None:
                 "title": "Dinner visit",
                 "type": "restaurant",
                 "status": "confirmed",
-                "location": "Miami Beach",
+                "location": "Santa Monica",
             }
         ],
     )
@@ -913,7 +916,7 @@ def test_read_only_context_collects_creator_data(monkeypatch) -> None:
             {
                 "post_type": "reel",
                 "posted_at": "2026-05-18",
-                "caption_excerpt": "Miami night out",
+                "caption_excerpt": "night out",
                 "post_url": "https://example.com/reel",
                 "like_count": 100,
                 "comment_count": 12,
@@ -941,7 +944,7 @@ def test_read_only_context_collects_creator_data(monkeypatch) -> None:
                 "user_id": "peer-2",
                 "full_name": "Nia Creator",
                 "instagram_handle": "niacreates",
-                "neighborhood": "Wynwood",
+                "location_label": "Los Angeles, California",
                 "niches": ["style"],
                 "follower_range": "25k-50k",
             }
@@ -951,13 +954,26 @@ def test_read_only_context_collects_creator_data(monkeypatch) -> None:
     context = read_only.collect_context("creator-1")
 
     assert context["read_my_profile"]["name"] == "Mia Creator"
+    assert context["read_my_profile"]["location"] == "Los Angeles, California"
+    assert "location_lat" not in context["read_my_profile"]
+    assert "location_lng" not in context["read_my_profile"]
     assert context["read_my_profile"]["writing_samples"] == ["bright caption sample"]
     assert context["read_intel_feed"][0]["title"] == "New dinner room"
     assert context["read_my_calendar"][0]["title"] == "Dinner visit"
     assert context["read_my_dms"][0]["peer_name"] == "Ana Peer"
-    assert context["read_my_receipts"][0]["caption_excerpt"] == "Miami night out"
+    assert context["read_my_receipts"][0]["caption_excerpt"] == "night out"
     assert context["read_my_performance"][0]["active_brand_deals_value"] == 1200
     assert context["read_creator_directory"][0]["name"] == "Nia Creator"
+    assert context["read_creator_directory"][0]["location"] == "Los Angeles, California"
+
+
+def test_read_only_profile_context_does_not_default_to_miami(monkeypatch) -> None:
+    monkeypatch.setattr(read_only.profiles, "get_creator_profile", lambda uid: {})
+
+    profile = read_only.read_my_profile("creator-1")
+
+    assert profile["location"] == "location not set"
+    assert profile["city"] is None
 
 
 # ---------------------------------------------------------------------------

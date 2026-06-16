@@ -135,8 +135,9 @@ def test_creator_wizard_pre_fills_existing_values(client, store):
 def _valid_creator_form() -> dict:
     return {
         "full_name": "Anna Reyes",
-        "neighborhood": "Wynwood",
-        "bio": "Miami food + fashion.",
+        "location_city": "Los Angeles",
+        "location_region": "California",
+        "bio": "food + fashion.",
         "niches": ["food", "fashion"],
         "content_formats": ["reels", "stories"],
         "primary_platform": "Instagram",
@@ -156,7 +157,11 @@ def test_creator_submit_saves_and_redirects(client, store):
     p = store.last_creator_payload
     assert p["full_name"] == "Anna Reyes"
     assert p["instagram_handle"] is None
-    assert p["neighborhood"] == "Wynwood"
+    assert p["location_city"] == "Los Angeles"
+    assert p["location_region"] == "California"
+    assert p["location_source"] == "manual"
+    assert p["location_lat"] is None
+    assert p["location_lng"] is None
     assert p["niches"] == ["food", "fashion"]
     assert p["content_formats"] == ["reels", "stories"]
     assert p["primary_platform"] == "Instagram"
@@ -233,17 +238,48 @@ def test_creator_submit_saves_custom_other_niche(client, store):
     assert store.last_creator_payload["niches"] == ["food", "car culture"]
 
 
-def test_creator_submit_rejects_invalid_neighborhood(client, store):
-    # An invalid neighborhood used to silently clear the field while
-    # reporting success. It must surface as a form error instead.
+def test_creator_submit_rejects_invalid_browser_location(client, store):
     _signed_in(client, role="creator")
     form = _valid_creator_form()
-    form["neighborhood"] = "Atlantis"
+    form["location_source"] = "browser"
+    form["location_lat"] = "91"
+    form["location_lng"] = "-118.2437"
 
     r = client.post("/onboarding/creator", data=form)
     assert r.status_code == 400
-    assert "neighborhood" in r.text.lower()
+    assert "latitude" in r.text.lower()
     assert store.last_creator_payload is None
+
+
+def test_creator_submit_accepts_valid_browser_location(client, store):
+    _signed_in(client, role="creator")
+    form = _valid_creator_form()
+    form["location_source"] = "browser"
+    form["location_lat"] = "34.0522"
+    form["location_lng"] = "-118.2437"
+
+    r = client.post("/onboarding/creator", data=form)
+
+    assert r.status_code == 303
+    p = store.last_creator_payload
+    assert p["location_source"] == "browser"
+    assert p["location_lat"] == 34.0522
+    assert p["location_lng"] == -118.2437
+    assert p["location_city"] == "Los Angeles"
+
+
+def test_creator_submit_allows_missing_location(client, store):
+    _signed_in(client, role="creator")
+    form = _valid_creator_form()
+    form.pop("location_city")
+    form.pop("location_region")
+
+    r = client.post("/onboarding/creator", data=form)
+
+    assert r.status_code == 303
+    p = store.last_creator_payload
+    assert p["location_source"] is None
+    assert p["location_city"] is None
 
 
 # -----------------------------------------------------------------------------
@@ -335,6 +371,9 @@ def test_onboarding_creator_renders_three_steps_and_integrations(
     assert "basics</span>" not in r.text
     # Integrations cards include the provider labels and simple status
     # states, without collecting manual social stat questions.
+    assert "let babyg use my location" in r.text
+    assert 'name="location_city"' in r.text
+    assert 'name="neighborhood"' not in r.text
     assert "calendar" in r.text
     assert "gmail" in r.text
     assert "instagram" in r.text

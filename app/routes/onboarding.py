@@ -27,7 +27,7 @@ from app.core.security import SessionPayload
 from app.core.templating import templates
 from app.deps import require_role
 from app.integrations import google_calendar, instagram_meta
-from app.services import oauth_connections, profiles
+from app.services import locations, oauth_connections, profiles
 
 logger = logging.getLogger(__name__)
 
@@ -44,11 +44,6 @@ CREATOR_NICHES = [
     "lifestyle", "nightlife", "music", "art", "real-estate", "tech",
 ]
 CREATOR_FORMATS = ["reels", "stories", "long-form"]
-CREATOR_NEIGHBORHOODS = [
-    "Wynwood", "Brickell", "Miami Beach", "Coconut Grove", "Coral Gables",
-    "Edgewater", "Downtown", "Little Havana", "Design District", "Aventura",
-    "Other",
-]
 CREATOR_PLATFORMS = ["Instagram", "TikTok"]
 CREATOR_HARD_LIMITS = [
     "no alcohol", "no nicotine", "no fast fashion", "no crypto",
@@ -188,7 +183,9 @@ def _validate_creator(
 ) -> tuple[dict[str, Any], str | None]:
     full_name = _str(form.get("full_name"), 120)
     bio = _str(form.get("bio"), 600)
-    neighborhood = _str(form.get("neighborhood"), 64)
+    location_payload, location_error = locations.profile_location_payload(form)
+    if location_error:
+        return {}, location_error
     handle = _str(
         (existing_profile or {}).get("instagram_handle")
         or _instagram_username_from_connection(instagram_connection),
@@ -199,8 +196,6 @@ def _validate_creator(
 
     if not full_name:
         return {}, "please enter your full name."
-    if neighborhood and neighborhood not in CREATOR_NEIGHBORHOODS:
-        return {}, "pick a neighborhood from the list or leave it blank."
 
     niches = _multi(form.getlist("niches"), CREATOR_NICHES)
     custom_niche = _custom_niche(form.get("niche_other"))
@@ -214,7 +209,6 @@ def _validate_creator(
     payload: dict[str, Any] = {
         "full_name": full_name,
         "instagram_handle": handle.lower() or None,
-        "neighborhood": neighborhood or None,
         "bio": bio or None,
         "niches": niches,
         "content_formats": _multi(form.getlist("content_formats"), CREATOR_FORMATS),
@@ -229,6 +223,7 @@ def _validate_creator(
         "creator_tenure": None,
         "primary_platform": _enum(form.get("primary_platform"), CREATOR_PLATFORMS),
         "tier": _enum(form.get("tier"), CREATOR_TIERS) or "basic",
+        **location_payload,
     }
 
     if not payload["niches"]:
@@ -277,7 +272,6 @@ def _creator_vocab() -> dict[str, list[str]]:
     return {
         "niches": CREATOR_NICHES,
         "formats": CREATOR_FORMATS,
-        "neighborhoods": CREATOR_NEIGHBORHOODS,
         "platforms": CREATOR_PLATFORMS,
         "hard_limits": CREATOR_HARD_LIMITS,
         "tiers": CREATOR_TIERS,

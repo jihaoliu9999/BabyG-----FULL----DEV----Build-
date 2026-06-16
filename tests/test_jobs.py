@@ -47,7 +47,8 @@ class FakeWorld:
             "follower_range": kw.get("follower_range", "10-50k"),
             "onboarding_completed_at": "2026-05-07T00:00:00Z",
             "engagement_range": None, "creator_tenure": None,
-            "neighborhood": None, "primary_platform": "Instagram",
+            "location_city": None, "location_region": None,
+            "primary_platform": "Instagram",
             "content_formats": ["reels"], "hard_limits": [], "bio": None,
         }
         return self.creators[user_id]
@@ -237,7 +238,7 @@ def test_creator_jobs_create(client, world):
         "/creator/jobs",
         data={
             "title": "Looking for a videographer",
-            "description": "Half-day shoot in Wynwood next week.",
+            "description": "Half-day shoot next week.",
             "listing_type": "hiring",
             "compensation_text": "$300",
             "deadline": _deadline(),
@@ -259,7 +260,7 @@ def test_creator_jobs_create_rejects_non_money_compensation(client, world):
         "/creator/jobs",
         data={
             "title": "Looking for a videographer",
-            "description": "Half-day shoot in Wynwood next week.",
+            "description": "Half-day shoot next week.",
             "listing_type": "hiring",
             "compensation_text": "TFP / negotiable",
             "deadline": _deadline(),
@@ -277,7 +278,7 @@ def test_creator_jobs_create_rejects_deadline_after_14_days(client, world):
         "/creator/jobs",
         data={
             "title": "Looking for a videographer",
-            "description": "Half-day shoot in Wynwood next week.",
+            "description": "Half-day shoot next week.",
             "listing_type": "hiring",
             "compensation_text": "$300",
             "deadline": _deadline(15),
@@ -295,7 +296,7 @@ def test_creator_jobs_create_rejects_missing_deadline(client, world):
         "/creator/jobs",
         data={
             "title": "Looking for a videographer",
-            "description": "Half-day shoot in Wynwood next week.",
+            "description": "Half-day shoot next week.",
             "listing_type": "hiring",
             "compensation_text": "$300",
         },
@@ -312,7 +313,7 @@ def test_creator_jobs_create_rejects_ugc_gig_type(client, world):
         "/creator/jobs",
         data={
             "title": "Looking for a videographer",
-            "description": "Half-day shoot in Wynwood next week.",
+            "description": "Half-day shoot next week.",
             "listing_type": "ugc_gig",
             "compensation_text": "$300",
             "deadline": _deadline(),

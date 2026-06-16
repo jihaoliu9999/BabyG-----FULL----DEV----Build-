@@ -115,6 +115,7 @@
     {% else %}color:var(--accent);border-color:var(--accent);background:var(--accent-bg);
     {% endif %}">
     {% if details_flash == 'ok' %}details updated
+    {% elif details_flash == 'invalid_location' %}location could not be saved
     {% elif details_flash == 'save_failed' %}couldn't save details
     {% else %}{{ details_flash }}
     {% endif %}
@@ -131,8 +132,8 @@
     </div>
     <div class="profile-detail-grid">
       <div class="profile-detail-item">
-        <span class="l">neighborhood</span>
-        <strong>{{ profile.neighborhood or 'not set' }}</strong>
+        <span class="l">location</span>
+        <strong>{{ profile.location_label or 'location not set' }}</strong>
       </div>
       <div class="profile-detail-item">
         <span class="l">platform</span>
@@ -150,19 +151,30 @@
   </div>
 
   <dialog class="profile-chip-dialog" id="profile-chip-details" data-profile-chip-dialog>
-    <form method="post" action="/creator/profile/neighborhood" class="profile-chip-sheet">
+    <form method="post" action="/creator/profile/location" class="profile-chip-sheet">
       {% include "_partials/csrf.html" %}
       <div class="profile-chip-sheet-head">
         <div>
           <span class="mono profile-chip-label">details</span>
-          <h2>edit neighborhood</h2>
+          <h2>edit location</h2>
         </div>
         <button type="button" class="profile-chip-close" data-profile-chip-close aria-label="close">×</button>
       </div>
-      <p>where should babyg place you?</p>
-      <label for="profile-neighborhood-input" class="sr-only">neighborhood</label>
-      <input id="profile-neighborhood-input" name="neighborhood" class="profile-detail-input"
-             value="{{ profile.neighborhood or '' }}" placeholder="coral gables" />
+      <p>city or region is enough. exact location stays private.</p>
+      <label for="profile-location-city-input" class="sr-only">city or region</label>
+      <input id="profile-location-city-input" name="location_city" class="profile-detail-input"
+             value="{{ profile.location_city or '' }}" placeholder="los angeles" autocomplete="address-level2" />
+      <input name="location_region" class="profile-detail-input"
+             value="{{ profile.location_region or '' }}" placeholder="california, optional" autocomplete="address-level1" />
+      <input name="location_country" class="profile-detail-input"
+             value="{{ profile.location_country or '' }}" placeholder="united states, optional" autocomplete="country-name" />
+      <input type="hidden" name="location_lat" data-location-lat value="{{ profile.location_lat or '' }}" />
+      <input type="hidden" name="location_lng" data-location-lng value="{{ profile.location_lng or '' }}" />
+      <input type="hidden" name="location_source" data-location-source value="{{ profile.location_source or '' }}" />
+      <button type="button" class="btn btn-ghost btn-sm" data-location-button>
+        let babyg use my location
+      </button>
+      <div class="field-hint" data-location-status>or enter your city manually.</div>
       <div class="profile-chip-actions">
         <button type="button" class="btn btn-ghost btn-sm" data-profile-chip-close>cancel</button>
         <button type="submit" class="btn btn-lime btn-sm">save</button>

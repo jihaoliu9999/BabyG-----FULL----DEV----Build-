@@ -20,7 +20,7 @@
   <div style="margin-bottom:22px;">
     <div style="display:flex;align-items:center;gap:10px;padding:12px 16px;background:var(--surface-1);border:1px solid var(--hairline);border-radius:999px;color:var(--ink-dim);">
       <span>⌕</span>
-      <span style="font-size:14px;">search creators, neighborhoods, niches</span>
+      <span style="font-size:14px;">search creators, locations, niches</span>
     </div>
   </div>
 
@@ -38,7 +38,7 @@
         <span class="chip">view</span>
       </div>
       <div class="meta">
-        {% if creator.neighborhood %}<span>{{ creator.neighborhood }}</span>{% endif %}
+        {% if creator.location_label %}<span>{{ creator.location_label }}</span>{% endif %}
         {% if creator.follower_range %}<span>·</span><span>{{ creator.follower_range }}</span>{% endif %}
       </div>
       {% if creator.niches %}

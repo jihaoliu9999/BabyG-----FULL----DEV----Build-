@@ -28,6 +28,8 @@ _SECRET_CREATOR_FIELDS = (
     "notification_settings",
     "sub_bot_persona",
     "tier",
+    "location_lat",
+    "location_lng",
 )
 
 
@@ -54,10 +56,15 @@ def test_public_creator_strips_internal_fields():
         "writing_samples": "draft text",                # private
         "notification_settings": {"dm": True},          # private
         "sub_bot_persona": "voice notes",               # private
+        "location_city": "Los Angeles",
+        "location_region": "California",
+        "location_lat": 34.0522,                        # private
+        "location_lng": -118.2437,                      # private
     }
     out = public_creator(row)
     assert out is not None
     assert out["full_name"] == "Anna"
+    assert out["location_label"] == "Los Angeles, California"
     for k in _SECRET_CREATOR_FIELDS:
         assert k not in out, f"public_creator leaked {k!r}"
 

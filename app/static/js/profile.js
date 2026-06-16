@@ -149,6 +149,45 @@
 })();
 
 (() => {
+  const buttons = document.querySelectorAll("[data-location-button]");
+  if (!buttons.length) return;
+
+  buttons.forEach((button) => {
+    const form = button.closest("form");
+    if (!form) return;
+    const status = form.querySelector("[data-location-status]");
+    const lat = form.querySelector("[data-location-lat]");
+    const lng = form.querySelector("[data-location-lng]");
+    const source = form.querySelector("[data-location-source]");
+
+    button.addEventListener("click", () => {
+      if (!("geolocation" in navigator)) {
+        if (status) status.textContent = "browser location is not available here.";
+        return;
+      }
+      button.setAttribute("disabled", "disabled");
+      if (status) status.textContent = "asking for location permission...";
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          if (lat) lat.value = String(position.coords.latitude);
+          if (lng) lng.value = String(position.coords.longitude);
+          if (source) source.value = "browser";
+          if (status) {
+            status.textContent = "location captured. keep your city or region filled in.";
+          }
+          button.removeAttribute("disabled");
+        },
+        () => {
+          if (status) status.textContent = "location not shared. enter your city manually.";
+          button.removeAttribute("disabled");
+        },
+        { enableHighAccuracy: false, timeout: 8000, maximumAge: 600000 }
+      );
+    });
+  });
+})();
+
+(() => {
   const triggers = document.querySelectorAll("[data-profile-chip-open]");
   const dialogs = document.querySelectorAll("[data-profile-chip-dialog]");
 
