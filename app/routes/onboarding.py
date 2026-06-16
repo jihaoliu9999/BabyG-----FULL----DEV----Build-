@@ -43,7 +43,7 @@ CREATOR_NICHES = [
     "food", "fashion", "beauty", "fitness", "wellness", "travel",
     "lifestyle", "nightlife", "music", "art", "real-estate", "tech",
 ]
-CREATOR_FORMATS = ["reels", "stories", "static", "long-form"]
+CREATOR_FORMATS = ["reels", "stories", "long-form"]
 CREATOR_NEIGHBORHOODS = [
     "Wynwood", "Brickell", "Miami Beach", "Coconut Grove", "Coral Gables",
     "Edgewater", "Downtown", "Little Havana", "Design District", "Aventura",
