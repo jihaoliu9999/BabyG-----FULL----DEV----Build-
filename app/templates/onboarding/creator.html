@@ -35,7 +35,7 @@
   {% if error %}<div class="auth-error">{{ error }}</div>{% endif %}
 
   <ol class="onb-progress" data-onb-progress>
-    <li data-onb-step-pip="1" aria-current="step"><span class="n">1</span> basics</li>
+    <li data-onb-step-pip="1" aria-current="step"><span class="n">1</span> profile</li>
     <li data-onb-step-pip="2"><span class="n">2</span> style</li>
     <li data-onb-step-pip="3"><span class="n">3</span> connect</li>
   </ol>
@@ -44,7 +44,7 @@
     {% include "_partials/csrf.html" %}
 
     <fieldset class="onb-section" data-onb-step="1">
-      <span class="onb-section-kicker">01 / basics</span>
+      <span class="onb-section-kicker">01 / profile</span>
       <h2>tell us the basics.</h2>
       {{ f.field("full name", "full_name", profile.get("full_name", ""), required=True) }}
       {{ f.select("neighborhood", "neighborhood", vocab.neighborhoods, selected=profile.get("neighborhood")) }}
