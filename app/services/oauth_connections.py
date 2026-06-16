@@ -155,6 +155,11 @@ def google_gmail_compose_connected(connection: dict[str, Any] | None) -> bool:
     )
 
 
+def google_gmail_send_connected(connection: dict[str, Any] | None) -> bool:
+    """True only when gmail.send is present — send-capable."""
+    return google_calendar.has_gmail_send_scope(google_connection_scopes(connection))
+
+
 def google_service_scopes(service: str) -> list[str]:
     if service == GOOGLE_SERVICE_CALENDAR:
         return [google_calendar.CALENDAR_SCOPE]

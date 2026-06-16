@@ -29,6 +29,7 @@ CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar.events"
 # COMPOSE grants.
 GMAIL_READONLY_SCOPE = "https://www.googleapis.com/auth/gmail.readonly"
 GMAIL_COMPOSE_SCOPE = "https://www.googleapis.com/auth/gmail.compose"
+GMAIL_SEND_SCOPE = "https://www.googleapis.com/auth/gmail.send"
 GMAIL_SCOPE_PREFIX = "https://www.googleapis.com/auth/gmail."
 
 
@@ -65,11 +66,10 @@ def scopes_for_services(services: list[str]) -> list[str]:
             selected.append(CALENDAR_SCOPE)
     if "gmail" in services:
         gmail_scopes = [scope for scope in configured if is_gmail_scope(scope)]
-        # New Gmail connections grant COMPOSE so babyg can read inbox AND
-        # prepare drafts the creator approves. No send tool is exposed at
-        # any layer of this app — the scope is what Google requires for
-        # drafts.create; the module never imports a send endpoint.
-        selected.extend(gmail_scopes or [GMAIL_COMPOSE_SCOPE])
+        # New Gmail connections grant COMPOSE for approved drafts and
+        # SEND for approved one-off sends. The action proposal system
+        # remains the runtime gate for every external write.
+        selected.extend(gmail_scopes or [GMAIL_COMPOSE_SCOPE, GMAIL_SEND_SCOPE])
     return _dedupe(selected)
 
 
@@ -104,6 +104,10 @@ def is_gmail_compose_scope(scope: str) -> bool:
     return scope == GMAIL_COMPOSE_SCOPE
 
 
+def is_gmail_send_scope(scope: str) -> bool:
+    return scope == GMAIL_SEND_SCOPE
+
+
 def has_calendar_scope(scopes_to_check: list[str] | set[str] | tuple[str, ...]) -> bool:
     return any(is_calendar_scope(scope) for scope in scopes_to_check)
 
@@ -114,6 +118,14 @@ def has_gmail_compose_scope(
     """True only when the compose scope is present. Read-only connections
     return False — they need to reconnect before drafts can be staged."""
     return any(is_gmail_compose_scope(scope) for scope in scopes_to_check)
+
+
+def has_gmail_send_scope(
+    scopes_to_check: list[str] | set[str] | tuple[str, ...],
+) -> bool:
+    """True only when gmail.send is present. Compose-only connections
+    can draft but must reconnect before approved sends are available."""
+    return any(is_gmail_send_scope(scope) for scope in scopes_to_check)
 
 
 def has_gmail_scope(scopes_to_check: list[str] | set[str] | tuple[str, ...]) -> bool:

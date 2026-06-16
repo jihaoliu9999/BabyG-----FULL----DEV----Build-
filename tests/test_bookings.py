@@ -271,7 +271,10 @@ def test_google_connect_prechecked_service_submits_expected_service(
         (
             {"gmail": "1"},
             ["gmail"],
-            [google_calendar_module.GMAIL_COMPOSE_SCOPE],
+            [
+                google_calendar_module.GMAIL_COMPOSE_SCOPE,
+                google_calendar_module.GMAIL_SEND_SCOPE,
+            ],
             google_calendar_module.CALENDAR_SCOPE,
         ),
         (
@@ -280,6 +283,7 @@ def test_google_connect_prechecked_service_submits_expected_service(
             [
                 google_calendar_module.CALENDAR_SCOPE,
                 google_calendar_module.GMAIL_COMPOSE_SCOPE,
+                google_calendar_module.GMAIL_SEND_SCOPE,
             ],
             None,
         ),
@@ -358,6 +362,7 @@ def test_google_connect_posts_selected_services_and_scopes(
     assert calls["state"]["scopes"] == [
         google_calendar_module.CALENDAR_SCOPE,
         google_calendar_module.GMAIL_COMPOSE_SCOPE,
+        google_calendar_module.GMAIL_SEND_SCOPE,
     ]
     assert calls["scopes"] == calls["state"]["scopes"]
 
@@ -430,7 +435,10 @@ def test_google_gmail_only_callback_does_not_sync_calendar(
             "user_id": "c-1",
             "next": "/creator/profile/settings",
             "services": ["gmail"],
-            "scopes": [google_calendar_module.GMAIL_COMPOSE_SCOPE],
+            "scopes": [
+                google_calendar_module.GMAIL_COMPOSE_SCOPE,
+                google_calendar_module.GMAIL_SEND_SCOPE,
+            ],
         },
     )
     monkeypatch.setattr(
@@ -453,7 +461,13 @@ def test_google_gmail_only_callback_does_not_sync_calendar(
 
     assert r.status_code == 303
     assert r.headers["location"] == "/creator/profile/settings?google=connected"
-    assert calls["saved"] == ("c-1", [google_calendar_module.GMAIL_COMPOSE_SCOPE])
+    assert calls["saved"] == (
+        "c-1",
+        [
+            google_calendar_module.GMAIL_COMPOSE_SCOPE,
+            google_calendar_module.GMAIL_SEND_SCOPE,
+        ],
+    )
 
 
 def test_google_both_callback_saves_both_and_syncs_calendar(
@@ -465,6 +479,7 @@ def test_google_both_callback_saves_both_and_syncs_calendar(
     requested = [
         google_calendar_module.CALENDAR_SCOPE,
         google_calendar_module.GMAIL_COMPOSE_SCOPE,
+        google_calendar_module.GMAIL_SEND_SCOPE,
     ]
     monkeypatch.setattr(
         oauth_module,
