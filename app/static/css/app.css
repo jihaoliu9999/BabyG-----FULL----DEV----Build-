@@ -4151,3 +4151,110 @@ hr.hairline {
     filter: drop-shadow(0 0 7px rgba(255,77,109,0.55));
   }
 }
+
+/* ---------------------------------------------------------------
+   Network discovery — swipe-style stack
+   --------------------------------------------------------------- */
+.network-swipe-wrap { max-width: 520px; }
+.network-swipe-head {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 16px; margin-bottom: 20px; flex-wrap: wrap;
+}
+.network-swipe-head .sub {
+  color: var(--ink-mid); font-size: 13.5px; margin-top: 4px;
+}
+.network-swipe-card {
+  border: 1px solid var(--hairline);
+  border-radius: 22px;
+  background: var(--surface-1);
+  overflow: hidden;
+  position: relative;
+  box-shadow: 0 30px 60px -36px rgba(0,0,0,0.65);
+  user-select: none;
+  touch-action: pan-y;
+}
+.network-swipe-hero {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  background: var(--surface-2);
+  overflow: hidden;
+}
+.network-swipe-photo {
+  width: 100%; height: 100%; object-fit: cover; display: block;
+}
+.network-swipe-photo-fallback {
+  display: flex; align-items: center; justify-content: center;
+  font-size: 96px; font-weight: 400; color: var(--ink-mid);
+  background: linear-gradient(135deg, #4a5a6b, #1f2a35);
+  letter-spacing: 0.02em;
+}
+.network-swipe-gradient {
+  position: absolute; inset: auto 0 0 0;
+  height: 55%;
+  background: linear-gradient(to bottom, rgba(10,10,10,0) 0%, rgba(10,10,10,0.75) 75%, rgba(10,10,10,0.95) 100%);
+  pointer-events: none;
+}
+.network-swipe-hero-text {
+  position: absolute; left: 18px; right: 18px; bottom: 16px;
+  color: #fff;
+}
+.network-swipe-hero-text h1 {
+  font-size: 28px; font-weight: 500; margin: 0; letter-spacing: 0.005em;
+}
+.network-swipe-handle {
+  margin: 4px 0 0; font-size: 13.5px; color: rgba(255,255,255,0.7);
+}
+.network-swipe-location {
+  margin: 2px 0 0; font-size: 12.5px; color: rgba(255,255,255,0.6);
+}
+.network-swipe-body {
+  padding: 18px 18px 4px; display: flex; flex-direction: column; gap: 12px;
+}
+.network-swipe-bio {
+  color: var(--ink); font-size: 14.5px; line-height: 1.55; margin: 0;
+}
+.network-swipe-meta {
+  display: flex; gap: 12px; flex-wrap: wrap;
+  color: var(--ink-mid); font-size: 12.5px;
+}
+.network-swipe-actions {
+  display: grid; grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px; padding: 16px 18px 20px;
+}
+.network-swipe-form { margin: 0; }
+.network-swipe-form .btn { width: 100%; }
+.btn.btn-lg {
+  padding: 12px 14px; font-size: 14px; letter-spacing: 0.02em;
+}
+.network-swipe-hint {
+  text-align: center; font-size: 10.5px; letter-spacing: 0.14em;
+  text-transform: uppercase; color: var(--ink-dim);
+  padding: 0 0 16px;
+}
+.network-swipe-empty {
+  border: 1px dashed var(--hairline);
+  border-radius: 18px;
+  padding: 48px 28px;
+  text-align: center;
+  background: var(--surface-1);
+  color: var(--ink-mid);
+}
+.network-swipe-empty h1 {
+  font-size: 22px; font-weight: 500; margin: 8px 0 10px; color: var(--ink);
+}
+.network-swipe-empty p {
+  font-size: 13.5px; line-height: 1.55; max-width: 380px;
+  margin: 0 auto 18px;
+}
+.network-swipe-empty-cta {
+  display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;
+}
+.tag.tag-muted {
+  color: var(--ink-mid); border-color: var(--hairline);
+}
+@media (prefers-reduced-motion: reduce) {
+  .network-swipe-card { transition: none !important; }
+}
+@media (max-width: 600px) {
+  .network-swipe-actions { grid-template-columns: 1fr; gap: 8px; }
+}

@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block title %}network — babyg{% endblock %}
+
+{% block content %}
+<div class="wrap network-swipe-wrap">
+  <header class="network-swipe-head">
+    <div class="title-block">
+      <span class="mono eyebrow">network</span>
+      <p class="sub">browse creators one at a time. pass, connect, or open the full profile.</p>
+    </div>
+    <div class="actions" style="display:flex;gap:8px;flex-wrap:wrap;">
+      <a class="btn btn-ghost btn-sm" href="/creator/connections">
+        connections{% if pending_in %} · {{ pending_in }} pending{% endif %}
+      </a>
+      <a class="btn btn-ghost btn-sm" href="/creator/jobs">postings</a>
+      <a class="btn btn-ghost btn-sm" href="/creator/dm">inbox</a>
+    </div>
+  </header>
+
+  {% if stack %}
+    {% set creator = stack[0] %}
+    <section
+      class="network-swipe-card"
+      data-network-swipe-card
+      data-target-id="{{ creator.user_id }}"
+      aria-label="discover creator"
+    >
+      <div class="network-swipe-hero">
+        {% if creator.profile_photo_url %}
+          <img
+            class="network-swipe-photo"
+            src="{{ creator.profile_photo_url|safe_url }}{% if creator.updated_at %}?v={{ creator.updated_at|short_dt|replace(' ', 'T')|replace(':', '-') }}{% endif %}"
+            alt="{{ (creator.full_name or creator.instagram_handle or 'creator') }}"
+            loading="eager"
+            decoding="async"
+          />
+        {% else %}
+          <span class="network-swipe-photo network-swipe-photo-fallback" aria-hidden="true">
+            {{ (creator.full_name or creator.instagram_handle or 'C')[:1]|upper }}
+          </span>
+        {% endif %}
+        <div class="network-swipe-gradient"></div>
+        <div class="network-swipe-hero-text">
+          <h1>{{ creator.full_name or "Creator" }}</h1>
+          {% if creator.instagram_handle %}
+            <p class="network-swipe-handle">@{{ creator.instagram_handle }}</p>
+          {% endif %}
+          {% if creator.location_label %}
+            <p class="network-swipe-location">{{ creator.location_label }}</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="network-swipe-body">
+        {% if creator.bio %}
+        <p class="network-swipe-bio">{{ creator.bio }}</p>
+        {% endif %}
+
+        {% if creator.niches %}
+        <div class="tag-row tag-row-tight" aria-label="niches">
+          {% for n in (creator.niches or [])[:6] %}<span class="tag">{{ n }}</span>{% endfor %}
+        </div>
+        {% endif %}
+
+        {% if creator.content_formats %}
+        <div class="tag-row tag-row-tight" aria-label="content formats">
+          {% for f in (creator.content_formats or [])[:6] %}<span class="tag tag-muted">{{ f }}</span>{% endfor %}
+        </div>
+        {% endif %}
+
+        {% if creator.follower_range or creator.primary_platform %}
+        <div class="network-swipe-meta">
+          {% if creator.primary_platform %}<span>{{ creator.primary_platform }}</span>{% endif %}
+          {% if creator.follower_range %}<span>{{ creator.follower_range }} followers</span>{% endif %}
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="network-swipe-actions" role="group" aria-label="discovery actions">
+        <form method="post" action="/creator/network/swipe" class="network-swipe-form" data-network-action="passed">
+          {% include "_partials/csrf.html" %}
+          <input type="hidden" name="target_user_id" value="{{ creator.user_id }}" />
+          <input type="hidden" name="action" value="passed" />
+          <button type="submit" class="btn btn-ghost btn-lg" aria-label="pass on this creator" data-action-btn="passed">pass</button>
+        </form>
+        <form method="post" action="/creator/network/swipe" class="network-swipe-form" data-network-action="opened_profile">
+          {% include "_partials/csrf.html" %}
+          <input type="hidden" name="target_user_id" value="{{ creator.user_id }}" />
+          <input type="hidden" name="action" value="opened_profile" />
+          <button type="submit" class="btn btn-ghost btn-lg" aria-label="view full profile" data-action-btn="opened_profile">view profile</button>
+        </form>
+        <form method="post" action="/creator/network/swipe" class="network-swipe-form" data-network-action="connected">
+          {% include "_partials/csrf.html" %}
+          <input type="hidden" name="target_user_id" value="{{ creator.user_id }}" />
+          <input type="hidden" name="action" value="connected" />
+          <button type="submit" class="btn btn-lime btn-lg" aria-label="connect with this creator" data-action-btn="connected">connect</button>
+        </form>
+      </div>
+
+      <p class="network-swipe-hint mono" aria-hidden="true">
+        ← pass · → connect · enter to view profile
+      </p>
+    </section>
+
+    {# Prefetch the next handful into a hidden DOM region so the swipe
+       JS can swap in the next card without an immediate round-trip.
+       Each one carries minimal data — the JS only needs target_user_id
+       to reuse the same form action; full content is re-rendered by
+       the next GET. #}
+    <ul class="network-swipe-queue" hidden aria-hidden="true">
+      {% for queued in stack[1:6] %}
+      <li data-queued-target-id="{{ queued.user_id }}"></li>
+      {% endfor %}
+    </ul>
+  {% else %}
+    <section class="network-swipe-empty" aria-label="empty discovery stack">
+      <span class="mono eyebrow">all caught up</span>
+      <h1>no new creators right now.</h1>
+      <p>check back soon, or update your profile (handle, niches, bio) so babyg matches you with more relevant creators.</p>
+      <div class="network-swipe-empty-cta">
+        <a class="btn btn-ghost btn-sm" href="/creator/profile">edit profile</a>
+        <a class="btn btn-ghost btn-sm" href="/creator/connections">your connections</a>
+      </div>
+    </section>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block foot_scripts %}
+<script src="/static/js/network_swipe.js" defer></script>
+{% endblock %}

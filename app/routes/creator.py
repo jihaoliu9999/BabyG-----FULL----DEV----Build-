@@ -36,6 +36,7 @@ from app.services import (
     bookings,
     bot,
     calendar_sync,
+    discovery,
     dms,
     intel,
     jobs,
@@ -704,17 +705,88 @@ def _resolve_creator_dm_peer(
 
 
 @router.get("/creator/network", response_class=HTMLResponse)
-async def network_directory(
+async def network_swipe_page(
     request: Request,
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
-    creators = network.list_directory_for_creator(session["user_id"])
-    pending_in = len(network.list_incoming_pending(session["user_id"]))
+    """Swipe-style discovery feed.
+
+    Renders the next batch of candidate creators from the discovery
+    service. The first card is shown front-and-center; the next few
+    are prefetched into hidden DOM so swipes feel instant. When the
+    stack is empty we render a clean empty state, not a blank page.
+
+    A `viewed` action is recorded for whichever creator lands on top
+    of the stack so we don't show them again in the same session if
+    the viewer refreshes mid-card.
+    """
+    user_id = session["user_id"]
+    stack = discovery.next_stack_for(user_id)
+    pending_in = len(network.list_incoming_pending(user_id))
+    if stack:
+        # Record a view for the top card. Best-effort — never blocks
+        # the render.
+        discovery.record_action(
+            user_id=user_id,
+            target_user_id=str(stack[0].get("user_id") or ""),
+            action_type="viewed",
+        )
     return templates.TemplateResponse(
         request,
-        "creator/network_list.html",
-        {"creators": creators, "pending_in": pending_in},
+        "creator/network_swipe.html",
+        {"stack": stack, "pending_in": pending_in},
     )
+
+
+@router.post("/creator/network/swipe")
+async def network_swipe_action(
+    target_user_id: str = Form(...),
+    action: str = Form(...),
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    """Record a swipe action and redirect back to the swipe page.
+
+    Action whitelist mirrors discovery.ALLOWED_ACTIONS minus `viewed`
+    (that's recorded server-side, not user-driven). `connected` also
+    fires a real connection request — reusing the existing flow so
+    duplicates are deduped at the storage layer.
+
+    The redirect is a 303 to /creator/network so the next GET re-runs
+    `discovery.next_stack_for` and excludes the just-acted-on target.
+    """
+    user_id = session["user_id"]
+    action_clean = (action or "").strip().lower()
+    if action_clean not in {"passed", "connected", "skipped", "opened_profile"}:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
+    if target_user_id == user_id:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
+    peer = profiles.get_creator_profile(target_user_id)
+    if peer is None or not peer.get("onboarding_completed_at"):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    discovery.record_action(
+        user_id=user_id,
+        target_user_id=target_user_id,
+        action_type=action_clean,
+    )
+
+    if action_clean == "connected" and network.request_connection(
+        requester_id=user_id, addressee_id=target_user_id
+    ):
+        # Reuse the canonical flow; duplicates are no-ops there.
+        notifications.create(
+            user_id=target_user_id,
+            kind="connection_request",
+            title="Someone wants to connect.",
+            body=None,
+            link_path="/creator/connections",
+        )
+
+    if action_clean == "opened_profile":
+        return RedirectResponse(
+            f"/creator/network/{target_user_id}", status_code=303
+        )
+    return RedirectResponse("/creator/network", status_code=303)
 
 
 @router.get("/creator/network/{peer_user_id}", response_class=HTMLResponse)
@@ -737,8 +809,16 @@ async def network_profile(
     if connection is not None and connection.get("status") == "blocked":
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
-    # Record the view (best-effort; don't block render).
+    # Record the view (best-effort; don't block render). The view
+    # ledger is the legacy/internal one; opened_profile is the
+    # discovery-stack signal that excludes this peer from future
+    # swipe cards.
     views.record_view(viewer_id=session["user_id"], viewed_id=peer_user_id)
+    discovery.record_action(
+        user_id=session["user_id"],
+        target_user_id=peer_user_id,
+        action_type="opened_profile",
+    )
 
     return templates.TemplateResponse(
         request,
