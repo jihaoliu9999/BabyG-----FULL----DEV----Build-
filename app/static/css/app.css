@@ -84,14 +84,14 @@ button { cursor: pointer; }
   font-family: var(--mono);
   font-size: 10.5px;
   letter-spacing: 0.18em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   color: var(--ink-dim);
 }
 .eyebrow {
   font-family: var(--mono);
   font-size: 10.5px;
   letter-spacing: 0.22em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   color: var(--ink-dim);
 }
 .eyebrow.alert { color: var(--lime); }
@@ -170,7 +170,7 @@ h1, h2, h3, h4 {
   border-radius: 999px;
   background: var(--accent-bg);
   letter-spacing: 0.12em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   line-height: 1;
   white-space: nowrap;
 }
@@ -193,6 +193,10 @@ h1, h2, h3, h4 {
 }
 .chip:hover { color: var(--ink); border-color: #444; }
 .chip-active { background: var(--bone); color: var(--obsidian); border-color: var(--bone); }
+/* brand voice: vocab chip labels read lowercase. display only — the
+   input value (e.g. "Instagram", "TikTok") submitted to the server is
+   unchanged. */
+.chip span { text-transform: lowercase; }
 
 .tag {
   display: inline-flex;
@@ -202,7 +206,7 @@ h1, h2, h3, h4 {
   font-family: var(--mono);
   font-size: 9.5px;
   letter-spacing: 0.08em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   color: var(--ink-mid);
   background: var(--surface-2);
   border: 1px solid var(--hairline);
@@ -228,7 +232,7 @@ h1, h2, h3, h4 {
   font-family: var(--mono);
   font-size: 9.5px;
   letter-spacing: 0.18em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   color: var(--lime);
 }
 
@@ -309,7 +313,7 @@ h1, h2, h3, h4 {
   font-family: var(--mono);
   font-size: 10.5px;
   letter-spacing: 0.18em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   color: var(--ink-dim);
 }
 .app-topbar .topbar-search {
@@ -568,7 +572,7 @@ h1, h2, h3, h4 {
   font-family: var(--mono);
   font-size: 10px;
   letter-spacing: 0.18em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   color: var(--ink-mid);
   text-decoration: none;
   transition: color .25s ease, border-color .25s ease, box-shadow .25s ease, transform .15s ease;
@@ -906,7 +910,7 @@ h1, h2, h3, h4 {
   font-family: var(--mono);
   font-size: 10.5px;
   letter-spacing: 0.22em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   color: var(--ink-dim);
   margin-bottom: 36px;
 }
@@ -1033,12 +1037,12 @@ h1, h2, h3, h4 {
 .fp-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
 .fp-mono {
   font-family: var(--mono); font-size: 9.5px;
-  letter-spacing: 0.18em; text-transform: uppercase;
+  letter-spacing: 0.18em; text-transform: lowercase;
   color: var(--ink-dim);
 }
 .fp-tag {
   font-family: var(--mono); font-size: 9.5px;
-  letter-spacing: 0.18em; text-transform: uppercase;
+  letter-spacing: 0.18em; text-transform: lowercase;
   color: var(--lime);
   display: inline-flex; align-items: center; gap: 6px;
 }
@@ -1062,7 +1066,7 @@ h1, h2, h3, h4 {
 }
 .fp-foot {
   font-family: var(--mono); font-size: 9.5px;
-  letter-spacing: 0.16em; text-transform: uppercase;
+  letter-spacing: 0.16em; text-transform: lowercase;
   color: var(--ink-dim);
   display: flex; gap: 8px;
   padding-top: 8px; border-top: 1px solid var(--hairline);
@@ -1177,7 +1181,7 @@ h1, h2, h3, h4 {
   font-family: var(--mono);
   font-size: 10.5px;
   letter-spacing: 0.14em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   color: var(--ink-dim);
   display: flex;
   flex-direction: column;
@@ -1189,7 +1193,7 @@ h1, h2, h3, h4 {
   font-family: var(--mono);
   font-size: 9.5px;
   letter-spacing: 0.2em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   color: var(--ink-dim);
 }
 .field input, .field textarea, .field select {
@@ -1318,7 +1322,7 @@ h1, h2, h3, h4 {
   font-family: var(--mono);
   font-size: 10px;
   letter-spacing: .22em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   color: var(--lime);
 }
 .onb-eyebrow { margin-bottom: 14px; }
@@ -1344,7 +1348,7 @@ h1, h2, h3, h4 {
   font-family: var(--mono);
   font-size: 8.5px;
   letter-spacing: .14em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   color: var(--ink-dim);
   text-align: center;
 }
@@ -1692,7 +1696,7 @@ h1, h2, h3, h4 {
   font-family: var(--mono);
   font-size: 9.5px;
   letter-spacing: .18em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   color: var(--ink-dim);
 }
 .profile-detail-item strong {
@@ -1940,7 +1944,7 @@ h1, h2, h3, h4 {
 }
 .attention-strip .top .l {
   font-family: var(--mono); font-size: 10px;
-  letter-spacing: 0.18em; text-transform: uppercase;
+  letter-spacing: 0.18em; text-transform: lowercase;
   color: var(--lime);
 }
 .attention-strip .top .r { color: var(--lime); font-size: 12px; text-decoration: underline; }
@@ -1959,7 +1963,7 @@ h1, h2, h3, h4 {
 .intel-card p { margin: 0 0 14px; color: var(--ink-mid); font-size: 13.5px; line-height: 1.55; }
 .intel-card .source {
   display: inline-flex; align-items: center; gap: 6px;
-  font-family: var(--mono); font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+  font-family: var(--mono); font-size: 10px; letter-spacing: 0.18em; text-transform: lowercase;
   color: var(--ink); margin-bottom: 12px;
 }
 .intel-card .feedback {
@@ -2038,7 +2042,7 @@ h1, h2, h3, h4 {
 }
 .thread-row .name { font-size: 14.5px; font-weight: 500; letter-spacing: var(--display-track); }
 .thread-row.unread .name { color: var(--ink); }
-.thread-row .when { font-family: var(--mono); font-size: 10px; letter-spacing: 0.18em; color: var(--ink-dim); text-transform: uppercase; }
+.thread-row .when { font-family: var(--mono); font-size: 10px; letter-spacing: 0.18em; color: var(--ink-dim); text-transform: lowercase; }
 .thread-row.unread .when { color: var(--lime); }
 .thread-row .preview {
   color: var(--ink-mid); font-size: 13px; line-height: 1.4;
@@ -2274,7 +2278,7 @@ h1, h2, h3, h4 {
 .integration-tag {
   font-size: 10.5px;
   letter-spacing: 0.18em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   color: var(--ink-mid);
 }
 .integration-body {
@@ -2313,7 +2317,7 @@ h1, h2, h3, h4 {
 .bot-message .meta {
   display: flex; align-items: center; gap: 6px;
   font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.18em;
-  text-transform: uppercase; color: var(--ink-dim);
+  text-transform: lowercase; color: var(--ink-dim);
 }
 .bot-message .bubble {
   max-width: 86%;
@@ -2395,7 +2399,7 @@ h1, h2, h3, h4 {
 .bot-composer .hint {
   margin-top: 8px; text-align: center;
   color: var(--ink-faint); font-family: var(--mono);
-  font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+  font-size: 10px; letter-spacing: 0.18em; text-transform: lowercase;
 }
 
 /* typing dots */
@@ -2446,7 +2450,7 @@ h1, h2, h3, h4 {
 .week-day:hover { background: var(--surface-2); }
 .week-day.active { background: var(--lime); border-color: var(--lime); }
 .week-day.active * { color: #fff !important; }
-.week-day .dow { font-family: var(--mono); font-size: 9px; letter-spacing: 0.18em; color: var(--ink-dim); text-transform: uppercase; }
+.week-day .dow { font-family: var(--mono); font-size: 9px; letter-spacing: 0.18em; color: var(--ink-dim); text-transform: lowercase; }
 .week-day .dom { font-size: 15px; font-weight: 500; letter-spacing: var(--display-track); margin-top: 4px; }
 .week-day .dot { width: 3px; height: 3px; border-radius: 50%; background: var(--lime); margin: 4px auto 0; }
 
@@ -2589,7 +2593,7 @@ h1, h2, h3, h4 {
 .kv-list .row .l {
   font-family: var(--mono); font-size: 10px;
   letter-spacing: 0.18em; color: var(--ink-dim);
-  text-transform: uppercase;
+  text-transform: lowercase;
 }
 .kv-list .row .v { color: var(--ink); font-size: 13.5px; }
 
@@ -3004,7 +3008,7 @@ h1, h2, h3, h4 {
   font-size: 9px;
   font-style: normal;
   letter-spacing: .18em;
-  text-transform: uppercase;
+  text-transform: lowercase;
 }
 .performance-mix p {
   min-height: 66px;
@@ -3037,7 +3041,7 @@ h1, h2, h3, h4 {
   font-family: var(--mono);
   font-size: 9px;
   letter-spacing: .18em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   color: var(--ink-dim);
 }
 .performance-stat strong {
@@ -3247,7 +3251,7 @@ h1, h2, h3, h4 {
   font-family: var(--mono);
   font-size: 10px;
   letter-spacing: 0.22em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   color: var(--ink-dim);
   margin: 24px 0 12px;
   display: block;
@@ -3297,7 +3301,7 @@ h1, h2, h3, h4 {
   font-size: 9.5px;
   letter-spacing: 0.18em;
   color: var(--ink-dim);
-  text-transform: uppercase;
+  text-transform: lowercase;
 }
 .alert-item.unread .alert-kind { color: var(--lime); }
 .alert-item .alert-dot {
@@ -3312,7 +3316,7 @@ h1, h2, h3, h4 {
   font-size: 9.5px;
   letter-spacing: 0.16em;
   color: var(--ink-dim);
-  text-transform: uppercase;
+  text-transform: lowercase;
 }
 .alert-item .alert-title {
   font-family: var(--sans);
@@ -3380,7 +3384,7 @@ h1, h2, h3, h4 {
 .receipt-card .meta .right {
   margin-left: auto;
   font-family: var(--mono); font-size: 10px;
-  letter-spacing: 0.16em; text-transform: uppercase;
+  letter-spacing: 0.16em; text-transform: lowercase;
 }
 
 /* footer */
@@ -3400,7 +3404,7 @@ footer {
 .foot-col h5 {
   font-family: var(--mono); font-size: 10.5px;
   letter-spacing: 0.18em; color: var(--ink-dim);
-  text-transform: uppercase; margin: 0 0 16px;
+  text-transform: lowercase; margin: 0 0 16px;
   font-weight: 500;
 }
 .foot-col ul { list-style: none; margin: 0; padding: 0; }
@@ -3415,7 +3419,7 @@ footer {
   flex-wrap: wrap; gap: 14px;
   color: var(--ink-dim);
   font-family: var(--mono); font-size: 10.5px;
-  letter-spacing: 0.18em; text-transform: uppercase;
+  letter-spacing: 0.18em; text-transform: lowercase;
 }
 
 /* utility */
@@ -3447,7 +3451,7 @@ footer {
   font-family: var(--mono);
   font-size: 9px;
   letter-spacing: 0.16em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   overflow: hidden;
   gap: 6px;
 }
@@ -3515,7 +3519,7 @@ footer {
   font-family: var(--mono);
   font-size: 10.5px;
   letter-spacing: 0.14em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   margin: 4px 0 18px;
   transition: border-color .15s, color .15s, background .15s;
 }
@@ -3626,7 +3630,7 @@ hr.hairline {
   font-family: var(--mono);
   font-size: 10.5px;
   letter-spacing: .22em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   color: var(--lime);
   margin-bottom: 18px;
   display: block;
@@ -3755,7 +3759,7 @@ hr.hairline {
   font-family: var(--mono);
   font-size: 11px;
   color: var(--ink-dim);
-  text-transform: uppercase;
+  text-transform: lowercase;
   letter-spacing: .08em;
   margin: 0 0 20px;
   font-weight: 400;
@@ -3939,7 +3943,7 @@ hr.hairline {
   font-family: var(--mono);
   font-size: 11px;
   color: var(--ink-dim);
-  text-transform: uppercase;
+  text-transform: lowercase;
   letter-spacing: .08em;
   margin: 0 0 14px;
   font-weight: 400;
@@ -3969,7 +3973,7 @@ hr.hairline {
   color: var(--ink-dim);
   font-size: 12px;
   font-family: var(--mono);
-  text-transform: uppercase;
+  text-transform: lowercase;
   letter-spacing: .06em;
 }
 .kv dd { color: var(--ink); font-size: 14px; }
@@ -3978,7 +3982,7 @@ hr.hairline {
   font-family: var(--mono);
   font-size: 11px;
   color: var(--ink-dim);
-  text-transform: uppercase;
+  text-transform: lowercase;
   letter-spacing: .08em;
   margin: 0 0 8px;
   font-weight: 400;
@@ -4107,7 +4111,7 @@ hr.hairline {
   font-family: var(--mono);
   font-size: 10.5px;
   letter-spacing: .12em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   color: var(--ink-dim);
   cursor: pointer;
   list-style: none;
