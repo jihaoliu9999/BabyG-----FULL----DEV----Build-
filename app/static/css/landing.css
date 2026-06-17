@@ -228,7 +228,7 @@
   font-family: var(--lp-mono);
   font-size: 11px;
   letter-spacing: 0.22em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   color: var(--lp-ink-dim);
   margin-bottom: 56px;
   display: inline-flex;
@@ -425,7 +425,7 @@
   font-family: var(--lp-mono);
   font-size: 11px;
   letter-spacing: 0.18em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   opacity: 0.6;
   margin-bottom: 16px;
 }
@@ -508,7 +508,7 @@
   font-size: 11px;
   font-family: var(--lp-mono);
   letter-spacing: 0.14em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   white-space: nowrap;
 }
 .lp .mod-art.talent .mini-chat {
@@ -569,7 +569,7 @@
   font-family: var(--lp-mono);
   font-size: 11px;
   letter-spacing: 0.22em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   color: var(--lp-lime);
   margin-bottom: 24px;
   display: inline-block;
@@ -613,7 +613,7 @@
   font-family: var(--lp-mono);
   font-size: 11px;
   letter-spacing: 0.18em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   margin-bottom: 22px;
 }
 .lp .msg { display: flex; gap: 14px; align-items: flex-start; margin-bottom: 22px; }
@@ -804,7 +804,7 @@
 }
 .lp .lp-feature .preview .ptag {
   color: var(--lp-ink-dim);
-  text-transform: uppercase;
+  text-transform: lowercase;
   letter-spacing: 0.16em;
   font-size: 10px;
   margin-right: 4px;
@@ -995,7 +995,7 @@
   font-size: 10px;
   color: var(--lp-ink-dim);
   letter-spacing: 0.14em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   margin-top: 4px;
   display: flex; align-items: center; gap: 6px;
   white-space: nowrap;
@@ -1020,7 +1020,7 @@
   border-radius: 999px;
   background: var(--lp-accent-bg);
   letter-spacing: 0.12em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   line-height: 1;
   white-space: nowrap;
 }
@@ -1049,7 +1049,7 @@
   color: var(--lp-ink-faint);
   text-align: center;
   letter-spacing: 0.2em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   margin: 2px 0 8px;
 }
 .lp .scn-msg {
@@ -1131,7 +1131,7 @@
   color: var(--lp-ink-dim);
   font-size: 10.5px;
   letter-spacing: 0.14em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   margin-top: 6px;
 }
 .lp .creator-cta {
@@ -1190,7 +1190,7 @@
   font-size: 10.5px;
   color: var(--lp-ink-dim);
   letter-spacing: 0.18em;
-  text-transform: uppercase;
+  text-transform: lowercase;
   margin: 0 0 18px;
   font-weight: 500;
 }
@@ -1211,7 +1211,7 @@
   color: var(--lp-ink-dim);
   font-family: var(--lp-mono);
   font-size: 10.5px;
-  text-transform: uppercase;
+  text-transform: lowercase;
   letter-spacing: 0.18em;
   flex-wrap: wrap;
   gap: 14px;
