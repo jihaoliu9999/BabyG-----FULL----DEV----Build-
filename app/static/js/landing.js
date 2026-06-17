@@ -34,6 +34,33 @@
   window.addEventListener("scroll", checkReveals, { passive: true });
   window.addEventListener("resize", checkReveals);
 
+  var taskDeck = root.querySelector("[data-task-cards]");
+  if (taskDeck) {
+    var taskCards = Array.from(taskDeck.querySelectorAll(".task-card"));
+    taskCards.forEach(function (card) {
+      var toggle = card.querySelector(".task-card-toggle");
+      var action = card.querySelector(".task-card-action");
+      if (!toggle) return;
+
+      toggle.addEventListener("click", function () {
+        var willOpen = !card.classList.contains("is-open");
+        taskCards.forEach(function (otherCard) {
+          var otherToggle = otherCard.querySelector(".task-card-toggle");
+          var otherAction = otherCard.querySelector(".task-card-action");
+          otherCard.classList.remove("is-open");
+          if (otherToggle) otherToggle.setAttribute("aria-expanded", "false");
+          if (otherAction) otherAction.textContent = "open";
+        });
+
+        if (willOpen) {
+          card.classList.add("is-open");
+          toggle.setAttribute("aria-expanded", "true");
+          if (action) action.textContent = "shown";
+        }
+      });
+    });
+  }
+
   var heroMark = document.getElementById("heroMark");
   if (heroMark && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
     var markImg = heroMark.querySelector(".mark-img");
