@@ -2100,9 +2100,13 @@ h1, h2, h3, h4 {
 .is-chat #view {
   /* 100dvh = dynamic viewport height; tracks the visible area as the iOS
      address bar shows/hides so we never overflow into the body background.
-     100vh fallback for old browsers. */
+     --keyboard-inset is set by bot.js from window.visualViewport — it's
+     0 when no keyboard, > 0 when the iOS keyboard (plus its accessory
+     bar) occupies part of the layout viewport. dvh sometimes lags the
+     real keyboard position during transitions; subtracting the inset
+     explicitly closes the gap. 100vh fallback for old browsers. */
   height: calc(100vh - 54px - env(safe-area-inset-top, 0px) - var(--tabbar-h));
-  height: calc(100dvh - 54px - env(safe-area-inset-top, 0px) - var(--tabbar-h));
+  height: calc(100dvh - 54px - env(safe-area-inset-top, 0px) - var(--tabbar-h) - var(--keyboard-inset, 0px));
   display: flex; flex-direction: column;
   overflow: hidden;
   overscroll-behavior: contain;
@@ -2113,7 +2117,7 @@ h1, h2, h3, h4 {
 @media (max-width: 999px) {
   .is-chat.chat-keyboard-open #view {
     height: calc(100vh - 54px - env(safe-area-inset-top, 0px));
-    height: calc(100dvh - 54px - env(safe-area-inset-top, 0px));
+    height: calc(100dvh - 54px - env(safe-area-inset-top, 0px) - var(--keyboard-inset, 0px));
   }
   .is-chat.chat-keyboard-open .app-tabbar {
     transform: translateY(110%);
@@ -2122,6 +2126,17 @@ h1, h2, h3, h4 {
   }
   .is-chat.chat-keyboard-open .bot-composer {
     padding-bottom: 4px;
+  }
+  /* When the keyboard is up, iOS will otherwise scroll the body itself
+     to bring the focused composer into view — that scroll lifts the
+     entire #view, pushing the bot-hero off the top of the screen.
+     Locking the body to a fixed box prevents the auto-scroll; the
+     visualViewport-driven --keyboard-inset above keeps the layout
+     pinned to the actual visible area. */
+  body.is-chat.chat-keyboard-open {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
   }
 }
 .is-chat .bot-screen { flex: 1; min-height: 0; }
@@ -2216,7 +2231,28 @@ h1, h2, h3, h4 {
   display: inline-flex; align-items: center; justify-content: center;
   flex-shrink: 0; cursor: pointer;
 }
-.bot-hero { padding: 20px 24px 16px; }
+/* Sticky hero — locks the "babyg · on · ready" card to the top of the
+   chat shell so the messages list scrolls beneath it. flex-shrink: 0
+   prevents the hero from getting squeezed when the dynamic viewport
+   shrinks during keyboard transitions. */
+.bot-hero {
+  padding: 20px 24px 16px;
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  background: var(--obsidian);
+}
+/* Tighter padding when the keyboard is open so the hero gives the
+   message list more room without disappearing entirely. */
+.is-chat.chat-keyboard-open .bot-hero {
+  padding-top: 12px;
+  padding-bottom: 10px;
+}
+.is-chat.chat-keyboard-open .bot-hero h1 {
+  font-size: 20px;
+}
+.is-chat.chat-keyboard-open .bot-hero .head { margin-bottom: 0; }
 .bot-hero .head {
   display: flex; align-items: center; gap: 12px;
   margin-bottom: 14px;
