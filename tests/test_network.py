@@ -181,6 +181,55 @@ def world(monkeypatch) -> FakeWorld:
         lambda uid: _list_for(uid, status="pending", as_addressee=False),
     )
 
+    # ----- discovery service (used by the swipe network page) -----
+    # Tests in this file predate the swipe rewrite. We mock the
+    # discovery helpers so existing assertions about the network
+    # route keep working; richer discovery behaviour is covered in
+    # tests/test_discovery.py.
+    from app.services import discovery as discovery_module
+
+    def _list_onboarded():
+        return [
+            row for row in w.creators.values()
+            if row.get("onboarding_completed_at")
+        ]
+
+    monkeypatch.setattr(network_module, "_list_onboarded_creators", _list_onboarded)
+
+    def _blocked_ids(user_id: str) -> set[str]:
+        out: set[str] = set()
+        for row in w.connections.values():
+            if row["status"] != "blocked":
+                continue
+            if row["requester_id"] == user_id:
+                out.add(row["addressee_id"])
+            elif row["addressee_id"] == user_id:
+                out.add(row["requester_id"])
+        return out
+
+    monkeypatch.setattr(network_module, "_blocked_user_ids", _blocked_ids)
+
+    # Discovery's three private helpers — same shape as test_discovery.py
+    # so the test_network suite doesn't need a parallel fake world.
+    monkeypatch.setattr(
+        discovery_module, "_connected_or_pending_peer_ids",
+        lambda uid: set(),
+    )
+    monkeypatch.setattr(
+        discovery_module, "_recently_passed_target_ids",
+        lambda uid: set(),
+    )
+    monkeypatch.setattr(
+        discovery_module, "_committed_target_ids", lambda uid: set()
+    )
+    # No-op record_action; the swipe-page view-recording side effect
+    # isn't relevant to these directory tests.
+    monkeypatch.setattr(
+        discovery_module,
+        "record_action",
+        lambda *, user_id, target_user_id, action_type: True,
+    )
+
     # ----- notifications + dms quiet -----
     def _notif_create(*, user_id, kind, title, body=None, link_path=None):
         if kind not in notifications_module.KINDS:
@@ -232,6 +281,8 @@ def _signed_in(client: TestClient, *, role: str, user_id: str) -> None:
 
 
 def test_directory_lists_other_onboarded_creators(client, world):
+    """Swipe view shows ONE card at a time. The top of stack is one
+    of the visible peers; self is never shown."""
     _signed_in(client, role="creator", user_id="c-1")
     world.add_creator(user_id="c-1", full_name="Me Self")
     world.add_creator(user_id="c-2", full_name="Anna Reyes")
@@ -239,9 +290,9 @@ def test_directory_lists_other_onboarded_creators(client, world):
 
     r = client.get("/creator/network")
     assert r.status_code == 200
-    assert "Anna Reyes" in r.text
-    assert "Ben Lee" in r.text
-    # Self should not appear
+    # Exactly one of the candidate peers is rendered as the top card.
+    assert ("Anna Reyes" in r.text) or ("Ben Lee" in r.text)
+    # Self never appears.
     assert "Me Self" not in r.text
 
 
@@ -252,6 +303,8 @@ def test_directory_excludes_blocked_peers(client, world):
     world.add_creator(user_id="c-3", full_name="Blocked Person")
     world.add_connection(requester="c-1", addressee="c-3", status="blocked")
     r = client.get("/creator/network")
+    # With c-3 blocked, the only candidate is c-2 — they are the top
+    # card and "Blocked Person" never lands on the page.
     assert "Visible" in r.text
     assert "Blocked Person" not in r.text
 
@@ -526,9 +579,9 @@ def test_directory_renders_photo_when_creator_has_one(client, world):
 
     r = client.get("/creator/network")
     assert r.status_code == 200
-    # An <img> tag with the photo URL is rendered (not just initials).
+    # The swipe hero renders the photo URL on an <img>.
     assert "https://example.test/c2.jpg" in r.text
-    assert "avatar-photo" in r.text or "creator-avatar-photo" in r.text
+    assert "network-swipe-photo" in r.text
 
 
 def test_directory_falls_back_to_initials_without_photo(client, world):
@@ -538,6 +591,7 @@ def test_directory_falls_back_to_initials_without_photo(client, world):
 
     r = client.get("/creator/network")
     assert r.status_code == 200
-    # No <img> tag added for that creator. The initials chip is still
-    # there. The `.avatar` class with a palette suffix is the fallback.
-    assert "av-g" in r.text  # initials chip rendered
+    # Without a photo, the swipe hero falls back to the initials
+    # chip (network-swipe-photo-fallback) — no <img src> for that
+    # creator on the page.
+    assert "network-swipe-photo-fallback" in r.text
