@@ -26,20 +26,43 @@
   let inFlight = false;
   let blurTimer = null;
 
-  const isScrolledToBottom = (el) => {
-    const slack = 40;
-    return el.scrollHeight - el.scrollTop - el.clientHeight < slack;
-  };
+  // Generous slack: treat "a little above the bottom" as still following
+  // the conversation, so arriving messages keep us pinned without fighting
+  // a user who has scrolled up to read older history.
+  const NEAR_BOTTOM_SLACK = 80;
 
-  const scrollToLatest = () => {
-    const last = messageList.lastElementChild;
-    if (last && last.scrollIntoView) {
-      last.scrollIntoView({ block: "end", behavior: "smooth" });
+  const isNearBottom = (el) =>
+    el.scrollHeight - el.scrollTop - el.clientHeight < NEAR_BOTTOM_SLACK;
+
+  // .bot-messages is the scroll container (flex:1; overflow-y:auto), so set
+  // scrollTop directly — instant and far more reliable than scrollIntoView,
+  // which is flaky on first paint.
+  const scrollToBottom = (smooth) => {
+    const top = messageList.scrollHeight;
+    if (smooth && messageList.scrollTo) {
+      messageList.scrollTo({ top, behavior: "smooth" });
+    } else {
+      messageList.scrollTop = top;
     }
   };
 
-  // Initial scroll on page load: pin to the latest message.
-  scrollToLatest();
+  // Pin to the newest message across late layout shifts. A deferred script
+  // runs before web fonts apply and before images load — both grow the list
+  // afterward and would otherwise strand the view above the latest message.
+  // Double rAF waits for layout + paint; we also re-pin on load + fonts.
+  const pinToBottom = () => {
+    requestAnimationFrame(() => {
+      scrollToBottom(false);
+      requestAnimationFrame(() => scrollToBottom(false));
+    });
+  };
+
+  // Initial load: land on the newest message, robustly.
+  pinToBottom();
+  window.addEventListener("load", pinToBottom);
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(pinToBottom);
+  }
 
   const setBusy = (busy) => {
     inFlight = busy;
@@ -62,7 +85,7 @@
       '<span class="meta">babyg</span>' +
       '<div class="bubble" aria-label="thinking"><span class="bot-typing-dots"><span></span><span></span><span></span></span></div>';
     messageList.appendChild(li);
-    scrollToLatest();
+    scrollToBottom(true);
     return li;
   };
 
@@ -76,7 +99,7 @@
       escapeHtml(text) +
       "</div>";
     messageList.appendChild(li);
-    scrollToLatest();
+    scrollToBottom(true);
   };
 
   const removeTyping = () => {
@@ -105,12 +128,14 @@
     );
 
   const swapList = (html, preserveBottomLock) => {
-    const wasAtBottom = preserveBottomLock && isScrolledToBottom(messageList);
+    const wasNearBottom = preserveBottomLock && isNearBottom(messageList);
     const prevScroll = messageList.scrollTop;
     messageList.innerHTML = html;
-    if (wasAtBottom) {
-      scrollToLatest();
+    if (wasNearBottom) {
+      // The list was just replaced — re-pin after the new DOM paints.
+      pinToBottom();
     } else {
+      // User is reading older history; hold their position.
       messageList.scrollTop = prevScroll;
     }
   };
