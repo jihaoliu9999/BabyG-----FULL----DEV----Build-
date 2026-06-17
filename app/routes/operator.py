@@ -7,6 +7,7 @@ archive one.
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -31,6 +32,7 @@ from app.services import (
 )
 
 router = APIRouter(prefix="/operator", tags=["operator"])
+logger = logging.getLogger(__name__)
 
 NICHES = CREATOR_NICHES
 TIERS = intel.TIERS
@@ -46,12 +48,14 @@ async def console_home(
 ) -> Response:
     counts = _status_counts()
     pending_abuse = abuse.count_pending()
+    dashboard = _dashboard_snapshot()
     return templates.TemplateResponse(
         request,
         "operator/console.html",
         {
             "counts": counts,
             "pending_abuse": pending_abuse,
+            **dashboard,
         },
     )
 
@@ -275,6 +279,30 @@ def _vocab() -> dict[str, list[str]]:
 
 def _status_counts() -> dict[str, int]:
     return intel.status_counts()
+
+
+def _dashboard_snapshot() -> dict[str, Any]:
+    """Read-only dashboard context assembled from existing services."""
+    active_listings = 0
+    roster_total = 0
+    recent_activity: list[dict[str, Any]] = []
+    try:
+        active_listings = len(jobs.list_for_operator(taken_down=False))
+    except Exception:
+        logger.exception("operator dashboard listing count failed")
+    try:
+        _, roster_total = members.list_users(page=1, page_size=1)
+    except Exception:
+        logger.exception("operator dashboard roster count failed")
+    try:
+        recent_activity = audit.list_recent(limit=5)
+    except Exception:
+        logger.exception("operator dashboard audit preview failed")
+    return {
+        "active_listings": active_listings,
+        "roster_total": roster_total,
+        "recent_activity": recent_activity,
+    }
 
 
 def _str(value: Any, max_len: int) -> str:

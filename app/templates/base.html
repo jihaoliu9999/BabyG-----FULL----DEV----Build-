@@ -118,11 +118,13 @@
 </div>
 
 {% elif is_operator %}
-<!-- OPERATOR SHELL (minimal, keep existing operator chrome) -->
-<div class="app-shell" id="app">
+<!-- OPERATOR SHELL -->
+<div class="operator-shell" id="app">
   {% include "_partials/operator_topbar.html" %}
-  <main class="app-main" style="padding-bottom:0;">
-    {{ self.content() }}
+  <main class="operator-main" id="main-content">
+    <div class="operator-main-inner">
+      {{ self.content() }}
+    </div>
   </main>
 </div>
 
