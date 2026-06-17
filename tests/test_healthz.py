@@ -50,6 +50,16 @@ def test_csp_form_action_allows_google_oauth_redirect(client: TestClient) -> Non
     assert "form-action 'self' https://accounts.google.com" in csp
 
 
+def test_csp_connect_src_allows_reverse_geocode(client: TestClient) -> None:
+    """The location flow reverse-geocodes browser coords client-side via
+    BigDataCloud's keyless endpoint. Without an explicit connect-src
+    entry the fetch is blocked by default-src 'self'."""
+    response = client.get("/")
+    assert response.status_code == 200
+    csp = response.headers["content-security-policy"]
+    assert "connect-src 'self' https://api.bigdatacloud.net" in csp
+
+
 def test_forwarded_proto_keeps_static_url_root_relative(client: TestClient) -> None:
     response = client.get("/", headers={"x-forwarded-proto": "https"})
 

@@ -155,6 +155,45 @@
   const buttons = document.querySelectorAll("[data-location-button]");
   if (!buttons.length) return;
 
+  // BigDataCloud's free client-side reverse-geocode. No API key, no auth
+  // header — designed for browser use. Returns city/locality + principalSubdivision
+  // (region/state) + countryName. We only fill empty inputs so the user's
+  // typing always wins over our guess.
+  async function reverseGeocode(form, lat, lng, status) {
+    const cityInput = form.querySelector('[name="location_city"]');
+    const regionInput = form.querySelector('[name="location_region"]');
+    const countryInput = form.querySelector('[name="location_country"]');
+    const url =
+      "https://api.bigdatacloud.net/data/reverse-geocode-client" +
+      `?latitude=${encodeURIComponent(lat)}` +
+      `&longitude=${encodeURIComponent(lng)}` +
+      "&localityLanguage=en";
+    try {
+      const resp = await fetch(url, { credentials: "omit" });
+      if (!resp.ok) throw new Error("rg http " + resp.status);
+      const data = await resp.json();
+      const city = data.city || data.locality || "";
+      const region = data.principalSubdivision || "";
+      const country = data.countryName || "";
+      // Only fill blanks so we don't clobber what the user typed.
+      if (cityInput && !cityInput.value && city) cityInput.value = city;
+      if (regionInput && !regionInput.value && region) regionInput.value = region;
+      if (countryInput && !countryInput.value && country) countryInput.value = country;
+      if (status) {
+        const filled = [city, region].filter(Boolean).join(", ") || country;
+        status.textContent = filled
+          ? `location captured: ${filled}. edit if it's off, then save.`
+          : "location captured. add a city or region if you want it shown on your profile.";
+      }
+    } catch (_err) {
+      // Geocode failed — coords still save, just no auto-filled label.
+      if (status) {
+        status.textContent =
+          "location captured. add a city or region if you want it shown on your profile.";
+      }
+    }
+  }
+
   buttons.forEach((button) => {
     const form = button.closest("form");
     if (!form) return;
@@ -175,11 +214,16 @@
           if (lat) lat.value = String(position.coords.latitude);
           if (lng) lng.value = String(position.coords.longitude);
           if (source) source.value = "browser";
-          if (status) {
-            status.textContent =
-              "location captured. add a city or region if you want it shown on your profile.";
-          }
-          button.removeAttribute("disabled");
+          if (status) status.textContent = "location captured. resolving city…";
+          reverseGeocode(
+            form,
+            position.coords.latitude,
+            position.coords.longitude,
+            status
+          ).finally(() => {
+            button.removeAttribute("disabled");
+          });
+          return;
         },
         () => {
           if (status) status.textContent = "location not shared. enter your city manually.";

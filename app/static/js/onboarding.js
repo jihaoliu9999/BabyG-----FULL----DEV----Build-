@@ -184,11 +184,42 @@
           if (locationLat) locationLat.value = String(position.coords.latitude);
           if (locationLng) locationLng.value = String(position.coords.longitude);
           if (locationSource) locationSource.value = "browser";
-          if (locationStatus) {
-            locationStatus.textContent =
-              "location captured. add a city or region if you want it shown on your profile.";
-          }
-          locationButton.removeAttribute("disabled");
+          if (locationStatus) locationStatus.textContent = "location captured. resolving city…";
+          // Reverse-geocode against BigDataCloud's free client-side
+          // endpoint so the saved row has city/region/country alongside
+          // the coords. Allow-listed in app/main.py CSP. Only fills empty
+          // inputs so the creator's typing wins.
+          const url =
+            "https://api.bigdatacloud.net/data/reverse-geocode-client" +
+            `?latitude=${encodeURIComponent(position.coords.latitude)}` +
+            `&longitude=${encodeURIComponent(position.coords.longitude)}` +
+            "&localityLanguage=en";
+          fetch(url, { credentials: "omit" })
+            .then((r) => (r.ok ? r.json() : Promise.reject(new Error("rg"))))
+            .then((data) => {
+              const cityInput = form.querySelector('input[name="location_city"]');
+              const regionInput = form.querySelector('input[name="location_region"]');
+              const countryInput = form.querySelector('input[name="location_country"]');
+              const city = data.city || data.locality || "";
+              const region = data.principalSubdivision || "";
+              const country = data.countryName || "";
+              if (cityInput && !cityInput.value && city) cityInput.value = city;
+              if (regionInput && !regionInput.value && region) regionInput.value = region;
+              if (countryInput && !countryInput.value && country) countryInput.value = country;
+              if (locationStatus) {
+                const filled = [city, region].filter(Boolean).join(", ") || country;
+                locationStatus.textContent = filled
+                  ? `location captured: ${filled}. edit if it's off.`
+                  : "location captured. add a city or region if you want it shown on your profile.";
+              }
+            })
+            .catch(() => {
+              if (locationStatus) {
+                locationStatus.textContent =
+                  "location captured. add a city or region if you want it shown on your profile.";
+              }
+            })
+            .finally(() => locationButton.removeAttribute("disabled"));
         },
         () => {
           if (locationStatus) {
