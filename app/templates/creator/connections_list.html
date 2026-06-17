@@ -49,16 +49,26 @@
   <div class="stack" style="margin-bottom:24px;">
     {% for c in accepted %}
     {% set peer = peers.get(c.peer_id) %}
-    <a href="/creator/network/{{ c.peer_id }}" class="thread-row">
-      {% set creator = peer %}{% set palette = "1" %}{% set size = "" %}{% include "_partials/_avatar.html" %}
-      <div class="body">
-        <div class="top">
-          <span class="name">{{ peer.full_name if peer else 'Creator' }}{% if peer and peer.instagram_handle %}<span style="font-size:12px;color:var(--ink-dim);font-weight:400;margin-left:6px;">@{{ peer.instagram_handle }}</span>{% endif %}</span>
-          <span class="when">{{ c.responded_at|short_date or '' }}</span>
+    <div class="connection-row" data-connection-row data-connection-id="{{ c.id }}"
+         data-peer-name="{{ (peer.full_name if peer else 'this creator')|e }}"
+         style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+      <a href="/creator/network/{{ c.peer_id }}" class="thread-row" style="flex:1;min-width:0;margin:0;">
+        {% set creator = peer %}{% set palette = "1" %}{% set size = "" %}{% include "_partials/_avatar.html" %}
+        <div class="body">
+          <div class="top">
+            <span class="name">{{ peer.full_name if peer else 'Creator' }}{% if peer and peer.instagram_handle %}<span style="font-size:12px;color:var(--ink-dim);font-weight:400;margin-left:6px;">@{{ peer.instagram_handle }}</span>{% endif %}</span>
+            <span class="when">{{ c.responded_at|short_date or '' }}</span>
+          </div>
+          <div class="preview" data-connection-status>connected</div>
         </div>
-        <div class="preview">connected</div>
-      </div>
-    </a>
+      </a>
+      <form method="post" action="/creator/connections/{{ c.id }}/disconnect"
+            class="connection-disconnect-form" data-disconnect-form style="flex-shrink:0;margin:0;">
+        {% include "_partials/csrf.html" %}
+        <button type="submit" class="btn btn-ghost btn-sm" data-disconnect-btn
+                aria-label="disconnect from {{ (peer.full_name if peer else 'this creator')|e }}">disconnect</button>
+      </form>
+    </div>
     {% endfor %}
   </div>
   {% else %}
@@ -84,4 +94,8 @@
   </div>
   {% endif %}
 </div>
+{% endblock %}
+
+{% block foot_scripts %}
+<script src="/static/js/network_connections.js" defer></script>
 {% endblock %}

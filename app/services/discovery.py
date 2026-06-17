@@ -34,9 +34,11 @@ from app.services import network, profiles
 
 logger = logging.getLogger(__name__)
 
-ActionType = Literal["viewed", "passed", "connected", "skipped", "opened_profile"]
+ActionType = Literal[
+    "viewed", "passed", "connected", "skipped", "opened_profile", "undo_pass"
+]
 ALLOWED_ACTIONS: Final[frozenset[str]] = frozenset(
-    {"viewed", "passed", "connected", "skipped", "opened_profile"}
+    {"viewed", "passed", "connected", "skipped", "opened_profile", "undo_pass"}
 )
 
 # How long a "passed" creator stays out of the viewer's stack. Not
@@ -85,7 +87,10 @@ def record_action(
 
 
 def next_stack_for(
-    user_id: str, *, limit: int = DEFAULT_STACK_LIMIT
+    user_id: str,
+    *,
+    limit: int = DEFAULT_STACK_LIMIT,
+    prioritize_user_id: str | None = None,
 ) -> list[dict[str, Any]]:
     """Return the next batch of creators the viewer hasn't acted on.
 
@@ -108,11 +113,21 @@ def next_stack_for(
 
     excluded = _excluded_user_ids(user_id)
     excluded.add(user_id)
+    if prioritize_user_id:
+        # The viewer just undid a pass on this creator — make sure the
+        # pass exclusion doesn't keep them hidden, and float them to the
+        # front so the undo lands them back on the active card.
+        excluded.discard(prioritize_user_id)
 
     # The base set: onboarded creators, ordered newest first. The
     # existing network helper applies the privacy projection at the
     # row level so we don't have to re-project.
     candidates = network._list_onboarded_creators()
+    if prioritize_user_id:
+        candidates = sorted(
+            candidates,
+            key=lambda r: str(r.get("user_id") or "") != prioritize_user_id,
+        )
     out: list[dict[str, Any]] = []
     for row in candidates:
         target_id = str(row.get("user_id") or "")
@@ -150,10 +165,13 @@ def _excluded_user_ids(user_id: str) -> set[str]:
 
 
 def _connected_or_pending_peer_ids(user_id: str) -> set[str]:
-    """Anyone the viewer is already connected with (accepted) OR has
-    a pending outgoing request to. We DON'T exclude incoming pending —
-    the viewer might still want to see that creator and respond via the
-    full profile."""
+    """Anyone the viewer is already connected with (accepted), has a
+    pending outgoing request to, or has disconnected from (removed). We
+    DON'T exclude incoming pending — the viewer might still want to see
+    that creator and respond via the full profile.
+
+    `removed` (a torn-down connection) is excluded too: a disconnected
+    creator should not instantly reappear in the swipe stack."""
     uid = safe_uuid(user_id)
     if not uid:
         return set()
@@ -163,7 +181,7 @@ def _connected_or_pending_peer_ids(user_id: str) -> set[str]:
             .table("creator_connections")
             .select("requester_id, addressee_id, status")
             .or_(f"requester_id.eq.{uid},addressee_id.eq.{uid}")
-            .in_("status", ["pending", "accepted"])
+            .in_("status", ["pending", "accepted", "removed"])
             .execute()
         )
     except Exception:
@@ -175,8 +193,9 @@ def _connected_or_pending_peer_ids(user_id: str) -> set[str]:
         requester = str(row.get("requester_id") or "")
         addressee = str(row.get("addressee_id") or "")
         status = str(row.get("status") or "")
-        if status == "accepted":
-            # Both sides are connected — exclude the peer.
+        if status in ("accepted", "removed"):
+            # Connected, or connected-then-disconnected — exclude the peer
+            # in both directions so they don't resurface in the stack.
             peer = addressee if requester == user_id else requester
             if peer:
                 out.add(peer)
@@ -189,7 +208,13 @@ def _connected_or_pending_peer_ids(user_id: str) -> set[str]:
 
 
 def _recently_passed_target_ids(user_id: str) -> set[str]:
-    """Targets the viewer passed on within the cooldown window."""
+    """Targets the viewer passed on within the cooldown window, minus
+    any the viewer has since undone.
+
+    A creator stays excluded only while their most recent pass/undo
+    action is a `passed`. If an `undo_pass` is more recent than the
+    latest `passed`, the creator is restored to the stack immediately.
+    """
     uid = safe_uuid(user_id)
     if not uid:
         return set()
@@ -198,9 +223,9 @@ def _recently_passed_target_ids(user_id: str) -> set[str]:
         result = (
             supabase_client.get_service_client()
             .table("creator_discovery_actions")
-            .select("target_user_id")
+            .select("target_user_id, action_type, created_at")
             .eq("user_id", uid)
-            .eq("action_type", "passed")
+            .in_("action_type", ["passed", "undo_pass"])
             .gte("created_at", cutoff)
             .execute()
         )
@@ -208,7 +233,58 @@ def _recently_passed_target_ids(user_id: str) -> set[str]:
         logger.exception("recently-passed lookup failed: %s", user_id)
         return set()
     rows = getattr(result, "data", None) or []
-    return {str(r.get("target_user_id") or "") for r in rows if r.get("target_user_id")}
+    latest_passed: dict[str, str] = {}
+    latest_undo: dict[str, str] = {}
+    for r in rows:
+        target = str(r.get("target_user_id") or "")
+        if not target:
+            continue
+        ts = str(r.get("created_at") or "")
+        if r.get("action_type") == "passed" and ts > latest_passed.get(target, ""):
+            latest_passed[target] = ts
+        elif r.get("action_type") == "undo_pass" and ts > latest_undo.get(target, ""):
+            latest_undo[target] = ts
+    return {
+        target
+        for target, passed_ts in latest_passed.items()
+        if passed_ts > latest_undo.get(target, "")
+    }
+
+
+def last_undoable_pass(user_id: str) -> str | None:
+    """The most recently passed creator the viewer can still undo —
+    i.e. whose latest pass/undo action is a `passed`. Returns the
+    target_user_id, or None when there is nothing to undo."""
+    uid = safe_uuid(user_id)
+    if not uid:
+        return None
+    try:
+        result = (
+            supabase_client.get_service_client()
+            .table("creator_discovery_actions")
+            .select("target_user_id, action_type, created_at")
+            .eq("user_id", uid)
+            .in_("action_type", ["passed", "undo_pass"])
+            .order("created_at", desc=True)
+            .limit(200)
+            .execute()
+        )
+    except Exception:
+        logger.exception("last-undoable-pass lookup failed: %s", user_id)
+        return None
+    rows = getattr(result, "data", None) or []
+    # Walk newest-first; the first time we meet a target decides its
+    # current state. A leading `passed` is a standing (undoable) pass;
+    # a leading `undo_pass` means it's already been restored.
+    seen: set[str] = set()
+    for r in rows:
+        target = str(r.get("target_user_id") or "")
+        if not target or target in seen:
+            continue
+        seen.add(target)
+        if r.get("action_type") == "passed":
+            return target
+    return None
 
 
 def _committed_target_ids(user_id: str) -> set[str]:

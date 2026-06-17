@@ -10,6 +10,14 @@
       <p class="sub">browse creators one at a time. pass, connect, or open the full profile.</p>
     </div>
     <div class="actions" style="display:flex;gap:8px;flex-wrap:wrap;">
+      {% if can_undo %}
+      <form method="post" action="/creator/network/undo" class="network-undo-form" style="margin:0;">
+        {% include "_partials/csrf.html" %}
+        <button type="submit" class="btn btn-ghost btn-sm" data-network-undo aria-label="undo last pass">
+          ↩ undo pass
+        </button>
+      </form>
+      {% endif %}
       <a class="btn btn-ghost btn-sm" href="/creator/connections">
         connections{% if pending_in %} · {{ pending_in }} pending{% endif %}
       </a>

@@ -128,7 +128,7 @@ def world(monkeypatch) -> FakeWorld:
             requester = row["requester_id"]
             addressee = row["addressee_id"]
             status = row["status"]
-            if status == "accepted":
+            if status in ("accepted", "removed"):
                 peer = addressee if requester == user_id else requester
                 if peer:
                     out.add(peer)
@@ -147,21 +147,54 @@ def world(monkeypatch) -> FakeWorld:
         cutoff = datetime.now(UTC) - timedelta(
             days=discovery_module.PASSED_COOLDOWN_DAYS
         )
-        out: set[str] = set()
+        latest_passed: dict[str, str] = {}
+        latest_undo: dict[str, str] = {}
         for row in w.actions:
             if row["user_id"] != user_id:
                 continue
-            if row["action_type"] != "passed":
-                continue
-            ts = datetime.fromisoformat(row["created_at"].replace("Z", "+00:00"))
-            if ts >= cutoff:
-                out.add(row["target_user_id"])
-        return out
+            ts_raw = row["created_at"]
+            ts = datetime.fromisoformat(ts_raw.replace("Z", "+00:00"))
+            tgt = row["target_user_id"]
+            if (
+                row["action_type"] == "passed"
+                and ts >= cutoff
+                and ts_raw > latest_passed.get(tgt, "")
+            ):
+                latest_passed[tgt] = ts_raw
+            elif (
+                row["action_type"] == "undo_pass"
+                and ts_raw > latest_undo.get(tgt, "")
+            ):
+                latest_undo[tgt] = ts_raw
+        return {
+            t for t, p in latest_passed.items() if p > latest_undo.get(t, "")
+        }
 
     monkeypatch.setattr(
         discovery_module,
         "_recently_passed_target_ids",
         _recently_passed_target_ids,
+    )
+
+    def _last_undoable_pass(user_id: str) -> str | None:
+        rows = sorted(
+            (r for r in w.actions if r["user_id"] == user_id
+             and r["action_type"] in ("passed", "undo_pass")),
+            key=lambda r: r["created_at"],
+            reverse=True,
+        )
+        seen: set[str] = set()
+        for r in rows:
+            t = r["target_user_id"]
+            if t in seen:
+                continue
+            seen.add(t)
+            if r["action_type"] == "passed":
+                return t
+        return None
+
+    monkeypatch.setattr(
+        discovery_module, "last_undoable_pass", _last_undoable_pass
     )
 
     def _committed_target_ids(user_id: str) -> set[str]:
@@ -551,3 +584,87 @@ def test_profile_view_records_opened_profile_action(world, client):
     opened = [a for a in world.actions if a["action_type"] == "opened_profile"]
     assert len(opened) == 1
     assert opened[0]["target_user_id"] == "c-2"
+
+
+# -----------------------------------------------------------------------------
+# Undo pass
+# -----------------------------------------------------------------------------
+
+
+def test_pass_then_undo_restores_creator_to_stack(world):
+    world.add_creator(user_id="c-1")
+    world.add_creator(user_id="c-2", full_name="Second Chance")
+    world.add_action(
+        user_id="c-1", target="c-2", action="passed",
+        created_at="2026-06-01T00:00:00Z",
+    )
+    # Passed -> excluded.
+    assert all(
+        c["user_id"] != "c-2" for c in discovery_module.next_stack_for("c-1")
+    )
+    # Undo (newer than the pass) -> restored.
+    world.add_action(
+        user_id="c-1", target="c-2", action="undo_pass",
+        created_at="2026-06-02T00:00:00Z",
+    )
+    assert any(
+        c["user_id"] == "c-2" for c in discovery_module.next_stack_for("c-1")
+    )
+
+
+def test_last_undoable_pass_picks_most_recent_standing_pass(world):
+    world.add_creator(user_id="c-1")
+    world.add_action(
+        user_id="c-1", target="c-2", action="passed",
+        created_at="2026-06-01T00:00:00Z",
+    )
+    world.add_action(
+        user_id="c-1", target="c-3", action="passed",
+        created_at="2026-06-02T00:00:00Z",
+    )
+    assert discovery_module.last_undoable_pass("c-1") == "c-3"
+    # Undoing c-3 leaves c-2 as the next undoable pass.
+    world.add_action(
+        user_id="c-1", target="c-3", action="undo_pass",
+        created_at="2026-06-03T00:00:00Z",
+    )
+    assert discovery_module.last_undoable_pass("c-1") == "c-2"
+
+
+def test_undo_route_records_action_and_redirects_with_bring_back(world, client):
+    world.add_creator(user_id="c-1")
+    world.add_creator(user_id="c-2")
+    world.add_action(user_id="c-1", target="c-2", action="passed")
+    _signed_in(client, user_id="c-1")
+
+    r = client.post("/creator/network/undo")
+    assert r.status_code == 303
+    assert "bring_back=c-2" in r.headers["location"]
+    assert any(
+        a["action_type"] == "undo_pass" and a["target_user_id"] == "c-2"
+        for a in world.actions
+    )
+
+
+def test_undo_route_noop_when_nothing_to_undo(world, client):
+    world.add_creator(user_id="c-1")
+    _signed_in(client, user_id="c-1")
+    r = client.post("/creator/network/undo")
+    assert r.status_code == 303
+    assert r.headers["location"] == "/creator/network"
+
+
+def test_prioritized_creator_floats_to_top(world):
+    world.add_creator(user_id="c-1")
+    world.add_creator(user_id="c-2")
+    world.add_creator(user_id="c-3")
+    stack = discovery_module.next_stack_for("c-1", prioritize_user_id="c-3")
+    assert stack[0]["user_id"] == "c-3"
+
+
+def test_disconnected_peer_excluded_from_stack(world):
+    world.add_creator(user_id="c-1")
+    world.add_creator(user_id="c-2")
+    world.add_connection(requester="c-1", addressee="c-2", status="removed")
+    stack = discovery_module.next_stack_for("c-1")
+    assert all(c["user_id"] != "c-2" for c in stack)

@@ -27,7 +27,7 @@ from app.services.profiles import public_creator
 logger = logging.getLogger(__name__)
 
 
-STATUSES = ("pending", "accepted", "declined", "blocked")
+STATUSES = ("pending", "accepted", "declined", "blocked", "removed")
 RESPOND_ACTIONS = ("accept", "decline", "block")
 ACTION_TO_STATUS = {"accept": "accepted", "decline": "declined", "block": "blocked"}
 
@@ -214,6 +214,36 @@ def respond_to_connection(
         )
     except PostgrestAPIError:
         logger.exception("respond_to_connection failed: %s", connection_id)
+        return False
+    return bool(getattr(result, "data", None))
+
+
+def disconnect_connection(*, connection_id: str, user_id: str) -> bool:
+    """Tear down an accepted connection. Either party may disconnect.
+
+    The row is flipped to `removed` (not deleted) so neither profile nor
+    any message history is touched, and the pair can be re-discovered
+    only if the product later chooses to. Only `accepted` connections
+    can be disconnected — pending requests use decline/cancel paths.
+    Returns True when a row was updated.
+    """
+    row = _get_connection(connection_id)
+    if row is None:
+        return False
+    if row.get("status") != "accepted":
+        return False
+    if user_id not in (row.get("requester_id"), row.get("addressee_id")):
+        return False
+    try:
+        result = (
+            supabase_client.get_service_client()
+            .table("creator_connections")
+            .update({"status": "removed", "responded_at": _now_iso()})
+            .eq("id", connection_id)
+            .execute()
+        )
+    except PostgrestAPIError:
+        logger.exception("disconnect_connection failed: %s", connection_id)
         return False
     return bool(getattr(result, "data", None))
 

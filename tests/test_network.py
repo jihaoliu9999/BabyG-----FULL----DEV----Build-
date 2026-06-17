@@ -229,6 +229,19 @@ def world(monkeypatch) -> FakeWorld:
         "record_action",
         lambda *, user_id, target_user_id, action_type: True,
     )
+    monkeypatch.setattr(discovery_module, "last_undoable_pass", lambda uid: None)
+
+    def _disconnect(*, connection_id, user_id):
+        c = w.connections.get(connection_id)
+        if c is None or c["status"] != "accepted":
+            return False
+        if user_id not in (c["requester_id"], c["addressee_id"]):
+            return False
+        c["status"] = "removed"
+        c["responded_at"] = "2026-05-07T00:00:02Z"
+        return True
+
+    monkeypatch.setattr(network_module, "disconnect_connection", _disconnect)
 
     # ----- notifications + dms quiet -----
     def _notif_create(*, user_id, kind, title, body=None, link_path=None):
@@ -595,3 +608,63 @@ def test_directory_falls_back_to_initials_without_photo(client, world):
     # chip (network-swipe-photo-fallback) — no <img src> for that
     # creator on the page.
     assert "network-swipe-photo-fallback" in r.text
+
+
+# -----------------------------------------------------------------------------
+# Disconnect
+# -----------------------------------------------------------------------------
+
+
+def test_disconnect_removes_accepted_connection(client, world):
+    _signed_in(client, role="creator", user_id="c-1")
+    world.add_creator(user_id="c-1")
+    world.add_creator(user_id="c-2")
+    conn = world.add_connection(requester="c-1", addressee="c-2", status="accepted")
+
+    r = client.post(
+        f"/creator/connections/{conn['id']}/disconnect",
+        headers={"X-Requested-With": "fetch"},
+    )
+    assert r.status_code == 200
+    assert r.json() == {"ok": True}
+    assert world.connections[conn["id"]]["status"] == "removed"
+
+
+def test_disconnect_no_js_redirects(client, world):
+    _signed_in(client, role="creator", user_id="c-1")
+    world.add_creator(user_id="c-1")
+    world.add_creator(user_id="c-2")
+    conn = world.add_connection(requester="c-2", addressee="c-1", status="accepted")
+
+    r = client.post(f"/creator/connections/{conn['id']}/disconnect")
+    assert r.status_code == 303
+    assert r.headers["location"] == "/creator/connections"
+    assert world.connections[conn["id"]]["status"] == "removed"
+
+
+def test_disconnect_rejects_non_member(client, world):
+    _signed_in(client, role="creator", user_id="c-9")
+    world.add_creator(user_id="c-1")
+    world.add_creator(user_id="c-2")
+    conn = world.add_connection(requester="c-1", addressee="c-2", status="accepted")
+
+    r = client.post(
+        f"/creator/connections/{conn['id']}/disconnect",
+        headers={"X-Requested-With": "fetch"},
+    )
+    assert r.status_code == 400
+    assert world.connections[conn["id"]]["status"] == "accepted"
+
+
+def test_disconnect_only_accepted_connections(client, world):
+    _signed_in(client, role="creator", user_id="c-1")
+    world.add_creator(user_id="c-1")
+    world.add_creator(user_id="c-2")
+    conn = world.add_connection(requester="c-1", addressee="c-2", status="pending")
+
+    r = client.post(
+        f"/creator/connections/{conn['id']}/disconnect",
+        headers={"X-Requested-With": "fetch"},
+    )
+    assert r.status_code == 400
+    assert world.connections[conn["id"]]["status"] == "pending"
