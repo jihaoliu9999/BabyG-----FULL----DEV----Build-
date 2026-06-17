@@ -4254,11 +4254,22 @@ hr.hairline {
   color: var(--ink-mid); font-size: 12.5px;
 }
 .network-swipe-actions {
-  display: grid; grid-template-columns: 1fr 1fr 1fr;
-  gap: 10px; padding: 16px 18px 20px;
+  /* Buttons are sized to their content and centered as a group so
+     the three pills sit in the middle of the card instead of being
+     stretched edge-to-edge by an equal-columns grid. */
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 16px 18px 20px;
 }
-.network-swipe-form { margin: 0; }
-.network-swipe-form .btn { width: 100%; }
+.network-swipe-form { margin: 0; flex: 0 0 auto; }
+.network-swipe-form .btn {
+  width: auto;
+  min-width: 110px;
+  justify-content: center;
+}
 .btn.btn-lg {
   padding: 12px 14px; font-size: 14px; letter-spacing: 0.02em;
 }
@@ -4292,5 +4303,8 @@ hr.hairline {
   .network-swipe-card { transition: none !important; }
 }
 @media (max-width: 600px) {
-  .network-swipe-actions { grid-template-columns: 1fr; gap: 8px; }
+  /* Narrow phones: keep the flex centering but tighten the gap so
+     all three pills stay on one row without wrapping. */
+  .network-swipe-actions { gap: 8px; padding: 14px 14px 18px; }
+  .network-swipe-form .btn { min-width: 92px; padding-left: 14px; padding-right: 14px; }
 }
