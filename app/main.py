@@ -195,6 +195,12 @@ class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
             f"default-src 'self'; {img_src}; "
             "script-src 'self'; style-src 'self' 'unsafe-inline'; "
             "style-src-elem 'self'; "
+            # connect-src allow-lists the BigDataCloud free reverse-geocode
+            # endpoint so the profile + onboarding location flows can turn
+            # browser coords into a city/region/country label without an
+            # API key. The endpoint is read-only and cors-friendly; nothing
+            # else (auth, app secret) is sent.
+            "connect-src 'self' https://api.bigdatacloud.net; "
             "form-action 'self' https://accounts.google.com; "
             "frame-ancestors 'none';"
         )
