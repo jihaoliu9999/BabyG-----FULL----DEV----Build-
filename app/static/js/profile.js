@@ -28,8 +28,11 @@
     return;
   }
 
-  // Matches MAX_UPLOAD_BYTES in app/services/storage.py.
-  const MAX_BYTES = 10 * 1024 * 1024;
+  // Matches MAX_UPLOAD_BYTES in app/services/storage.py AND the
+  // Supabase bucket's own file_size_limit (migrations/0010). Keeping
+  // all three in lockstep means a borderline upload either passes
+  // every gate or fails fast in the browser with a clean alert.
+  const MAX_BYTES = 6 * 1024 * 1024;
   // Long-edge cap for the compressed copy. Bigger than the server's
   // final 512 so the server's center-crop has source pixels to work
   // with; small enough that a 4032×3024 iPhone photo lands ~150 KB.
@@ -122,7 +125,7 @@
     // Quick alert on the absolute cap. The server enforces this too,
     // but bouncing here saves a round-trip on huge files.
     if (original.size > MAX_BYTES) {
-      alert("photo is too big — max 10 MB");
+      alert("photo is too big — max 6 MB");
       input.value = "";
       return;
     }

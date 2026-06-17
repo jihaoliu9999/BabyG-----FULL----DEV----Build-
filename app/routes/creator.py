@@ -460,6 +460,13 @@ async def profile_photo_upload(
         return RedirectResponse(
             "/creator/profile?photo=corrupt", status_code=303
         )
+    except storage.PhotoStorageError:
+        # Supabase itself rejected the upload (network, bucket cap, RLS,
+        # creds). The exception is already logged status-only inside
+        # storage.py — show a clean flash, don't crash the request.
+        return RedirectResponse(
+            "/creator/profile?photo=storage_failed", status_code=303
+        )
 
     if not profiles.update_creator_profile(
         session["user_id"], {"profile_photo_url": url}

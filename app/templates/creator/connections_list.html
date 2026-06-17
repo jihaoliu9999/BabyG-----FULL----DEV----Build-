@@ -22,7 +22,7 @@
     <div class="card" style="margin-bottom:10px;">
       <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
         <a href="/creator/network/{{ c.peer_id }}" style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;text-decoration:none;">
-          <span class="avatar av-g2">{{ (peer.full_name if peer else 'C')[:1]|upper }}</span>
+          {% set creator = peer %}{% set palette = "2" %}{% set size = "" %}{% include "_partials/_avatar.html" %}
           <div style="min-width:0;">
             <div style="font-size:14px;color:var(--ink);font-weight:500;">{{ peer.full_name if peer else 'Creator' }}{% if peer and peer.instagram_handle %}<span style="font-size:12px;color:var(--ink-dim);font-weight:400;margin-left:6px;">@{{ peer.instagram_handle }}</span>{% endif %}</div>
             <div style="font-size:12px;color:var(--ink-dim);margin-top:2px;">requested {{ c.requested_at|short_date or '' }}</div>
@@ -50,7 +50,7 @@
     {% for c in accepted %}
     {% set peer = peers.get(c.peer_id) %}
     <a href="/creator/network/{{ c.peer_id }}" class="thread-row">
-      <span class="avatar av-g1">{{ (peer.full_name if peer else 'C')[:1]|upper }}</span>
+      {% set creator = peer %}{% set palette = "1" %}{% set size = "" %}{% include "_partials/_avatar.html" %}
       <div class="body">
         <div class="top">
           <span class="name">{{ peer.full_name if peer else 'Creator' }}{% if peer and peer.instagram_handle %}<span style="font-size:12px;color:var(--ink-dim);font-weight:400;margin-left:6px;">@{{ peer.instagram_handle }}</span>{% endif %}</span>
@@ -71,7 +71,7 @@
     {% for c in outgoing %}
     {% set peer = peers.get(c.peer_id) %}
     <a href="/creator/network/{{ c.peer_id }}" class="thread-row">
-      <span class="avatar av-g3">{{ (peer.full_name if peer else 'C')[:1]|upper }}</span>
+      {% set creator = peer %}{% set palette = "3" %}{% set size = "" %}{% include "_partials/_avatar.html" %}
       <div class="body">
         <div class="top">
           <span class="name">{{ peer.full_name if peer else 'Creator' }}</span>

@@ -4,9 +4,15 @@
    creator/_creator_card.html is a thin shim that passes view_path. #}
 <a class="creator-card" href="{{ view_path }}/{{ creator.user_id }}">
   <div class="creator-card-top">
+    {% if creator.profile_photo_url %}
+    <div class="creator-avatar creator-avatar-photo" aria-hidden="true">
+      <img src="{{ creator.profile_photo_url|safe_url }}{% if creator.updated_at %}?v={{ creator.updated_at|short_dt|replace(' ', 'T')|replace(':', '-') }}{% endif %}" alt="" loading="lazy" decoding="async" />
+    </div>
+    {% else %}
     <div class="creator-avatar" aria-hidden="true">
       {{ (creator.full_name or creator.instagram_handle or "C")[:1]|upper }}
     </div>
+    {% endif %}
     <div class="creator-card-head">
       <div class="creator-card-name">{{ creator.full_name or "Creator" }}</div>
       {% if creator.instagram_handle %}

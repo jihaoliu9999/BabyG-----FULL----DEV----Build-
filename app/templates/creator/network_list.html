@@ -30,7 +30,7 @@
     {% set initials = (creator.full_name or creator.instagram_handle or 'C')[0].upper() %}
     <a href="/creator/network/{{ creator.user_id or creator.id }}" class="creator-card">
       <div class="top">
-        <span class="avatar av-g{{ loop.index % 5 + 1 }}">{{ initials }}</span>
+        {% set palette = (loop.index % 5 + 1)|string %}{% include "_partials/_avatar.html" %}
         <div style="flex:1;min-width:0;">
           <div class="name">{{ creator.full_name or creator.instagram_handle or 'creator' }}</div>
           {% if creator.instagram_handle %}<div class="handle">@{{ creator.instagram_handle }}</div>{% endif %}

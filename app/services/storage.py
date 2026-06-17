@@ -31,14 +31,16 @@ logger = logging.getLogger(__name__)
 Image.MAX_IMAGE_PIXELS = 25_000_000
 
 BUCKET: Final = "profile-photos"
-# Raw upload cap before client- or server-side resize. Sized to fit the
-# 8 MB iPhone HDR photos some users send when the browser-side
-# compressor in profile.js can't decode their file (e.g., HEIC on a
-# non-Safari browser). The final stored object is always 512x512 JPEG,
-# ~30-80 KB, so this cap controls memory and bandwidth, not bucket
-# footprint. Bump the CSRF body cap in app/core/csrf.py in lockstep —
-# the middleware buffers the whole multipart body to extract the token.
-MAX_UPLOAD_BYTES: Final = 10 * 1024 * 1024
+# Raw upload cap, sized to match the Supabase bucket's own
+# file_size_limit (6 MiB — see migrations/0010_profile_photos_bucket.sql).
+# Keeping the app cap and the bucket cap in lockstep means a borderline
+# upload either passes both gates or fails at the app gate with a
+# clean PhotoTooLargeError, never silently 500s when the bucket
+# rejects post-upload. The final stored object is always 512x512 JPEG
+# (~30-80 KB) so the cap controls upload bandwidth, not storage
+# footprint. The CSRF body cap in app/core/csrf.py is sized larger
+# than this to cover multipart overhead.
+MAX_UPLOAD_BYTES: Final = 6 * 1024 * 1024
 OUTPUT_SIZE: Final = 512  # square px
 OUTPUT_QUALITY: Final = 82
 ALLOWED_CONTENT_TYPES: Final = frozenset(
@@ -56,6 +58,13 @@ class PhotoUnsupportedTypeError(ValueError):
 
 class PhotoDecodeError(ValueError):
     """Raised when Pillow cannot decode the bytes as an image."""
+
+
+class PhotoStorageError(RuntimeError):
+    """Raised when the Supabase bucket itself rejects / errors during
+    upload — distinct from decode/size/type problems that we catch
+    earlier in the pipeline. The route maps this to a clean
+    `?photo=storage_failed` flash instead of crashing the request."""
 
 
 def upload_profile_photo(
@@ -79,17 +88,30 @@ def upload_profile_photo(
 
     bucket = supabase_client.get_service_client().storage.from_(BUCKET)
     # upsert=true → re-upload overwrites silently. file_options must be
-    # all-strings; the SDK forwards them as multipart headers.
-    bucket.upload(
-        path=object_name,
-        file=jpeg_bytes,
-        file_options={
-            "content-type": "image/jpeg",
-            "cache-control": "3600",
-            "upsert": "true",
-        },
-    )
-    return bucket.get_public_url(object_name)
+    # all-strings; the SDK forwards them as multipart headers. Any
+    # Supabase-side failure (network, RLS, bucket capacity, bad
+    # credentials) is wrapped in PhotoStorageError so the route can
+    # show a clean flash instead of 500'ing.
+    try:
+        bucket.upload(
+            path=object_name,
+            file=jpeg_bytes,
+            file_options={
+                "content-type": "image/jpeg",
+                "cache-control": "3600",
+                "upsert": "true",
+            },
+        )
+    except Exception as exc:
+        logger.exception("profile-photo upload failed for user_id=%s", user_id)
+        raise PhotoStorageError("supabase storage upload failed") from exc
+    try:
+        return bucket.get_public_url(object_name)
+    except Exception as exc:
+        logger.exception(
+            "profile-photo public-url lookup failed for user_id=%s", user_id
+        )
+        raise PhotoStorageError("supabase storage public-url failed") from exc
 
 
 def delete_profile_photo(user_id: str) -> None:
