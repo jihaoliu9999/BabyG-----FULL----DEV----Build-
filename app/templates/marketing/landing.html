@@ -4,6 +4,7 @@
 
 {% block head_extra %}
 <link rel="stylesheet" href="/static/css/landing.css" />
+<link rel="stylesheet" href="/static/css/landing-task-cards.css" />
 {% endblock %}
 
 {% block content %}
@@ -19,7 +20,7 @@
     </a>
     <nav class="navlinks">
       <a href="#features">features</a>
-      <a href="#how">how it works</a>
+      <a href="#features">what it handles</a>
       <a href="#creators">for creators</a>
     </nav>
     <div class="nav-right">
@@ -64,8 +65,8 @@
         log in
         <svg width="13" height="13" viewBox="0 0 12 12" fill="none"><path d="M3 9L9 3M9 3H4M9 3V8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"></path></svg>
       </a>
-      <a class="lp-btn lp-btn-ghost" href="#how">
-        see how it works
+      <a class="lp-btn lp-btn-ghost" href="#features">
+        see what it handles
         <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="5" stroke="currentColor" stroke-width="1"></circle><path d="M5 4l3 2-3 2V4z" fill="currentColor"></path></svg>
       </a>
     </div>
@@ -193,61 +194,77 @@
 <section class="lp-task-reveal" id="features">
   <div class="wrap-wide">
     <div class="mod-head reveal">
-      <h2>what babyg can handle.</h2>
-      <p class="right">brand replies, rates, deadlines, and captions — organized, drafted, and ready for approval.</p>
+      <h2>what babyg handles.</h2>
+      <p class="right">brand replies, rate checks, deadlines, and captions — drafted when you need them.</p>
     </div>
 
     <div class="task-card-grid" data-task-cards>
-      <article class="task-card reveal delay-1">
-        <button class="task-card-toggle" type="button" aria-expanded="false" aria-controls="task-reply" aria-label="show example for reply to a brand">
-          <span class="task-card-kicker">01</span>
+      <article class="task-card task-feature-card reveal delay-1">
+        <button class="task-card-toggle task-feature-toggle" type="button" aria-expanded="false" aria-controls="task-reply" aria-label="open reply to a brand">
+          <span class="task-card-top">
+            <span class="task-card-kicker">01</span>
+            <span class="task-card-action">open</span>
+          </span>
           <span class="task-card-title">reply to a brand</span>
-          <span class="task-card-action">open</span>
+          <span class="task-card-copy">turn a rates dm into a clean response with your price, availability, and next step.</span>
+          <span class="task-card-mini">rate reply ready</span>
         </button>
         <div class="task-card-reveal" id="task-reply">
           <p class="task-example">“hey, what are your rates?”</p>
-          <p>babyg drafts the reply with your rate, availability, and next step.</p>
+          <p>babyg drafts the response so the brand gets a clear answer and you do not have to start from scratch.</p>
         </div>
       </article>
 
-      <article class="task-card reveal delay-2">
-        <button class="task-card-toggle" type="button" aria-expanded="false" aria-controls="task-rate" aria-label="show example for check the rate">
-          <span class="task-card-kicker">02</span>
+      <article class="task-card task-feature-card reveal delay-2">
+        <button class="task-card-toggle task-feature-toggle" type="button" aria-expanded="false" aria-controls="task-rate" aria-label="open check the rate">
+          <span class="task-card-top">
+            <span class="task-card-kicker">02</span>
+            <span class="task-card-action">open</span>
+          </span>
           <span class="task-card-title">check the rate</span>
-          <span class="task-card-action">open</span>
+          <span class="task-card-copy">catch usage, paid ads, extra deliverables, and anything that should change the price.</span>
+          <span class="task-card-mini">usage flagged</span>
         </button>
         <div class="task-card-reveal" id="task-rate">
           <p class="task-example">“can we use this in ads too?”</p>
-          <p>babyg flags the usage ask before you give away extra rights for free.</p>
+          <p>babyg flags what changed before you agree to more work or give away extra rights for free.</p>
         </div>
       </article>
 
-      <article class="task-card reveal delay-3">
-        <button class="task-card-toggle" type="button" aria-expanded="false" aria-controls="task-deadline" aria-label="show example for track a deadline">
-          <span class="task-card-kicker">03</span>
+      <article class="task-card task-feature-card reveal delay-3">
+        <button class="task-card-toggle task-feature-toggle" type="button" aria-expanded="false" aria-controls="task-deadline" aria-label="open track a deadline">
+          <span class="task-card-top">
+            <span class="task-card-kicker">03</span>
+            <span class="task-card-action">open</span>
+          </span>
           <span class="task-card-title">track a deadline</span>
-          <span class="task-card-action">open</span>
+          <span class="task-card-copy">keep due dates, deliverables, and reminders visible before something slips.</span>
+          <span class="task-card-mini">post due friday</span>
         </button>
         <div class="task-card-reveal" id="task-deadline">
           <p class="task-example">“reel due friday”</p>
-          <p>babyg keeps the deliverable visible and reminds you before it slips.</p>
+          <p>babyg keeps the deliverable in front of you and reminds you what still needs to be sent.</p>
         </div>
       </article>
 
-      <article class="task-card reveal delay-4">
-        <button class="task-card-toggle" type="button" aria-expanded="false" aria-controls="task-caption" aria-label="show example for write the caption">
-          <span class="task-card-kicker">04</span>
+      <article class="task-card task-feature-card reveal delay-4">
+        <button class="task-card-toggle task-feature-toggle" type="button" aria-expanded="false" aria-controls="task-caption" aria-label="open write the caption">
+          <span class="task-card-top">
+            <span class="task-card-kicker">04</span>
+            <span class="task-card-action">open</span>
+          </span>
           <span class="task-card-title">write the caption</span>
-          <span class="task-card-action">open</span>
+          <span class="task-card-copy">turn a photo dump, product, or rough idea into hooks, captions, and a posting angle.</span>
+          <span class="task-card-mini">caption options ready</span>
         </button>
         <div class="task-card-reveal" id="task-caption">
           <p class="task-example">“photo dump from today”</p>
-          <p>babyg turns what you already have into hooks, captions, and a posting angle.</p>
+          <p>babyg gives you usable caption options without making the post sound overworked.</p>
         </div>
       </article>
     </div>
 
-    <p class="task-process reveal delay-4">babyg catches it → drafts it → you approve</p>
+    <p class="task-process reveal delay-4">babyg finds it → drafts it → you approve</p>
   </div>
 </section>
 
@@ -310,7 +327,7 @@
         <h5>product</h5>
         <ul>
           <li><a href="#features">features</a></li>
-          <li><a href="#how">how it works</a></li>
+          <li><a href="#features">what it handles</a></li>
           <li><a href="/auth/login?role=creator">get access</a></li>
           <li><a href="/auth/login?role=creator">sign in</a></li>
         </ul>
