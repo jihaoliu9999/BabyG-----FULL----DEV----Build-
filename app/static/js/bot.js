@@ -165,7 +165,37 @@
 
   const setKeyboardOpen = (open) => {
     document.body.classList.toggle("chat-keyboard-open", open);
+    // Force an immediate inset recompute so the hero/composer snap to
+    // the new viewport instead of waiting for the next visualViewport
+    // event (which can lag the focus by ~200ms on iOS).
+    updateKeyboardInset();
   };
+
+  // Publish the keyboard height as --keyboard-inset on <html>. The CSS
+  // subtracts it from `#view` height so the composer never sits behind
+  // the iOS keyboard accessory bar and the hero never gets scrolled
+  // off-screen. dvh alone doesn't track keyboard transitions cleanly
+  // on iOS; visualViewport.height + offsetTop is the reliable signal.
+  function updateKeyboardInset() {
+    const vv = window.visualViewport;
+    if (!vv) {
+      document.documentElement.style.setProperty("--keyboard-inset", "0px");
+      return;
+    }
+    const inset = Math.max(
+      0,
+      Math.round(window.innerHeight - vv.height - vv.offsetTop)
+    );
+    document.documentElement.style.setProperty(
+      "--keyboard-inset",
+      inset + "px"
+    );
+  }
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", updateKeyboardInset);
+    window.visualViewport.addEventListener("scroll", updateKeyboardInset);
+    updateKeyboardInset();
+  }
 
   async function send() {
     if (inFlight) return;
