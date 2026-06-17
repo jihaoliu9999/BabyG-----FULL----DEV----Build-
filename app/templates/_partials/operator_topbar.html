@@ -2,7 +2,11 @@
 
 <header class="operator-topbar">
   <a class="operator-brand" href="/operator" aria-label="babyg operator console">
-    {{ brand.icon() }}
+    <span class="operator-brand-mark">{{ brand.icon() }}</span>
+    <span class="operator-brand-copy">
+      <strong>babyg</strong>
+      <small>operator</small>
+    </span>
   </a>
   <nav class="operator-nav" aria-label="Operator navigation">
     <a href="/operator" {% if current_path == "/operator" %}aria-current="page"{% endif %}>Dashboard</a>
@@ -12,4 +16,7 @@
     <a href="/operator/members" {% if current_path.startswith("/operator/members") %}aria-current="page"{% endif %}>Roster</a>
     <a href="/operator/audit" {% if current_path.startswith("/operator/audit") %}aria-current="page"{% endif %}>Audit</a>
   </nav>
+  <span class="operator-environment" aria-label="private operator workspace">
+    <span></span> private
+  </span>
 </header>

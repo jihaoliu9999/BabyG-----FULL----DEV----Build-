@@ -4,55 +4,103 @@
 
 {% block content %}
 <section class="op">
-  <header class="op-header">
-    <div class="auth-tag">operator</div>
-    <h1 class="op-title">console</h1>
-    <p class="op-sub">
-      send updates, review reports, keep the roster clean.
-    </p>
+  <header class="op-header op-dashboard-header">
+    <div>
+      <div class="auth-tag">workspace / operations</div>
+      <h1 class="op-title">operator console</h1>
+      <p class="op-sub">publish intel, review reports, and keep creator operations moving.</p>
+    </div>
+    <a class="btn btn-primary" href="/operator/intel/new">new Hot Drop</a>
   </header>
+
+  <section class="op-metrics" aria-label="Operational metrics">
+    <a class="op-metric" href="/operator/intel?status=active">
+      <span>active intel</span><strong>{{ counts.active }}</strong><small>published now</small>
+    </a>
+    <a class="op-metric" href="/operator/intel?status=draft">
+      <span>draft intel</span><strong>{{ counts.draft }}</strong><small>waiting for review</small>
+    </a>
+    <a class="op-metric {{ 'is-alert' if pending_abuse else '' }}" href="/operator/abuse">
+      <span>pending reports</span><strong>{{ pending_abuse }}</strong><small>needs attention</small>
+    </a>
+    <a class="op-metric" href="/operator/jobs">
+      <span>active listings</span><strong>{{ active_listings }}</strong><small>creator-posted</small>
+    </a>
+    <a class="op-metric" href="/operator/members">
+      <span>roster</span><strong>{{ roster_total }}</strong><small>signed-in members</small>
+    </a>
+  </section>
+
+  <div class="op-section-heading">
+    <div>
+      <span class="auth-tag">workspaces</span>
+      <h2>operations</h2>
+    </div>
+    <span>choose a queue</span>
+  </div>
 
   <div class="op-grid">
     <a class="op-card" href="/operator/intel">
-      <div class="op-card-tag">intel</div>
-      <div class="op-card-title">daily updates</div>
-      <div class="op-card-stats">
-        <span><strong>{{ counts.active }}</strong> active</span>
-        <span><strong>{{ counts.draft }}</strong> draft</span>
-        <span><strong>{{ counts.archived }}</strong> archived</span>
-      </div>
-      <div class="op-card-cta">open</div>
+      <div class="op-card-index">01</div>
+      <div class="op-card-tag">Hot Drops</div>
+      <div class="op-card-title">creator intel</div>
+      <p class="op-card-body">draft, publish, schedule, and archive creator-facing updates.</p>
+      <div class="op-card-cta">open intel <span aria-hidden="true">&rarr;</span></div>
     </a>
-
     <a class="op-card" href="/operator/abuse">
+      <div class="op-card-index">02</div>
       <div class="op-card-tag">moderation</div>
       <div class="op-card-title">reports</div>
-      <div class="op-card-stats">
-        <span><strong>{{ pending_abuse }}</strong> pending</span>
-      </div>
-      <div class="op-card-cta">open</div>
+      <p class="op-card-body">review creator reports with context and a visible decision trail.</p>
+      <div class="op-card-cta">review reports <span aria-hidden="true">&rarr;</span></div>
     </a>
-
     <a class="op-card" href="/operator/jobs">
+      <div class="op-card-index">03</div>
       <div class="op-card-tag">listings</div>
       <div class="op-card-title">creator board</div>
-      <p class="op-card-body">active opportunities and takedowns.</p>
-      <div class="op-card-cta">open</div>
+      <p class="op-card-body">inspect active opportunities and handle listing takedowns.</p>
+      <div class="op-card-cta">open listings <span aria-hidden="true">&rarr;</span></div>
     </a>
-
     <a class="op-card" href="/operator/members">
-      <div class="op-card-tag">members</div>
+      <div class="op-card-index">04</div>
+      <div class="op-card-tag">roster</div>
       <div class="op-card-title">roster</div>
-      <p class="op-card-body">creators, operators, notes.</p>
-      <div class="op-card-cta">open</div>
+      <p class="op-card-body">find creators and operators, then review account notes.</p>
+      <div class="op-card-cta">open roster <span aria-hidden="true">&rarr;</span></div>
     </a>
-
     <a class="op-card" href="/operator/audit">
+      <div class="op-card-index">05</div>
       <div class="op-card-tag">audit</div>
-      <div class="op-card-title">recent actions</div>
-      <p class="op-card-body">the operator trail.</p>
-      <div class="op-card-cta">open</div>
+      <div class="op-card-title">activity trail</div>
+      <p class="op-card-body">trace recent operator actions across moderation and operations.</p>
+      <div class="op-card-cta">view audit <span aria-hidden="true">&rarr;</span></div>
     </a>
   </div>
+
+  <section class="op-activity" aria-labelledby="recent-activity-title">
+    <div class="op-section-heading">
+      <div>
+        <span class="auth-tag">audit preview</span>
+        <h2 id="recent-activity-title">recent activity</h2>
+      </div>
+      <a href="/operator/audit">view full audit</a>
+    </div>
+    {% if recent_activity %}
+    <div class="op-activity-list">
+      {% for row in recent_activity %}
+      <div class="op-activity-row">
+        <span class="op-activity-time">{{ row.created_at|short_dt }}</span>
+        <strong>{{ row.action }}</strong>
+        <span>{{ row.target_type or 'platform' }}{% if row.target_id %} / {{ row.target_id }}{% endif %}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="op-empty-compact">
+      <strong>no operator activity yet.</strong>
+      <span>actions will appear here as the team works.</span>
+    </div>
+    {% endif %}
+  </section>
 </section>
 {% endblock %}

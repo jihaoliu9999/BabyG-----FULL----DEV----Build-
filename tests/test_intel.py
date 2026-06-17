@@ -21,7 +21,10 @@ from fastapi.testclient import TestClient
 
 from app.core.security import SESSION_COOKIE, write_session
 from app.main import app
+from app.services import audit as audit_module
 from app.services import intel as intel_module
+from app.services import jobs as jobs_module
+from app.services import members as members_module
 from app.services import notifications as notifications_module
 from app.services import profiles as profiles_module
 
@@ -153,6 +156,20 @@ def store(monkeypatch) -> FakeIntelStore:
     # Step 8+: operator console reads abuse pending count.
     from app.services import abuse as abuse_module_local
     monkeypatch.setattr(abuse_module_local, "count_pending", lambda: 0)
+    monkeypatch.setattr(jobs_module, "list_for_operator", lambda **kw: [{"id": "job-1"}])
+    monkeypatch.setattr(members_module, "list_users", lambda **kw: ([], 4))
+    monkeypatch.setattr(
+        audit_module,
+        "list_recent",
+        lambda **kw: [
+            {
+                "created_at": "2026-06-17T12:00:00Z",
+                "action": "listing.takedown",
+                "target_type": "listing",
+                "target_id": "job-1",
+            }
+        ],
+    )
     return s
 
 
@@ -328,9 +345,13 @@ def test_console_renders_with_status_counts(client, store):
     r = client.get("/operator")
     assert r.status_code == 200
     assert "console" in r.text
-    # The numbers are rendered around <strong> tags; just check both appear.
-    assert ">2</strong> active" in r.text
-    assert ">1</strong> draft" in r.text
+    # The numbers are rendered in the dashboard metric cards.
+    assert ">2</strong><small>published now" in r.text
+    assert ">1</strong><small>waiting for review" in r.text
+    assert "operator console" in r.text
+    assert ">1</strong><small>creator-posted" in r.text
+    assert ">4</strong><small>signed-in members" in r.text
+    assert "listing.takedown" in r.text
 
 
 def test_intel_list_renders_and_filters(client, store):
