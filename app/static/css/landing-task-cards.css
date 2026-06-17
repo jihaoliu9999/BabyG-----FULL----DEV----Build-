@@ -226,21 +226,6 @@
   max-width: 520px;
 }
 
-.lp .task-process {
-  margin: 24px auto 0;
-  width: fit-content;
-  max-width: 100%;
-  padding: 11px 18px;
-  border: 1px solid var(--lp-hairline);
-  border-radius: 999px;
-  background: rgba(255,255,255,0.025);
-  color: var(--lp-ink-mid);
-  font-family: var(--lp-mono);
-  font-size: 11px;
-  letter-spacing: 0.12em;
-  text-align: center;
-}
-
 @media (max-width: 900px) {
   .lp .task-card-grid {
     grid-template-columns: 1fr;
