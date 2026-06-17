@@ -708,6 +708,7 @@ def _resolve_creator_dm_peer(
 async def network_swipe_page(
     request: Request,
     session: SessionPayload = Depends(require_role("creator")),
+    bring_back: str | None = Query(default=None),
 ) -> Response:
     """Swipe-style discovery feed.
 
@@ -719,10 +720,15 @@ async def network_swipe_page(
     A `viewed` action is recorded for whichever creator lands on top
     of the stack so we don't show them again in the same session if
     the viewer refreshes mid-card.
+
+    `bring_back` (set by the undo flow) floats a just-restored creator
+    back to the front of the stack so the undo lands them on the active
+    card.
     """
     user_id = session["user_id"]
-    stack = discovery.next_stack_for(user_id)
+    stack = discovery.next_stack_for(user_id, prioritize_user_id=bring_back or None)
     pending_in = len(network.list_incoming_pending(user_id))
+    can_undo = discovery.last_undoable_pass(user_id) is not None
     if stack:
         # Record a view for the top card. Best-effort — never blocks
         # the render.
@@ -734,7 +740,32 @@ async def network_swipe_page(
     return templates.TemplateResponse(
         request,
         "creator/network_swipe.html",
-        {"stack": stack, "pending_in": pending_in},
+        {"stack": stack, "pending_in": pending_in, "can_undo": can_undo},
+    )
+
+
+@router.post("/creator/network/undo")
+async def network_undo_pass(
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    """Undo the viewer's most recent pass.
+
+    Records an `undo_pass` discovery action against the most recently
+    passed creator (so the stack no longer treats them as passed) and
+    redirects back to the swipe page with that creator floated to the
+    top. If there is nothing to undo, this is a harmless no-op redirect.
+    """
+    user_id = session["user_id"]
+    target_id = discovery.last_undoable_pass(user_id)
+    if not target_id:
+        return RedirectResponse("/creator/network", status_code=303)
+    discovery.record_action(
+        user_id=user_id,
+        target_user_id=target_id,
+        action_type="undo_pass",
+    )
+    return RedirectResponse(
+        f"/creator/network?bring_back={target_id}", status_code=303
     )
 
 
@@ -877,6 +908,37 @@ async def connections_list(
             "peers": peers,
         },
     )
+
+
+@router.post("/creator/connections/{connection_id}/disconnect")
+async def connection_disconnect(
+    connection_id: str,
+    request: Request,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    """Tear down an accepted connection (either party can disconnect).
+
+    Declared before the generic `{action}` route so the literal path
+    wins. Flips the row to `removed` — no profile or message history is
+    deleted. Returns JSON for the AJAX path (immediate UI update) and a
+    redirect for the no-JS fallback.
+    """
+    ok = network.disconnect_connection(
+        connection_id=connection_id, user_id=session["user_id"]
+    )
+    if ok:
+        audit.record(
+            actor_user_id=session["user_id"],
+            action="connection.disconnect",
+            target_type="connection",
+            target_id=connection_id,
+        )
+    if request.headers.get("X-Requested-With") == "fetch":
+        return JSONResponse(
+            {"ok": ok},
+            status_code=status.HTTP_200_OK if ok else status.HTTP_400_BAD_REQUEST,
+        )
+    return RedirectResponse("/creator/connections", status_code=303)
 
 
 @router.post("/creator/connections/{connection_id}/{action}")
