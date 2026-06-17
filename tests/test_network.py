@@ -57,6 +57,8 @@ class FakeWorld:
             "onboarding_completed_at": kwargs.get(
                 "onboarding_completed_at", "2026-05-07T00:00:00Z"
             ),
+            "profile_photo_url": kwargs.get("profile_photo_url"),
+            "updated_at": kwargs.get("updated_at"),
         }
         return self.creators[user_id]
 
@@ -503,3 +505,39 @@ def test_connections_requires_creator_role(client, world):
     _signed_in(client, role="operator", user_id="op-1")
     r = client.get("/creator/connections")
     assert r.status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# Avatar rendering — photo when present, initials when not.
+# Pins that the public projection actually surfaces profile_photo_url
+# and that the directory template renders it as <img>.
+# ---------------------------------------------------------------------------
+
+
+def test_directory_renders_photo_when_creator_has_one(client, world):
+    _signed_in(client, role="creator", user_id="c-1")
+    world.add_creator(user_id="c-1")
+    world.add_creator(
+        user_id="c-2",
+        full_name="Anna Reyes",
+        profile_photo_url="https://example.test/c2.jpg",
+        updated_at="2026-06-16T12:00:00Z",
+    )
+
+    r = client.get("/creator/network")
+    assert r.status_code == 200
+    # An <img> tag with the photo URL is rendered (not just initials).
+    assert "https://example.test/c2.jpg" in r.text
+    assert "avatar-photo" in r.text or "creator-avatar-photo" in r.text
+
+
+def test_directory_falls_back_to_initials_without_photo(client, world):
+    _signed_in(client, role="creator", user_id="c-1")
+    world.add_creator(user_id="c-1")
+    world.add_creator(user_id="c-2", full_name="Ben Lee")  # no photo
+
+    r = client.get("/creator/network")
+    assert r.status_code == 200
+    # No <img> tag added for that creator. The initials chip is still
+    # there. The `.avatar` class with a palette suffix is the fallback.
+    assert "av-g" in r.text  # initials chip rendered

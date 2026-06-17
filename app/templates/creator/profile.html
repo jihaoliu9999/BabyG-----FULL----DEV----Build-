@@ -45,11 +45,12 @@
     {% endif %}">
     {% if photo_flash == 'ok' %}photo updated
     {% elif photo_flash == 'removed' %}photo removed
-    {% elif photo_flash == 'too_big' %}photo too big — max 5 MB
-    {% elif photo_flash == 'bad_type' %}photo must be jpeg, png, or webp
+    {% elif photo_flash == 'too_big' %}photo too big — max 6 MB
+    {% elif photo_flash == 'bad_type' %}photo must be jpeg, png, or webp. iphone tip: open the photo, tap share, then Save to Files as JPEG — or switch Settings → Camera → Formats to Most Compatible.
     {% elif photo_flash == 'corrupt' %}couldn't read that image — try another file
     {% elif photo_flash == 'missing' %}no file picked
     {% elif photo_flash == 'save_failed' %}upload succeeded but save failed — try again
+    {% elif photo_flash == 'storage_failed' %}image storage is having trouble — try again in a minute
     {% else %}{{ photo_flash }}
     {% endif %}
   </div>

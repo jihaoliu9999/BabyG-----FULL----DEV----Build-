@@ -19,7 +19,7 @@
     {% set peer_name = peer.full_name if peer and peer.full_name else (peer.instagram_handle if peer and peer.instagram_handle else 'Creator') %}
     {% set peer_initial = peer_name[0].upper() %}
     <a href="/creator/dm/{{ t.peer_id }}" class="thread-row">
-      <span class="avatar av-g1">{{ peer_initial }}</span>
+      {% set creator = peer %}{% set palette = "1" %}{% set size = "" %}{% include "_partials/_avatar.html" %}
       <div class="body">
         <div class="top">
           <span class="name">{{ peer_name }}</span>

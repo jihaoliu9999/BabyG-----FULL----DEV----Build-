@@ -113,6 +113,7 @@ def test_upload_empty_file_redirects_missing(monkeypatch, client: TestClient) ->
         (storage_module.PhotoTooLargeError("too big"), "too_big"),
         (storage_module.PhotoUnsupportedTypeError("text/plain"), "bad_type"),
         (storage_module.PhotoDecodeError("not an image"), "corrupt"),
+        (storage_module.PhotoStorageError("supabase down"), "storage_failed"),
     ],
 )
 def test_upload_storage_errors_map_to_flash_codes(
@@ -214,11 +215,12 @@ def test_storage_decode_error_on_garbage() -> None:
         storage_module._normalize_to_square_jpeg(b"not an image at all")
 
 
-def test_storage_raw_upload_cap_is_ten_mib() -> None:
-    """The raw cap controls memory + bandwidth, not bucket footprint.
-    Pinning this so a future tweak doesn't silently re-block iPhone
-    HDR uploads (which routinely sit between 5 and 10 MB)."""
-    assert storage_module.MAX_UPLOAD_BYTES == 10 * 1024 * 1024
+def test_storage_raw_upload_cap_matches_bucket_limit() -> None:
+    """The raw upload cap is pinned to the Supabase bucket's own
+    file_size_limit (6 MiB — see migrations/0010_profile_photos_bucket.sql).
+    If these drift apart, a borderline upload passes the app gate
+    then 500s when the bucket rejects it."""
+    assert storage_module.MAX_UPLOAD_BYTES == 6 * 1024 * 1024
 
 
 def test_storage_pillow_decompression_bomb_cap_is_pinned() -> None:

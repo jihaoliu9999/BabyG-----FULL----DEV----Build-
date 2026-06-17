@@ -44,6 +44,32 @@ def test_creator_allowlist_excludes_internal_fields():
         )
 
 
+def test_creator_allowlist_includes_profile_photo_and_updated_at():
+    """Avatars across the app render via the public projection — if
+    these two fall out, every cross-user surface drops back to
+    initials-only and the cache-buster goes silent."""
+    assert "profile_photo_url" in PUBLIC_CREATOR_FIELDS
+    assert "updated_at" in PUBLIC_CREATOR_FIELDS
+
+
+def test_public_creator_surfaces_photo_and_cache_buster():
+    row = {
+        "user_id": "u1",
+        "full_name": "Anna",
+        "profile_photo_url": "https://example.test/u1.jpg",
+        "updated_at": "2026-06-16T12:00:00Z",
+        "writing_samples": "secret",
+        "location_lat": 34.0,
+    }
+    out = public_creator(row)
+    assert out is not None
+    assert out["profile_photo_url"] == "https://example.test/u1.jpg"
+    assert out["updated_at"] == "2026-06-16T12:00:00Z"
+    # Privacy guards still hold for known-internal fields.
+    assert "writing_samples" not in out
+    assert "location_lat" not in out
+
+
 # ---------- projection behavior ----------
 
 

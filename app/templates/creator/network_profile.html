@@ -7,7 +7,7 @@
   <a href="/creator/network" class="back-link">← network</a>
 
   <div style="display:flex;align-items:center;gap:18px;margin-bottom:20px;flex-wrap:wrap;">
-    <span class="avatar av-g2 xl">{{ (peer.full_name or peer.instagram_handle or 'C')[0].upper() }}</span>
+    {% set creator = peer %}{% set palette = "2" %}{% set size = "xl" %}{% include "_partials/_avatar.html" %}
     <div>
       <span class="mono eyebrow">creator</span>
       <h1 class="detail-title">{{ peer.full_name or "Creator" }}</h1>

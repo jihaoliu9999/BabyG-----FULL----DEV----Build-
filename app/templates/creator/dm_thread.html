@@ -6,7 +6,7 @@
 <section class="dm-screen">
   <header class="dm-head">
     <a href="/creator/dm" class="back-link" style="margin:0;">← inbox</a>
-    <span class="avatar av-g2">{{ (peer.full_name or peer.instagram_handle or 'C')[0].upper() }}</span>
+    {% set creator = peer %}{% set palette = "2" %}{% set size = "" %}{% include "_partials/_avatar.html" %}
     <div class="meta">
       <h2>{{ peer.full_name or "Creator" }}</h2>
       {% if peer.instagram_handle %}

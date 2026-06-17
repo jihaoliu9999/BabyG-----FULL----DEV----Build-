@@ -1,0 +1,29 @@
+{# Single source of truth for "creator avatar" rendering.
+
+   Caller passes:
+     creator   - dict with profile_photo_url + updated_at + a name/handle
+     size      - optional css class (e.g. 'xl' or omitted)
+     palette   - optional palette suffix '1'..'5' for the initials variant
+
+   When profile_photo_url is set we render an <img> with a ?v= cache
+   buster (so re-uploads bust the browser cache even though the bucket
+   URL is stable per-user). Otherwise we fall back to the initials chip
+   with the existing av-g{N} palette classes.
+
+   The fallback initial uses full_name → instagram_handle → "C". Same
+   policy every avatar surface had before this partial existed; we
+   keep it unchanged so legacy renders match exactly. #}
+{% set _ig = creator.instagram_handle if creator else "" %}
+{% set _name = (creator.full_name if creator else "") or _ig or "C" %}
+{% set _initial = _name[:1]|upper %}
+{% set _palette = palette or "2" %}
+{% set _size_class = (" " ~ size) if size else "" %}
+{% set _photo = (creator.profile_photo_url if creator else "") %}
+{% set _updated = (creator.updated_at if creator else "") %}
+{% if _photo %}
+  <span class="avatar avatar-photo av-g{{ _palette }}{{ _size_class }}" aria-hidden="true">
+    <img src="{{ _photo|safe_url }}{% if _updated %}?v={{ _updated|short_dt|replace(' ', 'T')|replace(':', '-') }}{% endif %}" alt="" loading="lazy" decoding="async" />
+  </span>
+{% else %}
+  <span class="avatar av-g{{ _palette }}{{ _size_class }}">{{ _initial }}</span>
+{% endif %}

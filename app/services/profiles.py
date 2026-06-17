@@ -52,6 +52,12 @@ PUBLIC_CREATOR_FIELDS: tuple[str, ...] = (
     "bio",
     "hard_limits",
     "onboarding_completed_at",
+    # Avatar surface. profile_photo_url is the stable bucket URL;
+    # updated_at is used by render sites as a `?v=` cache-buster so
+    # a re-upload shows immediately even though the URL itself is
+    # stable per-user.
+    "profile_photo_url",
+    "updated_at",
 )
 
 def public_creator(row: dict[str, Any] | None) -> dict[str, Any] | None:
