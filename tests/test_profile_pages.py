@@ -8,6 +8,7 @@ from fastapi.testclient import TestClient
 from app.core.security import SESSION_COOKIE, write_session
 from app.integrations import google_calendar
 from app.routes import creator as creator_routes
+from app.services import locations as locations_service
 
 
 def _signed_in(client: TestClient, *, role: str, user_id: str = "creator-1") -> None:
@@ -211,8 +212,8 @@ def test_creator_profile_location_saves_browser_coords_without_city(
     monkeypatch, client: TestClient
 ) -> None:
     """The "use my location" flow should save successfully even when
-    the user didn't type a city. Public-projection privacy is
-    unchanged — coords without a label show no public location text,
+    the user didn't type a city and the server-side reverse-geocode
+    fallback fails. Coords without a label show no public location text,
     but the row stores the lat/lng for proximity features."""
     _signed_in(client, role="creator", user_id="creator-1")
     saved: dict = {}
@@ -225,6 +226,8 @@ def test_creator_profile_location_saves_browser_coords_without_city(
         "update_creator_profile",
         lambda uid, payload: saved.update(payload) or True,
     )
+    # Simulate the BigDataCloud upstream failing — coords still save.
+    monkeypatch.setattr(locations_service, "_reverse_geocode", lambda lat, lng: None)
 
     response = client.post(
         "/creator/profile/location",
@@ -245,10 +248,104 @@ def test_creator_profile_location_saves_browser_coords_without_city(
     assert saved["location_lat"] == 34.0522
     assert saved["location_lng"] == -118.2437
     assert saved["location_source"] == "browser"
-    # No public label fields — they weren't supplied.
+    # No public label fields — geocode failed and none were supplied.
     assert saved["location_city"] is None
     assert saved["location_region"] is None
     assert saved["location_country"] is None
+
+
+def test_creator_profile_location_server_reverse_geocodes_browser_coords(
+    monkeypatch, client: TestClient
+) -> None:
+    """If the client-side reverse-geocode raced the save (or the fetch
+    failed silently), the server runs its own reverse-geocode so the
+    saved row always carries a renderable label when coords exist."""
+    _signed_in(client, role="creator", user_id="creator-1")
+    saved: dict = {}
+
+    monkeypatch.setattr(
+        creator_routes.profiles, "get_creator_profile", lambda uid: _profile()
+    )
+    monkeypatch.setattr(
+        creator_routes.profiles,
+        "update_creator_profile",
+        lambda uid, payload: saved.update(payload) or True,
+    )
+    monkeypatch.setattr(
+        locations_service,
+        "_reverse_geocode",
+        lambda lat, lng: {
+            "city": "Boca Raton",
+            "region": "Florida",
+            "country": "United States",
+        },
+    )
+
+    response = client.post(
+        "/creator/profile/location",
+        data={
+            "location_city": "",
+            "location_region": "",
+            "location_country": "",
+            "location_source": "browser",
+            "location_lat": "26.4184",
+            "location_lng": "-80.0754",
+        },
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/creator/profile?details=ok"
+    assert saved["location_city"] == "Boca Raton"
+    assert saved["location_region"] == "Florida"
+    assert saved["location_country"] == "United States"
+    assert saved["location_lat"] == 26.4184
+    assert saved["location_lng"] == -80.0754
+    assert saved["location_source"] == "browser"
+
+
+def test_creator_profile_location_server_geocode_does_not_overwrite_user_input(
+    monkeypatch, client: TestClient
+) -> None:
+    """When the creator typed a city manually, the server-side geocode
+    must not clobber it — the creator's typing always wins."""
+    _signed_in(client, role="creator", user_id="creator-1")
+    saved: dict = {}
+
+    monkeypatch.setattr(
+        creator_routes.profiles, "get_creator_profile", lambda uid: _profile()
+    )
+    monkeypatch.setattr(
+        creator_routes.profiles,
+        "update_creator_profile",
+        lambda uid, payload: saved.update(payload) or True,
+    )
+    # If geocode is even invoked here, this would clobber the typed city.
+    # The has_label gate should prevent the call entirely.
+    called: dict = {"hit": False}
+
+    def _track(lat: float, lng: float) -> dict[str, str]:
+        called["hit"] = True
+        return {"city": "Wrong City", "region": "Wrong", "country": "Wrong"}
+
+    monkeypatch.setattr(locations_service, "_reverse_geocode", _track)
+
+    response = client.post(
+        "/creator/profile/location",
+        data={
+            "location_city": "Brooklyn",
+            "location_region": "",
+            "location_country": "",
+            "location_source": "browser",
+            "location_lat": "40.6782",
+            "location_lng": "-73.9442",
+        },
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert saved["location_city"] == "Brooklyn"
+    assert called["hit"] is False
 
 
 def test_creator_profile_settings_page_renders(monkeypatch, client: TestClient) -> None:
