@@ -23,8 +23,14 @@ def profile_location_payload(form: Any) -> tuple[dict[str, Any], str | None]:
 
     has_label = bool(city or region or country)
     has_coords = lat is not None and lng is not None
-    if source == "browser" and has_coords and not has_label:
-        return {}, "enter a city or region with your browser location."
+    # Previously we refused to save browser-captured coords unless the
+    # user also typed a city. That blocked the most common flow: click
+    # "use my location" → save. Now we save the coords directly; the
+    # public projection (`public_creator` / `safe_location_label`) only
+    # renders a label when city/region/country are present, so privacy
+    # is unchanged — there's no surface that exposes raw lat/lng to
+    # other users. Coords stay useful for proximity features; the user
+    # can add a city label later if they want a public location string.
     clean_source = "browser" if source == "browser" and has_coords else "manual"
     if not has_label and not has_coords:
         clean_source = ""
