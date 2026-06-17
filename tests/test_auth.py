@@ -266,9 +266,8 @@ def test_magic_link_sends_otp_and_sets_pending_role(
 
     assert fake_auth.last_otp_args is not None
     assert fake_auth.last_otp_args["email"] == "anna@example.com"
-    assert (
-        fake_auth.last_otp_args["options"]["email_redirect_to"]
-        .endswith("/auth/callback")
+    assert fake_auth.last_otp_args["options"]["email_redirect_to"] == (
+        "http://localhost:8000/auth/callback"
     )
     assert (
         fake_auth.last_otp_args["options"]["data"]["requested_role"] == "creator"
@@ -276,6 +275,34 @@ def test_magic_link_sends_otp_and_sets_pending_role(
 
     cookies = {c.name: c.value for c in client.cookies.jar}
     assert PENDING_ROLE_COOKIE in cookies
+
+
+def test_magic_link_prefers_canonical_public_app_url(
+    monkeypatch,
+    client: TestClient,
+    fake_auth: FakeAuth,
+    fake_service: FakeService,
+) -> None:
+    from app.routes import auth as auth_route
+
+    monkeypatch.setenv("APP_URL", "https://babyg.ai")
+    monkeypatch.setenv("PUBLIC_APP_URL", "https://www.babyg.ai/")
+    monkeypatch.setattr(
+        auth_route.magic_link_limiter,
+        "allow",
+        lambda *_args, **_kwargs: True,
+    )
+
+    r = client.post(
+        "/auth/magic-link",
+        data={"email": "anna@example.com", "role": "creator"},
+    )
+
+    assert r.status_code == 200
+    assert fake_auth.last_otp_args is not None
+    assert fake_auth.last_otp_args["options"]["email_redirect_to"] == (
+        "https://www.babyg.ai/auth/callback"
+    )
 
 
 def test_magic_link_rejects_invalid_email(
@@ -354,6 +381,46 @@ def test_callback_creates_creator_row_and_redirects(
 
     cookies = {c.name: c.value for c in client.cookies.jar}
     assert SESSION_COOKIE in cookies
+
+
+def test_callback_creates_creator_from_metadata_without_pending_cookie(
+    client: TestClient, fake_auth: FakeAuth, fake_service: FakeService
+) -> None:
+    fake_auth.verify_response = SimpleNamespace(
+        user=SimpleNamespace(
+            id="cross-browser-user",
+            email="cross-browser@example.com",
+            user_metadata={"requested_role": "creator"},
+        )
+    )
+
+    r = client.get("/auth/callback?token_hash=abc&type=email")
+
+    assert r.status_code == 302
+    assert r.headers["location"] == "/creator"
+    users_insert = next(p for n, p in fake_service.inserts if n == "users")
+    assert users_insert == {
+        "id": "cross-browser-user",
+        "email": "cross-browser@example.com",
+        "role": "creator",
+    }
+
+
+def test_callback_does_not_trust_operator_role_from_metadata(
+    client: TestClient, fake_auth: FakeAuth, fake_service: FakeService
+) -> None:
+    fake_auth.verify_response = SimpleNamespace(
+        user=SimpleNamespace(
+            id="untrusted-operator",
+            email="untrusted@example.com",
+            user_metadata={"requested_role": "operator"},
+        )
+    )
+
+    r = client.get("/auth/callback?token_hash=abc&type=email")
+
+    assert r.status_code == 400
+    assert fake_service.inserts == []
 
 
 def test_callback_accepts_confirmation_url_fragment_bridge_tokens(

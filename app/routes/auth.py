@@ -16,11 +16,12 @@ Flow:
           "check your email" page — but we skip the actual send for
           unauthorized operator emails.
        c. Calls supabase.auth.sign_in_with_otp(email, options={
-              'email_redirect_to': APP_URL + '/auth/callback',
+              'email_redirect_to': PUBLIC_APP_URL + '/auth/callback',
               'data': {'requested_role': role},  # stored on user_metadata
           }).
-       d. Sets a 10-minute signed cookie remembering the requested role,
-          so the callback knows what role to assign for first-time signups.
+       d. Sets a 10-minute signed cookie remembering the requested role.
+          The callback also accepts the signed-up user's metadata as a
+          creator-only fallback when the email opens in another browser.
        e. Renders auth/magic_link_sent.html.
 
   3. GET/POST /auth/callback
@@ -121,7 +122,7 @@ async def magic_link(
         )
 
     settings = get_settings()
-    redirect_to = f"{settings.app_url.rstrip('/')}/auth/callback"
+    redirect_to = settings.magic_link_callback_url
 
     # Operator gate: only existing operators may receive a link. We render
     # the same confirmation page either way to avoid an enumeration oracle.
@@ -283,10 +284,22 @@ async def callback(request: Request):
     if not auth_email:
         return _callback_error(request, message="Your account is missing an email address.")
 
-    # Step 2: figure out the babyg role. Existing user wins; otherwise we use
-    # the pending-role cookie (set when /magic-link was POSTed).
+    # Step 2: figure out the babyg role. Existing user wins; otherwise prefer
+    # the signed pending-role cookie. Email apps commonly open links in a
+    # different browser, so the cookie can be absent on first signup. In that
+    # case user_metadata is only a role hint: it is accepted exclusively for
+    # server-approved self-signup roles and never for operator authorization.
     pending_role = read_pending_role(request)
-    requested_role = pending_role if pending_role in VALID_ROLES else None
+    user_metadata = getattr(user, "user_metadata", None)
+    metadata_role = (
+        user_metadata.get("requested_role") if isinstance(user_metadata, dict) else None
+    )
+    if pending_role in VALID_ROLES:
+        requested_role = pending_role
+    elif metadata_role in SELF_SIGNUP_ROLES:
+        requested_role = metadata_role
+    else:
+        requested_role = None
 
     role, _just_created = _ensure_user_row(
         auth_user_id=auth_user_id,

@@ -52,14 +52,14 @@ the user clicks the link in their email.
 1. Go to **Authentication → URL Configuration**
    `https://supabase.com/dashboard/project/<your-project-ref>/auth/url-configuration`
 
-2. **Site URL**: set to your eventual prod URL.
+2. **Site URL**: set to `https://www.babyg.ai`.
    - If you haven't set up the custom domain yet, use the Railway-provided
      URL temporarily (you'll get one in step 4 — `https://babyg-xxxx.up.railway.app`).
    - You'll come back here later to swap to your custom domain.
 
 3. **Redirect URLs (allowlist)** — add these exact entries, one per line:
    ```
-   https://your-prod-domain.com/auth/callback
+   https://www.babyg.ai/auth/callback
    https://babyg-xxxx.up.railway.app/auth/callback
    http://localhost:8000/auth/callback
    ```
@@ -110,12 +110,18 @@ SMTP, branded from-address, and gives you 100 free emails/day forever.
 4. Test: from the same page, **Send test email** to your own address.
    It should arrive within seconds, from `babyg@mail.your-domain.com`.
 
-### 3c. (Optional but recommended) Customize the magic-link email
+### 3c. Configure signup and magic-link emails
 
-Same page → **Email Templates → Magic Link**. Replace the default body
-with something on-brand. The subject line is what your users will see in
-their inbox notifications, so make it short and obvious — e.g.
-`Your sign-in link for babyg`.
+Same page → **Email Templates**. Configure both templates because Supabase
+uses **Confirm signup** for a new email address and **Magic Link** for a
+returning user:
+
+- **Confirm signup**: use `docs/supabase-confirm-signup-template.html`.
+- **Magic Link**: use `docs/supabase-magic-link-template.html`.
+
+Both build a server-side callback link with `token_hash`; do not replace
+them with the default `{{ .ConfirmationURL }}` link. Set the subjects to
+`Confirm your babyg signup` and `Your sign-in link for babyg`, respectively.
 
 ---
 
@@ -138,6 +144,7 @@ real value.
 ```
 ENV=production
 APP_URL=https://babyg-xxxx.up.railway.app
+PUBLIC_APP_URL=https://www.babyg.ai
 
 SESSION_SECRET=<run: python -c "import secrets; print(secrets.token_urlsafe(48))">
 
@@ -281,7 +288,7 @@ If you want `babyg.com` instead of `babyg-xxxx.up.railway.app`:
 2. Enter your domain (e.g. `app.babyg.com` or `babyg.com`)
 3. Railway shows DNS records — add them in your registrar
 4. Wait for verification (5-60 minutes typically)
-5. **Update `APP_URL` env var** in Railway to the new domain
+5. **Update `PUBLIC_APP_URL`** in Railway to the canonical public domain
 6. **Update Supabase Site URL + Redirect URLs** (step 2) to include the
    new domain. Keep the railway.app URL in the allowlist as a fallback
    while you verify.
