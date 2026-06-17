@@ -6,34 +6,37 @@
 {% set mode = discovery_mode or "both" %}
 <div class="wrap network-swipe-wrap">
   <header class="network-swipe-head" aria-label="network controls">
-    <nav class="network-section-tabs" aria-label="network sections">
-      <a class="btn btn-ghost btn-sm" href="/creator/connections">
-        connections{% if pending_in %} · {{ pending_in }} pending{% endif %}
-      </a>
-      <a class="btn btn-ghost btn-sm" href="/creator/jobs">postings</a>
-      <a class="btn btn-ghost btn-sm" href="/creator/dm">inbox</a>
-    </nav>
-    <div class="network-head-actions">
-      {% if can_undo %}
-      <form method="post" action="/creator/network/undo" class="network-undo-form">
-        {% include "_partials/csrf.html" %}
-        <input type="hidden" name="mode" value="{{ mode }}" />
-        <button type="submit" class="btn btn-ghost btn-sm" data-network-undo aria-label="undo last pass">
-          ↩ undo pass
-        </button>
-      </form>
-      {% endif %}
-      <a class="btn btn-lime btn-sm network-new-posting" href="/creator/jobs/new" aria-label="create a new posting">new posting
-        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 9L9 3M9 3H4M9 3V8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      </a>
+    <div class="network-control-stack">
+      <nav class="network-section-tabs" aria-label="network sections">
+        <a class="btn btn-ghost btn-sm" href="/creator/connections">
+          connections{% if pending_in %} · {{ pending_in }} pending{% endif %}
+        </a>
+        <a class="btn btn-ghost btn-sm" href="/creator/jobs">postings</a>
+        <a class="btn btn-ghost btn-sm" href="/creator/dm">messages</a>
+      </nav>
+
+      <nav class="network-mode-tabs" aria-label="discovery mode">
+        <a href="/creator/network?mode=people" class="{{ 'active' if mode == 'people' }}" {% if mode == 'people' %}aria-current="page"{% endif %}>people</a>
+        <a href="/creator/network?mode=postings" class="{{ 'active' if mode == 'postings' }}" {% if mode == 'postings' %}aria-current="page"{% endif %}>postings</a>
+        <a href="/creator/network?mode=both" class="{{ 'active' if mode == 'both' }}" {% if mode == 'both' %}aria-current="page"{% endif %}>both</a>
+      </nav>
+
+      <div class="network-head-actions">
+        {% if can_undo %}
+        <form method="post" action="/creator/network/undo" class="network-undo-form">
+          {% include "_partials/csrf.html" %}
+          <input type="hidden" name="mode" value="{{ mode }}" />
+          <button type="submit" class="btn btn-ghost btn-sm" data-network-undo aria-label="undo last pass">
+            ↩ undo pass
+          </button>
+        </form>
+        {% endif %}
+        <a class="btn btn-lime btn-sm network-new-posting" href="/creator/jobs/new" aria-label="create a new posting">new posting
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 9L9 3M9 3H4M9 3V8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </a>
+      </div>
     </div>
   </header>
-
-  <nav class="network-mode-tabs" aria-label="discovery mode">
-    <a href="/creator/network?mode=both" class="{{ 'active' if mode == 'both' }}" {% if mode == 'both' %}aria-current="page"{% endif %}>both</a>
-    <a href="/creator/network?mode=people" class="{{ 'active' if mode == 'people' }}" {% if mode == 'people' %}aria-current="page"{% endif %}>people</a>
-    <a href="/creator/network?mode=postings" class="{{ 'active' if mode == 'postings' }}" {% if mode == 'postings' %}aria-current="page"{% endif %}>postings</a>
-  </nav>
 
   {% if stack %}
     {% set card = stack[0] %}
