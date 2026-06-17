@@ -80,3 +80,25 @@ def test_instagram_redirect_uri_alias(monkeypatch):
     monkeypatch.setenv("META_REDIRECT_URI", "https://example.test/cb")
     s = Settings()
     assert s.instagram_redirect_uri == "https://example.test/cb"
+
+
+def test_magic_link_callback_uses_public_app_url(monkeypatch):
+    monkeypatch.setenv("APP_URL", "https://internal.example")
+    monkeypatch.setenv("PUBLIC_APP_URL", "https://www.babyg.ai/")
+    s = Settings()
+    assert s.magic_link_callback_url == "https://www.babyg.ai/auth/callback"
+
+
+def test_magic_link_callback_accepts_site_url_alias(monkeypatch):
+    monkeypatch.delenv("PUBLIC_APP_URL", raising=False)
+    monkeypatch.setenv("SITE_URL", "https://www.babyg.ai")
+    s = Settings()
+    assert s.magic_link_callback_url == "https://www.babyg.ai/auth/callback"
+
+
+def test_magic_link_callback_falls_back_to_app_url(monkeypatch):
+    monkeypatch.delenv("PUBLIC_APP_URL", raising=False)
+    monkeypatch.delenv("SITE_URL", raising=False)
+    monkeypatch.setenv("APP_URL", "http://localhost:8000/")
+    s = Settings()
+    assert s.magic_link_callback_url == "http://localhost:8000/auth/callback"

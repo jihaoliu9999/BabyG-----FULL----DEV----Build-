@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     # Application
     env: Literal["dev", "staging", "production"] = "dev"
     app_url: str = "http://localhost:8000"
+    public_app_url: str = Field(
+        default="",
+        validation_alias=AliasChoices("PUBLIC_APP_URL", "SITE_URL"),
+    )
     session_secret: str = "dev-only-not-secure-replace-me"
 
     # Supabase
@@ -92,6 +96,12 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.env == "production"
+
+    @property
+    def magic_link_callback_url(self) -> str:
+        """Public callback used only by Supabase passwordless email auth."""
+        public_origin = self.public_app_url or self.app_url
+        return f"{public_origin.rstrip('/')}/auth/callback"
 
 
 @lru_cache(maxsize=1)
