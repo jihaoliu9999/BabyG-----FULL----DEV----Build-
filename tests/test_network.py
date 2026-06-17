@@ -25,6 +25,7 @@ from app.main import app
 from app.services import abuse as abuse_module
 from app.services import dms as dms_module
 from app.services import intel as intel_module
+from app.services import jobs as jobs_module
 from app.services import network as network_module
 from app.services import notifications as notifications_module
 from app.services import profiles as profiles_module
@@ -257,6 +258,8 @@ def world(monkeypatch) -> FakeWorld:
     monkeypatch.setattr(notifications_module, "list_unread", lambda uid, *, limit=10: [])
     monkeypatch.setattr(notifications_module, "unread_count", lambda uid: 0)
     monkeypatch.setattr(dms_module, "unread_count_for_user", lambda uid: 0)
+    monkeypatch.setattr(jobs_module, "list_active", lambda **kw: [])
+    monkeypatch.setattr(jobs_module, "get", lambda listing_id: None)
 
     # connection accept/decline now records audit; stub it.
     from app.services import audit as audit_module
@@ -326,6 +329,53 @@ def test_directory_requires_creator_role(client, world):
     _signed_in(client, role="operator", user_id="op-1")
     r = client.get("/creator/network")
     assert r.status_code == 403
+
+
+def test_network_postings_mode_renders_posting_card(client, world, monkeypatch):
+    _signed_in(client, role="creator", user_id="c-1")
+    world.add_creator(user_id="c-1", full_name="Me Self")
+    world.add_creator(user_id="c-2", full_name="Poster Creator")
+    listing = {
+        "id": "job-1",
+        "poster_user_id": "c-2",
+        "title": "paid reel slot",
+        "description": "need one clean dinner reel.",
+        "listing_type": "brand_deal",
+        "compensation_text": "$500",
+        "deadline": "2026-06-20T12:00:00",
+        "target_niches": ["food"],
+        "is_active": True,
+        "is_taken_down": False,
+    }
+    monkeypatch.setattr(jobs_module, "list_active", lambda **kw: [listing])
+    monkeypatch.setattr(jobs_module, "get", lambda listing_id: listing)
+
+    r = client.get("/creator/network?mode=postings")
+
+    assert r.status_code == 200
+    assert "paid reel slot" in r.text
+    assert "view posting" in r.text
+    assert "connect with this creator" not in r.text
+
+
+def test_network_posting_pass_redirects_with_skip(client, world, monkeypatch):
+    _signed_in(client, role="creator", user_id="c-1")
+    world.add_creator(user_id="c-1")
+    listing = {
+        "id": "job-1",
+        "poster_user_id": "c-2",
+        "is_active": True,
+        "is_taken_down": False,
+    }
+    monkeypatch.setattr(jobs_module, "get", lambda listing_id: listing)
+
+    r = client.post(
+        "/creator/network/posting",
+        data={"listing_id": "job-1", "action": "passed", "mode": "postings"},
+    )
+
+    assert r.status_code == 303
+    assert r.headers["location"] == "/creator/network?mode=postings&skip_posting=job-1"
 
 
 # -----------------------------------------------------------------------------

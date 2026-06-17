@@ -67,13 +67,9 @@
           inbox
           {% if unread_dms is defined and unread_dms and unread_dms > 0 %}<span class="count">{{ unread_dms }}</span>{% endif %}
         </a>
-        <a href="/creator/network" data-tab="network" class="{{ 'active' if cp.startswith('/creator/network') or cp.startswith('/creator/connections') }}">
+        <a href="/creator/network" data-tab="network" class="{{ 'active' if cp.startswith('/creator/network') or cp.startswith('/creator/connections') or cp.startswith('/creator/jobs') }}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="9" cy="8" r="3"/><circle cx="18" cy="16" r="3"/><path d="M3 21c0-3.3 2.6-6 6-6M21 21c0-1.6-.6-3.2-1.8-4.3"/></svg>
           network
-        </a>
-        <a href="/creator/jobs" data-tab="listings" class="{{ 'active' if cp.startswith('/creator/jobs') }}">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="8" width="18" height="13" rx="2"/><path d="M8 8V5a2 2 0 012-2h4a2 2 0 012 2v3"/></svg>
-          postings
         </a>
         <a href="/creator/performance" data-tab="stats" class="{{ 'active' if cp.startswith('/creator/performance') or cp.startswith('/creator/receipts') or cp.startswith('/creator/views') }}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 21V10M9 21V3M15 21v-8M21 21V14"/></svg>

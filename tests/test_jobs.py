@@ -228,7 +228,8 @@ def test_creator_jobs_board_renders(client, world):
     r = client.get("/creator/jobs")
     assert r.status_code == 200
     assert "Need a UGC partner" in r.text
-    assert "creator postings" in r.text
+    assert "postings" in r.text
+    assert "creator postings" not in r.text
 
 
 def test_creator_jobs_create(client, world):

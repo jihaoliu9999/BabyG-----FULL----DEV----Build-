@@ -709,6 +709,8 @@ async def network_swipe_page(
     request: Request,
     session: SessionPayload = Depends(require_role("creator")),
     bring_back: str | None = Query(default=None),
+    mode: str = Query(default="both"),
+    skip_posting: str | None = Query(default=None),
 ) -> Response:
     """Swipe-style discovery feed.
 
@@ -726,10 +728,25 @@ async def network_swipe_page(
     card.
     """
     user_id = session["user_id"]
-    stack = discovery.next_stack_for(user_id, prioritize_user_id=bring_back or None)
+    discovery_mode = _clean_network_mode(mode)
+    people_stack = (
+        discovery.next_stack_for(user_id, prioritize_user_id=bring_back or None)
+        if discovery_mode in {"people", "both"}
+        else []
+    )
+    people_cards = [_network_creator_card(row) for row in people_stack]
+    posting_cards = (
+        _network_posting_cards(
+            user_id=user_id,
+            skip_ids={skip_posting} if skip_posting else set(),
+        )
+        if discovery_mode in {"postings", "both"}
+        else []
+    )
+    stack = _merge_network_cards(people_cards, posting_cards, discovery_mode)
     pending_in = len(network.list_incoming_pending(user_id))
     can_undo = discovery.last_undoable_pass(user_id) is not None
-    if stack:
+    if stack and stack[0].get("card_type") == "person":
         # Record a view for the top card. Best-effort — never blocks
         # the render.
         discovery.record_action(
@@ -740,12 +757,18 @@ async def network_swipe_page(
     return templates.TemplateResponse(
         request,
         "creator/network_swipe.html",
-        {"stack": stack, "pending_in": pending_in, "can_undo": can_undo},
+        {
+            "stack": stack,
+            "pending_in": pending_in,
+            "can_undo": can_undo,
+            "discovery_mode": discovery_mode,
+        },
     )
 
 
 @router.post("/creator/network/undo")
 async def network_undo_pass(
+    mode: str = Form("both"),
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
     """Undo the viewer's most recent pass.
@@ -759,13 +782,15 @@ async def network_undo_pass(
     target_id = discovery.last_undoable_pass(user_id)
     if not target_id:
         return RedirectResponse("/creator/network", status_code=303)
+    discovery_mode = _clean_network_mode(mode)
     discovery.record_action(
         user_id=user_id,
         target_user_id=target_id,
         action_type="undo_pass",
     )
     return RedirectResponse(
-        f"/creator/network?bring_back={target_id}", status_code=303
+        f"/creator/network?mode={discovery_mode}&bring_back={target_id}",
+        status_code=303,
     )
 
 
@@ -773,6 +798,7 @@ async def network_undo_pass(
 async def network_swipe_action(
     target_user_id: str = Form(...),
     action: str = Form(...),
+    mode: str = Form("both"),
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
     """Record a swipe action and redirect back to the swipe page.
@@ -787,6 +813,7 @@ async def network_swipe_action(
     """
     user_id = session["user_id"]
     action_clean = (action or "").strip().lower()
+    discovery_mode = _clean_network_mode(mode)
     if action_clean not in {"passed", "connected", "skipped", "opened_profile"}:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
     if target_user_id == user_id:
@@ -817,7 +844,41 @@ async def network_swipe_action(
         return RedirectResponse(
             f"/creator/network/{target_user_id}", status_code=303
         )
-    return RedirectResponse("/creator/network", status_code=303)
+    return RedirectResponse(f"/creator/network?mode={discovery_mode}", status_code=303)
+
+
+@router.post("/creator/network/posting")
+async def network_posting_action(
+    listing_id: str = Form(...),
+    action: str = Form(...),
+    mode: str = Form("both"),
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    """Creator discovery action for postings.
+
+    Posting storage does not currently have a durable per-viewer pass
+    ledger. This route keeps the no-JS action path working and excludes
+    a passed posting from the immediate refreshed stack without changing
+    schema or repurposing the user-to-user discovery table.
+    """
+    listing = jobs.get(listing_id)
+    if listing is None or listing.get("is_taken_down"):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    is_mine = str(listing.get("poster_user_id") or "") == session["user_id"]
+    if not is_mine and not listing.get("is_active"):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+
+    action_clean = (action or "").strip().lower()
+    if action_clean not in {"passed", "opened_posting"}:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
+    if action_clean == "opened_posting":
+        return RedirectResponse(f"/creator/jobs/{listing_id}", status_code=303)
+
+    discovery_mode = _clean_network_mode(mode)
+    return RedirectResponse(
+        f"/creator/network?mode={discovery_mode}&skip_posting={listing_id}",
+        status_code=303,
+    )
 
 
 @router.get("/creator/network/{peer_user_id}", response_class=HTMLResponse)
@@ -987,6 +1048,104 @@ def _connection_state(connection, *, me_id: str) -> str:
             else "incoming_pending"
         )
     return "none"
+
+
+_NETWORK_MODES = {"people", "postings", "both"}
+
+
+def _clean_network_mode(mode: str | None) -> str:
+    mode_clean = (mode or "both").strip().lower()
+    return mode_clean if mode_clean in _NETWORK_MODES else "both"
+
+
+def _merge_network_cards(
+    people_cards: list[dict],
+    posting_cards: list[dict],
+    mode: str,
+) -> list[dict]:
+    if mode == "people":
+        return people_cards
+    if mode == "postings":
+        return posting_cards
+
+    merged: list[dict] = []
+    max_len = max(len(people_cards), len(posting_cards))
+    for idx in range(max_len):
+        if idx < len(people_cards):
+            merged.append(people_cards[idx])
+        if idx < len(posting_cards):
+            merged.append(posting_cards[idx])
+    return merged
+
+
+def _network_creator_card(row: dict) -> dict:
+    card = dict(row)
+    card["card_type"] = "person"
+    card["display_name"] = _public_network_name(card)
+    card["public_role_label"] = _public_network_role(card)
+    return card
+
+
+def _network_posting_cards(
+    *,
+    user_id: str,
+    skip_ids: set[str],
+    limit: int = 8,
+) -> list[dict]:
+    listings = jobs.list_active(limit=limit)
+    poster_ids = sorted({str(row.get("poster_user_id") or "") for row in listings})
+    poster_profiles = profiles.get_creators_by_ids([pid for pid in poster_ids if pid])
+    cards: list[dict] = []
+    for row in listings:
+        listing_id = str(row.get("id") or "")
+        if not listing_id or listing_id in skip_ids:
+            continue
+        poster_id = str(row.get("poster_user_id") or "")
+        poster = poster_profiles.get(poster_id) or {}
+        cards.append(
+            {
+                "card_type": "posting",
+                "id": listing_id,
+                "poster_user_id": poster_id,
+                "title": (row.get("title") or "posting").strip(),
+                "description": (row.get("description") or "").strip(),
+                "listing_type": str(row.get("listing_type") or "posting").replace(
+                    "_", " "
+                ),
+                "compensation_text": row.get("compensation_text"),
+                "deadline": row.get("deadline"),
+                "target_niches": row.get("target_niches") or [],
+                "poster_name": _public_network_name(poster),
+                "poster_role_label": _public_network_role(poster),
+                "is_mine": poster_id == user_id,
+            }
+        )
+    return cards
+
+
+def _public_network_name(profile: dict | None) -> str:
+    if not profile:
+        return "creator"
+    raw = (
+        str(profile.get("full_name") or "").strip()
+        or str(profile.get("instagram_handle") or "").strip()
+        or "creator"
+    )
+    cleaned = re.sub(r"^\s*(operator|admin)\s+", "", raw, flags=re.I).strip()
+    return cleaned or "creator"
+
+
+def _public_network_role(profile: dict | None) -> str:
+    if not profile:
+        return "creator"
+    raw = str(
+        profile.get("public_role")
+        or profile.get("profile_type")
+        or profile.get("account_type")
+        or profile.get("role")
+        or ""
+    ).lower()
+    return "brand" if "brand" in raw else "creator"
 
 
 # -----------------------------------------------------------------------------

@@ -3,84 +3,147 @@
 {% block title %}network — babyg{% endblock %}
 
 {% block content %}
+{% set mode = discovery_mode or "both" %}
 <div class="wrap network-swipe-wrap">
-  <header class="network-swipe-head">
-    <div class="title-block">
-      <span class="mono eyebrow">network</span>
-      <p class="sub">browse creators one at a time. pass, connect, or open the full profile.</p>
-    </div>
-    <div class="actions" style="display:flex;gap:8px;flex-wrap:wrap;">
-      {% if can_undo %}
-      <form method="post" action="/creator/network/undo" class="network-undo-form" style="margin:0;">
-        {% include "_partials/csrf.html" %}
-        <button type="submit" class="btn btn-ghost btn-sm" data-network-undo aria-label="undo last pass">
-          ↩ undo pass
-        </button>
-      </form>
-      {% endif %}
+  <header class="network-swipe-head" aria-label="network controls">
+    <nav class="network-section-tabs" aria-label="network sections">
       <a class="btn btn-ghost btn-sm" href="/creator/connections">
         connections{% if pending_in %} · {{ pending_in }} pending{% endif %}
       </a>
       <a class="btn btn-ghost btn-sm" href="/creator/jobs">postings</a>
       <a class="btn btn-ghost btn-sm" href="/creator/dm">inbox</a>
+    </nav>
+    <div class="network-head-actions">
+      {% if can_undo %}
+      <form method="post" action="/creator/network/undo" class="network-undo-form">
+        {% include "_partials/csrf.html" %}
+        <input type="hidden" name="mode" value="{{ mode }}" />
+        <button type="submit" class="btn btn-ghost btn-sm" data-network-undo aria-label="undo last pass">
+          ↩ undo pass
+        </button>
+      </form>
+      {% endif %}
+      <a class="btn btn-lime btn-sm network-new-posting" href="/creator/jobs/new" aria-label="create a new posting">new posting
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 9L9 3M9 3H4M9 3V8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </a>
     </div>
   </header>
 
+  <nav class="network-mode-tabs" aria-label="discovery mode">
+    <a href="/creator/network?mode=both" class="{{ 'active' if mode == 'both' }}" {% if mode == 'both' %}aria-current="page"{% endif %}>both</a>
+    <a href="/creator/network?mode=people" class="{{ 'active' if mode == 'people' }}" {% if mode == 'people' %}aria-current="page"{% endif %}>people</a>
+    <a href="/creator/network?mode=postings" class="{{ 'active' if mode == 'postings' }}" {% if mode == 'postings' %}aria-current="page"{% endif %}>postings</a>
+  </nav>
+
   {% if stack %}
-    {% set creator = stack[0] %}
+    {% set card = stack[0] %}
+    {% if card.card_type == "posting" %}
     <section
-      class="network-swipe-card"
+      class="network-swipe-card network-swipe-posting-card"
       data-network-swipe-card
-      data-target-id="{{ creator.user_id }}"
+      data-network-kind="posting"
+      data-target-id="{{ card.id }}"
+      aria-label="discover posting"
+    >
+      <div class="network-posting-body">
+        <div class="network-card-topline">
+          <span class="network-role-badge network-role-badge-posting">posting</span>
+          {% if card.poster_role_label %}
+          <span class="network-role-badge network-role-badge-{{ card.poster_role_label }}">{{ card.poster_role_label }}</span>
+          {% endif %}
+        </div>
+        <h1>{{ card.title }}</h1>
+        {% if card.poster_name %}
+        <p class="network-posting-poster">from {{ card.poster_name }}</p>
+        {% endif %}
+        {% if card.description %}
+        <p class="network-swipe-bio">{{ card.description }}</p>
+        {% endif %}
+        <div class="network-posting-details" aria-label="posting details">
+          {% if card.listing_type %}<span>{{ card.listing_type }}</span>{% endif %}
+          {% if card.compensation_text %}<span>{{ card.compensation_text }}</span>{% endif %}
+          {% if card.deadline %}<span>due {{ card.deadline|short_dt }}</span>{% endif %}
+        </div>
+        {% if card.target_niches %}
+        <div class="tag-row tag-row-tight" aria-label="target niches">
+          {% for n in (card.target_niches or [])[:5] %}<span class="tag">{{ n }}</span>{% endfor %}
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="network-swipe-actions" role="group" aria-label="posting actions">
+        <form method="post" action="/creator/network/posting" class="network-swipe-form" data-network-action="passed">
+          {% include "_partials/csrf.html" %}
+          <input type="hidden" name="listing_id" value="{{ card.id }}" />
+          <input type="hidden" name="mode" value="{{ mode }}" />
+          <input type="hidden" name="action" value="passed" />
+          <button type="submit" class="btn btn-ghost btn-lg" aria-label="pass on this posting" data-action-btn="passed">pass</button>
+        </form>
+        <form method="post" action="/creator/network/posting" class="network-swipe-form" data-network-action="opened_posting">
+          {% include "_partials/csrf.html" %}
+          <input type="hidden" name="listing_id" value="{{ card.id }}" />
+          <input type="hidden" name="mode" value="{{ mode }}" />
+          <input type="hidden" name="action" value="opened_posting" />
+          <button type="submit" class="btn btn-lime btn-lg" aria-label="view posting" data-action-btn="opened_posting">view posting</button>
+        </form>
+      </div>
+    </section>
+    {% else %}
+    <section
+      class="network-swipe-card network-swipe-person-card"
+      data-network-swipe-card
+      data-network-kind="person"
+      data-target-id="{{ card.user_id }}"
       aria-label="discover creator"
     >
       <div class="network-swipe-hero">
-        {% if creator.profile_photo_url %}
+        {% if card.profile_photo_url %}
           <img
             class="network-swipe-photo"
-            src="{{ creator.profile_photo_url|safe_url }}{% if creator.updated_at %}?v={{ creator.updated_at|short_dt|replace(' ', 'T')|replace(':', '-') }}{% endif %}"
-            alt="{{ (creator.full_name or creator.instagram_handle or 'creator') }}"
+            src="{{ card.profile_photo_url|safe_url }}{% if card.updated_at %}?v={{ card.updated_at|short_dt|replace(' ', 'T')|replace(':', '-') }}{% endif %}"
+            alt="{{ (card.display_name or card.instagram_handle or 'creator') }}"
             loading="eager"
             decoding="async"
           />
         {% else %}
           <span class="network-swipe-photo network-swipe-photo-fallback" aria-hidden="true">
-            {{ (creator.full_name or creator.instagram_handle or 'C')[:1]|upper }}
+            {{ (card.display_name or card.instagram_handle or 'C')[:1]|upper }}
           </span>
         {% endif %}
         <div class="network-swipe-gradient"></div>
         <div class="network-swipe-hero-text">
-          <h1>{{ creator.full_name or "Creator" }}</h1>
-          {% if creator.instagram_handle %}
-            <p class="network-swipe-handle">@{{ creator.instagram_handle }}</p>
+          <span class="network-role-badge network-role-badge-{{ card.public_role_label or 'creator' }}">{{ card.public_role_label or 'creator' }}</span>
+          <h1>{{ card.display_name or "creator" }}</h1>
+          {% if card.instagram_handle %}
+            <p class="network-swipe-handle">@{{ card.instagram_handle }}</p>
           {% endif %}
-          {% if creator.location_label %}
-            <p class="network-swipe-location">{{ creator.location_label }}</p>
+          {% if card.location_label %}
+            <p class="network-swipe-location">{{ card.location_label }}</p>
           {% endif %}
         </div>
       </div>
 
       <div class="network-swipe-body">
-        {% if creator.bio %}
-        <p class="network-swipe-bio">{{ creator.bio }}</p>
+        {% if card.bio %}
+        <p class="network-swipe-bio">{{ card.bio }}</p>
         {% endif %}
 
-        {% if creator.niches %}
+        {% if card.niches %}
         <div class="tag-row tag-row-tight" aria-label="niches">
-          {% for n in (creator.niches or [])[:6] %}<span class="tag">{{ n }}</span>{% endfor %}
+          {% for n in (card.niches or [])[:6] %}<span class="tag">{{ n }}</span>{% endfor %}
         </div>
         {% endif %}
 
-        {% if creator.content_formats %}
+        {% if card.content_formats %}
         <div class="tag-row tag-row-tight" aria-label="content formats">
-          {% for f in (creator.content_formats or [])[:6] %}<span class="tag tag-muted">{{ f }}</span>{% endfor %}
+          {% for f in (card.content_formats or [])[:6] %}<span class="tag tag-muted">{{ f }}</span>{% endfor %}
         </div>
         {% endif %}
 
-        {% if creator.follower_range or creator.primary_platform %}
+        {% if card.follower_range or card.primary_platform %}
         <div class="network-swipe-meta">
-          {% if creator.primary_platform %}<span>{{ creator.primary_platform }}</span>{% endif %}
-          {% if creator.follower_range %}<span>{{ creator.follower_range }} followers</span>{% endif %}
+          {% if card.primary_platform %}<span>{{ card.primary_platform }}</span>{% endif %}
+          {% if card.follower_range %}<span>{{ card.follower_range }} followers</span>{% endif %}
         </div>
         {% endif %}
       </div>
@@ -88,47 +151,43 @@
       <div class="network-swipe-actions" role="group" aria-label="discovery actions">
         <form method="post" action="/creator/network/swipe" class="network-swipe-form" data-network-action="passed">
           {% include "_partials/csrf.html" %}
-          <input type="hidden" name="target_user_id" value="{{ creator.user_id }}" />
+          <input type="hidden" name="target_user_id" value="{{ card.user_id }}" />
+          <input type="hidden" name="mode" value="{{ mode }}" />
           <input type="hidden" name="action" value="passed" />
           <button type="submit" class="btn btn-ghost btn-lg" aria-label="pass on this creator" data-action-btn="passed">pass</button>
         </form>
         <form method="post" action="/creator/network/swipe" class="network-swipe-form" data-network-action="opened_profile">
           {% include "_partials/csrf.html" %}
-          <input type="hidden" name="target_user_id" value="{{ creator.user_id }}" />
+          <input type="hidden" name="target_user_id" value="{{ card.user_id }}" />
+          <input type="hidden" name="mode" value="{{ mode }}" />
           <input type="hidden" name="action" value="opened_profile" />
           <button type="submit" class="btn btn-ghost btn-lg" aria-label="view full profile" data-action-btn="opened_profile">view profile</button>
         </form>
         <form method="post" action="/creator/network/swipe" class="network-swipe-form" data-network-action="connected">
           {% include "_partials/csrf.html" %}
-          <input type="hidden" name="target_user_id" value="{{ creator.user_id }}" />
+          <input type="hidden" name="target_user_id" value="{{ card.user_id }}" />
+          <input type="hidden" name="mode" value="{{ mode }}" />
           <input type="hidden" name="action" value="connected" />
           <button type="submit" class="btn btn-lime btn-lg" aria-label="connect with this creator" data-action-btn="connected">connect</button>
         </form>
       </div>
-
-      <p class="network-swipe-hint mono" aria-hidden="true">
-        ← pass · → connect · enter to view profile
-      </p>
     </section>
+    {% endif %}
 
-    {# Prefetch the next handful into a hidden DOM region so the swipe
-       JS can swap in the next card without an immediate round-trip.
-       Each one carries minimal data — the JS only needs target_user_id
-       to reuse the same form action; full content is re-rendered by
-       the next GET. #}
     <ul class="network-swipe-queue" hidden aria-hidden="true">
       {% for queued in stack[1:6] %}
-      <li data-queued-target-id="{{ queued.user_id }}"></li>
+      <li data-queued-target-id="{{ queued.user_id or queued.id }}"></li>
       {% endfor %}
     </ul>
   {% else %}
     <section class="network-swipe-empty" aria-label="empty discovery stack">
       <span class="mono eyebrow">all caught up</span>
-      <h1>no new creators right now.</h1>
-      <p>check back soon, or update your profile (handle, niches, bio) so babyg matches you with more relevant creators.</p>
+      <h1>nothing new right now.</h1>
+      <p>check connections, open postings, or create a paid ask.</p>
       <div class="network-swipe-empty-cta">
-        <a class="btn btn-ghost btn-sm" href="/creator/profile">edit profile</a>
-        <a class="btn btn-ghost btn-sm" href="/creator/connections">your connections</a>
+        <a class="btn btn-ghost btn-sm" href="/creator/connections">connections</a>
+        <a class="btn btn-ghost btn-sm" href="/creator/jobs">postings</a>
+        <a class="btn btn-lime btn-sm" href="/creator/jobs/new">new posting</a>
       </div>
     </section>
   {% endif %}

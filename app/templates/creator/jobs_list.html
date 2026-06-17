@@ -5,18 +5,19 @@
 {% block content %}
 <div class="posting-page posting-index">
 <div class="wrap posting-shell">
-  <div class="page-header">
-    <div class="title-block">
-      <span class="mono eyebrow">creator postings</span>
-      <p class="sub">collabs, swaps, content days, paid work, and creator opportunities.</p>
-    </div>
-    <div class="actions">
+  <header class="posting-network-head" aria-label="network postings controls">
+    <nav class="network-section-tabs" aria-label="network sections">
+      <a class="btn btn-ghost btn-sm" href="/creator/connections">connections</a>
+      <a class="btn btn-ghost btn-sm active" href="/creator/jobs" aria-current="page">postings</a>
+      <a class="btn btn-ghost btn-sm" href="/creator/dm">inbox</a>
+    </nav>
+    <div class="actions posting-actions">
       <a class="btn btn-ghost btn-sm" href="/creator/jobs/mine">mine</a>
-      <a class="btn btn-lime btn-sm" href="/creator/jobs/new">new posting
+      <a class="btn btn-lime btn-sm posting-new-button" href="/creator/jobs/new" aria-label="create a new posting">new posting
         <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 9L9 3M9 3H4M9 3V8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </a>
     </div>
-  </div>
+  </header>
 
   {% if listings %}
   <div class="grid-2">
