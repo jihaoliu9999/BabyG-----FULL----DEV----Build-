@@ -185,7 +185,8 @@
           if (locationLng) locationLng.value = String(position.coords.longitude);
           if (locationSource) locationSource.value = "browser";
           if (locationStatus) {
-            locationStatus.textContent = "location captured. keep your city or region filled in.";
+            locationStatus.textContent =
+              "location captured. add a city or region if you want it shown on your profile.";
           }
           locationButton.removeAttribute("disabled");
         },

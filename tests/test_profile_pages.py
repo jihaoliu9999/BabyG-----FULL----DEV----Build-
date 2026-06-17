@@ -207,6 +207,50 @@ def test_creator_profile_location_rejects_invalid_lat_lng(
     assert saved == {}
 
 
+def test_creator_profile_location_saves_browser_coords_without_city(
+    monkeypatch, client: TestClient
+) -> None:
+    """The "use my location" flow should save successfully even when
+    the user didn't type a city. Public-projection privacy is
+    unchanged — coords without a label show no public location text,
+    but the row stores the lat/lng for proximity features."""
+    _signed_in(client, role="creator", user_id="creator-1")
+    saved: dict = {}
+
+    monkeypatch.setattr(
+        creator_routes.profiles, "get_creator_profile", lambda uid: _profile()
+    )
+    monkeypatch.setattr(
+        creator_routes.profiles,
+        "update_creator_profile",
+        lambda uid, payload: saved.update(payload) or True,
+    )
+
+    response = client.post(
+        "/creator/profile/location",
+        data={
+            "location_city": "",
+            "location_region": "",
+            "location_country": "",
+            "location_source": "browser",
+            "location_lat": "34.0522",
+            "location_lng": "-118.2437",
+        },
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/creator/profile?details=ok"
+    # Coords saved, source preserved as "browser" since coords are real.
+    assert saved["location_lat"] == 34.0522
+    assert saved["location_lng"] == -118.2437
+    assert saved["location_source"] == "browser"
+    # No public label fields — they weren't supplied.
+    assert saved["location_city"] is None
+    assert saved["location_region"] is None
+    assert saved["location_country"] is None
+
+
 def test_creator_profile_settings_page_renders(monkeypatch, client: TestClient) -> None:
     _signed_in(client, role="creator")
     monkeypatch.setattr(creator_routes.profiles, "get_creator_profile", lambda uid: _profile())
