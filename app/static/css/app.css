@@ -5034,10 +5034,25 @@ hr.hairline {
 /* ---------------------------------------------------------------
    Network discovery — swipe-style stack
    --------------------------------------------------------------- */
-.network-swipe-wrap { max-width: 620px; }
+.network-swipe-wrap {
+  max-width: 660px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
 .network-swipe-head {
-  display: flex; justify-content: space-between; align-items: center;
-  gap: 14px; margin-bottom: 18px; flex-wrap: wrap;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  margin-bottom: 18px;
+}
+.network-control-stack {
+  width: min(100%, 560px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
 }
 .network-section-tabs,
 .network-head-actions,
@@ -5047,6 +5062,26 @@ hr.hairline {
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
+}
+.network-section-tabs,
+.network-head-actions {
+  justify-content: center;
+}
+.network-section-tabs .btn,
+.network-head-actions .btn,
+.network-mode-tabs a {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-size: 12.5px;
+  line-height: 1;
+  white-space: nowrap;
+}
+.network-section-tabs .btn,
+.network-head-actions .btn {
+  padding: 0 18px;
 }
 .network-section-tabs .btn.active,
 .network-section-tabs .btn[aria-current="page"] {
@@ -5064,11 +5099,12 @@ hr.hairline {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  margin-bottom: 18px;
+  margin: 0;
+  flex-wrap: wrap;
 }
 .network-mode-tabs a {
   min-width: 88px;
-  padding: 10px 16px;
+  padding: 0 16px;
   border: 1px solid var(--hairline);
   border-radius: 999px;
   color: var(--ink-mid);
@@ -5091,6 +5127,7 @@ hr.hairline {
   background: var(--bone);
 }
 .network-swipe-card {
+  width: 100%;
   border: 1px solid var(--hairline);
   border-radius: 22px;
   background: var(--surface-1);
@@ -5290,6 +5327,26 @@ hr.hairline {
 @media (max-width: 600px) {
   /* Narrow phones: keep the flex centering but tighten the gap so
      all three pills stay on one row without wrapping. */
+  .network-swipe-wrap {
+    max-width: min(100%, 440px);
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+  .network-control-stack {
+    width: 100%;
+    gap: 10px;
+  }
+  .network-section-tabs,
+  .network-head-actions,
+  .network-mode-tabs {
+    width: 100%;
+    justify-content: center;
+  }
+  .network-section-tabs .btn,
+  .network-head-actions .btn,
+  .network-mode-tabs a {
+    min-height: 42px;
+  }
   .network-swipe-actions { gap: 8px; padding: 14px 14px 18px; }
   .network-swipe-form .btn { min-width: 92px; padding-left: 14px; padding-right: 14px; }
   .network-swipe-head,
@@ -5302,12 +5359,11 @@ hr.hairline {
     width: 100%;
   }
   .network-mode-tabs {
-    overflow-x: auto;
-    justify-content: flex-start;
+    overflow-x: visible;
     padding-bottom: 2px;
   }
   .network-mode-tabs a {
-    min-width: 82px;
+    min-width: 88px;
     flex: 0 0 auto;
   }
   .network-posting-body { padding: 22px; }
