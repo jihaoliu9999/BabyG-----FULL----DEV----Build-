@@ -18,6 +18,7 @@ from fastapi.testclient import TestClient
 from app.core.security import SESSION_COOKIE, write_session
 from app.main import app
 from app.services import discovery as discovery_module
+from app.services import jobs as jobs_module
 from app.services import network as network_module
 from app.services import notifications as notifications_module
 from app.services import profiles as profiles_module
@@ -95,6 +96,8 @@ class FakeWorld:
 @pytest.fixture()
 def world(monkeypatch) -> FakeWorld:
     w = FakeWorld()
+    monkeypatch.setattr(jobs_module, "list_active", lambda **kw: [])
+    monkeypatch.setattr(jobs_module, "get", lambda listing_id: None)
 
     # Onboarded creators feed.
     def _list_onboarded():
@@ -445,7 +448,7 @@ def test_swipe_page_renders_empty_state(world, client):
 
     r = client.get("/creator/network")
     assert r.status_code == 200
-    assert "no new creators right now" in r.text
+    assert "nothing new right now" in r.text
     # No view recorded when there's no card.
     assert all(a["action_type"] != "viewed" for a in world.actions)
 
@@ -465,7 +468,7 @@ def test_swipe_pass_records_action_and_redirects_to_stack(world, client):
         data={"target_user_id": "c-2", "action": "passed"},
     )
     assert r.status_code == 303
-    assert r.headers["location"] == "/creator/network"
+    assert r.headers["location"] == "/creator/network?mode=both"
     passed = [a for a in world.actions if a["action_type"] == "passed"]
     assert len(passed) == 1
     assert passed[0]["target_user_id"] == "c-2"

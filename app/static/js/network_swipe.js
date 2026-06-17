@@ -1,12 +1,12 @@
 /* Swipe-style network discovery — gesture + keyboard glue.
 
-   Progressive enhancement: the three forms (pass / view profile /
-   connect) work without JS, so a keyboard-only or no-JS visitor can
-   still drive the page. This file adds:
+   Progressive enhancement: the card action forms work without JS, so
+   a keyboard-only or no-JS visitor can still drive the page. This file
+   adds:
 
      * left-arrow  → submit the "pass" form
-     * right-arrow → submit the "connect" form
-     * enter/space → submit "view profile" only when its button is
+     * right-arrow → submit the primary positive form
+     * enter/space → submit the view action only when its button is
                      focused (Space/Enter on other buttons already
                      activates them natively)
      * pointer drag → translate the card. Past a threshold the
@@ -30,6 +30,8 @@
   const passForm = card.querySelector('[data-network-action="passed"]');
   const connectForm = card.querySelector('[data-network-action="connected"]');
   const profileForm = card.querySelector('[data-network-action="opened_profile"]');
+  const postingForm = card.querySelector('[data-network-action="opened_posting"]');
+  const rightForm = connectForm || postingForm;
 
   function submitForm(form) {
     if (!form) return;
@@ -50,16 +52,20 @@
       e.preventDefault();
       submitForm(passForm);
     } else if (e.key === "ArrowRight") {
+      if (!rightForm) return;
       e.preventDefault();
-      submitForm(connectForm);
+      submitForm(rightForm);
     } else if (e.key === "Enter" || e.key === " ") {
-      // Only intercept when the view-profile button is focused.
+      // Only intercept when the view button is focused.
       // Native button activation already handles Enter/Space on the
       // other two — letting it fire prevents double-submits.
       const focused = document.activeElement;
       if (
         focused &&
-        focused.getAttribute("data-action-btn") === "opened_profile"
+        (
+          focused.getAttribute("data-action-btn") === "opened_profile" ||
+          focused.getAttribute("data-action-btn") === "opened_posting"
+        )
       ) {
         // Native button activation will handle this; no preventDefault.
       }
@@ -99,7 +105,7 @@
   }
 
   function commit(direction) {
-    // direction: -1 = pass, +1 = connect
+    // direction: -1 = pass, +1 = positive action
     if (!reducedMotion) {
       card.style.transition = "transform 220ms ease, opacity 220ms ease";
       const off = (card.offsetWidth + 80) * (direction > 0 ? 1 : -1);
@@ -107,7 +113,7 @@
         "translate3d(" + off + "px, 0, 0) rotate(" + direction * 14 + "deg)";
       card.style.opacity = "0";
     }
-    submitForm(direction > 0 ? connectForm : passForm);
+    submitForm(direction > 0 ? rightForm : passForm);
   }
 
   card.addEventListener("pointerdown", function (e) {
