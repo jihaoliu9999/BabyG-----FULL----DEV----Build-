@@ -185,10 +185,17 @@
     <div class="settings-row">
       <span>status</span>
       <strong>
-        {% if profile.is_verified %}
+        {% set status = profile.verification_status or ('verified' if profile.is_verified else 'unverified') %}
+        {% if status == 'verified' %}
           <span style="color:var(--lime);">verified</span>
+        {% elif status == 'likely_legitimate' %}
+          <span style="color:var(--lime);">likely legitimate</span>
+        {% elif status == 'needs_review' %}
+          <span style="color:var(--accent);">needs review</span>
+        {% elif status in ['high_risk', 'blocked'] %}
+          <span style="color:var(--accent);">contact support</span>
         {% else %}
-          <span style="color:var(--ink-mid);">not verified yet</span>
+          <span style="color:var(--ink-mid);">unverified</span>
         {% endif %}
       </strong>
     </div>

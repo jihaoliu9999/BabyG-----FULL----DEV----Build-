@@ -5012,14 +5012,46 @@ hr.hairline {
   background: currentColor;
 }
 .operator-shell .status-active,
-.operator-shell .status-operator { color: var(--bone); }
+.operator-shell .status-operator,
+.operator-shell .status-positive,
+.operator-shell .status-pass { color: var(--bone); }
 .operator-shell .status-pending,
-.operator-shell .status-escalated { color: var(--lime); }
+.operator-shell .status-escalated,
+.operator-shell .status-caution,
+.operator-shell .status-warn { color: var(--lime); }
 .operator-shell .status-draft,
 .operator-shell .status-archived,
 .operator-shell .status-creator,
 .operator-shell .status-actioned,
-.operator-shell .status-dismissed { color: var(--ink-dim); }
+.operator-shell .status-dismissed,
+.operator-shell .status-neutral,
+.operator-shell .status-inconclusive { color: var(--ink-dim); }
+.operator-shell .status-risk,
+.operator-shell .status-fail { color: var(--accent); }
+.operator-shell .op-trust-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+.operator-shell .op-trust-summary > div {
+  padding: 16px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 14px;
+  background: var(--surface-1);
+}
+.operator-shell .op-trust-summary strong {
+  display: block;
+  margin-top: 8px;
+  color: var(--ink);
+  font-size: 18px;
+}
+.operator-shell .op-trust-summary p {
+  margin: 6px 0 0;
+  color: var(--ink-mid);
+  font-size: 13px;
+  line-height: 1.45;
+}
 .operator-shell .badge {
   border-color: var(--hairline-strong);
   border-radius: 5px;
@@ -5454,6 +5486,9 @@ hr.hairline {
 }
 .discover-card-kind { color: var(--ink-dim); }
 .discover-trust { color: var(--lime); }
+.discover-trust.trust-neutral { color: var(--ink-mid); }
+.discover-trust.trust-caution,
+.discover-trust.trust-risk { color: var(--accent); }
 .discover-identity {
   display: flex;
   align-items: center;
@@ -5558,6 +5593,21 @@ hr.hairline {
   margin: 4px 0 0;
   color: var(--ink-mid);
   font-size: 13px;
+}
+.discover-trust-note {
+  margin: -4px 16px 14px;
+  padding: 10px 12px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 14px;
+  color: var(--ink-mid);
+  background: color-mix(in srgb, var(--surface-1) 88%, #fff 4%);
+  font-size: 12px;
+  line-height: 1.45;
+}
+.discover-trust-note.trust-caution,
+.discover-trust-note.trust-risk {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--hairline-strong));
+  color: var(--ink);
 }
 .discover-detail-form,
 .discover-detail-actions {

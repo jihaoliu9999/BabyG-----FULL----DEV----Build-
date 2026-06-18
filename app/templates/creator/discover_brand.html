@@ -9,8 +9,8 @@
   <article class="discover-detail-card">
     <div class="discover-card-topline">
       <span class="discover-card-kind">brand</span>
-      {% if card.verification_status in ['verified', 'likely_legitimate'] %}
-      <span class="discover-trust">verified</span>
+      {% if card.trust %}
+      <span class="discover-trust trust-{{ card.trust.tone }}">{{ card.trust.label }}</span>
       {% endif %}
     </div>
 
@@ -33,6 +33,12 @@
       <span>why this is relevant</span>
       <p>{{ card.why_relevant }}</p>
     </div>
+
+    {% if card.trust and card.trust.status not in ['verified', 'likely_legitimate'] %}
+    <div class="discover-trust-note trust-{{ card.trust.tone }}">
+      {{ card.trust.summary }}
+    </div>
+    {% endif %}
 
     <form method="post" action="/creator/discover/swipe" class="discover-detail-actions">
       {% include "_partials/csrf.html" %}

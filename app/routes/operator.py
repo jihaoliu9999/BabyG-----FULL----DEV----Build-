@@ -22,6 +22,7 @@ from app.routes.onboarding import CREATOR_NICHES  # reuse vocabulary
 from app.services import (
     abuse,
     audit,
+    brand_trust,
     dms,
     intel,
     jobs,
@@ -236,6 +237,11 @@ async def brand_detail(
         if str(row.get("poster_user_id")) == brand_id
     ]
     report_count = operator_brands.report_counts_by_brand([brand_id]).get(brand_id, 0)
+    trust_summary = brand_trust.compute_trust_summary(
+        brand,
+        report_count=report_count,
+    )
+    trust_checks = brand_trust.list_checks(brand_id)
     activity = [
         row
         for row in audit.list_recent(limit=50)
@@ -248,6 +254,9 @@ async def brand_detail(
             "brand": brand,
             "campaigns": campaigns,
             "report_count": report_count,
+            "trust_summary": trust_summary,
+            "trust_checks": trust_checks,
+            "verification_statuses": brand_trust.VERIFICATION_STATUSES,
             "activity": activity,
             "error": None,
         },
@@ -261,21 +270,33 @@ async def brand_verification_update(
     session: SessionPayload = Depends(require_role("operator")),
 ) -> Response:
     form = await request.form()
-    action = _enum(form.get("action"), ["verified", "needs_review"])
+    action = _enum(form.get("action"), list(brand_trust.VERIFICATION_STATUSES))
     note = _str(form.get("verification_notes"), 1000)
     if action is None:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
     if not operator_brands.update_verification(
-        user_id=brand_id, action=action, note=note or None
+        user_id=brand_id,
+        action=action,
+        note=note or None,
+        operator_id=session["user_id"],
     ):
         brand = operator_brands.get_brand(brand_id) or {"user_id": brand_id}
+        report_count = operator_brands.report_counts_by_brand([brand_id]).get(
+            brand_id, 0
+        )
         return templates.TemplateResponse(
             request,
             "operator/brand_detail.html",
             {
                 "brand": brand,
                 "campaigns": [],
-                "report_count": 0,
+                "report_count": report_count,
+                "trust_summary": brand_trust.compute_trust_summary(
+                    brand,
+                    report_count=report_count,
+                ),
+                "trust_checks": brand_trust.list_checks(brand_id),
+                "verification_statuses": brand_trust.VERIFICATION_STATUSES,
                 "activity": [],
                 "error": "Couldn't update brand verification.",
             },
@@ -287,6 +308,28 @@ async def brand_verification_update(
         target_type="brand",
         target_id=brand_id,
         notes=note or None,
+    )
+    return RedirectResponse(f"/operator/brands/{brand_id}", status_code=303)
+
+
+@router.post("/brands/{brand_id}/domain-check")
+async def brand_domain_check(
+    brand_id: str,
+    session: SessionPayload = Depends(require_role("operator")),
+) -> Response:
+    brand = operator_brands.get_brand(brand_id)
+    if brand is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    check = brand_trust.run_domain_check(
+        brand=brand,
+        operator_user_id=session["user_id"],
+    )
+    audit.record(
+        actor_user_id=session["user_id"],
+        action="brand.domain_check",
+        target_type="brand",
+        target_id=brand_id,
+        notes=str(check.get("summary") or ""),
     )
     return RedirectResponse(f"/operator/brands/{brand_id}", status_code=303)
 

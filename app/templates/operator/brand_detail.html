@@ -8,7 +8,7 @@
 
   <header class="op-header">
     <div class="auth-tag">
-      Brand / <span class="status-pill status-{{ 'active' if brand.is_verified else 'pending' }}">{{ brand.review_status|replace("_", " ") }}</span>
+      Brand / <span class="status-pill status-{{ trust_summary.tone }}">{{ trust_summary.label }}</span>
     </div>
     <h1 class="op-title">{{ brand.company_name or "unnamed brand" }}</h1>
     <p class="op-sub">
@@ -30,6 +30,7 @@
         {% else %}-{% endif %}
       </dd>
       <dt>Industry</dt><dd>{{ brand.industry or "-" }}</dd>
+      <dt>Location</dt><dd>{{ [brand.location_city, brand.location_region]|reject("none")|reject("equalto", "")|join(", ") or "-" }}</dd>
       <dt>Contact</dt>
       <dd>
         {{ brand.contact_full_name or "-" }}
@@ -38,6 +39,8 @@
       <dt>Created</dt><dd>{{ brand.created_at|short_dt if brand.created_at else "-" }}</dd>
       <dt>Updated</dt><dd>{{ brand.updated_at|short_dt if brand.updated_at else "-" }}</dd>
       <dt>Reports</dt><dd>{{ report_count }}</dd>
+      <dt>Website domain</dt><dd>{{ brand.website_domain or trust_summary.domain_check.website_domain or "-" }}</dd>
+      <dt>Email domain</dt><dd>{{ brand.contact_email_domain or "-" }}</dd>
     </dl>
   </section>
 
@@ -56,7 +59,25 @@
   </section>
 
   <section class="onb-section">
-    <h2 class="onb-section-title">Verification</h2>
+    <h2 class="onb-section-title">Trust review</h2>
+    <div class="op-trust-summary">
+      <div>
+        <span class="auth-tag">public label</span>
+        <strong>{{ trust_summary.label }}</strong>
+        <p>{{ trust_summary.summary }}</p>
+      </div>
+      <div>
+        <span class="auth-tag">domain check</span>
+        <strong>{{ trust_summary.domain_check.result_status }}</strong>
+        <p>{{ trust_summary.domain_check.summary }}</p>
+      </div>
+    </div>
+
+    <form method="post" action="/operator/brands/{{ brand.user_id }}/domain-check" class="decision-form">
+      {% include "_partials/csrf.html" %}
+      <button class="btn btn-secondary" type="submit">Run domain check</button>
+    </form>
+
     <form method="post" action="/operator/brands/{{ brand.user_id }}/verification" class="decision-form">
       {% include "_partials/csrf.html" %}
       <div class="field">
@@ -65,10 +86,44 @@
                   placeholder="What should the team know about this brand?">{{ brand.verification_notes or "" }}</textarea>
       </div>
       <div class="op-actions-row">
-        <button class="btn btn-primary" type="submit" name="action" value="verified">Mark verified</button>
-        <button class="btn btn-secondary" type="submit" name="action" value="needs_review">Needs review</button>
+        {% for status in verification_statuses %}
+        <button class="btn {{ 'btn-primary' if status == brand.verification_status else 'btn-secondary' }}"
+                type="submit" name="action" value="{{ status }}">
+          {{ status|replace("_", " ") }}
+        </button>
+        {% endfor %}
       </div>
     </form>
+  </section>
+
+  <section class="onb-section">
+    <h2 class="onb-section-title">Trust checks</h2>
+    {% if trust_checks %}
+    <div class="table-wrap">
+      <table class="op-table">
+        <thead>
+          <tr>
+            <th>Check</th>
+            <th>Result</th>
+            <th>Details</th>
+            <th>Created</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for check in trust_checks %}
+          <tr>
+            <td>{{ check.check_type|replace("_", " ") }}</td>
+            <td><span class="status-pill status-{{ check.result_status }}">{{ check.result_status }}</span></td>
+            <td class="op-table-meta">{{ check.details.summary if check.details and check.details.summary else "-" }}</td>
+            <td class="op-table-meta">{{ check.created_at|short_dt if check.created_at else "-" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="field-hint">No trust checks have been recorded yet.</p>
+    {% endif %}
   </section>
 
   <section class="onb-section">

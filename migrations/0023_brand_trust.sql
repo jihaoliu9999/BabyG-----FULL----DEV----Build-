@@ -78,10 +78,16 @@ create index if not exists idx_brand_trust_checks_brand_recent
 -- they only ever see the safe projected trust summary computed in the app.
 alter table public.brand_trust_checks enable row level security;
 
+drop policy if exists brand_trust_checks_operator_select
+  on public.brand_trust_checks;
 create policy brand_trust_checks_operator_select
   on public.brand_trust_checks
   for select using (public.is_operator());
 
+drop policy if exists brand_trust_checks_operator_write
+  on public.brand_trust_checks;
 create policy brand_trust_checks_operator_write
   on public.brand_trust_checks
   for all using (public.is_operator()) with check (public.is_operator());
+
+revoke all on public.brand_trust_checks from anon, authenticated;

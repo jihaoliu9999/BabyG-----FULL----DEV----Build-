@@ -12,6 +12,7 @@ from app.core.security import SESSION_COOKIE, write_session
 from app.main import app
 from app.services import abuse as abuse_module
 from app.services import audit as audit_module
+from app.services import brand_trust as brand_trust_module
 from app.services import operator_brands as operator_brands_module
 from app.services import profiles as profiles_module
 
@@ -24,6 +25,8 @@ class BrandWorld:
         self.audit_rows: list[dict[str, Any]] = []
         self.last_verification: dict[str, Any] | None = None
         self.last_audit: dict[str, Any] | None = None
+        self.trust_checks: list[dict[str, Any]] = []
+        self.last_domain_check: dict[str, Any] | None = None
         self.report: dict[str, Any] | None = None
 
 
@@ -53,11 +56,17 @@ def world(monkeypatch) -> BrandWorld:
     def _get_brand(user_id):
         return w.brands.get(user_id)
 
-    def _update_verification(*, user_id, action, note):
+    def _update_verification(*, user_id, action, note, operator_id=None):
         if user_id not in w.brands:
             return False
-        w.last_verification = {"user_id": user_id, "action": action, "note": note}
+        w.last_verification = {
+            "user_id": user_id,
+            "action": action,
+            "note": note,
+            "operator_id": operator_id,
+        }
         w.brands[user_id]["is_verified"] = action == "verified"
+        w.brands[user_id]["verification_status"] = action
         w.brands[user_id]["review_status"] = action
         w.brands[user_id]["verification_notes"] = note
         return True
@@ -95,6 +104,21 @@ def world(monkeypatch) -> BrandWorld:
         },
     )
     monkeypatch.setattr(audit_module, "list_recent", lambda *, limit=200: w.audit_rows)
+    monkeypatch.setattr(brand_trust_module, "list_checks", lambda uid, *, limit=30: w.trust_checks)
+
+    def _run_domain_check(*, brand, operator_user_id):
+        w.last_domain_check = {
+            "brand": brand.get("user_id"),
+            "operator_user_id": operator_user_id,
+        }
+        return {
+            "result_status": "pass",
+            "summary": "website and business email domain match.",
+            "website_domain": "studio.example",
+            "contact_email_domain": "studio.example",
+        }
+
+    monkeypatch.setattr(brand_trust_module, "run_domain_check", _run_domain_check)
 
     def _record(*, actor_user_id, action, target_type=None, target_id=None, notes=None):
         w.last_audit = {
@@ -141,6 +165,10 @@ def _brand(**kwargs) -> dict[str, Any]:
         "niche_preferences": ["beauty"],
         "budget_range": "$1k-$5k",
         "is_verified": kwargs.get("is_verified", False),
+        "verification_status": kwargs.get(
+            "verification_status",
+            "verified" if kwargs.get("is_verified", False) else "needs_review",
+        ),
         "review_status": "verified" if kwargs.get("is_verified", False) else "needs_review",
         "verification_notes": kwargs.get("verification_notes", "operator-only note"),
         "created_at": "2026-06-01T12:00:00Z",
@@ -208,10 +236,29 @@ def test_brand_verification_updates_existing_fields_and_audits(client, world):
         "user_id": "brand-1",
         "action": "verified",
         "note": "looks legitimate",
+        "operator_id": "op-1",
     }
     assert world.last_audit is not None
     assert world.last_audit["action"] == "brand.verified"
     assert world.last_audit["target_type"] == "brand"
+
+
+def test_brand_domain_check_records_operator_action(client, world):
+    _signed_in(client, role="operator")
+    world.brands["brand-1"] = _brand(
+        brand_website="https://studio.example",
+        verification_status="unverified",
+    )
+
+    r = client.post("/operator/brands/brand-1/domain-check")
+    assert r.status_code == 303
+    assert r.headers["location"] == "/operator/brands/brand-1"
+    assert world.last_domain_check == {
+        "brand": "brand-1",
+        "operator_user_id": "op-1",
+    }
+    assert world.last_audit is not None
+    assert world.last_audit["action"] == "brand.domain_check"
 
 
 def test_brand_campaigns_page_renders_brand_opportunities(client, world):
