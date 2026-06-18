@@ -61,8 +61,8 @@
           </td>
           <td class="op-table-meta">{{ brand.industry or "-" }}</td>
           <td>
-            <span class="status-pill status-{{ 'active' if brand.is_verified else 'pending' }}">
-              {{ brand.review_status|replace("_", " ") }}
+            <span class="status-pill status-{{ brand.trust.tone if brand.trust else 'neutral' }}">
+              {{ brand.trust.label if brand.trust else brand.review_status|replace("_", " ") }}
             </span>
           </td>
           <td class="op-table-meta">{{ campaign_counts.get(brand.user_id|string, 0) }}</td>

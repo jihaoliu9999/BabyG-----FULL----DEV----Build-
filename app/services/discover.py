@@ -14,6 +14,7 @@ from typing import Any, Final, Literal
 
 from app.core import supabase_client
 from app.core.uuid_guard import safe_uuid
+from app.services import brand_trust
 
 logger = logging.getLogger(__name__)
 
@@ -264,6 +265,11 @@ def _normalize_card(
     card["owner_user_id"] = owner_id
     card["tags"] = [str(tag) for tag in (card.get("tags") or []) if str(tag).strip()]
     card["why_relevant"] = _why_relevant(card["tags"], viewer_tags, kind)
+    if kind in {"brand", "opportunity"}:
+        card["verification_status"] = brand_trust.clean_status(
+            card.get("verification_status")
+        )
+        card["trust"] = brand_trust.public_trust(card)
     return card
 
 

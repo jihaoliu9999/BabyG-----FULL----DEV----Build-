@@ -60,8 +60,8 @@
         <article class="discover-card discover-card-{{ card.card_kind }}" data-discover-card data-card-kind="{{ card.card_kind }}" {% if not loop.first %}hidden{% endif %}>
           <div class="discover-card-topline">
             <span class="discover-card-kind">{{ 'person' if card.card_kind == 'creator' else card.card_kind }}</span>
-            {% if card.card_kind == 'brand' and card.verification_status in ['verified', 'likely_legitimate'] %}
-            <span class="discover-trust">verified</span>
+            {% if card.card_kind in ['brand', 'opportunity'] and card.trust %}
+            <span class="discover-trust trust-{{ card.trust.tone }}">{{ card.trust.label }}</span>
             {% endif %}
           </div>
 
@@ -94,6 +94,12 @@
             <span>why this is relevant</span>
             <p>{{ card.why_relevant }}</p>
           </div>
+
+          {% if card.card_kind in ['brand', 'opportunity'] and card.trust and card.trust.status not in ['verified', 'likely_legitimate'] %}
+          <div class="discover-trust-note trust-{{ card.trust.tone }}">
+            {{ card.trust.summary }}
+          </div>
+          {% endif %}
 
           <form method="post" action="{{ discover_swipe_path }}" class="discover-detail-form">
             {% include "_partials/csrf.html" %}
