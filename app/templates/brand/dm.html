@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}messages — babyg{% endblock %}
+
+{% block content %}
+<div class="wrap">
+
+  <div class="brand-page-head">
+    <div>
+      <span class="mono eyebrow">messages</span>
+      <h1>inbox</h1>
+      <p>direct messages with creators.</p>
+    </div>
+  </div>
+
+  <div class="brand-empty">
+    <span class="icon-circle" aria-hidden="true">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M22 12V6a2 2 0 00-2-2H4a2 2 0 00-2 2v12a2 2 0 002 2h10"/><path d="M2 6l10 6 10-6"/></svg>
+    </span>
+    <h2>brand messaging is coming soon</h2>
+    <p>brand-to-creator DMs unlock with the upcoming AI brief layer — babyg will summarize each thread, flag risk, and suggest a reply before you send. for now, save creators from discover and post campaigns to start conversations.</p>
+    {% if thread_count %}
+    <p style="color:var(--ink-mid);font-size:12.5px;margin-top:8px;">
+      you have {{ thread_count }} existing thread{{ 's' if thread_count != 1 else '' }}. the inbox UI will surface them when it ships.
+    </p>
+    {% endif %}
+    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;justify-content:center;">
+      <a href="/brand/discover" class="btn btn-ghost btn-sm">discover creators</a>
+      <a href="/brand/campaigns/new" class="btn btn-lime btn-sm">post a campaign</a>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

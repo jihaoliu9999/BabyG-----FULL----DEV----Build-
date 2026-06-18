@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from typing import Any
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, status
@@ -10,19 +11,296 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from app.core.security import SessionPayload
 from app.core.templating import templates
 from app.deps import require_role
-from app.services import discover, network, notifications, profiles
+from app.services import discover, dms, jobs, network, notifications, profiles
 
 router = APIRouter(prefix="/brand", tags=["brand"])
+
+# Closed vocabularies used by the brand profile + campaign forms. Kept
+# here (not in the service layer) because they're shaped specifically
+# for the brand UI; the service layer takes whatever the route hands it.
+BRAND_INDUSTRIES = (
+    "fashion", "beauty", "fitness", "food", "travel", "tech",
+    "lifestyle", "music", "gaming", "nightlife", "wellness", "other",
+)
+BRAND_CAMPAIGN_TYPES = (
+    "ugc", "paid_post", "event_appearance", "long_form", "barter",
+)
+BRAND_CREATOR_SIZES = (
+    "nano", "micro", "mid", "macro", "mega",
+)
+BRAND_BUDGET_RANGES = (
+    "under_1k", "1k_5k", "5k_25k", "25k_plus",
+)
 
 
 @router.get("", response_class=HTMLResponse)
 async def dashboard(
     request: Request, session: SessionPayload = Depends(require_role("brand"))
 ) -> Response:
+    """Brand dashboard: profile completion, real activity counts, quick
+    actions. Honest empty states everywhere — no fake stats, no fake
+    messages, no fake verified badges. Each tile links to the actual
+    surface it summarizes so a user can dig in."""
     profile = profiles.get_brand_profile(session["user_id"]) or {}
     if not profile.get("onboarding_completed_at"):
         return RedirectResponse("/onboarding/brand", status_code=302)
-    return RedirectResponse("/brand/discover", status_code=302)
+    counts = _dashboard_counts(session["user_id"])
+    completion = _profile_completion(profile)
+    return templates.TemplateResponse(
+        request,
+        "brand/dashboard.html",
+        {
+            "profile": profile,
+            "completion": completion,
+            "counts": counts,
+        },
+    )
+
+
+# ---------------------------------------------------------------------------
+# Profile
+# ---------------------------------------------------------------------------
+
+
+@router.get("/profile", response_class=HTMLResponse)
+async def profile_page(
+    request: Request,
+    session: SessionPayload = Depends(require_role("brand")),
+) -> Response:
+    profile = profiles.get_brand_profile(session["user_id"]) or {}
+    if not profile.get("onboarding_completed_at"):
+        return RedirectResponse("/onboarding/brand", status_code=302)
+    return templates.TemplateResponse(
+        request,
+        "brand/profile.html",
+        {
+            "profile": profile,
+            "industries": BRAND_INDUSTRIES,
+            "campaign_types": BRAND_CAMPAIGN_TYPES,
+            "creator_sizes": BRAND_CREATOR_SIZES,
+            "budget_ranges": BRAND_BUDGET_RANGES,
+        },
+    )
+
+
+@router.post("/profile/identity")
+async def profile_identity_update(
+    company_name: str = Form(""),
+    brand_website: str = Form(""),
+    industry: str = Form(""),
+    contact_full_name: str = Form(""),
+    contact_title: str = Form(""),
+    product_description: str = Form(""),
+    session: SessionPayload = Depends(require_role("brand")),
+) -> Response:
+    """Identity section: company, website, industry, contact, description.
+    Updates only via a closed allow-list — no field can be set by adding
+    an extra POST field. Empty strings clear the column (via NULL) so a
+    brand can blank out an earlier entry."""
+    profile = profiles.get_brand_profile(session["user_id"]) or {}
+    if not profile.get("onboarding_completed_at"):
+        return RedirectResponse("/onboarding/brand", status_code=302)
+
+    payload: dict[str, Any] = {}
+    name = _normalize(company_name, 120)
+    if name:
+        payload["company_name"] = name
+    website = _normalize(brand_website, 200)
+    payload["brand_website"] = website or None
+    ind = industry.strip().lower()
+    payload["industry"] = ind if ind in BRAND_INDUSTRIES else None
+    contact = _normalize(contact_full_name, 120)
+    if contact:
+        payload["contact_full_name"] = contact
+    payload["contact_title"] = _normalize(contact_title, 120) or None
+    payload["product_description"] = _normalize(product_description, 600) or None
+    if not profiles.update_brand_profile(session["user_id"], payload):
+        return RedirectResponse(
+            "/brand/profile?identity=save_failed", status_code=303
+        )
+    return RedirectResponse("/brand/profile?identity=ok", status_code=303)
+
+
+@router.post("/profile/preferences")
+async def profile_preferences_update(
+    request: Request,
+    budget_range: str = Form(""),
+    session: SessionPayload = Depends(require_role("brand")),
+) -> Response:
+    """Working terms: campaign types, creator size targeting, niche
+    interests, budget range. The chip groups arrive as repeated form
+    fields — read via getlist()."""
+    profile = profiles.get_brand_profile(session["user_id"]) or {}
+    if not profile.get("onboarding_completed_at"):
+        return RedirectResponse("/onboarding/brand", status_code=302)
+
+    form = await request.form()
+    campaign_types = _clean_chip_list(
+        form.getlist("campaign_types"), BRAND_CAMPAIGN_TYPES
+    )
+    creator_sizes = _clean_chip_list(
+        form.getlist("creator_size_preferences"), BRAND_CREATOR_SIZES
+    )
+    # Niches reuse the creator-side niche vocab (lifestyle, nightlife, …)
+    # but we accept whatever the chip group ships — the column is text[]
+    # and Discover ranking does string-match-only.
+    niches = _clean_chip_list(form.getlist("niche_preferences"), None, max_len=12)
+
+    payload: dict[str, Any] = {
+        "campaign_types": campaign_types,
+        "creator_size_preferences": creator_sizes,
+        "niche_preferences": niches,
+    }
+    br = budget_range.strip().lower()
+    payload["budget_range"] = br if br in BRAND_BUDGET_RANGES else None
+
+    if not profiles.update_brand_profile(session["user_id"], payload):
+        return RedirectResponse(
+            "/brand/profile?preferences=save_failed", status_code=303
+        )
+    return RedirectResponse("/brand/profile?preferences=ok", status_code=303)
+
+
+# ---------------------------------------------------------------------------
+# Campaigns (reuses creator_job_listings with listing_type='brand_deal')
+# ---------------------------------------------------------------------------
+
+
+@router.get("/campaigns", response_class=HTMLResponse)
+async def campaigns_list(
+    request: Request,
+    session: SessionPayload = Depends(require_role("brand")),
+) -> Response:
+    profile = profiles.get_brand_profile(session["user_id"]) or {}
+    if not profile.get("onboarding_completed_at"):
+        return RedirectResponse("/onboarding/brand", status_code=302)
+    listings = jobs.list_by_poster(session["user_id"])
+    return templates.TemplateResponse(
+        request,
+        "brand/campaigns_list.html",
+        {"profile": profile, "listings": listings},
+    )
+
+
+@router.get("/campaigns/new", response_class=HTMLResponse)
+async def campaigns_new_form(
+    request: Request,
+    session: SessionPayload = Depends(require_role("brand")),
+) -> Response:
+    profile = profiles.get_brand_profile(session["user_id"]) or {}
+    if not profile.get("onboarding_completed_at"):
+        return RedirectResponse("/onboarding/brand", status_code=302)
+    return templates.TemplateResponse(
+        request,
+        "brand/campaigns_new.html",
+        {
+            "profile": profile,
+            "niches_default": list(profile.get("niche_preferences") or []),
+            "error": None,
+        },
+    )
+
+
+@router.post("/campaigns")
+async def campaigns_create(
+    request: Request,
+    title: str = Form(""),
+    description: str = Form(""),
+    compensation_text: str = Form(""),
+    session: SessionPayload = Depends(require_role("brand")),
+) -> Response:
+    profile = profiles.get_brand_profile(session["user_id"]) or {}
+    if not profile.get("onboarding_completed_at"):
+        return RedirectResponse("/onboarding/brand", status_code=302)
+
+    form = await request.form()
+    title_clean = _normalize(title, 120)
+    description_clean = _normalize(description, 2000)
+    if not title_clean or not description_clean:
+        return templates.TemplateResponse(
+            request,
+            "brand/campaigns_new.html",
+            {
+                "profile": profile,
+                "niches_default": list(profile.get("niche_preferences") or []),
+                "error": "title and description are required.",
+            },
+            status_code=400,
+        )
+
+    target_niches = _clean_chip_list(form.getlist("target_niches"), None, max_len=12)
+    payload = {
+        "title": title_clean,
+        "description": description_clean,
+        # Brand-posted listings flow into the same Discover pipeline as
+        # creator listings; the listing_type discriminator lets future
+        # filters surface "brand deals only" without a new table.
+        "listing_type": "brand_deal",
+        "compensation_text": _normalize(compensation_text, 200) or None,
+        "target_niches": target_niches,
+        "is_active": True,
+        "is_taken_down": False,
+    }
+    listing_id = jobs.create(poster_id=session["user_id"], payload=payload)
+    if not listing_id:
+        return templates.TemplateResponse(
+            request,
+            "brand/campaigns_new.html",
+            {
+                "profile": profile,
+                "niches_default": list(profile.get("niche_preferences") or []),
+                "error": "couldn't save the campaign. try again.",
+            },
+            status_code=400,
+        )
+    return RedirectResponse("/brand/campaigns?created=ok", status_code=303)
+
+
+# ---------------------------------------------------------------------------
+# Saved + DM placeholders
+# ---------------------------------------------------------------------------
+
+
+@router.get("/saved", response_class=HTMLResponse)
+async def saved_page(
+    request: Request,
+    session: SessionPayload = Depends(require_role("brand")),
+) -> Response:
+    """Creators the brand has saved from Discover. Backed by
+    `creator_discovery_actions(action_type='saved')` — already supported
+    by migration 0021. Empty state when no saves yet, honest, no fakes."""
+    profile = profiles.get_brand_profile(session["user_id"]) or {}
+    if not profile.get("onboarding_completed_at"):
+        return RedirectResponse("/onboarding/brand", status_code=302)
+    saved_creators = _list_saved_creators(session["user_id"])
+    return templates.TemplateResponse(
+        request,
+        "brand/saved.html",
+        {"profile": profile, "saved_creators": saved_creators},
+    )
+
+
+@router.get("/dm", response_class=HTMLResponse)
+async def dm_page(
+    request: Request,
+    session: SessionPayload = Depends(require_role("brand")),
+) -> Response:
+    """Brand messaging placeholder. The DM service supports brand users
+    at the schema level — `dm_threads(participant_a_id, participant_b_id)`
+    accepts any two user_ids — but a real brand-to-creator inbox UI is
+    deferred to the Phase 5 brand outreach work. For now we render a
+    polished empty state inside the same shell, with the existing thread
+    count surfaced if any threads do exist (e.g. from connection
+    requests that auto-opened one)."""
+    profile = profiles.get_brand_profile(session["user_id"]) or {}
+    if not profile.get("onboarding_completed_at"):
+        return RedirectResponse("/onboarding/brand", status_code=302)
+    thread_count = len(dms.list_threads_for_user(session["user_id"]))
+    return templates.TemplateResponse(
+        request,
+        "brand/dm.html",
+        {"profile": profile, "thread_count": thread_count},
+    )
 
 
 @router.get("/discover", response_class=HTMLResponse)
@@ -218,6 +496,122 @@ async def discover_opportunity_detail(
         "brand/discover_detail.html",
         {"profile": profile, "card": _brand_card(card)},
     )
+
+
+def _dashboard_counts(brand_user_id: str) -> dict[str, int]:
+    """Counts for the four dashboard tiles. Returns real numbers from
+    real tables — defaults to zero on any service failure so a flaky
+    Supabase doesn't blank the whole dashboard."""
+    try:
+        active_campaigns = sum(
+            1 for r in jobs.list_by_poster(brand_user_id)
+            if r.get("is_active") and not r.get("is_taken_down")
+        )
+    except Exception:
+        active_campaigns = 0
+    try:
+        saved = len(_list_saved_creators(brand_user_id))
+    except Exception:
+        saved = 0
+    try:
+        inbound = len(network.list_incoming_pending(brand_user_id))
+    except Exception:
+        inbound = 0
+    try:
+        unread_dms = dms.unread_count_for_user(brand_user_id)
+    except Exception:
+        unread_dms = 0
+    return {
+        "active_campaigns": active_campaigns,
+        "saved": saved,
+        "inbound_interest": inbound,
+        "unread_dms": unread_dms,
+    }
+
+
+# Fields used to drive the dashboard's profile-completion meter. Tracks
+# the same shape onboarding requires plus the two optional polish fields
+# (logo + product description) so a fully-filled profile reaches 100%.
+_BRAND_COMPLETION_FIELDS: tuple[str, ...] = (
+    "company_name",
+    "brand_website",
+    "industry",
+    "contact_full_name",
+    "logo_url",
+    "product_description",
+    "campaign_types",
+    "creator_size_preferences",
+    "niche_preferences",
+    "budget_range",
+)
+
+
+def _profile_completion(profile: dict[str, Any]) -> dict[str, Any]:
+    """Returns ``{percent, filled, missing}`` so the dashboard card can
+    render a completion meter + a short list of what's still empty.
+    Array fields count as filled when they have at least one entry."""
+    filled: list[str] = []
+    missing: list[str] = []
+    for f in _BRAND_COMPLETION_FIELDS:
+        value = profile.get(f)
+        if isinstance(value, list):
+            (filled if value else missing).append(f)
+        else:
+            (filled if (value or "").strip() else missing).append(f)
+    percent = round(100 * len(filled) / len(_BRAND_COMPLETION_FIELDS))
+    return {"percent": percent, "filled": filled, "missing": missing}
+
+
+def _list_saved_creators(brand_user_id: str) -> list[dict[str, Any]]:
+    """Creators this brand has saved from Discover. Reads
+    `creator_discovery_actions(action_type='saved')` (migration 0021
+    extended the vocabulary). Returns the public-projected view of
+    each saved creator — never owner-private fields."""
+    try:
+        from app.core import supabase_client
+        result = (
+            supabase_client.get_service_client()
+            .table("creator_discovery_actions")
+            .select("target_user_id, created_at")
+            .eq("user_id", brand_user_id)
+            .eq("action_type", "saved")
+            .eq("target_kind", "creator")
+            .order("created_at", desc=True)
+            .limit(50)
+            .execute()
+        )
+    except Exception:
+        return []
+    rows = getattr(result, "data", None) or []
+    target_ids = [r["target_user_id"] for r in rows if r.get("target_user_id")]
+    if not target_ids:
+        return []
+    public_views = profiles.get_creators_by_ids(target_ids)
+    # Preserve "newest save first" order from the actions query.
+    return [public_views[t] for t in target_ids if t in public_views]
+
+
+def _normalize(value: str, max_len: int) -> str:
+    return " ".join((value or "").split())[:max_len]
+
+
+def _clean_chip_list(
+    raw: list[str], allowed: tuple[str, ...] | None, *, max_len: int = 12
+) -> list[str]:
+    """Lowercase, dedupe, optionally filter to a closed allow-list."""
+    out: list[str] = []
+    seen: set[str] = set()
+    for value in raw or []:
+        v = (value or "").strip().lower()
+        if not v or v in seen:
+            continue
+        if allowed is not None and v not in allowed:
+            continue
+        seen.add(v)
+        out.append(v)
+        if len(out) >= max_len:
+            break
+    return out
 
 
 def _brand_discover_kind(value: str | None) -> str:

@@ -415,7 +415,11 @@ def test_brand_dashboard_redirects_to_onboarding_when_incomplete(client, store):
     assert r.headers["location"] == "/onboarding/brand"
 
 
-def test_brand_dashboard_redirects_to_discover_when_onboarded(client, store):
+def test_brand_dashboard_renders_when_onboarded(client, store):
+    """Onboarded brands now land on a real dashboard page instead of
+    the legacy redirect to /brand/discover. The page surfaces profile
+    completion + activity counts; if any of the count-services blow
+    up the route degrades to zero — see _dashboard_counts in brand.py."""
     _signed_in(client, role="brand")
     store.brand["u-1"] = {
         "company_name": "Studio House",
@@ -426,8 +430,15 @@ def test_brand_dashboard_redirects_to_discover_when_onboarded(client, store):
         "onboarding_completed_at": "2026-05-07T00:00:00Z",
     }
     r = client.get("/brand")
-    assert r.status_code == 302
-    assert r.headers["location"] == "/brand/discover"
+    assert r.status_code == 200
+    assert "Studio House" in r.text
+    assert "brand dashboard" in r.text.lower()
+    # Quick actions link to every brand surface so a brand can navigate
+    # from the dashboard alone.
+    assert "/brand/campaigns/new" in r.text
+    assert "/brand/discover" in r.text
+    assert "/brand/profile" in r.text
+    assert "/brand/dm" in r.text
 
 
 def test_brand_discover_renders_when_onboarded(client, store, monkeypatch):

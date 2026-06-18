@@ -1713,12 +1713,159 @@ h1, h2, h3, h4 {
 .is-brand-shell .brand-main {
   min-height: 100vh;
   min-height: 100dvh;
-  padding: calc(var(--topbar-h) + 36px) 18px 48px;
+  /* Reserve room for both the topbar (above) and the brand tabbar
+     (below) on every viewport. The brand shell has no sidebar to fall
+     back to on desktop, so the tabbar stays visible at all widths —
+     see the .is-brand-shell .app-tabbar override below. */
+  padding: calc(var(--topbar-h) + 36px) 18px calc(var(--tabbar-h) + 32px);
 }
+/* Brand has no sidebar at any width, so unlike the creator shell we keep
+   the bottom tabbar visible on desktop too. The default rule in app.css
+   line ~984 hides the tabbar at >=985px to let the sidebar take over;
+   this override re-enables it for brand. */
+.is-brand-shell .app-tabbar { display: flex; }
 @media (max-width: 700px) {
   .is-brand-shell .brand-main {
     padding-inline: 14px;
   }
+}
+
+/* ───── brand dashboard / pages ─────
+   Reuses creator primitives wherever possible. Only patterns that don't
+   exist on creator surfaces get their own class. The brand dashboard
+   stat-row pattern is wide and tappable on phones — designed for 390px
+   first then expanding gracefully on tablet+. */
+.brand-page-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  flex-wrap: wrap;
+  margin-bottom: 22px;
+}
+.brand-page-head h1 {
+  margin: 6px 0 0;
+  font-size: clamp(26px, 5.5vw, 32px);
+  letter-spacing: var(--display-track);
+  font-weight: var(--display-weight);
+  line-height: 1.1;
+}
+.brand-page-head p {
+  color: var(--ink-mid);
+  font-size: 13.5px;
+  margin: 6px 0 0;
+}
+.brand-stat-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin: 0 0 22px;
+}
+@media (min-width: 560px) {
+  .brand-stat-grid { grid-template-columns: 1fr 1fr; }
+}
+@media (min-width: 900px) {
+  .brand-stat-grid { grid-template-columns: repeat(4, 1fr); }
+}
+.brand-stat-tile {
+  background: var(--surface-1);
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-decoration: none;
+  color: var(--ink);
+  transition: border-color .2s ease, transform .2s ease;
+}
+.brand-stat-tile:hover {
+  border-color: var(--hairline-strong);
+  transform: translateY(-1px);
+}
+.brand-stat-tile .l {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  color: var(--ink-dim);
+  text-transform: uppercase;
+}
+.brand-stat-tile .v {
+  font-size: 22px;
+  letter-spacing: var(--display-track);
+  font-weight: var(--display-weight);
+  color: var(--ink);
+}
+.brand-stat-tile .h {
+  color: var(--ink-mid);
+  font-size: 12.5px;
+}
+.brand-quick-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+  margin: 0 0 24px;
+}
+@media (min-width: 560px) {
+  .brand-quick-actions { grid-template-columns: repeat(2, 1fr); }
+}
+@media (min-width: 900px) {
+  .brand-quick-actions { grid-template-columns: repeat(4, 1fr); }
+}
+.brand-quick-action {
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  padding: 16px;
+  text-decoration: none;
+  color: var(--ink);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  transition: border-color .2s ease, transform .2s ease;
+}
+.brand-quick-action:hover {
+  border-color: var(--lime);
+  transform: translateY(-1px);
+}
+.brand-quick-action .h {
+  font-size: 15px;
+  font-weight: 500;
+}
+.brand-quick-action .s {
+  color: var(--ink-mid);
+  font-size: 12.5px;
+}
+/* Compact intentional empty state — DMs / saved / campaigns before
+   the brand has anything yet. Honest, not hype. */
+.brand-empty {
+  text-align: center;
+  padding: 56px 20px;
+  background: var(--surface-1);
+  border: 1px solid var(--hairline);
+  border-radius: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+}
+.brand-empty h2 {
+  font-size: 20px;
+  font-weight: 500;
+  letter-spacing: var(--display-track);
+  margin: 0;
+}
+.brand-empty p { color: var(--ink-mid); font-size: 13.5px; margin: 0; max-width: 380px; }
+.brand-empty .icon-circle {
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  background: var(--surface-3);
+  border: 1px solid var(--hairline-strong);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-mid);
+  margin-bottom: 4px;
 }
 
 /* chip group for niches/formats */
