@@ -36,6 +36,7 @@ STATIC_DIR = Path(__file__).resolve().parent / "static"
 def create_app() -> FastAPI:
     settings = get_settings()
     _assert_session_secret(settings)
+    _assert_app_url(settings)
     _configure_logging(settings)
     app = FastAPI(
         title="babyg",
@@ -264,6 +265,43 @@ def _assert_session_secret(settings) -> None:
     if len(secret) < 32:
         raise RuntimeError(
             f"SESSION_SECRET must be at least 32 characters in env={settings.env}."
+        )
+
+
+def _assert_app_url(settings) -> None:
+    """Refuse to boot in staging/production with a misconfigured APP_URL.
+
+    Magic-link auth builds the callback as `{APP_URL}/auth/callback` and
+    Supabase will only accept the redirect if its allow-list matches
+    exactly. A wrong scheme, a localhost leak, or an empty value breaks
+    every signup silently — users click the link and land on a
+    redirect_uri error from Supabase, not on babyg. Catch it at boot.
+    Local `dev` keeps the http://localhost default.
+    """
+    from urllib.parse import urlsplit
+
+    url = (settings.app_url or "").strip()
+    if settings.env == "dev":
+        return
+    if not url:
+        raise RuntimeError(
+            f"APP_URL is unset in env={settings.env}. "
+            "Set it to the canonical https origin Supabase Auth is configured to redirect to."
+        )
+    try:
+        parts = urlsplit(url)
+    except ValueError as exc:
+        raise RuntimeError(f"APP_URL is not a valid URL in env={settings.env}: {exc}") from exc
+    if parts.scheme != "https":
+        raise RuntimeError(
+            f"APP_URL must use https in env={settings.env}, got scheme={parts.scheme!r}. "
+            "Magic-link callbacks fail without TLS."
+        )
+    host = (parts.hostname or "").lower()
+    if not host or host in {"localhost", "127.0.0.1", "::1"}:
+        raise RuntimeError(
+            f"APP_URL points at {host!r} in env={settings.env}. "
+            "Use the public hostname Supabase Auth is configured to redirect to."
         )
 
 
