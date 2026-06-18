@@ -135,16 +135,22 @@ async def profile_preferences_update(
         return RedirectResponse("/onboarding/brand", status_code=302)
 
     form = await request.form()
+    # Starlette's FormData.getlist() is typed as list[UploadFile | str]
+    # because the same FormData carries file uploads on multipart forms.
+    # Chip groups never accept files; filter to strings at the boundary
+    # so the chip-cleaner signature stays narrow.
     campaign_types = _clean_chip_list(
-        form.getlist("campaign_types"), BRAND_CAMPAIGN_TYPES
+        _form_strings(form, "campaign_types"), BRAND_CAMPAIGN_TYPES
     )
     creator_sizes = _clean_chip_list(
-        form.getlist("creator_size_preferences"), BRAND_CREATOR_SIZES
+        _form_strings(form, "creator_size_preferences"), BRAND_CREATOR_SIZES
     )
     # Niches reuse the creator-side niche vocab (lifestyle, nightlife, …)
     # but we accept whatever the chip group ships — the column is text[]
     # and Discover ranking does string-match-only.
-    niches = _clean_chip_list(form.getlist("niche_preferences"), None, max_len=12)
+    niches = _clean_chip_list(
+        _form_strings(form, "niche_preferences"), None, max_len=12
+    )
 
     payload: dict[str, Any] = {
         "campaign_types": campaign_types,
@@ -228,7 +234,9 @@ async def campaigns_create(
             status_code=400,
         )
 
-    target_niches = _clean_chip_list(form.getlist("target_niches"), None, max_len=12)
+    target_niches = _clean_chip_list(
+        _form_strings(form, "target_niches"), None, max_len=12
+    )
     payload = {
         "title": title_clean,
         "description": description_clean,
@@ -589,6 +597,16 @@ def _list_saved_creators(brand_user_id: str) -> list[dict[str, Any]]:
     public_views = profiles.get_creators_by_ids(target_ids)
     # Preserve "newest save first" order from the actions query.
     return [public_views[t] for t in target_ids if t in public_views]
+
+
+def _form_strings(form: Any, field: str) -> list[str]:
+    """Project a Starlette ``FormData.getlist`` result to string-only.
+
+    ``FormData.getlist`` is typed ``list[UploadFile | str]`` because the
+    same object carries file uploads on multipart forms. Chip groups
+    never accept files; this helper narrows the boundary so the chip
+    cleaner stays typed ``list[str]``."""
+    return [v for v in form.getlist(field) if isinstance(v, str)]
 
 
 def _normalize(value: str, max_len: int) -> str:
