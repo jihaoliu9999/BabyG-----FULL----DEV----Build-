@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}new campaign — babyg{% endblock %}
+
+{% block content %}
+<div class="wrap">
+
+  <a href="/brand/campaigns" class="back-link">← campaigns</a>
+
+  <div class="brand-page-head">
+    <div>
+      <span class="mono eyebrow">new campaign</span>
+      <h1>post a brief</h1>
+      <p>describe the campaign. creators see it in discover and can show interest.</p>
+    </div>
+  </div>
+
+  {% if error %}
+  <div class="settings-flash" style="margin-bottom:14px;">{{ error }}</div>
+  {% endif %}
+
+  <form class="settings-group settings-form" method="post" action="/brand/campaigns">
+    {% include "_partials/csrf.html" %}
+
+    <div class="settings-row settings-row-stack">
+      <label for="title"><span>title</span></label>
+      <input type="text" id="title" name="title" maxlength="120" required
+        placeholder='e.g. "spring fragrance launch — 3 reels"'
+        style="background:var(--surface-2);color:var(--ink);border:1px solid var(--hairline-strong);border-radius:8px;padding:10px 12px;font-size:14px;width:100%;max-width:520px;" />
+    </div>
+
+    <div class="settings-row settings-row-stack">
+      <label for="description"><span>description</span></label>
+      <textarea id="description" name="description" maxlength="2000" rows="6" required
+        placeholder="what the campaign is. deliverables, dates, vibes, anything specific to your category."
+        style="background:var(--surface-2);color:var(--ink);border:1px solid var(--hairline-strong);border-radius:8px;padding:10px 12px;font-size:14px;width:100%;max-width:520px;resize:vertical;"></textarea>
+    </div>
+
+    <div class="settings-row settings-row-stack">
+      <label for="compensation_text"><span>compensation</span></label>
+      <input type="text" id="compensation_text" name="compensation_text" maxlength="200"
+        placeholder='e.g. "$1.5k + product" or "rates negotiable"'
+        style="background:var(--surface-2);color:var(--ink);border:1px solid var(--hairline-strong);border-radius:8px;padding:10px 12px;font-size:14px;width:100%;max-width:520px;" />
+      <p class="settings-help">free text. leave blank if you'd rather discuss in DM.</p>
+    </div>
+
+    <div class="settings-row settings-row-stack">
+      <span>target niches</span>
+      <div class="chips" role="group" aria-label="target niches">
+        {% for n in ['lifestyle', 'nightlife', 'fashion', 'fitness', 'beauty', 'food', 'travel', 'music', 'tech', 'gaming', 'wellness'] %}
+        <label class="chip {{ 'chip-active' if n in niches_default }}">
+          <input type="checkbox" name="target_niches" value="{{ n }}" {% if n in niches_default %}checked{% endif %} hidden />
+          {{ n }}
+        </label>
+        {% endfor %}
+      </div>
+      <p class="settings-help">creators in these niches will see this campaign first. pre-filled from your brand profile.</p>
+    </div>
+
+    <div class="settings-actions">
+      <a href="/brand/campaigns" class="btn btn-ghost btn-sm">cancel</a>
+      <button class="btn btn-lime btn-sm" type="submit">post campaign</button>
+    </div>
+  </form>
+
+</div>
+{% endblock %}

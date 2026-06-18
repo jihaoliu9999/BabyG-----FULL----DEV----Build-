@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block title %}saved creators — babyg{% endblock %}
+
+{% block content %}
+<div class="wrap">
+
+  <div class="brand-page-head">
+    <div>
+      <span class="mono eyebrow">saved</span>
+      <h1>saved creators</h1>
+      <p>people you've saved from discover. nothing public — just for you.</p>
+    </div>
+  </div>
+
+  {% if saved_creators %}
+  <div class="brand-stat-grid" style="grid-template-columns:1fr;">
+    {% for c in saved_creators %}
+    <a class="creator-card" href="/brand/discover/creator/{{ c.user_id }}">
+      <div class="creator-card-top">
+        {% if c.profile_photo_url %}
+        <div class="creator-avatar creator-avatar-photo" aria-hidden="true">
+          <img src="{{ c.profile_photo_url }}" alt="" loading="lazy" />
+        </div>
+        {% else %}
+        <div class="creator-avatar" aria-hidden="true">
+          {{ (c.full_name or c.instagram_handle or "C")[:1]|upper }}
+        </div>
+        {% endif %}
+        <div class="creator-card-head">
+          <div class="creator-card-name">{{ c.full_name or "creator" }}</div>
+          {% if c.instagram_handle %}<div class="creator-card-handle">@{{ c.instagram_handle }}</div>{% endif %}
+        </div>
+      </div>
+      <div class="creator-card-meta">
+        {% if c.location_label %}<span>{{ c.location_label }}</span>{% endif %}
+        {% if c.follower_range %}<span>{{ c.follower_range }} followers</span>{% endif %}
+        {% if c.primary_platform %}<span>{{ c.primary_platform }}</span>{% endif %}
+      </div>
+      <div class="tag-row tag-row-tight">
+        {% for n in (c.niches or [])[:4] %}<span class="tag">{{ n }}</span>{% endfor %}
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="brand-empty">
+    <span class="icon-circle" aria-hidden="true">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+    </span>
+    <h2>nothing saved yet</h2>
+    <p>open discover and tap save on creators you want to come back to. they'll land here.</p>
+    <a href="/brand/discover" class="btn btn-lime btn-sm" style="margin-top:6px;">open discover →</a>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

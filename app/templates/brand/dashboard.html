@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+
+{% block title %}brand dashboard — babyg{% endblock %}
+
+{% block content %}
+<div class="wrap">
+
+  <div class="brand-page-head">
+    <div>
+      <span class="mono eyebrow">brand dashboard</span>
+      <h1>{{ profile.company_name or "your brand" }}</h1>
+      <p>discover creators, run campaigns, manage outreach in one place.</p>
+    </div>
+  </div>
+
+  {# ---------- Profile completion ---------- #}
+  <div class="profile-details-card" style="margin-bottom:22px;">
+    <div class="profile-details-head">
+      <span>profile completion</span>
+      <a href="/brand/profile" class="profile-chip-edit profile-details-edit" style="text-decoration:none;">edit profile</a>
+    </div>
+    <div style="display:flex;align-items:center;gap:16px;margin-top:8px;">
+      <div style="flex:1;height:8px;background:var(--surface-3);border-radius:999px;overflow:hidden;">
+        <div style="height:100%;width:{{ completion.percent }}%;background:var(--lime);border-radius:999px;"></div>
+      </div>
+      <strong style="font-variant-numeric:tabular-nums;font-size:18px;letter-spacing:var(--display-track);">{{ completion.percent }}%</strong>
+    </div>
+    {% if completion.missing %}
+    <p style="color:var(--ink-mid);font-size:12.5px;margin:10px 0 0;">
+      still missing:
+      {% for field in completion.missing[:5] %}
+        <span class="tag">{{ field.replace('_', ' ') }}</span>
+      {% endfor %}
+      {% if completion.missing|length > 5 %}<span class="tag">+{{ completion.missing|length - 5 }} more</span>{% endif %}
+    </p>
+    {% else %}
+    <p style="color:var(--ink-mid);font-size:12.5px;margin:10px 0 0;">your profile is complete. creators will see a full card in discover.</p>
+    {% endif %}
+  </div>
+
+  {# ---------- Live counts ---------- #}
+  <span class="mono" style="display:block;margin:0 0 10px;">activity</span>
+  <div class="brand-stat-grid">
+    <a class="brand-stat-tile" href="/brand/campaigns">
+      <span class="l">active campaigns</span>
+      <span class="v">{{ counts.active_campaigns }}</span>
+      <span class="h">{% if counts.active_campaigns %}running now{% else %}post your first campaign to start matching{% endif %}</span>
+    </a>
+    <a class="brand-stat-tile" href="/brand/saved">
+      <span class="l">saved creators</span>
+      <span class="v">{{ counts.saved }}</span>
+      <span class="h">{% if counts.saved %}from discover swipes{% else %}save creators while browsing discover{% endif %}</span>
+    </a>
+    <a class="brand-stat-tile" href="/brand/dm">
+      <span class="l">unread messages</span>
+      <span class="v">{{ counts.unread_dms }}</span>
+      <span class="h">{% if counts.unread_dms %}awaiting your reply{% else %}no new messages{% endif %}</span>
+    </a>
+    <div class="brand-stat-tile" style="cursor:default;">
+      <span class="l">inbound interest</span>
+      <span class="v">{{ counts.inbound_interest }}</span>
+      <span class="h">{% if counts.inbound_interest %}creators waiting on a response{% else %}none yet — keep your profile fresh{% endif %}</span>
+    </div>
+  </div>
+
+  {# ---------- Quick actions ---------- #}
+  <span class="mono" style="display:block;margin:18px 0 10px;">quick actions</span>
+  <div class="brand-quick-actions">
+    <a class="brand-quick-action" href="/brand/campaigns/new">
+      <span class="h">create a campaign →</span>
+      <span class="s">post a brief; creators will see it in discover.</span>
+    </a>
+    <a class="brand-quick-action" href="/brand/discover">
+      <span class="h">discover creators →</span>
+      <span class="s">swipe through people who match your niches.</span>
+    </a>
+    <a class="brand-quick-action" href="/brand/profile">
+      <span class="h">edit profile →</span>
+      <span class="s">keep your card sharp so creators say yes.</span>
+    </a>
+    <a class="brand-quick-action" href="/brand/dm">
+      <span class="h">view messages →</span>
+      <span class="s">check your inbox.</span>
+    </a>
+  </div>
+
+</div>
+{% endblock %}
