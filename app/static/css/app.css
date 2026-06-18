@@ -4121,6 +4121,36 @@ hr.hairline {
 .settings-row strong { color: var(--ink); font-weight: 500; }
 .settings-row strong a { color: var(--lime); }
 .settings-row-stack { flex-direction: column; align-items: flex-start; gap: 6px; }
+.settings-form { display: flex; flex-direction: column; gap: 12px; }
+.settings-form select {
+  background: var(--surface-2);
+  color: var(--ink);
+  border: 1px solid var(--hairline-strong);
+  border-radius: 8px;
+  padding: 9px 10px;
+  font-size: 13.5px;
+  width: 100%;
+  max-width: 360px;
+}
+.settings-form select:focus { outline: 2px solid var(--lime); outline-offset: 2px; }
+.settings-toggle { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.settings-toggle input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--lime);
+  cursor: pointer;
+}
+.settings-help { color: var(--ink-dim); font-size: 12.5px; margin: 2px 0 0; }
+.settings-actions { display: flex; justify-content: flex-end; margin-top: 4px; }
+.settings-flash {
+  font-size: 12.5px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--hairline-strong);
+  color: var(--ink-mid);
+  background: rgba(255,255,255,0.02);
+}
+.settings-flash-ok { color: var(--lime); border-color: var(--lime); background: rgba(255,77,109,0.08); }
 
 /* ───── kv (description list) ───── */
 .kv {

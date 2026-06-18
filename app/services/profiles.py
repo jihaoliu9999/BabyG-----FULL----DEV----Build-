@@ -36,6 +36,16 @@ logger = logging.getLogger(__name__)
 # viewing connected peers, operators viewing anyone). Internal fields
 # (`baseline_followers`, `tier`, `writing_samples`,
 # `notification_settings`, `sub_bot_persona`) are deliberately omitted.
+# Closed vocabularies for the Phase 3 owner-private preference columns
+# (migration 0016). Source of truth for the CHECK constraints and the
+# route-level allow-listing. First value of each is the default that
+# preserves current behavior.
+DM_PREFERENCE_VALUES: tuple[str, ...] = ("open", "connections_only")
+LOCATION_DISPLAY_LEVELS: tuple[str, ...] = ("city", "region", "hidden")
+BABYG_TONES: tuple[str, ...] = ("casual", "professional", "direct")
+BABYG_RISK_TOLERANCES: tuple[str, ...] = ("cautious", "balanced", "latitude")
+
+
 PUBLIC_CREATOR_FIELDS: tuple[str, ...] = (
     "user_id",
     "full_name",
