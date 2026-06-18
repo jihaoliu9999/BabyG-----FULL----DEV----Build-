@@ -18,7 +18,16 @@ Files are applied in numeric order. Each migration is plain SQL — run via the 
 | `0010_profile_photos_bucket.sql` | Provisions the Supabase Storage bucket for creator profile photos. |
 | `0011_oauth_connections_provider_relax.sql` | Relaxes `oauth_connections.provider` check constraint from `('google')` to `('google', 'instagram')` so the same table can hold Instagram/Meta tokens alongside Google. Phase 3 step 1. |
 | `0012_action_proposals.sql` | Adds the approval-state table for local/external action proposals, including permanent money-action prohibition checks. |
+| `0013_creator_discovery_actions.sql` | Adds creator swipe/action history for the original creator discovery experience. |
+| `0013_creator_location_fields.sql` | Adds creator location fields and display-level controls for discovery-safe location rendering. |
+| `0014_undo_pass_and_disconnect.sql` | Adds action support for undoing passes and disconnecting creator connections. |
 | `0015_restore_brand_profiles.sql` | Restores the brand profile table and RLS policies for the P1 brand role foundation without restoring brand outreach or DM flows. |
+| `0016_creator_prefs.sql` | Adds creator preference fields used for personalization. |
+| `0017_creator_deal_prefs.sql` | Adds creator deal preference fields used for opportunity matching. |
+| `0018_applied_migrations_rpc.sql` | Adds the read-only applied migrations RPC used by deployment drift checks. |
+| `0019_opportunity_cards.sql` | Extends existing posting rows so they can safely participate in unified Discover cards. |
+| `0020_discovery_card_view.sql` | Creates the server-read `discovery_cards` view for creator, brand, and opportunity cards. |
+| `0021_mixed_discovery_actions.sql` | Extends creator discovery actions to track creator, brand, and opportunity card targets. |
 
 ## Conventions
 
