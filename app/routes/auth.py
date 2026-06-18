@@ -89,11 +89,21 @@ _EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 
 
 @router.get("/login", response_class=HTMLResponse)
-async def login(request: Request, role: str = Query("creator")):
+async def login(
+    request: Request,
+    role: str = Query("creator"),
+    hint: str = Query(""),
+):
     if role not in VALID_ROLES:
         role = "creator"
+    # `hint=expired` is set by the callback error CTA so the form can
+    # surface a soft "your last link expired — request a new one" line
+    # without dropping the user back at the harsher /auth/error page.
+    hint = hint if hint in {"expired"} else ""
     return templates.TemplateResponse(
-        request, "auth/login.html", {"role": role, "error": None, "email": None}
+        request,
+        "auth/login.html",
+        {"role": role, "error": None, "email": None, "hint": hint},
     )
 
 
@@ -193,10 +203,16 @@ async def callback(request: Request):
     callback_error = params.get("callback_error")
 
     if error_description:
-        return _callback_error(request, message=error_description)
+        # Supabase forwards its own error_description verbatim. Most
+        # commonly this is "Email link is invalid or has expired" — surface
+        # as expired so the CTA copy matches.
+        kind = "expired" if "expired" in error_description.lower() else "invalid"
+        return _callback_error(request, message=error_description, kind=kind)
     if callback_error:
         return _callback_error(
-            request, message="Your sign-in link is missing required parameters."
+            request,
+            message="Your sign-in link is missing required parameters.",
+            kind="invalid",
         )
 
     if not any((token_hash, code, access_token, refresh_token)):
@@ -206,7 +222,9 @@ async def callback(request: Request):
     if access_token or refresh_token:
         if not access_token or not refresh_token:
             return _callback_error(
-                request, message="Your sign-in link is missing required parameters."
+                request,
+                message="Your sign-in link is missing required parameters.",
+                kind="invalid",
             )
         try:
             session_result = supabase_client.get_anon_client().auth.set_session(
@@ -216,13 +234,16 @@ async def callback(request: Request):
         except AuthApiError:
             logger.info("set_session rejected callback tokens")
             return _callback_error(
-                request, message="Your sign-in link is invalid or has expired. Try again."
+                request,
+                message="Your sign-in link is invalid or has expired. Try again.",
+                kind="expired",
             )
         except Exception:
             logger.exception("set_session infra failure")
             return _callback_error(
                 request,
                 message="We couldn't verify your link right now. Try again in a minute.",
+                kind="infra",
             )
         user = _user_from_auth_response(session_result)
     elif code:
@@ -233,24 +254,31 @@ async def callback(request: Request):
         except AuthApiError:
             logger.info("exchange_code_for_session rejected code")
             return _callback_error(
-                request, message="Your sign-in link is invalid or has expired. Try again."
+                request,
+                message="Your sign-in link is invalid or has expired. Try again.",
+                kind="expired",
             )
         except Exception:
             logger.exception("exchange_code_for_session infra failure")
             return _callback_error(
                 request,
                 message="We couldn't verify your link right now. Try again in a minute.",
+                kind="infra",
             )
         user = _user_from_auth_response(code_result)
     elif not token_hash or not otp_type:
         return _callback_error(
-            request, message="Your sign-in link is missing required parameters."
+            request,
+            message="Your sign-in link is missing required parameters.",
+            kind="invalid",
         )
     if user is None and otp_type not in ALLOWED_OTP_TYPES:
         # Don't forward attacker-supplied `type` values to Supabase; refuse early.
         logger.warning("rejected callback with unknown otp type: %r", otp_type)
         return _callback_error(
-            request, message="Your sign-in link is invalid. Please request a new one."
+            request,
+            message="Your sign-in link is invalid. Please request a new one.",
+            kind="invalid",
         )
 
     if user is None:
@@ -263,7 +291,9 @@ async def callback(request: Request):
             # Token expired / already used / wrong type. User-actionable.
             logger.info("verify_otp rejected token (expired or invalid)")
             return _callback_error(
-                request, message="Your sign-in link is invalid or has expired. Try again."
+                request,
+                message="Your sign-in link is invalid or has expired. Try again.",
+                kind="expired",
             )
         except Exception:
             # Network / infra. Surface a different message so support can tell the
@@ -272,16 +302,23 @@ async def callback(request: Request):
             return _callback_error(
                 request,
                 message="We couldn't verify your link right now. Try again in a minute.",
+                kind="infra",
             )
 
         user = _user_from_auth_response(verify_result)
     if user is None or not getattr(user, "id", None):
-        return _callback_error(request, message="Sign-in failed. Please try again.")
+        return _callback_error(
+            request, message="Sign-in failed. Please try again.", kind="invalid"
+        )
 
     auth_user_id = str(user.id)
     auth_email = (getattr(user, "email", None) or "").lower()
     if not auth_email:
-        return _callback_error(request, message="Your account is missing an email address.")
+        return _callback_error(
+            request,
+            message="Your account is missing an email address.",
+            kind="invalid",
+        )
 
     # Step 2: figure out the babyg role. Existing user wins; otherwise we use
     # the pending-role cookie (set when /magic-link was POSTed).
@@ -301,11 +338,123 @@ async def callback(request: Request):
                 "This account isn't set up for the requested role. "
                 "If you're an operator, ask an admin to invite you."
             ),
+            kind="role",
         )
 
     # Step 3: write the session cookie and bounce to the dashboard.
     response = RedirectResponse(_dashboard_path(role), status_code=302)
     write_session(response, {"user_id": auth_user_id, "role": role})
+    clear_pending_role(response)
+    return response
+
+
+@router.get("/code", response_class=HTMLResponse)
+async def code_form(
+    request: Request,
+    role: str = Query("creator"),
+    email: str = Query(""),
+):
+    """Code-entry fallback for users whose magic-link click was blocked by
+    link-rewriting webmail, opened on the wrong device, or otherwise
+    didn't survive the round-trip. Supabase OTP sends both a magic link
+    and a 6-digit code in the same email; this form verifies the code
+    directly so users have a recovery path that doesn't depend on the
+    link arriving intact.
+    """
+    if role not in VALID_ROLES:
+        role = "creator"
+    email = email.strip().lower()[:254]
+    return templates.TemplateResponse(
+        request,
+        "auth/code.html",
+        {"role": role, "email": email, "error": None},
+    )
+
+
+@router.post("/code", response_class=HTMLResponse)
+async def code_submit(
+    request: Request,
+    email: str = Form(...),
+    code: str = Form(...),
+    role: str = Form(...),
+):
+    role = role.strip().lower()
+    email = email.strip().lower()
+    code = code.strip().replace(" ", "").replace("-", "")
+
+    if role not in VALID_ROLES:
+        return _code_error(request, role="creator", email=email, message="Invalid role.")
+    if len(email) > 254 or not _EMAIL_RE.match(email):
+        return _code_error(request, role=role, email=email, message="Enter a valid email.")
+    if not code.isdigit() or not 4 <= len(code) <= 10:
+        return _code_error(
+            request, role=role, email=email, message="Enter the code from your email."
+        )
+
+    # Per-IP rate limit. Reuses the magic-link bucket so an attacker who
+    # spent five sends can't pivot to brute-forcing six-digit codes.
+    ip = client_ip(request)
+    if not magic_link_limiter.allow("code-verify", ip):
+        return _code_error(
+            request,
+            role=role,
+            email=email,
+            message="Too many attempts. Wait a couple of minutes.",
+        )
+
+    try:
+        verify_result = supabase_client.get_anon_client().auth.verify_otp(
+            {"email": email, "token": code, "type": "email"}  # type: ignore[typeddict-item]
+        )
+    except AuthApiError:
+        logger.info("verify_otp rejected code for email_hash=%s", hash(email) & 0xFFFF)
+        return _code_error(
+            request,
+            role=role,
+            email=email,
+            message="That code is invalid or has expired. Request a new link.",
+        )
+    except Exception:
+        logger.exception("verify_otp infra failure on code path")
+        return _code_error(
+            request,
+            role=role,
+            email=email,
+            message="We couldn't verify the code right now. Try again in a minute.",
+        )
+
+    user = _user_from_auth_response(verify_result)
+    if user is None or not getattr(user, "id", None):
+        return _code_error(
+            request, role=role, email=email, message="Sign-in failed. Please try again."
+        )
+    auth_user_id = str(user.id)
+    auth_email = (getattr(user, "email", None) or "").lower()
+    if not auth_email:
+        return _code_error(
+            request,
+            role=role,
+            email=email,
+            message="Your account is missing an email address.",
+        )
+
+    pending_role = read_pending_role(request)
+    requested_role = pending_role if pending_role in VALID_ROLES else role
+    resolved_role, _just_created = _ensure_user_row(
+        auth_user_id=auth_user_id, email=auth_email, requested_role=requested_role
+    )
+    if resolved_role is None:
+        return _callback_error(
+            request,
+            message=(
+                "This account isn't set up for the requested role. "
+                "If you're an operator, ask an admin to invite you."
+            ),
+            kind="role",
+        )
+
+    response = RedirectResponse(_dashboard_path(resolved_role), status_code=302)
+    write_session(response, {"user_id": auth_user_id, "role": resolved_role})
     clear_pending_role(response)
     return response
 
@@ -345,14 +494,45 @@ def _login_error(request: Request, *, role: str, email: str, message: str) -> Re
     return templates.TemplateResponse(
         request,
         "auth/login.html",
-        {"role": role, "error": message, "email": email},
+        {"role": role, "error": message, "email": email, "hint": ""},
         status_code=400,
     )
 
 
-def _callback_error(request: Request, *, message: str) -> Response:
+def _code_error(request: Request, *, role: str, email: str, message: str) -> Response:
     return templates.TemplateResponse(
-        request, "auth/error.html", {"message": message}, status_code=400
+        request,
+        "auth/code.html",
+        {"role": role, "email": email, "error": message},
+        status_code=400,
+    )
+
+
+CALLBACK_ERROR_KINDS = frozenset({"expired", "invalid", "infra", "role"})
+
+
+def _callback_error(
+    request: Request, *, message: str, kind: str = "invalid"
+) -> Response:
+    """Render auth/error.html with an error-kind hint so the template can
+    pick the right title + recovery CTA.
+
+    The CTA pre-selects the role the user requested (from the pending-role
+    cookie set at /auth/magic-link time), so the "send me a new link"
+    button lands on /auth/login?role=<their role> instead of the generic
+    /get-started chooser — saves an extra click on the most common
+    "link expired" flow.
+    """
+    if kind not in CALLBACK_ERROR_KINDS:
+        kind = "invalid"
+    role = read_pending_role(request)
+    if role not in VALID_ROLES:
+        role = "creator"
+    return templates.TemplateResponse(
+        request,
+        "auth/error.html",
+        {"message": message, "error_kind": kind, "role": role},
+        status_code=400,
     )
 
 
