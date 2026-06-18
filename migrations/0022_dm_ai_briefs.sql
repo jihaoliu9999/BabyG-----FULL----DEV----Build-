@@ -78,13 +78,20 @@ alter table public.dm_ai_briefs enable row level security;
 -- recipient's private brief. Operators can read for abuse review.
 create policy dm_ai_briefs_recipient_select
   on public.dm_ai_briefs
-  for select using (recipient_user_id = auth.uid() or public.is_operator());
+  for select to authenticated
+  using (recipient_user_id = auth.uid() or public.is_operator());
 
 -- Only the recipient (or the service role / operator) writes their brief.
 create policy dm_ai_briefs_recipient_insert
   on public.dm_ai_briefs
-  for insert with check (recipient_user_id = auth.uid() or public.is_operator());
+  for insert to authenticated
+  with check (recipient_user_id = auth.uid() or public.is_operator());
 
 create policy dm_ai_briefs_recipient_update
   on public.dm_ai_briefs
-  for update using (recipient_user_id = auth.uid() or public.is_operator());
+  for update to authenticated
+  using (recipient_user_id = auth.uid() or public.is_operator())
+  with check (recipient_user_id = auth.uid() or public.is_operator());
+
+revoke all on public.dm_ai_briefs from anon;
+grant select, insert, update on public.dm_ai_briefs to authenticated, service_role;

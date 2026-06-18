@@ -51,14 +51,14 @@ select
   bp.company_name as title,
   bp.industry as subtitle,
   bp.logo_url as image_url,
-  nullif(concat_ws(', ', bp.location_city, bp.location_region), '') as location_label,
+  null::text as location_label,
   case when bp.industry is null then '{}'::text[] else array[bp.industry] end as tags,
   bp.created_at,
   null::text as description,
   null::text as profile_handle,
   null::text as follower_range,
   null::text as primary_platform,
-  bp.verification_status::text,
+  case when bp.is_verified then 'verified' else 'unverified' end as verification_status,
   null::text as compensation_type,
   null::text as compensation_text,
   null::integer as budget_min,
@@ -67,7 +67,6 @@ select
   '/creator/discover/brand/' || bp.user_id::text as detail_path
 from public.brand_profiles bp
 where bp.onboarding_completed_at is not null
-  and bp.verification_status::text <> 'blocked'
 
 union all
 
@@ -80,7 +79,6 @@ select
   coalesce(bp.logo_url, cp.profile_photo_url) as image_url,
   coalesce(
     nullif(concat_ws(', ', listing.location_city, listing.location_region), ''),
-    nullif(concat_ws(', ', bp.location_city, bp.location_region), ''),
     case coalesce(cp.location_display_level, 'city')
       when 'hidden' then null
       when 'region' then nullif(concat_ws(', ', cp.location_region, cp.location_country), '')
@@ -93,7 +91,7 @@ select
   null::text as profile_handle,
   null::text as follower_range,
   null::text as primary_platform,
-  bp.verification_status::text,
+  case when bp.is_verified then 'verified' else 'unverified' end as verification_status,
   listing.compensation_type,
   listing.compensation_text,
   listing.budget_min,
@@ -110,6 +108,7 @@ where listing.is_active = true
 
 -- The application currently reads through the server-side service client.
 -- Do not expose the mixed directory directly through the browser Data API.
+grant select on public.discovery_cards to service_role;
 revoke all on public.discovery_cards from anon, authenticated;
 
 commit;
