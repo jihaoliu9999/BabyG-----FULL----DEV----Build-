@@ -578,6 +578,268 @@ def test_logout_clears_cookie(client: TestClient) -> None:
     assert PENDING_ROLE_COOKIE in set_cookie
 
 
+# -----------------------------------------------------------------------------
+# Error-kind classification + recovery CTA
+# -----------------------------------------------------------------------------
+
+
+def test_callback_expired_renders_resend_link_cta(
+    client: TestClient, fake_auth: FakeAuth, fake_service: FakeService
+) -> None:
+    """Expired-link path surfaces the role-aware 'send me a new link' CTA so
+    users can recover without reopening the role chooser."""
+    from gotrue.errors import AuthApiError
+
+    fake_auth.verify_should_raise = AuthApiError("expired", 400, None)
+    _set_pending_role(client, "creator")
+
+    r = client.get("/auth/callback?token_hash=abc&type=magiclink")
+
+    assert r.status_code == 400
+    assert "expired" in r.text.lower()
+    assert "/auth/login?role=creator&hint=expired" in r.text
+
+
+def test_callback_infra_failure_renders_try_again_cta(
+    client: TestClient, fake_auth: FakeAuth, fake_service: FakeService
+) -> None:
+    """Infra failures get a distinct 'our side hiccuped' panel so support can
+    distinguish from real expired-link cases."""
+    fake_auth.verify_should_raise = RuntimeError("network down")
+    _set_pending_role(client, "creator")
+
+    r = client.get("/auth/callback?token_hash=abc&type=magiclink")
+
+    assert r.status_code == 400
+    assert "hiccup" in r.text.lower()
+    # CTA points back to /auth/login (no hint=expired) — fresh attempt.
+    assert "/auth/login?role=creator" in r.text
+
+
+def test_callback_role_mismatch_routes_to_role_chooser(
+    client: TestClient, fake_auth: FakeAuth, fake_service: FakeService
+) -> None:
+    """An unauthorized operator signup lands on the role-mismatch page with
+    a CTA back to /get-started — not /auth/login, because the issue is the
+    role, not the link."""
+    fake_auth.verify_response = SimpleNamespace(
+        user=SimpleNamespace(id="user-new-op", email="rando@example.com")
+    )
+    _set_pending_role(client, "operator")
+
+    r = client.get("/auth/callback?token_hash=abc&type=magiclink")
+
+    assert r.status_code == 400
+    assert "role mismatch" in r.text.lower()
+    assert "/get-started" in r.text
+
+
+def test_callback_falls_back_to_creator_when_pending_cookie_missing(
+    client: TestClient, fake_auth: FakeAuth, fake_service: FakeService
+) -> None:
+    """No pending-role cookie (user pasted the link in a different browser)
+    must not blow up; default the CTA to creator."""
+    from gotrue.errors import AuthApiError
+
+    fake_auth.verify_should_raise = AuthApiError("expired", 400, None)
+    # No _set_pending_role call.
+
+    r = client.get("/auth/callback?token_hash=abc&type=magiclink")
+
+    assert r.status_code == 400
+    assert "/auth/login?role=creator&hint=expired" in r.text
+
+
+def test_login_hint_expired_shows_soft_banner(client: TestClient) -> None:
+    r = client.get("/auth/login?role=creator&hint=expired")
+    assert r.status_code == 200
+    assert "your last link expired" in r.text.lower()
+
+
+def test_login_hint_ignores_unknown_values(client: TestClient) -> None:
+    """The hint param is closed-vocabulary; unknown values render nothing."""
+    r = client.get("/auth/login?role=creator&hint=bogus")
+    assert r.status_code == 200
+    assert "your last link expired" not in r.text.lower()
+
+
+# -----------------------------------------------------------------------------
+# /auth/code fallback
+# -----------------------------------------------------------------------------
+
+
+def test_code_form_renders(client: TestClient) -> None:
+    r = client.get("/auth/code?role=creator&email=anna@example.com")
+    assert r.status_code == 200
+    assert "enter the code" in r.text.lower()
+    assert 'value="anna@example.com"' in r.text
+
+
+def test_code_form_falls_back_to_creator_for_unknown_role(client: TestClient) -> None:
+    r = client.get("/auth/code?role=ufo")
+    assert r.status_code == 200
+    assert 'value="creator"' in r.text
+
+
+def test_code_submit_signs_in_existing_creator(
+    client: TestClient, fake_auth: FakeAuth, fake_service: FakeService
+) -> None:
+    fake_service.tables["users"].append(
+        {"id": "creator-1", "email": "anna@example.com", "role": "creator"}
+    )
+    fake_auth.verify_response = SimpleNamespace(
+        user=SimpleNamespace(id="creator-1", email="anna@example.com")
+    )
+
+    r = client.post(
+        "/auth/code",
+        data={"email": "anna@example.com", "code": "123456", "role": "creator"},
+    )
+
+    assert r.status_code == 302
+    assert r.headers["location"] == "/creator"
+    assert fake_auth.last_verify_args == {
+        "email": "anna@example.com",
+        "token": "123456",
+        "type": "email",
+    }
+    cookies = {c.name: c.value for c in client.cookies.jar}
+    assert SESSION_COOKIE in cookies
+
+
+def test_code_submit_creates_first_time_creator(
+    client: TestClient, fake_auth: FakeAuth, fake_service: FakeService
+) -> None:
+    fake_auth.verify_response = SimpleNamespace(
+        user=SimpleNamespace(id="new-creator", email="new@example.com")
+    )
+
+    r = client.post(
+        "/auth/code",
+        data={"email": "new@example.com", "code": "654321", "role": "creator"},
+    )
+
+    assert r.status_code == 302
+    assert r.headers["location"] == "/creator"
+    users_insert = next(p for n, p in fake_service.inserts if n == "users")
+    assert users_insert == {
+        "id": "new-creator",
+        "email": "new@example.com",
+        "role": "creator",
+    }
+
+
+def test_code_submit_strips_dashes_and_spaces(
+    client: TestClient, fake_auth: FakeAuth, fake_service: FakeService
+) -> None:
+    """Email clients sometimes line-break a 6-digit code as `123 456` or
+    `123-456`. Accept both."""
+    fake_service.tables["users"].append(
+        {"id": "u1", "email": "a@b.com", "role": "creator"}
+    )
+    fake_auth.verify_response = SimpleNamespace(
+        user=SimpleNamespace(id="u1", email="a@b.com")
+    )
+
+    r = client.post(
+        "/auth/code",
+        data={"email": "a@b.com", "code": "123 - 456", "role": "creator"},
+    )
+
+    assert r.status_code == 302
+    assert fake_auth.last_verify_args is not None
+    assert fake_auth.last_verify_args["token"] == "123456"
+
+
+def test_code_submit_rejects_invalid_email(
+    client: TestClient, fake_auth: FakeAuth, fake_service: FakeService
+) -> None:
+    r = client.post(
+        "/auth/code",
+        data={"email": "not-an-email", "code": "123456", "role": "creator"},
+    )
+    assert r.status_code == 400
+    assert fake_auth.last_verify_args is None
+
+
+def test_code_submit_rejects_non_numeric_code(
+    client: TestClient, fake_auth: FakeAuth, fake_service: FakeService
+) -> None:
+    r = client.post(
+        "/auth/code",
+        data={"email": "a@b.com", "code": "abcdef", "role": "creator"},
+    )
+    assert r.status_code == 400
+    assert fake_auth.last_verify_args is None
+
+
+def test_code_submit_handles_auth_api_error(
+    client: TestClient, fake_auth: FakeAuth, fake_service: FakeService
+) -> None:
+    from gotrue.errors import AuthApiError
+
+    fake_auth.verify_should_raise = AuthApiError("expired", 400, None)
+
+    r = client.post(
+        "/auth/code",
+        data={"email": "a@b.com", "code": "123456", "role": "creator"},
+    )
+
+    assert r.status_code == 400
+    assert "invalid or has expired" in r.text.lower()
+
+
+def test_code_submit_handles_infra_failure(
+    client: TestClient, fake_auth: FakeAuth, fake_service: FakeService
+) -> None:
+    fake_auth.verify_should_raise = RuntimeError("supabase down")
+
+    r = client.post(
+        "/auth/code",
+        data={"email": "a@b.com", "code": "123456", "role": "creator"},
+    )
+
+    assert r.status_code == 400
+    # Apostrophe is HTML-escaped by Jinja; check the surrounding phrase.
+    assert "verify the code right now" in r.text.lower()
+
+
+def test_code_submit_refuses_first_time_operator(
+    client: TestClient, fake_auth: FakeAuth, fake_service: FakeService
+) -> None:
+    """First-time operator via code path is still rejected — operator is
+    invite-only, same gate as the magic-link callback."""
+    fake_auth.verify_response = SimpleNamespace(
+        user=SimpleNamespace(id="new-op", email="rando@example.com")
+    )
+
+    r = client.post(
+        "/auth/code",
+        data={"email": "rando@example.com", "code": "123456", "role": "operator"},
+    )
+
+    assert r.status_code == 400
+    assert "operator" in r.text.lower()
+    assert fake_service.inserts == []
+
+
+def test_magic_link_sent_page_links_to_code_fallback(
+    client: TestClient, fake_auth: FakeAuth, fake_service: FakeService
+) -> None:
+    r = client.post(
+        "/auth/magic-link",
+        data={"email": "anna@example.com", "role": "creator"},
+    )
+    assert r.status_code == 200
+    assert "got a code instead?" in r.text.lower()
+    assert "/auth/code?role=creator" in r.text
+
+
+# -----------------------------------------------------------------------------
+# require_role
+# -----------------------------------------------------------------------------
+
+
 def test_dashboard_requires_correct_role(
     client: TestClient, fake_service
 ) -> None:

@@ -9,8 +9,22 @@
     {{ brand.wordmark("brand-lockup-small") }}
   </div>
   <div class="auth-tag">sign-in</div>
-  <h1 class="auth-title">that link missed.</h1>
-  <p class="auth-sub">{{ message }}</p>
-  <a class="btn btn-lime btn-sm" href="/get-started">try again →</a>
+  {% if error_kind == "expired" %}
+    <h1 class="auth-title">that link expired.</h1>
+    <p class="auth-sub">{{ message }}</p>
+    <a class="btn btn-lime btn-sm" href="/auth/login?role={{ role }}&hint=expired">send me a new link →</a>
+  {% elif error_kind == "infra" %}
+    <h1 class="auth-title">our side hiccuped.</h1>
+    <p class="auth-sub">{{ message }}</p>
+    <a class="btn btn-lime btn-sm" href="/auth/login?role={{ role }}">try again →</a>
+  {% elif error_kind == "role" %}
+    <h1 class="auth-title">role mismatch.</h1>
+    <p class="auth-sub">{{ message }}</p>
+    <a class="btn btn-lime btn-sm" href="/get-started">pick a role →</a>
+  {% else %}
+    <h1 class="auth-title">that link missed.</h1>
+    <p class="auth-sub">{{ message }}</p>
+    <a class="btn btn-lime btn-sm" href="/auth/login?role={{ role }}">request a new link →</a>
+  {% endif %}
 </div>
 {% endblock %}

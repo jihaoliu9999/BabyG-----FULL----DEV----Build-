@@ -3810,6 +3810,16 @@ hr.hairline {
   margin-bottom: 20px;
   text-align: left;
 }
+.auth-hint {
+  background: rgba(216,221,230,0.04);
+  border: 1px solid var(--hairline-strong);
+  border-radius: 10px;
+  color: var(--ink-mid);
+  font-size: 13px;
+  padding: 12px 14px;
+  margin-bottom: 20px;
+  text-align: left;
+}
 .auth-form {
   width: min(100%, 560px);
   margin: 0 auto;
