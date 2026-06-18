@@ -1715,67 +1715,9 @@ h1, h2, h3, h4 {
   min-height: 100dvh;
   padding: calc(var(--topbar-h) + 36px) 18px 48px;
 }
-.brand-dashboard {
-  position: relative;
-  z-index: 1;
-  width: min(100%, 860px);
-  margin: 0 auto;
-  padding: clamp(38px, 8vw, 96px) 0;
-}
-.brand-dashboard-hero {
-  max-width: 640px;
-  margin-bottom: 28px;
-}
-.brand-dashboard-hero h1 {
-  margin: 12px 0 10px;
-  font-size: clamp(48px, 9vw, 92px);
-  line-height: .92;
-  letter-spacing: var(--display-track);
-  font-weight: var(--display-weight);
-}
-.brand-dashboard-hero p {
-  max-width: 520px;
-  color: var(--ink-mid);
-  font-size: clamp(16px, 2vw, 20px);
-  line-height: 1.45;
-}
-.brand-dashboard-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
-}
-.brand-dashboard-card {
-  min-height: 124px;
-  padding: 20px;
-  border: 1px solid var(--hairline);
-  border-radius: 20px;
-  background:
-    linear-gradient(145deg, rgba(255,255,255,.045), rgba(255,255,255,0) 46%),
-    rgba(17,17,17,.72);
-  box-shadow: 0 22px 60px rgba(0,0,0,.22);
-}
-.brand-dashboard-card p,
-.brand-dashboard-card a {
-  display: block;
-  margin: 14px 0 0;
-  color: var(--ink);
-  font-size: 18px;
-  line-height: 1.35;
-  overflow-wrap: anywhere;
-}
-.brand-dashboard-card a {
-  text-decoration: none;
-}
-.brand-dashboard-card a:hover,
-.brand-dashboard-card a:focus-visible {
-  color: var(--lime);
-}
 @media (max-width: 700px) {
   .is-brand-shell .brand-main {
     padding-inline: 14px;
-  }
-  .brand-dashboard-grid {
-    grid-template-columns: 1fr;
   }
 }
 

@@ -14,6 +14,7 @@ Stubs the profiles service so DB calls become in-memory dict ops. Covers:
 from __future__ import annotations
 
 from typing import Any
+from uuid import uuid4
 
 import pytest
 from fastapi import Response
@@ -21,6 +22,7 @@ from fastapi.testclient import TestClient
 
 from app.core.security import SESSION_COOKIE, write_session
 from app.main import app
+from app.services import discover as discover_module
 from app.services import profiles as profiles_module
 
 # -----------------------------------------------------------------------------
@@ -413,7 +415,7 @@ def test_brand_dashboard_redirects_to_onboarding_when_incomplete(client, store):
     assert r.headers["location"] == "/onboarding/brand"
 
 
-def test_brand_dashboard_renders_when_onboarded(client, store):
+def test_brand_dashboard_redirects_to_discover_when_onboarded(client, store):
     _signed_in(client, role="brand")
     store.brand["u-1"] = {
         "company_name": "Studio House",
@@ -424,9 +426,53 @@ def test_brand_dashboard_renders_when_onboarded(client, store):
         "onboarding_completed_at": "2026-05-07T00:00:00Z",
     }
     r = client.get("/brand")
+    assert r.status_code == 302
+    assert r.headers["location"] == "/brand/discover"
+
+
+def test_brand_discover_renders_when_onboarded(client, store, monkeypatch):
+    _signed_in(client, role="brand")
+    store.brand["u-1"] = {
+        "company_name": "Studio House",
+        "brand_website": "https://studio.example",
+        "contact_full_name": "Alex Morgan",
+        "campaign_types": ["paid posts"],
+        "creator_size_preferences": ["micro"],
+        "niche_preferences": ["fashion"],
+        "onboarding_completed_at": "2026-05-07T00:00:00Z",
+    }
+    creator_id = str(uuid4())
+
+    monkeypatch.setattr(
+        discover_module,
+        "list_cards",
+        lambda **kwargs: [
+            {
+                "card_kind": "creator",
+                "card_id": creator_id,
+                "owner_user_id": creator_id,
+                "title": "Mia Santos",
+                "subtitle": "@mia",
+                "image_url": None,
+                "location_label": "Miami, FL",
+                "tags": ["fashion"],
+                "description": "fashion creator",
+                "primary_platform": "Instagram",
+                "follower_range": "10k-50k",
+                "compensation_text": None,
+                "deadline": None,
+                "detail_path": f"/brand/discover/creator/{creator_id}",
+                "why_relevant": "matches your fashion focus",
+            }
+        ],
+    )
+    monkeypatch.setattr(discover_module, "last_undoable_pass", lambda uid: None)
+    monkeypatch.setattr(discover_module, "record_action", lambda **kwargs: True)
+
+    r = client.get("/brand/discover")
     assert r.status_code == 200
-    assert "Studio House" in r.text
-    assert "brand path is active" in r.text
+    assert "Mia Santos" in r.text
+    assert "brand path is active" not in r.text
 
 
 # `creator dashboard renders when onboarded` and `operator dashboard skips

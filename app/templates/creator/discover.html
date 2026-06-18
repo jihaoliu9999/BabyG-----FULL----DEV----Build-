@@ -7,7 +7,7 @@
   <header class="discover-head">
     <div>
       <h1>discover</h1>
-      <p>people, brands, and opportunities worth knowing.</p>
+      <p>{{ discover_subtitle|default('people, brands, and opportunities worth knowing.') }}</p>
     </div>
     <button class="discover-filter-toggle" type="button" data-filter-toggle aria-expanded="false" aria-controls="discover-filters">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M6 14v6"/></svg>
@@ -16,7 +16,7 @@
   </header>
 
   <nav class="discover-kind-tabs" aria-label="discover card type">
-    {% for value, label in [('all', 'all'), ('creator', 'people'), ('brand', 'brands'), ('opportunity', 'opportunities')] %}
+    {% for value, label in discover_tabs|default([('all', 'all'), ('creator', 'people'), ('brand', 'brands'), ('opportunity', 'opportunities')]) %}
     <a href="{{ discover_base_path }}?kind={{ value }}" class="{{ 'active' if active_kind == value }}" {% if active_kind == value %}aria-current="page"{% endif %}>{{ label }}</a>
     {% endfor %}
   </nav>
