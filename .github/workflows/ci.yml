@@ -32,5 +32,12 @@ jobs:
       - name: Type-check (mypy)
         run: mypy app
 
+      - name: Migration filename sanity
+        # Catches duplicate-prefix and bad-shape filenames in migrations/
+        # before they reach a deploy. Cheap, no Supabase access needed.
+        # The runtime drift gate (registry vs files) lives in
+        # app/core/migration_check.py and runs at app boot.
+        run: python scripts/check_migration_numbers.py
+
       - name: Test (pytest)
         run: pytest -q

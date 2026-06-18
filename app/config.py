@@ -33,6 +33,10 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("PUBLIC_APP_URL", "SITE_URL"),
     )
     session_secret: str = "dev-only-not-secure-replace-me"
+    # When true, a missing migration on Supabase crashes the boot
+    # instead of just logging a WARN. Off by default so flipping the
+    # toggle is an explicit operational decision per env.
+    strict_migration_check: bool = False
 
     # Supabase
     supabase_url: str = ""
