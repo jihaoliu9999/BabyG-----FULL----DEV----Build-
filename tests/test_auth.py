@@ -112,6 +112,7 @@ class FakeService:
         self.tables: dict[str, list[dict]] = {
             "users": [],
             "creator_profiles": [],
+            "brand_profiles": [],
         }
         self.inserts: list[tuple[str, dict]] = []
 
@@ -204,6 +205,7 @@ def test_get_started_renders_role_cards(client: TestClient) -> None:
     r = client.get("/get-started")
     assert r.status_code == 200
     assert "/auth/login?role=creator" in r.text
+    assert "/auth/login?role=brand" in r.text
     # Operator card removed from the visual chooser — see
     # tests/test_marketing.py::test_get_started_renders_role_cards for the
     # full rationale. Operators sign in via a direct /auth/login?role=operator
@@ -215,6 +217,12 @@ def test_get_started_with_role_query_redirects(client: TestClient) -> None:
     r = client.get("/get-started?role=creator")
     assert r.status_code == 302
     assert r.headers["location"] == "/auth/login?role=creator"
+
+
+def test_get_started_with_brand_role_query_redirects(client: TestClient) -> None:
+    r = client.get("/get-started?role=brand")
+    assert r.status_code == 302
+    assert r.headers["location"] == "/auth/login?role=brand"
 
 
 def test_landing_redirects_signed_in_users(client: TestClient) -> None:
@@ -240,6 +248,12 @@ def test_login_form_renders(client: TestClient) -> None:
     r = client.get("/auth/login?role=creator")
     assert r.status_code == 200
     assert "creator sign in" in r.text
+
+
+def test_login_form_renders_brand(client: TestClient) -> None:
+    r = client.get("/auth/login?role=brand")
+    assert r.status_code == 200
+    assert "brand sign in" in r.text
 
 
 def test_login_form_falls_back_to_creator_for_unknown_role(client: TestClient) -> None:
@@ -272,6 +286,22 @@ def test_magic_link_sends_otp_and_sets_pending_role(
     assert (
         fake_auth.last_otp_args["options"]["data"]["requested_role"] == "creator"
     )
+
+    cookies = {c.name: c.value for c in client.cookies.jar}
+    assert PENDING_ROLE_COOKIE in cookies
+
+
+def test_magic_link_sends_brand_otp_and_sets_pending_role(
+    client: TestClient, fake_auth: FakeAuth, fake_service: FakeService
+) -> None:
+    r = client.post(
+        "/auth/magic-link",
+        data={"email": "Brand@Example.com", "role": "brand"},
+    )
+    assert r.status_code == 200
+    assert fake_auth.last_otp_args is not None
+    assert fake_auth.last_otp_args["email"] == "brand@example.com"
+    assert fake_auth.last_otp_args["options"]["data"]["requested_role"] == "brand"
 
     cookies = {c.name: c.value for c in client.cookies.jar}
     assert PENDING_ROLE_COOKIE in cookies
@@ -403,6 +433,58 @@ def test_callback_creates_creator_from_metadata_without_pending_cookie(
         "id": "cross-browser-user",
         "email": "cross-browser@example.com",
         "role": "creator",
+    }
+
+
+def test_callback_creates_brand_row_and_redirects(
+    client: TestClient, fake_auth: FakeAuth, fake_service: FakeService
+) -> None:
+    fake_auth.verify_response = SimpleNamespace(
+        user=SimpleNamespace(id="brand-123", email="brand@example.com")
+    )
+    _set_pending_role(client, "brand")
+
+    r = client.get("/auth/callback?token_hash=abc&type=magiclink")
+
+    assert r.status_code == 302
+    assert r.headers["location"] == "/brand"
+    inserted_tables = [name for name, _ in fake_service.inserts]
+    assert "users" in inserted_tables
+    assert "brand_profiles" in inserted_tables
+    users_insert = next(p for n, p in fake_service.inserts if n == "users")
+    assert users_insert == {
+        "id": "brand-123",
+        "email": "brand@example.com",
+        "role": "brand",
+    }
+    brand_insert = next(p for n, p in fake_service.inserts if n == "brand_profiles")
+    assert brand_insert == {
+        "user_id": "brand-123",
+        "company_name": "",
+        "contact_full_name": "",
+    }
+
+
+def test_callback_creates_brand_from_metadata_without_pending_cookie(
+    client: TestClient, fake_auth: FakeAuth, fake_service: FakeService
+) -> None:
+    fake_auth.verify_response = SimpleNamespace(
+        user=SimpleNamespace(
+            id="cross-browser-brand",
+            email="brand-cross@example.com",
+            user_metadata={"requested_role": "brand"},
+        )
+    )
+
+    r = client.get("/auth/callback?token_hash=abc&type=email")
+
+    assert r.status_code == 302
+    assert r.headers["location"] == "/brand"
+    users_insert = next(p for n, p in fake_service.inserts if n == "users")
+    assert users_insert == {
+        "id": "cross-browser-brand",
+        "email": "brand-cross@example.com",
+        "role": "brand",
     }
 
 
@@ -727,6 +809,25 @@ def test_code_submit_creates_first_time_creator(
         "email": "new@example.com",
         "role": "creator",
     }
+
+
+def test_code_submit_creates_first_time_brand(
+    client: TestClient, fake_auth: FakeAuth, fake_service: FakeService
+) -> None:
+    fake_auth.verify_response = SimpleNamespace(
+        user=SimpleNamespace(id="new-brand", email="brand@example.com")
+    )
+
+    r = client.post(
+        "/auth/code",
+        data={"email": "brand@example.com", "code": "654321", "role": "brand"},
+    )
+
+    assert r.status_code == 302
+    assert r.headers["location"] == "/brand"
+    inserted_tables = [name for name, _ in fake_service.inserts]
+    assert "users" in inserted_tables
+    assert "brand_profiles" in inserted_tables
 
 
 def test_code_submit_strips_dashes_and_spaces(

@@ -23,6 +23,7 @@ from app.config import get_settings
 from app.core.templating import templates
 from app.routes import abuse as abuse_routes
 from app.routes import auth as auth_routes
+from app.routes import brand as brand_routes
 from app.routes import creator as creator_routes
 from app.routes import legal as legal_routes
 from app.routes import marketing as marketing_routes
@@ -67,6 +68,7 @@ def create_app() -> FastAPI:
     app.include_router(auth_routes.router)
     app.include_router(onboarding_routes.router)
     app.include_router(creator_routes.router)
+    app.include_router(brand_routes.router)
     app.include_router(operator_routes.router)
     app.include_router(abuse_routes.router)
     app.include_router(legal_routes.router)
@@ -328,8 +330,10 @@ def _wants_html(request: Request) -> bool:
 
 
 def _role_hint_from_path(path: str) -> str:
-    if path.startswith("/operator"):
+    if path.startswith("/operator") or path.startswith("/onboarding/operator"):
         return "operator"
+    if path.startswith("/brand") or path.startswith("/onboarding/brand"):
+        return "brand"
     return "creator"
 
 

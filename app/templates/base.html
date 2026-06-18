@@ -16,6 +16,7 @@
 {% set cp = request.url.path if request is defined else "" %}
 {% set current_path = cp %}
 {% set is_creator = cp.startswith('/creator') %}
+{% set is_brand = cp.startswith('/brand') %}
 {% set is_operator = cp.startswith('/operator') %}
 {% set is_dm_thread = is_creator and cp.startswith('/creator/dm/') %}
 <body class="{{ 'is-chat' if is_creator and cp.startswith('/creator/bot') else ('is-dm-thread' if is_dm_thread else '') }}">
@@ -111,6 +112,35 @@
   <!-- MOBILE TABBAR -->
   {% include "_partials/creator_tabbar.html" %}
 
+</div>
+
+{% elif is_brand %}
+<div class="app-shell is-brand-shell" id="app">
+  <header class="app-topbar">
+    <a href="/brand" class="brand-lockup">
+      <span class="brand-mark sm"><img src="/static/assets/logo-bg.png" alt="" /></span>
+      <span class="logo-text">babyg</span>
+    </a>
+    <div class="right">
+      <form method="post" action="/auth/logout">
+        {% include "_partials/csrf.html" %}
+        <button type="submit" class="btn btn-ghost btn-sm">sign out</button>
+      </form>
+    </div>
+  </header>
+  <main class="app-main brand-main">
+    <div class="app-bg-watermarks" aria-hidden="true">
+      <img class="app-bg-mark m1" src="/static/assets/logo-bg.png" alt="" />
+      <img class="app-bg-mark m2" src="/static/assets/logo-bg.png" alt="" />
+      <img class="app-bg-mark m3" src="/static/assets/logo-bg.png" alt="" />
+      <img class="app-bg-mark m4" src="/static/assets/logo-bg.png" alt="" />
+    </div>
+    <div id="view">
+      <div class="view">
+        {{ self.content() }}
+      </div>
+    </div>
+  </main>
 </div>
 
 {% elif is_operator %}

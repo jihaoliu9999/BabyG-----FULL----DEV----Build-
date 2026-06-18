@@ -21,7 +21,7 @@ Flow:
           }).
        d. Sets a 10-minute signed cookie remembering the requested role.
           The callback also accepts the signed-up user's metadata as a
-          creator-only fallback when the email opens in another browser.
+          creator/brand fallback when the email opens in another browser.
        e. Renders auth/magic_link_sent.html.
 
   3. GET/POST /auth/callback
@@ -29,8 +29,8 @@ Flow:
        b. Verifies/exchanges the Supabase auth params.
        c. Reads the auth.users id from the returned session.
        d. Looks up public.users; if missing, creates it using the role
-          from the pending-role cookie (creator only — operator must
-          already exist). Creators also get an empty profile row.
+          from the pending-role cookie (creator/brand only — operator must
+          already exist). Creators and brands also get an empty profile row.
        e. Writes the long-lived session cookie. Redirects to the role's
           dashboard (or onboarding if profile is incomplete; we'll wire
           the onboarding redirect in a later step).
@@ -72,10 +72,8 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-# v1 ships creator-only. Brand deferred to v1.5 (see brand-side-v1.5
-# branch). Operator is invite-only.
-VALID_ROLES = {"creator", "operator"}
-SELF_SIGNUP_ROLES = {"creator"}               # operator is invite-only
+VALID_ROLES = {"creator", "brand", "operator"}
+SELF_SIGNUP_ROLES = {"creator", "brand"}      # operator is invite-only
 
 # Supabase Auth verify_otp `type` values we accept on /auth/callback. Anything
 # outside this set is rejected before we forward to Supabase — passing
@@ -577,7 +575,7 @@ def _operator_email_authorized(email: str) -> bool:
 def _ensure_user_row(
     *, auth_user_id: str, email: str, requested_role: str | None
 ) -> tuple[str | None, bool]:
-    """Look up public.users by id; create on first signup for creator.
+    """Look up public.users by id; create on first signup for creator/brand.
 
     Returns (role, created). If the role can't be resolved (e.g. an
     unknown user requesting operator), returns (None, False).
@@ -591,7 +589,8 @@ def _ensure_user_row(
     if rows:
         return rows[0]["role"], False
 
-    # First-time signup. v1 self-signup is creator only.
+    # First-time signup. Creators and brands can self-sign up; operators
+    # stay invite-only and must already exist in public.users.
     if requested_role not in SELF_SIGNUP_ROLES:
         # We refuse to create the row. The auth.users row will still exist
         # but without a public.users row the user has no babyg role and
@@ -616,6 +615,16 @@ def _ensure_user_row(
                 on_conflict="user_id",
                 ignore_duplicates=True,
             ).execute()
+        elif requested_role == "brand":
+            client.table("brand_profiles").upsert(
+                {
+                    "user_id": auth_user_id,
+                    "company_name": "",
+                    "contact_full_name": "",
+                },
+                on_conflict="user_id",
+                ignore_duplicates=True,
+            ).execute()
     except PostgrestAPIError:
         logger.exception("failed to provision public.users row for %s", auth_user_id)
         return None, False
@@ -632,4 +641,6 @@ def _ensure_user_row(
 
 
 def _dashboard_path(role: str) -> str:
-    return {"creator": "/creator", "operator": "/operator"}.get(role, "/")
+    return {"creator": "/creator", "brand": "/brand", "operator": "/operator"}.get(
+        role, "/"
+    )

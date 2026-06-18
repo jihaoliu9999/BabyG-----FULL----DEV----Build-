@@ -10,9 +10,7 @@ from app.core.templating import templates
 
 router = APIRouter(tags=["marketing"])
 
-# v1 ships creator-only. Brand has been deferred to v1.5 (preserved on
-# the brand-side-v1.5 branch). Operator is invite-only.
-VALID_ROLES = {"creator", "operator"}
+VALID_ROLES = {"creator", "brand", "operator"}
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -37,6 +35,8 @@ async def get_started(request: Request, role: str | None = None):
 def _dashboard_path(role: str) -> str:
     if role == "creator":
         return "/creator"
+    if role == "brand":
+        return "/brand"
     if role == "operator":
         return "/operator"
     return "/"

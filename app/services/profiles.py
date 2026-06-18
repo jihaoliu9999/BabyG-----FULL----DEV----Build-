@@ -1,4 +1,4 @@
-"""Profile data access for creator onboarding (v1 creator-only scope).
+"""Profile data access for creator and brand onboarding.
 
 Uses the service-role client so it bypasses RLS. Safe here because every
 caller is server-side and gated by `require_role` in the route layer — by
@@ -6,17 +6,11 @@ the time we hit this module, the user_id has already been read from the
 signed session cookie and the role has been checked. Never expose any of
 these functions over a public endpoint without an auth check first.
 
-**Public vs. private fields.** Owner-side reads (a creator looking at
-their own dashboard) get the full row. Cross-user reads (peers viewing
-each other, operator-side surfaces, future agent tools) MUST go through
-`public_creator` so internal fields (`baseline_followers`, `tier`,
-`writing_samples`, etc.) don't leak. Service helpers in `creators.py`
+**Public vs. private fields.** Owner-side reads get the full row.
+Cross-user reads MUST go through `public_creator` / `public_brand` so
+internal fields (`baseline_followers`, `tier`, `writing_samples`,
+`verification_notes`, etc.) don't leak. Service helpers in `creators.py`
 and `network.py` apply this projection.
-
-Brand-side profile helpers (`get_brand_profile`, `update_brand_profile`,
-`complete_brand_onboarding`, `public_brand`, `PUBLIC_BRAND_FIELDS`)
-shipped in v1 but were removed when brand scope deferred to v1.5.
-See the brand-side-v1.5 branch for the full set.
 """
 
 from __future__ import annotations
@@ -86,6 +80,28 @@ PUBLIC_CREATOR_FIELDS: tuple[str, ...] = (
     "updated_at",
 )
 
+# Fields visible to non-operators viewing a brand. Excludes
+# `verification_notes` (operator-private review notes) and any future
+# internal-only flags.
+PUBLIC_BRAND_FIELDS: tuple[str, ...] = (
+    "user_id",
+    "company_name",
+    "brand_website",
+    "logo_url",
+    "industry",
+    "is_verified",
+    "verified_at",
+    "onboarding_completed_at",
+    "niche_preferences",
+    "creator_size_preferences",
+    "campaign_types",
+    "product_description",
+    "scale_descriptor",
+    "model_descriptor",
+    "positioning_descriptor",
+    "budget_range",
+)
+
 def public_creator(row: dict[str, Any] | None) -> dict[str, Any] | None:
     """Project a creator row to fields safe to render to non-owners."""
     if row is None:
@@ -93,6 +109,13 @@ def public_creator(row: dict[str, Any] | None) -> dict[str, Any] | None:
     projected = {k: row.get(k) for k in PUBLIC_CREATOR_FIELDS}
     projected["location_label"] = safe_location_label(row)
     return projected
+
+
+def public_brand(row: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Project a brand row to fields safe to render to non-operators."""
+    if row is None:
+        return None
+    return {k: row.get(k) for k in PUBLIC_BRAND_FIELDS}
 
 
 def safe_location_label(row: dict[str, Any] | None) -> str | None:
@@ -136,6 +159,12 @@ def get_creator_profile(user_id: str) -> dict[str, Any] | None:
     return _get_profile("creator_profiles", user_id)
 
 
+def get_brand_profile(user_id: str) -> dict[str, Any] | None:
+    """Owner-side full read. For non-operator cross-user reads, project
+    with `public_brand` before rendering."""
+    return _get_profile("brand_profiles", user_id)
+
+
 def get_creators_by_ids(user_ids: list[str]) -> dict[str, dict[str, Any]]:
     """Bulk lookup keyed by user_id. Returns the public-projected view
     of each creator so callers can render the resulting dict directly
@@ -175,6 +204,11 @@ def is_creator_onboarded(user_id: str) -> bool:
     return bool(profile and profile.get("onboarding_completed_at"))
 
 
+def is_brand_onboarded(user_id: str) -> bool:
+    profile = get_brand_profile(user_id)
+    return bool(profile and profile.get("onboarding_completed_at"))
+
+
 def _get_profile(table: str, user_id: str) -> dict[str, Any] | None:
     try:
         result = (
@@ -201,6 +235,10 @@ def update_creator_profile(user_id: str, payload: dict[str, Any]) -> bool:
     return _update_profile("creator_profiles", user_id, payload)
 
 
+def update_brand_profile(user_id: str, payload: dict[str, Any]) -> bool:
+    return _update_profile("brand_profiles", user_id, payload)
+
+
 class HandleAlreadyTakenError(RuntimeError):
     """Raised when an instagram_handle update would violate the UNIQUE
     constraint on creator_profiles.instagram_handle. Routes catch this and
@@ -210,6 +248,14 @@ class HandleAlreadyTakenError(RuntimeError):
 def complete_creator_onboarding(user_id: str, payload: dict[str, Any]) -> bool:
     return _update_profile(
         "creator_profiles",
+        user_id,
+        {**payload, "onboarding_completed_at": _now_iso()},
+    )
+
+
+def complete_brand_onboarding(user_id: str, payload: dict[str, Any]) -> bool:
+    return _update_profile(
+        "brand_profiles",
         user_id,
         {**payload, "onboarding_completed_at": _now_iso()},
     )

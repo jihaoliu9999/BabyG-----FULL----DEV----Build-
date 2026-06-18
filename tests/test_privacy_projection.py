@@ -12,13 +12,18 @@ What we lock in here:
   * `public_creator` strips those fields.
   * `creators.get_for_view` returns projected rows.
 
-`public_brand` and `PUBLIC_BRAND_FIELDS` shipped in v1 but were
-removed when brand scope deferred to v1.5 (brand-side-v1.5 branch).
+`public_brand` and `PUBLIC_BRAND_FIELDS` gate brand rows the same way
+creator rows are gated.
 """
 
 from __future__ import annotations
 
-from app.services.profiles import PUBLIC_CREATOR_FIELDS, public_creator
+from app.services.profiles import (
+    PUBLIC_BRAND_FIELDS,
+    PUBLIC_CREATOR_FIELDS,
+    public_brand,
+    public_creator,
+)
 
 _SECRET_CREATOR_FIELDS = (
     "baseline_followers",
@@ -216,6 +221,25 @@ def test_public_creator_fills_missing_fields_with_none():
     assert out is not None
     for f in PUBLIC_CREATOR_FIELDS:
         assert f in out
+
+
+def test_brand_allowlist_excludes_operator_notes():
+    assert "verification_notes" not in PUBLIC_BRAND_FIELDS
+
+
+def test_public_brand_strips_operator_notes():
+    row = {
+        "user_id": "brand-1",
+        "company_name": "Studio House",
+        "brand_website": "https://example.com",
+        "verification_notes": "operator-only",
+        "is_verified": False,
+    }
+    out = public_brand(row)
+    assert out is not None
+    assert out["company_name"] == "Studio House"
+    assert out["brand_website"] == "https://example.com"
+    assert "verification_notes" not in out
 
 
 # ---------- end-to-end through creators.get_for_view ----------
