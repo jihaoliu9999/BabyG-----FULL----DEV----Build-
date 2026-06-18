@@ -57,6 +57,13 @@
         <dt>Name</dt><dd>{{ context.profile.full_name or "-" }}</dd>
         <dt>Handle</dt><dd>{% if context.profile.instagram_handle %}@{{ context.profile.instagram_handle }}{% else %}-{% endif %}</dd>
       </dl>
+    {% elif context.kind == "profile" and context.profile_kind == "brand" %}
+      <dl class="kv">
+        <dt>Type</dt><dd>Brand</dd>
+        <dt>Company</dt><dd>{{ context.profile.company_name or "-" }}</dd>
+        <dt>Website</dt><dd>{{ context.profile.brand_website or "-" }}</dd>
+        <dt>Verification</dt><dd>{{ context.profile.review_status|replace("_", " ") }}</dd>
+      </dl>
     {% endif %}
   </section>
 
