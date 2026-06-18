@@ -72,13 +72,27 @@ def public_creator(row: dict[str, Any] | None) -> dict[str, Any] | None:
 def safe_location_label(row: dict[str, Any] | None) -> str | None:
     """Return city/region-level location text safe for public rendering.
 
-    Exact coordinates intentionally never appear in this label.
+    Honors the creator's `location_display_level` preference (Phase 3,
+    migration 0016):
+      * ``city``   — full label: city + region or city + country (current behavior)
+      * ``region`` — drops the city; renders region/country only
+      * ``hidden`` — returns None; no public location text at all
+
+    Exact coordinates intentionally never appear in this label regardless
+    of the setting; that's enforced by `PUBLIC_CREATOR_FIELDS`.
     """
     if not row:
+        return None
+    level = (row.get("location_display_level") or "city").strip().lower()
+    if level == "hidden":
         return None
     city = _clean_location_part(row.get("location_city"))
     region = _clean_location_part(row.get("location_region"))
     country = _clean_location_part(row.get("location_country"))
+    if level == "region":
+        # Drop the city — region first, then country as a fallback.
+        parts = [p for p in (region, country) if p]
+        return ", ".join(parts[:2]) or None
     parts = [p for p in (city, region) if p]
     if len(parts) < 2 and country:
         parts.append(country)
