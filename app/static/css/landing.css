@@ -199,6 +199,15 @@
   border: 1px solid var(--lp-hairline-strong);
 }
 .lp .lp-btn-ghost:hover { border-color: #444; background: rgba(255,255,255,0.03); }
+/* Outline variant — visually similar to ghost but explicitly NOT subject to
+   the mobile-hide rule below. Used by the brand-login button in nav-right
+   so brands have a visible entry point at every viewport. */
+.lp .lp-btn-outline {
+  background: transparent;
+  color: var(--lp-ink);
+  border: 1px solid var(--lp-hairline-strong);
+}
+.lp .lp-btn-outline:hover { border-color: #444; background: rgba(255,255,255,0.03); }
 
 /* --------------- hero --------------- */
 .lp .lp-hero {
@@ -1024,6 +1033,11 @@
   .lp .task-card-reveal { margin: auto 22px 22px; }
   .lp .navlinks { display: none; }
   .lp .nav-right .lp-btn-ghost { display: none; }
+  /* Two side-by-side buttons in nav-right need a tighter footprint at
+     narrow widths so they don't crowd the brand mark. Keeps the visual
+     language identical (same radius, font, height) — just less side padding. */
+  .lp .nav-right .lp-btn { padding: 10px 14px; font-size: 12.5px; }
+  .lp .nav-right { gap: 8px; }
   .lp .lp-foot-top { grid-template-columns: 1fr 1fr; }
   .lp .lp-foot-bot { flex-direction: column; gap: 16px; text-align: center; }
 }
