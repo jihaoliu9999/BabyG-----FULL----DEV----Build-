@@ -26,6 +26,26 @@ def test_landing_renders_for_anon(client: TestClient) -> None:
     assert "babyg" in r.text.lower()
 
 
+def test_landing_exposes_both_creator_and_brand_entry_points(
+    client: TestClient,
+) -> None:
+    """The top-right nav must surface both role paths so a brand visitor
+    doesn't have to know about /get-started to reach the brand login.
+    Both must be reachable on every viewport — the mobile-hide rule for
+    ghost buttons doesn't apply to the .lp-btn-outline class used here."""
+    r = client.get("/")
+    assert r.status_code == 200
+    assert "/auth/login?role=creator" in r.text
+    assert "/auth/login?role=brand" in r.text
+    # Both labels render so users can distinguish the paths.
+    text_lower = r.text.lower()
+    assert "for creators" in text_lower
+    assert "for brands" in text_lower
+    # The brand button uses the outline modifier — not the ghost class
+    # (which the responsive CSS hides at narrow widths).
+    assert 'class="lp-btn lp-btn-outline" href="/auth/login?role=brand"' in r.text
+
+
 def test_landing_redirects_signed_in_creator(client: TestClient) -> None:
     resp = _R()
     write_session(resp, {"user_id": "u-creator", "role": "creator"})
