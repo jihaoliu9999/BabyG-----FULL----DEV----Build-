@@ -39,6 +39,13 @@ def create_app() -> FastAPI:
     _assert_session_secret(settings)
     _assert_app_url(settings)
     _configure_logging(settings)
+    # Surface migration drift between repo files and the Supabase
+    # registry. Logs WARN on drift by default; fails the boot when
+    # STRICT_MIGRATION_CHECK=1. Skipped in env=dev. Never crashes on
+    # transient Supabase errors — see app/core/migration_check.py.
+    from app.core.migration_check import assert_migrations_applied
+
+    assert_migrations_applied(settings)
     app = FastAPI(
         title="babyg",
         version="0.1.0",
