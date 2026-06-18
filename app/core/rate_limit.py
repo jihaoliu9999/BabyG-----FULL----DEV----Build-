@@ -60,6 +60,12 @@ class RateLimiter:
 # 5 sends per IP per 10 minutes (refill ~1 every 2 min).
 magic_link_limiter = RateLimiter(capacity=5, refill_per_second=1 / 120.0)
 
+# AI brief budgets are intentionally separate from authentication traffic.
+# Manual actions allow a small burst, while automatic generation is tighter
+# and keyed by recipient + thread at the call site.
+dm_brief_manual_limiter = RateLimiter(capacity=5, refill_per_second=1 / 120.0)
+dm_brief_auto_limiter = RateLimiter(capacity=3, refill_per_second=1 / 600.0)
+
 
 def client_ip(request) -> str:
     """Best-effort client IP for rate-limit keying.
