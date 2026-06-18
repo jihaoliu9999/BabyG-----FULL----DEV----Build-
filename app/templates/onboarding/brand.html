@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% import "onboarding/_macros.html" as f %}
+
+{% block title %}set up brand — babyg{% endblock %}
+
+{% block head_extra %}
+<script src="/static/js/onboarding.js" defer></script>
+{% endblock %}
+
+{% block content %}
+<div class="onb-bg-watermarks" aria-hidden="true">
+  <img class="onb-bg-mark m1" src="/static/assets/logo-bg.png" alt="" />
+  <img class="onb-bg-mark m2" src="/static/assets/logo-bg.png" alt="" />
+  <img class="onb-bg-mark m3" src="/static/assets/logo-bg.png" alt="" />
+</div>
+
+<section class="onb-shell" data-onb-wrap>
+  <div class="onb-hero">
+    <img src="/static/assets/logo-bg.png" alt="babyg" class="onb-logo" />
+    <span class="onb-eyebrow">brand setup</span>
+  </div>
+
+  {% if error %}<div class="auth-error">{{ error }}</div>{% endif %}
+
+  <ol class="onb-progress" data-onb-progress>
+    <li data-onb-step-pip="1" aria-current="step"><span class="n">1</span> profile</li>
+    <li data-onb-step-pip="2"><span class="n">2</span> work</li>
+    <li data-onb-step-pip="3"><span class="n">3</span> creators</li>
+  </ol>
+
+  <form method="post" action="/onboarding/brand" data-onb-form class="onb-card">
+    {% include "_partials/csrf.html" %}
+
+    <fieldset class="onb-section" data-onb-step="1">
+      <span class="onb-section-kicker">01 / profile</span>
+      <h2>who is the brand?</h2>
+      {{ f.field("company name", "company_name", profile.get("company_name", ""), required=True, placeholder="studio house") }}
+      {{ f.field("website", "brand_website", profile.get("brand_website", ""), required=True, placeholder="https://example.com") }}
+      {{ f.field("your name", "contact_full_name", profile.get("contact_full_name", ""), required=True, placeholder="alex morgan") }}
+      {{ f.field("title", "contact_title", profile.get("contact_title", ""), placeholder="partnerships") }}
+    </fieldset>
+
+    <fieldset class="onb-section" data-onb-step="2">
+      <span class="onb-section-kicker">02 / work</span>
+      <h2>what are you building?</h2>
+      {{ f.select("industry", "industry", vocab.industries, profile.get("industry")) }}
+      {{ f.textarea("product", "product_description", profile.get("product_description", ""), placeholder="what should creators know?", rows=3) }}
+      {{ f.select("scale", "scale_descriptor", vocab.scales, profile.get("scale_descriptor")) }}
+      {{ f.select("model", "model_descriptor", vocab.models, profile.get("model_descriptor")) }}
+      {{ f.select("positioning", "positioning_descriptor", vocab.positionings, profile.get("positioning_descriptor")) }}
+    </fieldset>
+
+    <fieldset class="onb-section" data-onb-step="3">
+      <span class="onb-section-kicker">03 / creators</span>
+      <h2>who should babyg look for?</h2>
+      <div class="field">
+        <label class="field-label">campaign types <span class="req">*</span></label>
+        {{ f.chip_group("campaign_types", vocab.campaign_types, profile.get("campaign_types", [])) }}
+      </div>
+      <div class="field">
+        <label class="field-label">creator size <span class="req">*</span></label>
+        {{ f.chip_group("creator_size_preferences", vocab.creator_sizes, profile.get("creator_size_preferences", [])) }}
+      </div>
+      <div class="field">
+        <label class="field-label">niches</label>
+        {{ f.chip_group("niche_preferences", vocab.niche_preferences, profile.get("niche_preferences", [])) }}
+      </div>
+      {{ f.select("budget", "budget_range", vocab.budget_ranges, profile.get("budget_range")) }}
+    </fieldset>
+
+    <div class="onb-actions">
+      <button type="button" class="btn btn-ghost btn-prev" data-onb-prev hidden>back</button>
+      <button type="submit" class="btn btn-lime btn-wide" data-onb-primary>continue
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 9L9 3M9 3H4M9 3V8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+  </form>
+</section>
+{% endblock %}
