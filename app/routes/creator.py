@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import re
 from datetime import datetime, timedelta
+from typing import Any
 
 from fastapi import (
     APIRouter,
@@ -264,16 +265,25 @@ async def profile_page(
     request: Request,
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
-    profile = profiles.get_creator_profile(session["user_id"]) or {}
-    if not profile.get("onboarding_completed_at"):
+    raw_profile = profiles.get_creator_profile(session["user_id"]) or {}
+    if not raw_profile.get("onboarding_completed_at"):
         return RedirectResponse("/onboarding/creator", status_code=302)
-    profile = {**profile, "location_label": profiles.safe_location_label(profile)}
+    profile = {
+        **raw_profile,
+        "location_label": profiles.safe_location_label(raw_profile),
+    }
+    # `profile_preview` is the public-projected view of the creator's own
+    # row — what brands and peers see in Discover. Surfacing it at the
+    # top of /creator/profile gives the creator an explicit mirror so
+    # privacy + completeness decisions feel concrete instead of abstract.
+    profile_preview = profiles.public_creator(raw_profile) or {}
     chip_values = _profile_chip_values(profile)
     return templates.TemplateResponse(
         request,
         "creator/profile.html",
         {
             "profile": profile,
+            "profile_preview": profile_preview,
             "profile_chip_values": chip_values,
             "profile_chip_options": _profile_chip_options(chip_values),
         },
@@ -338,6 +348,112 @@ async def profile_location_update(
     if not profiles.update_creator_profile(session["user_id"], payload):
         return RedirectResponse("/creator/profile?details=save_failed", status_code=303)
     return RedirectResponse("/creator/profile?details=ok", status_code=303)
+
+
+@router.post("/creator/profile/deals")
+async def profile_deals_update(
+    deal_min_rate_text: str = Form(""),
+    deal_usage_rights_default: str = Form(""),
+    deal_travel_willingness: str = Form(""),
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    """Update the deal preferences section: rate floor (free text), the
+    default usage-rights posture, and travel willingness. All three are
+    owner-private — they inform babyg drafts and discover-quality
+    ranking but never appear in `public_creator()`."""
+    profile = profiles.get_creator_profile(session["user_id"]) or {}
+    if not profile.get("onboarding_completed_at"):
+        return RedirectResponse("/onboarding/creator", status_code=302)
+
+    payload: dict[str, Any] = {}
+    rate = " ".join(deal_min_rate_text.strip().split())[:120]
+    # Clear-on-empty so the creator can blank it out.
+    payload["deal_min_rate_text"] = rate or None
+    usage = deal_usage_rights_default.strip().lower()
+    if usage in profiles.DEAL_USAGE_RIGHTS_VALUES:
+        payload["deal_usage_rights_default"] = usage
+    elif usage == "":
+        payload["deal_usage_rights_default"] = None
+    travel = deal_travel_willingness.strip().lower()
+    if travel in profiles.DEAL_TRAVEL_WILLINGNESS_VALUES:
+        payload["deal_travel_willingness"] = travel
+    elif travel == "":
+        payload["deal_travel_willingness"] = None
+    if not profiles.update_creator_profile(session["user_id"], payload):
+        return RedirectResponse("/creator/profile?deals=save_failed", status_code=303)
+    return RedirectResponse("/creator/profile?deals=ok", status_code=303)
+
+
+@router.post("/creator/profile/privacy")
+async def profile_privacy_update(
+    dm_preference: str = Form(""),
+    location_display_level: str = Form(""),
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    """Update the privacy section — who can DM and how much of the
+    creator's location is exposed via `public_creator()`. Both values
+    are closed-vocabulary (see DM_PREFERENCE_VALUES /
+    LOCATION_DISPLAY_LEVELS in app/services/profiles.py)."""
+    profile = profiles.get_creator_profile(session["user_id"]) or {}
+    if not profile.get("onboarding_completed_at"):
+        return RedirectResponse("/onboarding/creator", status_code=302)
+
+    payload: dict[str, str] = {}
+    dm = dm_preference.strip().lower()
+    if dm in profiles.DM_PREFERENCE_VALUES:
+        payload["dm_preference"] = dm
+    loc = location_display_level.strip().lower()
+    if loc in profiles.LOCATION_DISPLAY_LEVELS:
+        payload["location_display_level"] = loc
+    if not payload:
+        return RedirectResponse(
+            "/creator/profile/settings?privacy=invalid", status_code=303
+        )
+    if not profiles.update_creator_profile(session["user_id"], payload):
+        return RedirectResponse(
+            "/creator/profile/settings?privacy=save_failed", status_code=303
+        )
+    return RedirectResponse("/creator/profile/settings?privacy=ok", status_code=303)
+
+
+@router.post("/creator/profile/babyg")
+async def profile_babyg_update(
+    babyg_tone: str = Form(""),
+    babyg_risk_tolerance: str = Form(""),
+    babyg_auto_brief_dms: str = Form(""),
+    babyg_email_assistance: str = Form(""),
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    """Update the babyg-behavior section — tone, risk tolerance, and
+    the two opt-in toggles (auto-brief DMs, email assistance). The
+    booleans accept any HTML-form-truthy value ("on", "true", "1") so
+    a missing checkbox cleanly maps to false."""
+    profile = profiles.get_creator_profile(session["user_id"]) or {}
+    if not profile.get("onboarding_completed_at"):
+        return RedirectResponse("/onboarding/creator", status_code=302)
+
+    payload: dict[str, Any] = {}
+    tone = babyg_tone.strip().lower()
+    if tone in profiles.BABYG_TONES:
+        payload["babyg_tone"] = tone
+    risk = babyg_risk_tolerance.strip().lower()
+    if risk in profiles.BABYG_RISK_TOLERANCES:
+        payload["babyg_risk_tolerance"] = risk
+    payload["babyg_auto_brief_dms"] = _form_bool(babyg_auto_brief_dms)
+    payload["babyg_email_assistance"] = _form_bool(babyg_email_assistance)
+    if not profiles.update_creator_profile(session["user_id"], payload):
+        return RedirectResponse(
+            "/creator/profile/settings?babyg=save_failed", status_code=303
+        )
+    return RedirectResponse("/creator/profile/settings?babyg=ok", status_code=303)
+
+
+def _form_bool(value: str) -> bool:
+    """HTML checkboxes submit ``"on"`` (or nothing); the magic-link
+    style settings forms below sometimes ship the value as ``"true"``.
+    Treat anything truthy as true so the route stays template-agnostic.
+    """
+    return value.strip().lower() in {"on", "true", "1", "yes"}
 
 
 @router.get("/creator/profile/settings", response_class=HTMLResponse)

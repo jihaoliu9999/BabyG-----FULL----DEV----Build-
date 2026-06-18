@@ -49,8 +49,90 @@
     {% include "_partials/integrations_grid.html" %}
   </div>
 
+  {% set privacy_flash = request.query_params.get('privacy') %}
+  <form class="settings-group settings-form" method="post" action="/creator/profile/privacy">
+    {% include "_partials/csrf.html" %}
+    <h2>privacy</h2>
+    <p class="settings-help">control how much of your location is shown to peers and brands, and who can open a DM with you.</p>
+    {% if privacy_flash == 'ok' %}<div class="settings-flash settings-flash-ok">saved.</div>
+    {% elif privacy_flash == 'invalid' %}<div class="settings-flash">invalid selection — try again.</div>
+    {% elif privacy_flash == 'save_failed' %}<div class="settings-flash">couldn't save. try again.</div>
+    {% endif %}
+
+    <div class="settings-row settings-row-stack">
+      <label for="location_display_level"><span>location shown to others</span></label>
+      <select id="location_display_level" name="location_display_level">
+        <option value="city"  {% if (profile.location_display_level or 'city') == 'city'  %}selected{% endif %}>city + region (default)</option>
+        <option value="region"{% if profile.location_display_level == 'region' %}selected{% endif %}>region/country only</option>
+        <option value="hidden"{% if profile.location_display_level == 'hidden' %}selected{% endif %}>hide my location</option>
+      </select>
+    </div>
+
+    <div class="settings-row settings-row-stack">
+      <label for="dm_preference"><span>who can DM you</span></label>
+      <select id="dm_preference" name="dm_preference">
+        <option value="open"             {% if (profile.dm_preference or 'open') == 'open'  %}selected{% endif %}>anyone on babyg (default)</option>
+        <option value="connections_only" {% if profile.dm_preference == 'connections_only' %}selected{% endif %}>only accepted connections</option>
+      </select>
+    </div>
+
+    <div class="settings-actions">
+      <button class="btn btn-lime btn-sm" type="submit">save privacy</button>
+    </div>
+  </form>
+
+  {% set babyg_flash = request.query_params.get('babyg') %}
+  <form class="settings-group settings-form" method="post" action="/creator/profile/babyg">
+    {% include "_partials/csrf.html" %}
+    <h2>babyg behavior</h2>
+    <p class="settings-help">how babyg writes drafts, weighs risk in inbound messages, and which surfaces it's allowed to help on.</p>
+    {% if babyg_flash == 'ok' %}<div class="settings-flash settings-flash-ok">saved.</div>
+    {% elif babyg_flash == 'save_failed' %}<div class="settings-flash">couldn't save. try again.</div>
+    {% endif %}
+
+    <div class="settings-row settings-row-stack">
+      <label for="babyg_tone"><span>tone for drafts</span></label>
+      <select id="babyg_tone" name="babyg_tone">
+        <option value="casual"      {% if (profile.babyg_tone or 'casual') == 'casual' %}selected{% endif %}>casual (default)</option>
+        <option value="professional"{% if profile.babyg_tone == 'professional' %}selected{% endif %}>professional</option>
+        <option value="direct"      {% if profile.babyg_tone == 'direct' %}selected{% endif %}>direct</option>
+      </select>
+    </div>
+
+    <div class="settings-row settings-row-stack">
+      <label for="babyg_risk_tolerance"><span>risk tolerance</span></label>
+      <select id="babyg_risk_tolerance" name="babyg_risk_tolerance">
+        <option value="cautious"{% if profile.babyg_risk_tolerance == 'cautious' %}selected{% endif %}>cautious — flag more</option>
+        <option value="balanced"{% if (profile.babyg_risk_tolerance or 'balanced') == 'balanced' %}selected{% endif %}>balanced (default)</option>
+        <option value="latitude"{% if profile.babyg_risk_tolerance == 'latitude' %}selected{% endif %}>latitude — flag less</option>
+      </select>
+    </div>
+
+    <div class="settings-row settings-row-stack">
+      <label class="settings-toggle">
+        <input type="checkbox" name="babyg_auto_brief_dms" value="on"
+          {% if profile.babyg_auto_brief_dms is not defined or profile.babyg_auto_brief_dms %}checked{% endif %} />
+        <span>auto-brief incoming DMs</span>
+      </label>
+      <p class="settings-help">when on, every DM gets a private babyg summary, risk check, and suggested reply. you still send manually.</p>
+    </div>
+
+    <div class="settings-row settings-row-stack">
+      <label class="settings-toggle">
+        <input type="checkbox" name="babyg_email_assistance" value="on"
+          {% if profile.babyg_email_assistance %}checked{% endif %} />
+        <span>email assistance</span>
+      </label>
+      <p class="settings-help">when on, babyg may use your Gmail integration to draft replies (you confirm before any send).</p>
+    </div>
+
+    <div class="settings-actions">
+      <button class="btn btn-lime btn-sm" type="submit">save babyg</button>
+    </div>
+  </form>
+
   <div class="settings-group">
-    <h2>babyg</h2>
+    <h2>babyg basics</h2>
     <div class="settings-row"><span>assistant name</span><strong>{{ profile.sub_bot_persona or 'babyg' }}</strong></div>
     <div class="settings-row settings-row-stack">
       <span>voice samples</span>

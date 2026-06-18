@@ -17,6 +17,54 @@
 {% block content %}
 <div class="ambient-page profile-page">
 <div class="wrap ambient-shell profile-shell">
+
+  {# Discover-card preview. Renders the same fields brands and peers
+     see in /creator/discover so privacy + completeness decisions feel
+     concrete. Owner-private fields (tier, baseline followers, exact
+     coords, deal prefs, babyg behavior settings) intentionally never
+     surface here. Non-clickable: this is a mirror, not navigation. #}
+  <section class="profile-preview" aria-label="how others see you">
+    <div class="profile-preview-head">
+      <span class="mono eyebrow">discover preview</span>
+      <span class="profile-preview-help">this is how brands and peers see your card.</span>
+    </div>
+    <div class="creator-card creator-card-static" aria-hidden="false">
+      <div class="creator-card-top">
+        {% if profile_preview.profile_photo_url %}
+        <div class="creator-avatar creator-avatar-photo" aria-hidden="true">
+          <img src="{{ profile_preview.profile_photo_url|safe_url }}{% if profile_preview.updated_at %}?v={{ profile_preview.updated_at|short_dt|replace(' ', 'T')|replace(':', '-') }}{% endif %}" alt="" loading="lazy" decoding="async" />
+        </div>
+        {% else %}
+        <div class="creator-avatar" aria-hidden="true">
+          {{ (profile_preview.full_name or profile_preview.instagram_handle or "C")[:1]|upper }}
+        </div>
+        {% endif %}
+        <div class="creator-card-head">
+          <div class="creator-card-name">{{ profile_preview.full_name or "creator" }}</div>
+          {% if profile_preview.instagram_handle %}
+            <div class="creator-card-handle">@{{ profile_preview.instagram_handle }}</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="creator-card-meta">
+        {% if profile_preview.location_label %}<span>{{ profile_preview.location_label }}</span>{% else %}<span class="profile-preview-empty">location hidden</span>{% endif %}
+        {% if profile_preview.follower_range %}<span>{{ profile_preview.follower_range }} followers</span>{% endif %}
+        {% if profile_preview.primary_platform %}<span>{{ profile_preview.primary_platform }}</span>{% endif %}
+      </div>
+
+      <div class="tag-row tag-row-tight">
+        {% for n in (profile_preview.niches or [])[:5] %}<span class="tag">{{ n }}</span>{% endfor %}
+      </div>
+
+      {% if profile_preview.bio %}
+      <p class="creator-card-bio">{{ profile_preview.bio[:140] }}{% if profile_preview.bio|length > 140 %}…{% endif %}</p>
+      {% else %}
+      <p class="creator-card-bio profile-preview-empty">add a bio so your card has a hook.</p>
+      {% endif %}
+    </div>
+  </section>
+
   <div style="display:flex;align-items:center;gap:18px;margin-bottom:22px;flex-wrap:wrap;">
     {% if profile.profile_photo_url %}
     <span class="avatar av-g3 xl" style="overflow:hidden;padding:0;">
@@ -182,6 +230,61 @@
       </div>
     </form>
   </dialog>
+
+  {% set deals_flash = request.query_params.get('deals') %}
+  <span class="mono" style="display:block;margin:18px 0 10px;">deal preferences</span>
+  <form class="profile-details-card settings-form" method="post" action="/creator/profile/deals">
+    {% include "_partials/csrf.html" %}
+    <div class="profile-details-head">
+      <span>working terms (private)</span>
+    </div>
+    <p class="settings-help" style="margin:0 0 14px;">babyg uses these when it drafts replies and screens brand outreach. peers and brands never see them.</p>
+
+    {% if deals_flash == 'ok' %}<div class="settings-flash settings-flash-ok">saved.</div>
+    {% elif deals_flash == 'save_failed' %}<div class="settings-flash">couldn't save. try again.</div>
+    {% endif %}
+
+    <div class="settings-row settings-row-stack">
+      <label for="deal_min_rate_text"><span>rate floor</span></label>
+      <input
+        type="text"
+        id="deal_min_rate_text"
+        name="deal_min_rate_text"
+        maxlength="120"
+        placeholder='e.g. "$2k organic" or "DM for rates"'
+        value="{{ profile.deal_min_rate_text or '' }}"
+        autocomplete="off"
+        style="background:var(--surface-2);color:var(--ink);border:1px solid var(--hairline-strong);border-radius:8px;padding:9px 10px;font-size:13.5px;width:100%;max-width:360px;"
+      />
+      <p class="settings-help">free text. babyg-only. leave blank if you'd rather babyg always say "DM to discuss".</p>
+    </div>
+
+    <div class="settings-row settings-row-stack">
+      <label for="deal_usage_rights_default"><span>usage rights default</span></label>
+      <select id="deal_usage_rights_default" name="deal_usage_rights_default">
+        <option value="" {% if not profile.deal_usage_rights_default %}selected{% endif %}>not set</option>
+        <option value="organic_only"    {% if profile.deal_usage_rights_default == 'organic_only' %}selected{% endif %}>organic only — no paid amplification</option>
+        <option value="paid_organic"    {% if profile.deal_usage_rights_default == 'paid_organic' %}selected{% endif %}>paid usage on my channels OK</option>
+        <option value="paid_with_usage" {% if profile.deal_usage_rights_default == 'paid_with_usage' %}selected{% endif %}>full usage rights negotiable for paid</option>
+        <option value="flexible"        {% if profile.deal_usage_rights_default == 'flexible' %}selected{% endif %}>flexible — case-by-case</option>
+      </select>
+    </div>
+
+    <div class="settings-row settings-row-stack">
+      <label for="deal_travel_willingness"><span>travel willingness</span></label>
+      <select id="deal_travel_willingness" name="deal_travel_willingness">
+        <option value="" {% if not profile.deal_travel_willingness %}selected{% endif %}>not set</option>
+        <option value="no"        {% if profile.deal_travel_willingness == 'no' %}selected{% endif %}>no travel</option>
+        <option value="local_only"{% if profile.deal_travel_willingness == 'local_only' %}selected{% endif %}>local only</option>
+        <option value="regional"  {% if profile.deal_travel_willingness == 'regional' %}selected{% endif %}>regional</option>
+        <option value="open"      {% if profile.deal_travel_willingness == 'open' %}selected{% endif %}>open to anywhere</option>
+      </select>
+    </div>
+
+    <div class="settings-actions" style="margin-top:8px;">
+      <button class="btn btn-lime btn-sm" type="submit">save deal preferences</button>
+    </div>
+  </form>
 
   <div class="profile-chip-stack">
     {% for section, label, hint in chip_sections %}

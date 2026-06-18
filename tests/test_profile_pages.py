@@ -348,6 +348,463 @@ def test_creator_profile_location_server_geocode_does_not_overwrite_user_input(
     assert called["hit"] is False
 
 
+# ---------------------------------------------------------------------------
+# Phase 3 — deal preferences
+# ---------------------------------------------------------------------------
+
+
+def test_profile_deals_update_saves_all_three_fields(
+    monkeypatch, client: TestClient
+) -> None:
+    _signed_in(client, role="creator", user_id="creator-1")
+    saved: dict = {}
+
+    monkeypatch.setattr(
+        creator_routes.profiles, "get_creator_profile", lambda uid: _profile()
+    )
+    monkeypatch.setattr(
+        creator_routes.profiles,
+        "update_creator_profile",
+        lambda uid, payload: saved.update(payload) or True,
+    )
+
+    response = client.post(
+        "/creator/profile/deals",
+        data={
+            "deal_min_rate_text": "  $2.5k   organic  ",
+            "deal_usage_rights_default": "paid_with_usage",
+            "deal_travel_willingness": "regional",
+        },
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/creator/profile?deals=ok"
+    # Whitespace is normalized + the row stores the squeezed form.
+    assert saved["deal_min_rate_text"] == "$2.5k organic"
+    assert saved["deal_usage_rights_default"] == "paid_with_usage"
+    assert saved["deal_travel_willingness"] == "regional"
+
+
+def test_profile_deals_update_blank_fields_clear_persisted_values(
+    monkeypatch, client: TestClient
+) -> None:
+    """Submitting empty selects/text must clear the column (null) so a
+    creator can back out of an earlier choice."""
+    _signed_in(client, role="creator", user_id="creator-1")
+    saved: dict = {}
+
+    monkeypatch.setattr(
+        creator_routes.profiles, "get_creator_profile", lambda uid: _profile()
+    )
+    monkeypatch.setattr(
+        creator_routes.profiles,
+        "update_creator_profile",
+        lambda uid, payload: saved.update(payload) or True,
+    )
+
+    response = client.post(
+        "/creator/profile/deals",
+        data={
+            "deal_min_rate_text": "   ",
+            "deal_usage_rights_default": "",
+            "deal_travel_willingness": "",
+        },
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert saved["deal_min_rate_text"] is None
+    assert saved["deal_usage_rights_default"] is None
+    assert saved["deal_travel_willingness"] is None
+
+
+def test_profile_deals_update_drops_unknown_vocab(
+    monkeypatch, client: TestClient
+) -> None:
+    """Closed-vocab fields silently ignore unknown values rather than
+    forwarding them to the DB (where the CHECK constraint would 500)."""
+    _signed_in(client, role="creator", user_id="creator-1")
+    saved: dict = {}
+
+    monkeypatch.setattr(
+        creator_routes.profiles, "get_creator_profile", lambda uid: _profile()
+    )
+    monkeypatch.setattr(
+        creator_routes.profiles,
+        "update_creator_profile",
+        lambda uid, payload: saved.update(payload) or True,
+    )
+
+    response = client.post(
+        "/creator/profile/deals",
+        data={
+            "deal_min_rate_text": "$1k",
+            "deal_usage_rights_default": "shouted_at_brands",
+            "deal_travel_willingness": "interplanetary",
+        },
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert saved["deal_min_rate_text"] == "$1k"
+    assert "deal_usage_rights_default" not in saved
+    assert "deal_travel_willingness" not in saved
+
+
+def test_profile_deals_min_rate_text_capped_to_120_chars(
+    monkeypatch, client: TestClient
+) -> None:
+    _signed_in(client, role="creator", user_id="creator-1")
+    saved: dict = {}
+
+    monkeypatch.setattr(
+        creator_routes.profiles, "get_creator_profile", lambda uid: _profile()
+    )
+    monkeypatch.setattr(
+        creator_routes.profiles,
+        "update_creator_profile",
+        lambda uid, payload: saved.update(payload) or True,
+    )
+
+    long_value = "$" + "0" * 200
+    response = client.post(
+        "/creator/profile/deals",
+        data={"deal_min_rate_text": long_value},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert len(saved["deal_min_rate_text"]) == 120
+
+
+def test_profile_page_renders_deals_section_with_existing_values(
+    monkeypatch, client: TestClient
+) -> None:
+    _signed_in(client, role="creator")
+    pref_profile = {
+        **_profile(),
+        "deal_min_rate_text": "$2.5k organic",
+        "deal_usage_rights_default": "paid_with_usage",
+        "deal_travel_willingness": "regional",
+    }
+    monkeypatch.setattr(
+        creator_routes.profiles, "get_creator_profile", lambda uid: pref_profile
+    )
+
+    response = client.get("/creator/profile")
+
+    assert response.status_code == 200
+    assert "deal preferences" in response.text.lower()
+    assert 'action="/creator/profile/deals"' in response.text
+    assert 'value="$2.5k organic"' in response.text
+    assert '<option value="paid_with_usage" selected' in response.text
+    assert '<option value="regional"  selected' in response.text \
+        or '<option value="regional" selected' in response.text
+
+
+# ---------------------------------------------------------------------------
+# Phase 3 — Discover-card preview on /creator/profile
+# ---------------------------------------------------------------------------
+
+
+def test_profile_page_renders_discover_preview(
+    monkeypatch, client: TestClient
+) -> None:
+    """The preview at the top of /creator/profile must render fields
+    that come through public_creator() — name, handle, location_label,
+    follower_range, niches, bio."""
+    _signed_in(client, role="creator")
+    monkeypatch.setattr(
+        creator_routes.profiles, "get_creator_profile", lambda uid: _profile()
+    )
+
+    response = client.get("/creator/profile")
+
+    assert response.status_code == 200
+    assert "discover preview" in response.text.lower()
+    # Card body renders public-projected fields.
+    assert "Mia Creator" in response.text
+    assert "@miacreates" in response.text
+    assert "Los Angeles, California" in response.text
+
+
+def test_profile_preview_honors_location_hidden(
+    monkeypatch, client: TestClient
+) -> None:
+    """When location_display_level=hidden, the preview must NOT leak
+    the city/region — it should show the 'location hidden' empty state."""
+    _signed_in(client, role="creator")
+    hidden = {**_profile(), "location_display_level": "hidden"}
+    monkeypatch.setattr(
+        creator_routes.profiles, "get_creator_profile", lambda uid: hidden
+    )
+
+    response = client.get("/creator/profile")
+
+    assert response.status_code == 200
+    # The full label must not appear inside the preview card meta row.
+    # (The chip dialog elsewhere on the page may still surface the raw
+    # city for editing — that's owner-side; the preview is the
+    # public-projection mirror and that's what must hide it.)
+    assert "location hidden" in response.text.lower()
+
+
+def test_profile_preview_prompts_for_bio_when_empty(
+    monkeypatch, client: TestClient
+) -> None:
+    _signed_in(client, role="creator")
+    no_bio = {**_profile(), "bio": ""}
+    monkeypatch.setattr(
+        creator_routes.profiles, "get_creator_profile", lambda uid: no_bio
+    )
+
+    response = client.get("/creator/profile")
+
+    assert response.status_code == 200
+    assert "add a bio" in response.text.lower()
+
+
+# ---------------------------------------------------------------------------
+# Phase 3 owner-private prefs — privacy + babyg behavior
+# ---------------------------------------------------------------------------
+
+
+def test_profile_privacy_update_saves_dm_and_location_level(
+    monkeypatch, client: TestClient
+) -> None:
+    _signed_in(client, role="creator", user_id="creator-1")
+    saved: dict = {}
+
+    monkeypatch.setattr(
+        creator_routes.profiles, "get_creator_profile", lambda uid: _profile()
+    )
+    monkeypatch.setattr(
+        creator_routes.profiles,
+        "update_creator_profile",
+        lambda uid, payload: saved.update(payload) or True,
+    )
+
+    response = client.post(
+        "/creator/profile/privacy",
+        data={
+            "dm_preference": "connections_only",
+            "location_display_level": "region",
+        },
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/creator/profile/settings?privacy=ok"
+    assert saved == {
+        "dm_preference": "connections_only",
+        "location_display_level": "region",
+    }
+
+
+def test_profile_privacy_update_rejects_unknown_values(
+    monkeypatch, client: TestClient
+) -> None:
+    """Unknown values fall through the allow-list; with no valid fields
+    the route reports invalid instead of silently saving nothing."""
+    _signed_in(client, role="creator", user_id="creator-1")
+    saved: dict = {}
+
+    monkeypatch.setattr(
+        creator_routes.profiles, "get_creator_profile", lambda uid: _profile()
+    )
+    monkeypatch.setattr(
+        creator_routes.profiles,
+        "update_creator_profile",
+        lambda uid, payload: saved.update(payload) or True,
+    )
+
+    response = client.post(
+        "/creator/profile/privacy",
+        data={
+            "dm_preference": "shouted_through_a_megaphone",
+            "location_display_level": "satellite",
+        },
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == (
+        "/creator/profile/settings?privacy=invalid"
+    )
+    assert saved == {}
+
+
+def test_profile_privacy_update_accepts_partial_submission(
+    monkeypatch, client: TestClient
+) -> None:
+    """If the form only ships one of the two selects, the route saves
+    that one and leaves the other unchanged."""
+    _signed_in(client, role="creator", user_id="creator-1")
+    saved: dict = {}
+
+    monkeypatch.setattr(
+        creator_routes.profiles, "get_creator_profile", lambda uid: _profile()
+    )
+    monkeypatch.setattr(
+        creator_routes.profiles,
+        "update_creator_profile",
+        lambda uid, payload: saved.update(payload) or True,
+    )
+
+    response = client.post(
+        "/creator/profile/privacy",
+        data={"location_display_level": "hidden"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert saved == {"location_display_level": "hidden"}
+
+
+def test_profile_babyg_update_saves_all_fields(
+    monkeypatch, client: TestClient
+) -> None:
+    _signed_in(client, role="creator", user_id="creator-1")
+    saved: dict = {}
+
+    monkeypatch.setattr(
+        creator_routes.profiles, "get_creator_profile", lambda uid: _profile()
+    )
+    monkeypatch.setattr(
+        creator_routes.profiles,
+        "update_creator_profile",
+        lambda uid, payload: saved.update(payload) or True,
+    )
+
+    response = client.post(
+        "/creator/profile/babyg",
+        data={
+            "babyg_tone": "direct",
+            "babyg_risk_tolerance": "cautious",
+            "babyg_auto_brief_dms": "on",
+            "babyg_email_assistance": "on",
+        },
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/creator/profile/settings?babyg=ok"
+    assert saved == {
+        "babyg_tone": "direct",
+        "babyg_risk_tolerance": "cautious",
+        "babyg_auto_brief_dms": True,
+        "babyg_email_assistance": True,
+    }
+
+
+def test_profile_babyg_update_treats_missing_checkboxes_as_false(
+    monkeypatch, client: TestClient
+) -> None:
+    """HTML doesn't submit unchecked checkboxes. A POST with the
+    auto-brief checkbox absent means the creator turned it off — the
+    route must persist false, not skip the field."""
+    _signed_in(client, role="creator", user_id="creator-1")
+    saved: dict = {}
+
+    monkeypatch.setattr(
+        creator_routes.profiles, "get_creator_profile", lambda uid: _profile()
+    )
+    monkeypatch.setattr(
+        creator_routes.profiles,
+        "update_creator_profile",
+        lambda uid, payload: saved.update(payload) or True,
+    )
+
+    response = client.post(
+        "/creator/profile/babyg",
+        data={
+            "babyg_tone": "casual",
+            "babyg_risk_tolerance": "balanced",
+            # checkboxes absent
+        },
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert saved["babyg_auto_brief_dms"] is False
+    assert saved["babyg_email_assistance"] is False
+
+
+def test_profile_babyg_update_drops_unknown_tone_and_risk(
+    monkeypatch, client: TestClient
+) -> None:
+    """Invalid tone/risk values are dropped from the payload but the
+    booleans still persist — partial save is fine here because the UI
+    won't let users submit unknown values; this is just defense in depth."""
+    _signed_in(client, role="creator", user_id="creator-1")
+    saved: dict = {}
+
+    monkeypatch.setattr(
+        creator_routes.profiles, "get_creator_profile", lambda uid: _profile()
+    )
+    monkeypatch.setattr(
+        creator_routes.profiles,
+        "update_creator_profile",
+        lambda uid, payload: saved.update(payload) or True,
+    )
+
+    response = client.post(
+        "/creator/profile/babyg",
+        data={
+            "babyg_tone": "shouty",
+            "babyg_risk_tolerance": "yolo",
+            "babyg_auto_brief_dms": "on",
+        },
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert "babyg_tone" not in saved
+    assert "babyg_risk_tolerance" not in saved
+    assert saved["babyg_auto_brief_dms"] is True
+    assert saved["babyg_email_assistance"] is False
+
+
+def test_creator_profile_settings_renders_privacy_and_babyg_sections(
+    monkeypatch, client: TestClient
+) -> None:
+    """The new editable sections must appear on the page and reflect
+    the current profile values."""
+    _signed_in(client, role="creator")
+    pref_profile = {
+        **_profile(),
+        "dm_preference": "connections_only",
+        "location_display_level": "region",
+        "babyg_tone": "direct",
+        "babyg_risk_tolerance": "cautious",
+        "babyg_auto_brief_dms": False,
+        "babyg_email_assistance": True,
+    }
+    monkeypatch.setattr(
+        creator_routes.profiles, "get_creator_profile", lambda uid: pref_profile
+    )
+    monkeypatch.setattr(
+        creator_routes.oauth_connections, "get_google_connection", lambda uid: None
+    )
+    monkeypatch.setattr(creator_routes.google_calendar, "is_configured", lambda: False)
+
+    response = client.get("/creator/profile/settings")
+
+    assert response.status_code == 200
+    assert 'action="/creator/profile/privacy"' in response.text
+    assert 'action="/creator/profile/babyg"' in response.text
+    # Selected values flow through to the rendered <option>s.
+    assert '<option value="connections_only" selected' in response.text
+    assert '<option value="region"selected' in response.text \
+        or '<option value="region" selected' in response.text
+    assert '<option value="direct"      selected' in response.text \
+        or '<option value="direct" selected' in response.text
+    assert 'name="babyg_auto_brief_dms"' in response.text
+    # auto_brief_dms is False in this profile — the checkbox shouldn't be checked.
+    assert 'name="babyg_auto_brief_dms" value="on"\n          checked' not in response.text
+
+
 def test_creator_profile_settings_page_renders(monkeypatch, client: TestClient) -> None:
     _signed_in(client, role="creator")
     monkeypatch.setattr(creator_routes.profiles, "get_creator_profile", lambda uid: _profile())

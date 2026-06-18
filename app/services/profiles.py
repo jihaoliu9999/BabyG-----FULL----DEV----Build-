@@ -36,6 +36,32 @@ logger = logging.getLogger(__name__)
 # viewing connected peers, operators viewing anyone). Internal fields
 # (`baseline_followers`, `tier`, `writing_samples`,
 # `notification_settings`, `sub_bot_persona`) are deliberately omitted.
+# Closed vocabularies for the Phase 3 owner-private preference columns
+# (migration 0016). Source of truth for the CHECK constraints and the
+# route-level allow-listing. First value of each is the default that
+# preserves current behavior.
+DM_PREFERENCE_VALUES: tuple[str, ...] = ("open", "connections_only")
+LOCATION_DISPLAY_LEVELS: tuple[str, ...] = ("city", "region", "hidden")
+BABYG_TONES: tuple[str, ...] = ("casual", "professional", "direct")
+BABYG_RISK_TOLERANCES: tuple[str, ...] = ("cautious", "balanced", "latitude")
+
+# Migration 0017. Deal preferences are owner-private — never projected
+# through public_creator(); they feed babyg drafts and the upcoming
+# brand-outreach negotiation surface.
+DEAL_USAGE_RIGHTS_VALUES: tuple[str, ...] = (
+    "organic_only",
+    "paid_organic",
+    "paid_with_usage",
+    "flexible",
+)
+DEAL_TRAVEL_WILLINGNESS_VALUES: tuple[str, ...] = (
+    "no",
+    "local_only",
+    "regional",
+    "open",
+)
+
+
 PUBLIC_CREATOR_FIELDS: tuple[str, ...] = (
     "user_id",
     "full_name",
@@ -72,13 +98,27 @@ def public_creator(row: dict[str, Any] | None) -> dict[str, Any] | None:
 def safe_location_label(row: dict[str, Any] | None) -> str | None:
     """Return city/region-level location text safe for public rendering.
 
-    Exact coordinates intentionally never appear in this label.
+    Honors the creator's `location_display_level` preference (Phase 3,
+    migration 0016):
+      * ``city``   — full label: city + region or city + country (current behavior)
+      * ``region`` — drops the city; renders region/country only
+      * ``hidden`` — returns None; no public location text at all
+
+    Exact coordinates intentionally never appear in this label regardless
+    of the setting; that's enforced by `PUBLIC_CREATOR_FIELDS`.
     """
     if not row:
+        return None
+    level = (row.get("location_display_level") or "city").strip().lower()
+    if level == "hidden":
         return None
     city = _clean_location_part(row.get("location_city"))
     region = _clean_location_part(row.get("location_region"))
     country = _clean_location_part(row.get("location_country"))
+    if level == "region":
+        # Drop the city — region first, then country as a fallback.
+        parts = [p for p in (region, country) if p]
+        return ", ".join(parts[:2]) or None
     parts = [p for p in (city, region) if p]
     if len(parts) < 2 and country:
         parts.append(country)
