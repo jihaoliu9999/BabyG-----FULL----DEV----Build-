@@ -32,6 +32,15 @@
         {% else %}
         <div class="preview">connected creator</div>
         {% endif %}
+        {% set b = briefs.get(t.id) if briefs else none %}
+        {% if b %}
+        <div class="dm-risk-row">
+          <span class="dm-risk-chip dm-risk-chip-{{ b.risk_level }}">{{ b.risk_level|replace('_', ' ') }}</span>
+          {% if b.recommended_next_action %}
+          <span class="dm-risk-next">{{ b.recommended_next_action|replace('_', ' ') }}</span>
+          {% endif %}
+        </div>
+        {% endif %}
       </div>
     </a>
     {% endfor %}

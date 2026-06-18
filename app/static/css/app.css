@@ -6037,3 +6037,107 @@ hr.hairline {
     grid-template-columns: 1fr;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   DM private babyg briefs (P4/P5). Recipient-only intelligence panel that
+   sits above the composer in a thread, plus risk chips in the inbox list.
+   Reuses the dark system tokens; high-risk states use the coral accent.
+   --------------------------------------------------------------------------- */
+.dm-brief {
+  margin: 0 16px 8px;
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  background: var(--surface-1);
+  overflow: hidden;
+}
+.dm-brief-alert { border-color: var(--lime); box-shadow: inset 3px 0 0 var(--lime); }
+.dm-brief > details > summary,
+.dm-brief-summary-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  cursor: pointer;
+  list-style: none;
+}
+.dm-brief > details > summary::-webkit-details-marker { display: none; }
+.dm-brief-title { font-size: 13px; color: var(--ink); font-weight: 500; }
+.dm-brief-pill {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  padding: 4px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--hairline-strong);
+  color: var(--ink-mid);
+  background: var(--surface-2);
+  white-space: nowrap;
+}
+.dm-brief-pill-safe { color: #6fce9f; border-color: rgba(111,206,159,0.4); }
+.dm-brief-pill-suspicious_identity,
+.dm-brief-pill-scam_phishing,
+.dm-brief-pill-unsafe_meetup,
+.dm-brief-pill-adult_minor_risk,
+.dm-brief-pill-payment_risk,
+.dm-brief-pill-inappropriate,
+.dm-brief-pill-legal_contract_review {
+  color: var(--lime);
+  border-color: var(--lime);
+  background: rgba(255,77,109,0.08);
+}
+.dm-brief-content { padding: 0 14px 14px; }
+.dm-brief-text { color: var(--ink-mid); font-size: 13.5px; line-height: 1.55; margin: 0 0 10px; }
+.dm-brief-block { margin: 0 0 10px; }
+.dm-brief-label {
+  display: block;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  color: var(--ink-dim);
+  margin-bottom: 5px;
+}
+.dm-brief-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.dm-brief-chips li {
+  font-size: 12px;
+  color: var(--ink-mid);
+  padding: 3px 9px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 999px;
+}
+.dm-brief-notes { margin: 0; padding-left: 18px; color: var(--ink-mid); font-size: 12.5px; line-height: 1.5; }
+.dm-brief-action { color: var(--ink); font-size: 13px; }
+.dm-brief-reply { margin: 4px 0 10px; }
+.dm-brief-reply > summary { cursor: pointer; color: var(--ink-mid); font-size: 12.5px; }
+.dm-brief-reply-text {
+  color: var(--ink-mid);
+  font-size: 13px;
+  line-height: 1.55;
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin: 8px 0;
+}
+.dm-brief-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.dm-brief-foot { margin: 10px 0 0; font-size: 10px; color: var(--ink-faint); }
+
+/* Inbox risk chips */
+.dm-risk-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 6px; }
+.dm-risk-chip {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--hairline-strong);
+  color: var(--ink-mid);
+}
+.dm-risk-chip-safe { color: #6fce9f; border-color: rgba(111,206,159,0.4); }
+.dm-risk-chip-suspicious_identity,
+.dm-risk-chip-scam_phishing,
+.dm-risk-chip-unsafe_meetup,
+.dm-risk-chip-adult_minor_risk,
+.dm-risk-chip-payment_risk,
+.dm-risk-chip-inappropriate,
+.dm-risk-chip-legal_contract_review { color: var(--lime); border-color: var(--lime); }
+.dm-risk-next { font-size: 11px; color: var(--ink-dim); }
