@@ -38,6 +38,7 @@ from app.services import (
     bot,
     calendar_sync,
     discovery,
+    dm_briefs,
     dms,
     intel,
     jobs,
@@ -706,10 +707,19 @@ async def dm_list(
     peer_ids = sorted({str(t["peer_id"]) for t in threads})
     peers = profiles.get_creators_by_ids(peer_ids)
     peer_kinds = {pid: ("creator" if pid in peers else "unknown") for pid in peer_ids}
+    # Private babyg risk chips: latest brief per thread, recipient-scoped.
+    briefs = dm_briefs.latest_briefs_for_threads(
+        [str(t["id"]) for t in threads], recipient_id=session["user_id"]
+    )
     return templates.TemplateResponse(
         request,
         "creator/dm_list.html",
-        {"threads": threads, "peers": peers, "peer_kinds": peer_kinds},
+        {
+            "threads": threads,
+            "peers": peers,
+            "peer_kinds": peer_kinds,
+            "briefs": briefs,
+        },
     )
 
 
@@ -732,6 +742,14 @@ async def dm_thread(
         str(thread["id"]), participant_id=session["user_id"]
     )
     dms.mark_thread_read_for(str(thread["id"]), reader_id=session["user_id"])
+
+    # Private babyg brief for the latest INCOMING message (best-effort:
+    # auto-generates only for "serious" messages, never blocks the render,
+    # and stays invisible to the other party). Manual refresh lives at
+    # POST /creator/dm/{peer}/brief ("ask babyg").
+    brief, brief_message_id = _latest_incoming_brief(
+        thread=thread, messages=messages, me_id=session["user_id"], peer=peer
+    )
     return templates.TemplateResponse(
         request,
         "creator/dm_thread.html",
@@ -742,8 +760,39 @@ async def dm_thread(
             "peer_id": peer_user_id,
             "peer_kind": peer_kind,
             "me_id": session["user_id"],
+            "brief": brief,
+            "brief_message_id": brief_message_id,
         },
     )
+
+
+def _latest_incoming_brief(
+    *, thread: dict, messages: list[dict], me_id: str, peer: dict, force: bool = False
+) -> tuple[dict | None, str | None]:
+    """Return (brief, message_id) for the most recent message the peer
+    sent (incoming to me). Best-effort; auto-generation is gated to
+    serious messages inside the service. Returns (None, msg_id) when
+    there's an incoming message but no brief yet."""
+    incoming = [m for m in messages if str(m.get("sender_id")) != me_id]
+    if not incoming:
+        return None, None
+    latest = incoming[-1]
+    message_id = str(latest.get("id") or "")
+    sender_public = profiles.public_creator(peer) or {}
+    me_full = profiles.get_creator_profile(me_id)
+    recipient_public = profiles.public_creator(me_full) or {}
+    try:
+        brief = dm_briefs.get_or_generate_brief(
+            thread_id=str(thread["id"]),
+            message=latest,
+            recipient_id=me_id,
+            sender_public=sender_public,
+            recipient_public=recipient_public,
+            force=force,
+        )
+    except Exception:  # brief must never break the thread render
+        brief = dm_briefs.get_brief_for_message(message_id, recipient_id=me_id)
+    return brief, (message_id or None)
 
 
 @router.post("/creator/dm/{peer_user_id}/send")
@@ -789,6 +838,51 @@ async def dm_send(
             link_path=target,
         )
     return RedirectResponse(f"/creator/dm/{peer_user_id}", status_code=303)
+
+
+@router.post("/creator/dm/{peer_user_id}/brief")
+async def dm_brief(
+    peer_user_id: str,
+    request: Request,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    """Manual "ask babyg" — (re)generate the private brief for the latest
+    incoming message in this thread. Recipient-only, read-only, never
+    sends anything. Returns JSON for the AJAX path, redirect for no-JS.
+    """
+    peer, _kind = _resolve_creator_dm_peer(
+        me_id=session["user_id"], peer_user_id=peer_user_id
+    )
+    if peer is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    thread = dms.get_or_create_thread(session["user_id"], peer_user_id)
+    if thread is None:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    messages = dms.list_messages(
+        str(thread["id"]), participant_id=session["user_id"]
+    )
+    brief, _mid = _latest_incoming_brief(
+        thread=thread, messages=messages, me_id=session["user_id"],
+        peer=peer, force=True,
+    )
+    if request.headers.get("X-Requested-With") == "fetch":
+        return JSONResponse(
+            {"ok": brief is not None, "brief": _brief_public(brief)}
+        )
+    return RedirectResponse(f"/creator/dm/{peer_user_id}", status_code=303)
+
+
+def _brief_public(brief: dict | None) -> dict | None:
+    """Shape a brief for the recipient's own AJAX consumption (display
+    fields only)."""
+    if not brief:
+        return None
+    keys = (
+        "risk_level", "risk_reasons", "summary", "missing_terms",
+        "recommended_next_action", "suggested_reply", "trust_notes",
+        "generated_at",
+    )
+    return {k: brief.get(k) for k in keys}
 
 
 def _resolve_creator_dm_peer(
