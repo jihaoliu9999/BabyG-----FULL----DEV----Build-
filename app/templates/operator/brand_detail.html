@@ -1,0 +1,126 @@
+{% extends "base.html" %}
+
+{% block title %}Brand - operator console{% endblock %}
+
+{% block content %}
+<section class="op op-detail">
+  <a class="back-link" href="/operator/brands">Back to brands</a>
+
+  <header class="op-header">
+    <div class="auth-tag">
+      Brand / <span class="status-pill status-{{ 'active' if brand.is_verified else 'pending' }}">{{ brand.review_status|replace("_", " ") }}</span>
+    </div>
+    <h1 class="op-title">{{ brand.company_name or "unnamed brand" }}</h1>
+    <p class="op-sub">
+      {{ brand.industry or "no industry set" }}
+      {% if brand.brand_website %} / {{ brand.brand_website }}{% endif %}
+    </p>
+  </header>
+
+  {% if error %}<div class="auth-error">{{ error }}</div>{% endif %}
+
+  <section class="onb-section">
+    <h2 class="onb-section-title">Company</h2>
+    <dl class="kv">
+      <dt>Brand</dt><dd>{{ brand.company_name or "-" }}</dd>
+      <dt>Website</dt>
+      <dd>
+        {% if brand.brand_website %}
+        <a href="{{ brand.brand_website }}" rel="noreferrer" target="_blank">{{ brand.brand_website }}</a>
+        {% else %}-{% endif %}
+      </dd>
+      <dt>Industry</dt><dd>{{ brand.industry or "-" }}</dd>
+      <dt>Contact</dt>
+      <dd>
+        {{ brand.contact_full_name or "-" }}
+        {% if brand.contact_title %}<span class="op-table-meta"> / {{ brand.contact_title }}</span>{% endif %}
+      </dd>
+      <dt>Created</dt><dd>{{ brand.created_at|short_dt if brand.created_at else "-" }}</dd>
+      <dt>Updated</dt><dd>{{ brand.updated_at|short_dt if brand.updated_at else "-" }}</dd>
+      <dt>Reports</dt><dd>{{ report_count }}</dd>
+    </dl>
+  </section>
+
+  <section class="onb-section">
+    <h2 class="onb-section-title">Positioning</h2>
+    <dl class="kv">
+      <dt>Product</dt><dd>{{ brand.product_description or "-" }}</dd>
+      <dt>Scale</dt><dd>{{ brand.scale_descriptor or "-" }}</dd>
+      <dt>Model</dt><dd>{{ brand.model_descriptor or "-" }}</dd>
+      <dt>Positioning</dt><dd>{{ brand.positioning_descriptor or "-" }}</dd>
+      <dt>Budget</dt><dd>{{ brand.budget_range or "-" }}</dd>
+      <dt>Campaign types</dt><dd>{{ (brand.campaign_types or [])|join(", ") or "-" }}</dd>
+      <dt>Creator sizes</dt><dd>{{ (brand.creator_size_preferences or [])|join(", ") or "-" }}</dd>
+      <dt>Niches</dt><dd>{{ (brand.niche_preferences or [])|join(", ") or "-" }}</dd>
+    </dl>
+  </section>
+
+  <section class="onb-section">
+    <h2 class="onb-section-title">Verification</h2>
+    <form method="post" action="/operator/brands/{{ brand.user_id }}/verification" class="decision-form">
+      {% include "_partials/csrf.html" %}
+      <div class="field">
+        <label class="field-label" for="verification-notes">Operator note</label>
+        <textarea id="verification-notes" name="verification_notes" rows="3"
+                  placeholder="What should the team know about this brand?">{{ brand.verification_notes or "" }}</textarea>
+      </div>
+      <div class="op-actions-row">
+        <button class="btn btn-primary" type="submit" name="action" value="verified">Mark verified</button>
+        <button class="btn btn-secondary" type="submit" name="action" value="needs_review">Needs review</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="onb-section">
+    <h2 class="onb-section-title">Campaigns / opportunities</h2>
+    {% if campaigns %}
+    <div class="table-wrap">
+      <table class="op-table">
+        <thead>
+          <tr>
+            <th>Title</th>
+            <th>Status</th>
+            <th>Discover</th>
+            <th>Created</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for campaign in campaigns %}
+          <tr>
+            <td><a class="op-table-title" href="/operator/jobs/{{ campaign.id }}">{{ campaign.title }}</a></td>
+            <td>
+              {% if campaign.is_taken_down %}<span class="status-pill status-archived">taken down</span>
+              {% elif campaign.is_active %}<span class="status-pill status-active">active</span>
+              {% else %}<span class="status-pill status-archived">closed</span>
+              {% endif %}
+            </td>
+            <td class="op-table-meta">{{ "visible" if campaign.discovery_eligible else "hidden" }}</td>
+            <td class="op-table-meta">{{ campaign.created_at|short_dt if campaign.created_at else "-" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="field-hint">No brand-created opportunities yet.</p>
+    {% endif %}
+  </section>
+
+  <section class="onb-section">
+    <h2 class="onb-section-title">Audit trail</h2>
+    {% if activity %}
+    <div class="op-activity-list">
+      {% for row in activity %}
+      <div class="op-activity-row">
+        <span class="op-activity-time">{{ row.created_at|short_dt }}</span>
+        <strong>{{ row.action }}</strong>
+        <span>{{ row.notes or row.target_id }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="field-hint">No brand-specific operator actions yet.</p>
+    {% endif %}
+  </section>
+</section>
+{% endblock %}

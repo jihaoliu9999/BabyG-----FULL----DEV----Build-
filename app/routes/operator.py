@@ -27,6 +27,7 @@ from app.services import (
     jobs,
     members,
     notifications,
+    operator_brands,
     operator_notes,
     profiles,
 )
@@ -184,6 +185,137 @@ async def intel_archive(
 
 
 # -----------------------------------------------------------------------------
+# Brand review
+# -----------------------------------------------------------------------------
+
+
+@router.get("/brands", response_class=HTMLResponse)
+async def brands_list(
+    request: Request,
+    q: str | None = Query(None),
+    verification: str = Query("all"),
+    session: SessionPayload = Depends(require_role("operator")),
+) -> Response:
+    if verification not in operator_brands.VERIFICATION_FILTERS:
+        verification = "all"
+    brands = operator_brands.list_brands(query=q, verification=verification)
+    report_counts = operator_brands.report_counts_by_brand(
+        [str(row["user_id"]) for row in brands if row.get("user_id")]
+    )
+    campaign_counts: dict[str, int] = {}
+    for campaign in operator_brands.list_brand_campaigns(limit=500):
+        brand_id = str(campaign.get("poster_user_id") or "")
+        if brand_id:
+            campaign_counts[brand_id] = campaign_counts.get(brand_id, 0) + 1
+    return templates.TemplateResponse(
+        request,
+        "operator/brands_list.html",
+        {
+            "brands": brands,
+            "query": q or "",
+            "active_verification": verification,
+            "verification_filters": operator_brands.VERIFICATION_FILTERS,
+            "report_counts": report_counts,
+            "campaign_counts": campaign_counts,
+        },
+    )
+
+
+@router.get("/brands/{brand_id}", response_class=HTMLResponse)
+async def brand_detail(
+    brand_id: str,
+    request: Request,
+    session: SessionPayload = Depends(require_role("operator")),
+) -> Response:
+    brand = operator_brands.get_brand(brand_id)
+    if brand is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    campaigns = [
+        row
+        for row in operator_brands.list_brand_campaigns(limit=500)
+        if str(row.get("poster_user_id")) == brand_id
+    ]
+    report_count = operator_brands.report_counts_by_brand([brand_id]).get(brand_id, 0)
+    activity = [
+        row
+        for row in audit.list_recent(limit=50)
+        if row.get("target_type") == "brand" and str(row.get("target_id")) == brand_id
+    ]
+    return templates.TemplateResponse(
+        request,
+        "operator/brand_detail.html",
+        {
+            "brand": brand,
+            "campaigns": campaigns,
+            "report_count": report_count,
+            "activity": activity,
+            "error": None,
+        },
+    )
+
+
+@router.post("/brands/{brand_id}/verification")
+async def brand_verification_update(
+    brand_id: str,
+    request: Request,
+    session: SessionPayload = Depends(require_role("operator")),
+) -> Response:
+    form = await request.form()
+    action = _enum(form.get("action"), ["verified", "needs_review"])
+    note = _str(form.get("verification_notes"), 1000)
+    if action is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
+    if not operator_brands.update_verification(
+        user_id=brand_id, action=action, note=note or None
+    ):
+        brand = operator_brands.get_brand(brand_id) or {"user_id": brand_id}
+        return templates.TemplateResponse(
+            request,
+            "operator/brand_detail.html",
+            {
+                "brand": brand,
+                "campaigns": [],
+                "report_count": 0,
+                "activity": [],
+                "error": "Couldn't update brand verification.",
+            },
+            status_code=400,
+        )
+    audit.record(
+        actor_user_id=session["user_id"],
+        action=f"brand.{action}",
+        target_type="brand",
+        target_id=brand_id,
+        notes=note or None,
+    )
+    return RedirectResponse(f"/operator/brands/{brand_id}", status_code=303)
+
+
+@router.get("/brand-campaigns", response_class=HTMLResponse)
+async def brand_campaigns_list(
+    request: Request,
+    session: SessionPayload = Depends(require_role("operator")),
+) -> Response:
+    campaigns = operator_brands.list_brand_campaigns()
+    brand_ids = sorted(
+        {
+            str(row["poster_user_id"])
+            for row in campaigns
+            if row.get("poster_user_id") is not None
+        }
+    )
+    brand_profiles = {
+        brand_id: operator_brands.get_brand(brand_id)
+        for brand_id in brand_ids
+    }
+    return templates.TemplateResponse(
+        request,
+        "operator/brand_campaigns.html",
+        {"campaigns": campaigns, "brand_profiles": brand_profiles},
+    )
+
+
+# -----------------------------------------------------------------------------
 # Validation
 # -----------------------------------------------------------------------------
 
@@ -298,10 +430,12 @@ def _dashboard_snapshot() -> dict[str, Any]:
         recent_activity = audit.list_recent(limit=5)
     except Exception:
         logger.exception("operator dashboard audit preview failed")
+    brand_metrics = operator_brands.brand_counts()
     return {
         "active_listings": active_listings,
         "roster_total": roster_total,
         "recent_activity": recent_activity,
+        **brand_metrics,
     }
 
 
@@ -454,14 +588,20 @@ def _abuse_target_context(report: dict[str, Any]) -> dict[str, Any]:
         return out
 
     if target_type == "profile":
-        # The reported user_id is in target_id. v1 is creator-only, so
-        # we look up creator_profiles; brand profile lookups return
-        # nothing now that the surface is removed.
+        # The reported user_id is in target_id. Profile reports can point
+        # at creator or brand accounts; render only enough context for an
+        # operator decision.
         creator = profiles.get_creator_profile(str(target_id))
         if creator is not None:
             out["available"] = True
             out["profile_kind"] = "creator"
             out["profile"] = creator
+            return out
+        brand = operator_brands.get_brand(str(target_id))
+        if brand is not None:
+            out["available"] = True
+            out["profile_kind"] = "brand"
+            out["profile"] = brand
         return out
 
     # listing — deferred until the listings surface ships

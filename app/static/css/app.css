@@ -4897,6 +4897,26 @@ hr.hairline {
   scrollbar-width: none;
 }
 .operator-shell .feed-filters::-webkit-scrollbar { display: none; }
+.operator-shell .op-toolbar {
+  display: grid;
+  grid-template-columns: minmax(240px, 1fr) minmax(160px, auto) auto;
+  gap: 10px;
+  align-items: center;
+  margin: 0 0 18px;
+}
+.operator-shell .op-toolbar input,
+.operator-shell .op-toolbar select {
+  min-height: 40px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 7px;
+  background: var(--surface-1);
+  color: var(--ink);
+  padding: 0 13px;
+}
+.operator-shell .op-toolbar input:focus,
+.operator-shell .op-toolbar select:focus {
+  border-color: #525252;
+}
 .operator-shell .chip {
   min-height: 36px;
   padding: 0 13px;
@@ -5111,6 +5131,12 @@ hr.hairline {
   display: grid;
   gap: 14px;
 }
+.operator-shell .op-actions-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
 .operator-shell .op-divider {
   height: 1px;
   margin: 24px 0;
@@ -5217,6 +5243,7 @@ hr.hairline {
   .operator-shell .op-table th,
   .operator-shell .op-table td { padding-inline: 14px; }
   .operator-shell .feed-empty { min-height: 190px; padding: 26px; }
+  .operator-shell .op-toolbar { grid-template-columns: 1fr; }
   .operator-shell .onb-form { grid-template-columns: 1fr; }
   .operator-shell .op-form .onb-section:first-of-type,
   .operator-shell .onb-actions { grid-column: auto; }

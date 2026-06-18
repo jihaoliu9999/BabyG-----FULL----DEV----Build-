@@ -26,6 +26,12 @@
     <a class="op-metric" href="/operator/jobs">
       <span>active listings</span><strong>{{ active_listings }}</strong><small>creator-posted</small>
     </a>
+    <a class="op-metric {{ 'is-alert' if pending_brand_reviews else '' }}" href="/operator/brands?verification=needs_review">
+      <span>brand reviews</span><strong>{{ pending_brand_reviews }}</strong><small>needs review</small>
+    </a>
+    <a class="op-metric" href="/operator/brand-campaigns">
+      <span>brand campaigns</span><strong>{{ active_brand_campaigns }}</strong><small>active opportunities</small>
+    </a>
     <a class="op-metric" href="/operator/members">
       <span>roster</span><strong>{{ roster_total }}</strong><small>signed-in members</small>
     </a>
@@ -54,22 +60,36 @@
       <p class="op-card-body">review creator reports with context and a visible decision trail.</p>
       <div class="op-card-cta">review reports <span aria-hidden="true">&rarr;</span></div>
     </a>
-    <a class="op-card" href="/operator/jobs">
+    <a class="op-card" href="/operator/brands">
       <div class="op-card-index">03</div>
+      <div class="op-card-tag">brands</div>
+      <div class="op-card-title">brand review</div>
+      <p class="op-card-body">inspect brand accounts, verification notes, reports, and campaign context.</p>
+      <div class="op-card-cta">review brands <span aria-hidden="true">&rarr;</span></div>
+    </a>
+    <a class="op-card" href="/operator/brand-campaigns">
+      <div class="op-card-index">04</div>
+      <div class="op-card-tag">campaigns</div>
+      <div class="op-card-title">brand opportunities</div>
+      <p class="op-card-body">review brand-created opportunities and Discover visibility.</p>
+      <div class="op-card-cta">open campaigns <span aria-hidden="true">&rarr;</span></div>
+    </a>
+    <a class="op-card" href="/operator/jobs">
+      <div class="op-card-index">05</div>
       <div class="op-card-tag">listings</div>
       <div class="op-card-title">creator board</div>
       <p class="op-card-body">inspect active opportunities and handle listing takedowns.</p>
       <div class="op-card-cta">open listings <span aria-hidden="true">&rarr;</span></div>
     </a>
     <a class="op-card" href="/operator/members">
-      <div class="op-card-index">04</div>
+      <div class="op-card-index">06</div>
       <div class="op-card-tag">roster</div>
       <div class="op-card-title">roster</div>
       <p class="op-card-body">find creators and operators, then review account notes.</p>
       <div class="op-card-cta">open roster <span aria-hidden="true">&rarr;</span></div>
     </a>
     <a class="op-card" href="/operator/audit">
-      <div class="op-card-index">05</div>
+      <div class="op-card-index">07</div>
       <div class="op-card-tag">audit</div>
       <div class="op-card-title">activity trail</div>
       <p class="op-card-body">trace recent operator actions across moderation and operations.</p>

@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}Brand campaigns - operator console{% endblock %}
+
+{% block content %}
+<section class="op">
+  <a class="back-link" href="/operator">Back to console</a>
+
+  <header class="op-header">
+    <div class="auth-tag">Brands</div>
+    <h1 class="op-title">Brand campaigns</h1>
+    <p class="op-sub">Review brand-created opportunities and their Discover visibility.</p>
+  </header>
+
+  {% if campaigns %}
+  <div class="table-wrap">
+    <table class="op-table">
+      <thead>
+        <tr>
+          <th>Campaign</th>
+          <th>Brand</th>
+          <th>Status</th>
+          <th>Discover</th>
+          <th>Deadline</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for campaign in campaigns %}
+        {% set brand = brand_profiles.get(campaign.poster_user_id|string) %}
+        <tr>
+          <td>
+            <a class="op-table-title" href="/operator/jobs/{{ campaign.id }}">{{ campaign.title }}</a>
+            <div class="op-table-meta">{{ campaign.listing_type|replace("_", " ") }}</div>
+          </td>
+          <td>
+            {% if brand %}
+            <a class="op-table-title" href="/operator/brands/{{ brand.user_id }}">{{ brand.company_name or "unnamed brand" }}</a>
+            {% else %}
+            <span class="op-table-meta">{{ campaign.poster_user_id }}</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if campaign.is_taken_down %}<span class="status-pill status-archived">taken down</span>
+            {% elif campaign.is_active %}<span class="status-pill status-active">active</span>
+            {% else %}<span class="status-pill status-archived">closed</span>
+            {% endif %}
+          </td>
+          <td class="op-table-meta">{{ "visible" if campaign.discovery_eligible else "hidden" }}</td>
+          <td class="op-table-meta">{{ campaign.deadline|short_dt if campaign.deadline else "-" }}</td>
+          <td class="op-table-actions">
+            <a class="link-btn" href="/operator/jobs/{{ campaign.id }}">Review</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="feed-empty">
+    <h2>No brand campaigns yet.</h2>
+    <p>Brand-created opportunities will appear here when they exist.</p>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

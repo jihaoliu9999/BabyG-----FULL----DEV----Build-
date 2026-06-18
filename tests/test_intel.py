@@ -26,6 +26,7 @@ from app.services import intel as intel_module
 from app.services import jobs as jobs_module
 from app.services import members as members_module
 from app.services import notifications as notifications_module
+from app.services import operator_brands as operator_brands_module
 from app.services import profiles as profiles_module
 
 # -----------------------------------------------------------------------------
@@ -115,6 +116,7 @@ def store(monkeypatch) -> FakeIntelStore:
         s.last_create_payload = {**payload, "created_by": created_by}
         new = {**payload, "id": str(uuid4()), "created_by": created_by,
                "created_at": "2026-05-07T00:00:00Z"}
+        new.setdefault("valid_from", "2026-05-07T00:00:00Z")
         s.posts[new["id"]] = new
         return new["id"]
 
@@ -157,6 +159,17 @@ def store(monkeypatch) -> FakeIntelStore:
     from app.services import abuse as abuse_module_local
     monkeypatch.setattr(abuse_module_local, "count_pending", lambda: 0)
     monkeypatch.setattr(jobs_module, "list_for_operator", lambda **kw: [{"id": "job-1"}])
+    monkeypatch.setattr(
+        operator_brands_module,
+        "brand_counts",
+        lambda: {
+            "total_brands": 0,
+            "verified_brands": 0,
+            "pending_brand_reviews": 0,
+            "blocked_or_flagged_brands": 0,
+            "active_brand_campaigns": 0,
+        },
+    )
     monkeypatch.setattr(members_module, "list_users", lambda **kw: ([], 4))
     monkeypatch.setattr(
         audit_module,
@@ -243,6 +256,102 @@ def test_feed_excludes_non_active_posts(client, store, fake_creator):
     assert "Live one" in r.text
     assert "Drafty" not in r.text
     assert "Gone" not in r.text
+
+
+def test_operator_published_hot_drop_appears_in_creator_feed(client, store, fake_creator):
+    _signed_in(client, role="operator", user_id="op-1")
+    r = client.post(
+        "/operator/intel",
+        data={
+            "title": "New spa opening",
+            "body": "Opening weekend has comped treatments for creators.",
+            "category": "venue",
+            "confidence": "high",
+            "valid_until": "2099-01-01T00:00",
+            "target_niches": ["food"],
+            "target_tiers": ["pro"],
+            "status": "active",
+        },
+    )
+    assert r.status_code == 303
+
+    _signed_in(client, role="creator")
+    feed = client.get("/creator")
+    assert feed.status_code == 200
+    assert "New spa opening" in feed.text
+
+
+def test_operator_draft_hot_drop_stays_out_of_creator_feed(client, store, fake_creator):
+    _signed_in(client, role="operator", user_id="op-1")
+    r = client.post(
+        "/operator/intel",
+        data={
+            "title": "Draft spa opening",
+            "body": "This should stay in ops.",
+            "category": "venue",
+            "valid_until": "2099-01-01T00:00",
+            "target_tiers": ["basic", "pro", "vip"],
+            "status": "draft",
+        },
+    )
+    assert r.status_code == 303
+
+    _signed_in(client, role="creator")
+    feed = client.get("/creator")
+    assert "Draft spa opening" not in feed.text
+
+
+def test_global_hot_drop_without_city_reaches_creator_feed(client, store, fake_creator):
+    _signed_in(client, role="operator", user_id="op-1")
+    r = client.post(
+        "/operator/intel",
+        data={
+            "title": "Global rate reminder",
+            "body": "Check usage before accepting paid media.",
+            "category": "brand",
+            "valid_until": "2099-01-01T00:00",
+            "status": "active",
+            "city": "",
+        },
+    )
+    assert r.status_code == 303
+    assert store.last_create_payload is not None
+    assert store.last_create_payload["city"] == "global"
+
+    _signed_in(client, role="creator")
+    feed = client.get("/creator")
+    assert "Global rate reminder" in feed.text
+
+
+def test_city_hot_drop_follows_current_tier_and_niche_rules(client, store, fake_creator):
+    _signed_in(client, role="creator")
+    store.add_post(
+        title="Miami creator dinner",
+        city="Miami",
+        target_niches=["food"],
+        target_tiers=["pro"],
+    )
+    store.add_post(
+        title="Miami VIP-only dinner",
+        city="Miami",
+        target_niches=["food"],
+        target_tiers=["vip"],
+    )
+    r = client.get("/creator")
+    assert "Miami creator dinner" in r.text
+    assert "Miami VIP-only dinner" not in r.text
+
+
+def test_creator_feed_does_not_render_operator_private_fields(client, store, fake_creator):
+    _signed_in(client, role="creator")
+    store.add_post(
+        title="Public title",
+        body="Public body",
+        created_by="operator-secret-id",
+    )
+    r = client.get("/creator")
+    assert "Public title" in r.text
+    assert "operator-secret-id" not in r.text
 
 
 def test_feed_filters_by_tier(client, store, fake_creator):
