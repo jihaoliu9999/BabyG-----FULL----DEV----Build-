@@ -26,6 +26,7 @@ from fastapi import (
 )
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
+from app.core.rate_limit import dm_brief_manual_limiter
 from app.core.redirects import safe_same_origin
 from app.core.security import SessionPayload
 from app.core.templating import templates
@@ -781,6 +782,9 @@ def _latest_incoming_brief(
     sender_public = profiles.public_creator(peer) or {}
     me_full = profiles.get_creator_profile(me_id)
     recipient_public = profiles.public_creator(me_full) or {}
+    auto_enabled = not (
+        me_full is not None and me_full.get("babyg_auto_brief_dms") is False
+    )
     try:
         brief = dm_briefs.get_or_generate_brief(
             thread_id=str(thread["id"]),
@@ -788,6 +792,8 @@ def _latest_incoming_brief(
             recipient_id=me_id,
             sender_public=sender_public,
             recipient_public=recipient_public,
+            recent_messages=messages,
+            auto_enabled=auto_enabled,
             force=force,
         )
     except Exception:  # brief must never break the thread render
@@ -855,6 +861,16 @@ async def dm_brief(
     )
     if peer is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    if not dm_brief_manual_limiter.allow(
+        "dm-brief-manual", session["user_id"]
+    ):
+        if request.headers.get("X-Requested-With") == "fetch":
+            return JSONResponse(
+                {"ok": False, "error": "rate_limited"}, status_code=429
+            )
+        return RedirectResponse(
+            f"/creator/dm/{peer_user_id}?brief_rate_limited=1", status_code=303
+        )
     thread = dms.get_or_create_thread(session["user_id"], peer_user_id)
     if thread is None:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -872,6 +888,42 @@ async def dm_brief(
     return RedirectResponse(f"/creator/dm/{peer_user_id}", status_code=303)
 
 
+@router.post("/creator/dm/{peer_user_id}/brief/follow-up")
+async def dm_brief_follow_up(
+    peer_user_id: str,
+    request: Request,
+    focus: str = Form(...),
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    """Return ephemeral private analysis. It never updates the canonical brief."""
+    if focus not in dm_briefs.FOLLOW_UP_FOCUSES:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
+    peer, _kind = _resolve_creator_dm_peer(
+        me_id=session["user_id"], peer_user_id=peer_user_id
+    )
+    if peer is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    if not dm_brief_manual_limiter.allow(
+        "dm-brief-manual", session["user_id"]
+    ):
+        return JSONResponse(
+            {"ok": False, "error": "rate_limited"}, status_code=429
+        )
+    thread = dms.get_or_create_thread(session["user_id"], peer_user_id)
+    if thread is None:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    messages = dms.list_messages(
+        str(thread["id"]), participant_id=session["user_id"]
+    )
+    result = dm_briefs.generate_follow_up(
+        focus=focus,
+        messages=messages,
+        recipient_id=session["user_id"],
+        sender_public=profiles.public_creator(peer) or {},
+    )
+    return JSONResponse({"ok": result is not None, "result": result})
+
+
 def _brief_public(brief: dict | None) -> dict | None:
     """Shape a brief for the recipient's own AJAX consumption (display
     fields only)."""
@@ -880,6 +932,8 @@ def _brief_public(brief: dict | None) -> dict | None:
     keys = (
         "risk_level", "risk_reasons", "summary", "missing_terms",
         "recommended_next_action", "suggested_reply", "trust_notes",
+        "intent_type", "confidence_level", "sender_ask", "why_it_matters",
+        "deal_terms", "deal_stage", "message_annotations", "reply_options",
         "generated_at",
     )
     return {k: brief.get(k) for k in keys}

@@ -27,6 +27,7 @@ from fastapi.testclient import TestClient
 from app.core.security import SESSION_COOKIE, write_session
 from app.main import app
 from app.services import creators as creators_module
+from app.services import dm_briefs as dm_briefs_module
 from app.services import dms as dms_module
 from app.services import notifications as notifications_module
 from app.services import profiles as profiles_module
@@ -51,6 +52,7 @@ class FakeWorld:
             "niches": kwargs.get("niches", ["food"]),
             "follower_range": kwargs.get("follower_range", "10-50k"),
             "tier": kwargs.get("tier", "basic"),
+            "babyg_auto_brief_dms": kwargs.get("babyg_auto_brief_dms", True),
             "onboarding_completed_at": kwargs.get(
                 "onboarding_completed_at", "2026-05-07T00:00:00Z"
             ),
@@ -328,6 +330,94 @@ def test_creator_dm_send_appends_and_notifies(client, world, monkeypatch):
     assert n["kind"] == "new_dm"
     assert n["link_path"] == "/creator/dm/c-1"
     assert "Anna Reyes" in n["title"]
+
+
+def test_auto_brief_preference_is_passed_to_service(client, world, monkeypatch):
+    _signed_in(client, role="creator", user_id="c-1")
+    world.add_creator(user_id="c-1", babyg_auto_brief_dms=False)
+    world.add_creator(user_id="c-2")
+    _accepted_connection(monkeypatch, a="c-2", b="c-1")
+    _seed_thread(
+        world, a="c-2", b="c-1", body="what is the budget?", sender="c-2"
+    )
+    captured: dict[str, Any] = {}
+
+    def _brief(**kwargs):
+        captured.update(kwargs)
+        return None
+
+    monkeypatch.setattr(dm_briefs_module, "get_or_generate_brief", _brief)
+    response = client.get("/creator/dm/c-2")
+    assert response.status_code == 200
+    assert captured["auto_enabled"] is False
+    assert captured["force"] is False
+    assert captured["recent_messages"] == world.messages
+
+
+def test_manual_brief_bypasses_disabled_auto_preference(client, world, monkeypatch):
+    _signed_in(client, role="creator", user_id="c-1")
+    world.add_creator(user_id="c-1", babyg_auto_brief_dms=False)
+    world.add_creator(user_id="c-2")
+    _accepted_connection(monkeypatch, a="c-2", b="c-1")
+    _seed_thread(world, a="c-2", b="c-1", body="thanks", sender="c-2")
+    captured: dict[str, Any] = {}
+
+    def _brief(**kwargs):
+        captured.update(kwargs)
+        return {"risk_level": "unclear"}
+
+    monkeypatch.setattr(dm_briefs_module, "get_or_generate_brief", _brief)
+    response = client.post(
+        "/creator/dm/c-2/brief", headers={"X-Requested-With": "fetch"}
+    )
+    assert response.status_code == 200
+    assert response.json()["ok"] is True
+    assert captured["auto_enabled"] is False
+    assert captured["force"] is True
+
+
+def test_manual_brief_refresh_is_rate_limited(client, world, monkeypatch):
+    _signed_in(client, role="creator", user_id="c-1")
+    world.add_creator(user_id="c-1")
+    world.add_creator(user_id="c-2")
+    _accepted_connection(monkeypatch, a="c-2", b="c-1")
+    _seed_thread(world, a="c-2", b="c-1", body="budget?", sender="c-2")
+    monkeypatch.setattr(
+        dm_briefs_module,
+        "get_or_generate_brief",
+        lambda **kwargs: {"risk_level": "unclear"},
+    )
+    responses = [
+        client.post(
+            "/creator/dm/c-2/brief", headers={"X-Requested-With": "fetch"}
+        )
+        for _ in range(6)
+    ]
+    assert [response.status_code for response in responses] == [200, 200, 200, 200, 200, 429]
+
+
+def test_brief_follow_up_is_recipient_scoped_and_ephemeral(
+    client, world, monkeypatch
+):
+    _signed_in(client, role="creator", user_id="c-1")
+    world.add_creator(user_id="c-1")
+    world.add_creator(user_id="c-2")
+    _accepted_connection(monkeypatch, a="c-2", b="c-1")
+    _seed_thread(world, a="c-2", b="c-1", body="Usage is forever.", sender="c-2")
+    captured: dict[str, Any] = {}
+
+    def _follow_up(**kwargs):
+        captured.update(kwargs)
+        return {"title": "rights", "analysis": "Ask for a term.", "draft": ""}
+
+    monkeypatch.setattr(dm_briefs_module, "generate_follow_up", _follow_up)
+    response = client.post(
+        "/creator/dm/c-2/brief/follow-up", data={"focus": "check_rights"}
+    )
+    assert response.status_code == 200
+    assert response.json()["result"]["title"] == "rights"
+    assert captured["recipient_id"] == "c-1"
+    assert captured["messages"] == world.messages
 
 
 def test_creator_dm_404_for_unconnected_creator(client, world, monkeypatch):

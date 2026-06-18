@@ -28,6 +28,7 @@ Files are applied in numeric order. Each migration is plain SQL — run via the 
 | `0019_opportunity_cards.sql` | Extends existing posting rows so they can safely participate in unified Discover cards. |
 | `0020_discovery_card_view.sql` | Creates the server-read `discovery_cards` view for creator, brand, and opportunity cards. |
 | `0021_mixed_discovery_actions.sql` | Extends creator discovery actions to track creator, brand, and opportunity card targets. |
+| `0026_dm_ai_brief_upgrade.sql` | Adds structured intent, confidence, deal analysis, annotations, and reply styles to recipient-private DM briefs. |
 
 ## Conventions
 

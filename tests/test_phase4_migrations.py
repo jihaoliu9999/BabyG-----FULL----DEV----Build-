@@ -39,3 +39,31 @@ def test_opportunity_budget_constraint_prevents_inverted_ranges():
     assert "budget_min <= budget_max" in sql
     assert "budget_min >= 0" in sql
     assert "budget_max >= 0" in sql
+
+
+def test_dm_brief_upgrade_is_additive_and_recipient_private():
+    base = _sql("0022_dm_ai_briefs.sql")
+    upgrade = _sql("0026_dm_ai_brief_upgrade.sql")
+    assert "recipient_user_id = auth.uid()" in base
+    assert "revoke all on public.dm_ai_briefs from anon" in base
+    assert "create table" not in upgrade
+    for field in (
+        "intent_type",
+        "confidence_level",
+        "sender_ask",
+        "why_it_matters",
+        "deal_terms",
+        "deal_stage",
+        "message_annotations",
+        "reply_options",
+    ):
+        assert f"add column if not exists {field}" in upgrade
+
+
+def test_use_draft_only_populates_composer():
+    js = (ROOT / "app" / "static" / "js" / "dm_briefs.js").read_text(
+        encoding="utf-8"
+    )
+    assert 'input.value = draft.trim()' in js
+    assert ".submit()" not in js
+    assert ".requestSubmit()" not in js
