@@ -39,6 +39,12 @@ _SECRET_CREATOR_FIELDS = (
     "babyg_risk_tolerance",
     "babyg_auto_brief_dms",
     "babyg_email_assistance",
+    # Phase 3 deal prefs (migration 0017). Surfaced to babyg-side
+    # drafting only — peers / brands never see a creator's rate floor
+    # or travel willingness through public_creator().
+    "deal_min_rate_text",
+    "deal_usage_rights_default",
+    "deal_travel_willingness",
 )
 
 
@@ -106,6 +112,10 @@ def test_public_creator_strips_internal_fields():
         "babyg_risk_tolerance": "cautious",
         "babyg_auto_brief_dms": False,
         "babyg_email_assistance": True,
+        # Deal prefs (migration 0017) — never leak.
+        "deal_min_rate_text": "$2.5k organic",
+        "deal_usage_rights_default": "paid_with_usage",
+        "deal_travel_willingness": "regional",
     }
     out = public_creator(row)
     assert out is not None

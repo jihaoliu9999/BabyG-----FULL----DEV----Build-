@@ -45,6 +45,22 @@ LOCATION_DISPLAY_LEVELS: tuple[str, ...] = ("city", "region", "hidden")
 BABYG_TONES: tuple[str, ...] = ("casual", "professional", "direct")
 BABYG_RISK_TOLERANCES: tuple[str, ...] = ("cautious", "balanced", "latitude")
 
+# Migration 0017. Deal preferences are owner-private — never projected
+# through public_creator(); they feed babyg drafts and the upcoming
+# brand-outreach negotiation surface.
+DEAL_USAGE_RIGHTS_VALUES: tuple[str, ...] = (
+    "organic_only",
+    "paid_organic",
+    "paid_with_usage",
+    "flexible",
+)
+DEAL_TRAVEL_WILLINGNESS_VALUES: tuple[str, ...] = (
+    "no",
+    "local_only",
+    "regional",
+    "open",
+)
+
 
 PUBLIC_CREATOR_FIELDS: tuple[str, ...] = (
     "user_id",

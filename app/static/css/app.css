@@ -2132,6 +2132,17 @@ h1, h2, h3, h4 {
   transition: border-color .2s, transform .2s;
 }
 .creator-card:hover { border-color: var(--hairline-strong); transform: translateY(-2px); }
+/* Static variant used by the discover-preview on /creator/profile — no
+   hover lift because it isn't a navigation, and no link styling. */
+.creator-card-static { cursor: default; }
+.creator-card-static:hover { border-color: var(--hairline); transform: none; }
+.profile-preview { margin-bottom: 26px; }
+.profile-preview-head {
+  display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap;
+  margin-bottom: 10px;
+}
+.profile-preview-help { color: var(--ink-dim); font-size: 12.5px; }
+.profile-preview-empty { color: var(--ink-dim); font-style: italic; }
 .creator-card .top { display: flex; align-items: center; gap: 12px; }
 .creator-card .name { font-weight: 500; font-size: 15px; letter-spacing: var(--display-track); }
 .creator-card .handle { color: var(--ink-dim); font-size: 12.5px; margin-top: 2px; }

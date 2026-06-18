@@ -265,16 +265,25 @@ async def profile_page(
     request: Request,
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
-    profile = profiles.get_creator_profile(session["user_id"]) or {}
-    if not profile.get("onboarding_completed_at"):
+    raw_profile = profiles.get_creator_profile(session["user_id"]) or {}
+    if not raw_profile.get("onboarding_completed_at"):
         return RedirectResponse("/onboarding/creator", status_code=302)
-    profile = {**profile, "location_label": profiles.safe_location_label(profile)}
+    profile = {
+        **raw_profile,
+        "location_label": profiles.safe_location_label(raw_profile),
+    }
+    # `profile_preview` is the public-projected view of the creator's own
+    # row — what brands and peers see in Discover. Surfacing it at the
+    # top of /creator/profile gives the creator an explicit mirror so
+    # privacy + completeness decisions feel concrete instead of abstract.
+    profile_preview = profiles.public_creator(raw_profile) or {}
     chip_values = _profile_chip_values(profile)
     return templates.TemplateResponse(
         request,
         "creator/profile.html",
         {
             "profile": profile,
+            "profile_preview": profile_preview,
             "profile_chip_values": chip_values,
             "profile_chip_options": _profile_chip_options(chip_values),
         },
@@ -339,6 +348,40 @@ async def profile_location_update(
     if not profiles.update_creator_profile(session["user_id"], payload):
         return RedirectResponse("/creator/profile?details=save_failed", status_code=303)
     return RedirectResponse("/creator/profile?details=ok", status_code=303)
+
+
+@router.post("/creator/profile/deals")
+async def profile_deals_update(
+    deal_min_rate_text: str = Form(""),
+    deal_usage_rights_default: str = Form(""),
+    deal_travel_willingness: str = Form(""),
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    """Update the deal preferences section: rate floor (free text), the
+    default usage-rights posture, and travel willingness. All three are
+    owner-private — they inform babyg drafts and discover-quality
+    ranking but never appear in `public_creator()`."""
+    profile = profiles.get_creator_profile(session["user_id"]) or {}
+    if not profile.get("onboarding_completed_at"):
+        return RedirectResponse("/onboarding/creator", status_code=302)
+
+    payload: dict[str, Any] = {}
+    rate = " ".join(deal_min_rate_text.strip().split())[:120]
+    # Clear-on-empty so the creator can blank it out.
+    payload["deal_min_rate_text"] = rate or None
+    usage = deal_usage_rights_default.strip().lower()
+    if usage in profiles.DEAL_USAGE_RIGHTS_VALUES:
+        payload["deal_usage_rights_default"] = usage
+    elif usage == "":
+        payload["deal_usage_rights_default"] = None
+    travel = deal_travel_willingness.strip().lower()
+    if travel in profiles.DEAL_TRAVEL_WILLINGNESS_VALUES:
+        payload["deal_travel_willingness"] = travel
+    elif travel == "":
+        payload["deal_travel_willingness"] = None
+    if not profiles.update_creator_profile(session["user_id"], payload):
+        return RedirectResponse("/creator/profile?deals=save_failed", status_code=303)
+    return RedirectResponse("/creator/profile?deals=ok", status_code=303)
 
 
 @router.post("/creator/profile/privacy")

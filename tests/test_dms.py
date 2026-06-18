@@ -12,6 +12,7 @@ Covers:
     on open, send fans out a `new_dm` notification, peer must be a
     connected creator
   * Role guards (anonymous, wrong role)
+  * Phase 3 dm_preference gate helper — recipient_accepts_cold_thread
 """
 
 from __future__ import annotations
@@ -362,3 +363,49 @@ def test_dm_routes_require_auth(client, world):
     assert r.headers["location"] == "/auth/login?role=creator"
     r = client.get("/creator/dm", headers={"accept": "application/json"})
     assert r.status_code == 401
+
+
+# -----------------------------------------------------------------------------
+# Phase 3 — dm_preference gate (helper only; consumer lands in Phase 2)
+# -----------------------------------------------------------------------------
+
+
+def test_recipient_accepts_cold_thread_default_open():
+    """Profiles without an explicit dm_preference default to ``open`` —
+    matches migration 0016's column default."""
+    assert dms_module.recipient_accepts_cold_thread({"user_id": "u1"}) is True
+    assert (
+        dms_module.recipient_accepts_cold_thread(
+            {"user_id": "u1", "dm_preference": "open"}
+        )
+        is True
+    )
+
+
+def test_recipient_accepts_cold_thread_connections_only_rejects():
+    assert (
+        dms_module.recipient_accepts_cold_thread(
+            {"user_id": "u1", "dm_preference": "connections_only"}
+        )
+        is False
+    )
+
+
+def test_recipient_accepts_cold_thread_fails_closed_on_missing_profile():
+    """No profile = no permission. Defensive — never invent consent
+    from absence of data. Real rows always have dm_preference because
+    the column is NOT NULL DEFAULT 'open', so {} can only mean a
+    lookup miss."""
+    assert dms_module.recipient_accepts_cold_thread(None) is False
+    assert dms_module.recipient_accepts_cold_thread({}) is False
+
+
+def test_recipient_accepts_cold_thread_unknown_value_treated_as_open():
+    """Garbage in the column shouldn't lock a creator out of their own
+    DMs. Anything not equal to 'connections_only' falls through to open."""
+    assert (
+        dms_module.recipient_accepts_cold_thread(
+            {"dm_preference": "shouted_through_a_megaphone"}
+        )
+        is True
+    )
