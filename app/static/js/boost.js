@@ -96,6 +96,12 @@
     if (cur && next) cur.innerHTML = next.innerHTML;
   }
 
+  // Order/whitespace-insensitive body class compare so a trivial markup
+  // difference never forces an unnecessary full reload.
+  function normClass(s) {
+    return (s || "").split(/\s+/).filter(Boolean).sort().join(" ");
+  }
+
   // Replace the previously-injected page scripts with this page's set.
   // Re-running element-scoped scripts rebinds the fresh DOM; document/window
   // listeners in SOFT_SAFE scripts are self-guarded so they don't stack.
@@ -133,7 +139,11 @@
         var doc = new DOMParser().parseFromString(html, "text/html");
         var cls = classify(doc);
         var nextBody = doc.body ? doc.body.className : "";
-        if (!doc.getElementById("view") || nextBody !== root.className || cls.unsafe) {
+        if (
+          !doc.getElementById("view") ||
+          normClass(nextBody) !== normClass(root.className) ||
+          cls.unsafe
+        ) {
           location.assign(url.href);
           return;
         }
