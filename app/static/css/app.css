@@ -361,9 +361,17 @@ h1, h2, h3, h4 {
   border-bottom: 1px solid var(--hairline);
   height: calc(54px + env(safe-area-inset-top, 0px));
   display: grid;
-  grid-template-columns: 44px 1fr 44px;
+  grid-template-columns: minmax(0, 1fr) 1px 44px;
   align-items: end;
   padding: env(safe-area-inset-top, 0px) 14px 8px;
+}
+.mobile-header .brand-lockup {
+  min-width: 0;
+}
+.mobile-header .brand-lockup .logo-text {
+  display: inline;
+  font-size: 18px;
+  letter-spacing: -0.04em;
 }
 .mobile-header .title {
   text-align: center;
@@ -378,18 +386,44 @@ h1, h2, h3, h4 {
   color: var(--ink-mid);
 }
 .mobile-header .icon-btn:hover { color: var(--ink); }
+.mobile-header .mobile-profile-link {
+  width: 36px;
+  height: 36px;
+  justify-self: end;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 50%;
+  background: rgba(22,22,22,.78);
+  color: var(--ink-mid);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.025);
+}
+.mobile-header .mobile-profile-link img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.mobile-header .mobile-profile-link:hover,
+.mobile-header .mobile-profile-link:focus-visible {
+  color: var(--ink);
+  border-color: rgba(255,77,109,.42);
+  outline: none;
+}
 
 /* tabbar (mobile) */
 .app-tabbar {
   position: fixed; left: 0; right: 0; bottom: 0;
   z-index: 50;
-  background: rgba(8,8,8,0.92);
+  background: rgba(8,8,8,0.94);
   backdrop-filter: blur(20px) saturate(140%);
   -webkit-backdrop-filter: blur(20px) saturate(140%);
   border-top: 1px solid var(--hairline);
   display: flex;
   justify-content: space-between;
-  padding: 10px 12px max(env(safe-area-inset-bottom, 14px), 14px);
+  padding: 9px 14px max(env(safe-area-inset-bottom, 13px), 13px);
   min-height: var(--tabbar-h);
   height: auto;
   transition: transform .18s cubic-bezier(.2,.7,.2,1), opacity .18s ease;
@@ -403,7 +437,8 @@ h1, h2, h3, h4 {
   gap: 4px;
   flex: 1;
   color: var(--ink-dim);
-  font-size: 10px;
+  font-size: 10.5px;
+  font-weight: 600;
   letter-spacing: 0.005em;
   text-transform: lowercase;
   position: relative;
@@ -456,6 +491,47 @@ h1, h2, h3, h4 {
   width: 18px; height: 2px; transform: translateX(-50%);
   background: var(--nav-accent); border-radius: 2px;
   box-shadow: 0 0 10px var(--nav-glow);
+}
+.app-tabbar a[data-tab="chat"] {
+  margin-top: -23px;
+  gap: 5px;
+}
+.app-tabbar a[data-tab="chat"]::before,
+.app-tabbar a[data-tab="chat"]::after {
+  display: none;
+}
+.tabbar-babyg-orb {
+  width: 54px;
+  height: 54px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 50%;
+  background: linear-gradient(180deg, rgba(36,34,38,.94), rgba(22,20,24,.96));
+  box-shadow:
+    0 12px 28px rgba(0,0,0,.36),
+    inset 0 0 0 1px rgba(255,255,255,.035);
+}
+.app-tabbar a[data-tab="chat"] .nav-bg-icon {
+  width: 28px;
+  height: 28px;
+}
+.tabbar-badge {
+  position: absolute;
+  top: 4px;
+  right: calc(50% - 22px);
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: var(--lime);
+  color: #fff;
+  font-size: 11px;
+  line-height: 18px;
+  text-align: center;
+  box-shadow: 0 0 0 2px rgba(8,8,8,.94);
+  z-index: 2;
 }
 
 /* sidebar (desktop) */
@@ -2472,7 +2548,7 @@ h1, h2, h3, h4 {
 @media (max-width: 999px) {
   .is-chat.chat-keyboard-open #view {
     height: calc(100vh - 54px - env(safe-area-inset-top, 0px));
-    height: calc(100dvh - 54px - env(safe-area-inset-top, 0px) - var(--keyboard-inset, 0px));
+    height: calc(100dvh - 54px - env(safe-area-inset-top, 0px));
   }
   .is-chat.chat-keyboard-open .app-tabbar {
     transform: translateY(110%);
@@ -2480,7 +2556,7 @@ h1, h2, h3, h4 {
     pointer-events: none;
   }
   .is-chat.chat-keyboard-open .bot-composer {
-    padding-bottom: 4px;
+    padding-bottom: max(env(safe-area-inset-bottom, 4px), 4px);
   }
   /* When the keyboard is up, iOS will otherwise scroll the body itself
      to bring the focused composer into view — that scroll lifts the
@@ -2586,12 +2662,12 @@ h1, h2, h3, h4 {
   display: inline-flex; align-items: center; justify-content: center;
   flex-shrink: 0; cursor: pointer;
 }
-/* Sticky hero — locks the "babyg · on · ready" card to the top of the
+/* Sticky hero — locks the babyg chat header to the top of the
    chat shell so the messages list scrolls beneath it. flex-shrink: 0
    prevents the hero from getting squeezed when the dynamic viewport
    shrinks during keyboard transitions. */
 .bot-hero {
-  padding: 20px 24px 16px;
+  padding: 16px 24px 14px;
   flex-shrink: 0;
   position: sticky;
   top: 0;
@@ -2629,6 +2705,14 @@ h1, h2, h3, h4 {
   margin: 0; padding: 12px 24px 24px;
   display: flex; flex-direction: column; gap: 16px;
   -webkit-overflow-scrolling: touch;
+}
+@media (max-width: 999px) {
+  .bot-hero {
+    padding-inline: 18px;
+  }
+  .bot-messages {
+    padding: 10px 18px 14px;
+  }
 }
 .bot-empty-state {
   margin: auto 0;
@@ -5833,6 +5917,338 @@ hr.hairline {
   }
   .discover-detail {
     max-width: 680px;
+  }
+}
+
+/* Discover polish: keeps the existing stack/data flow but matches the
+   app-like mobile composition from the reference. */
+.discover {
+  padding-top: 14px;
+  padding-bottom: 26px;
+}
+.discover-head {
+  align-items: center;
+  margin-bottom: 16px;
+}
+.discover-title-lockup {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 32px minmax(0, auto);
+  align-items: center;
+  gap: 10px;
+}
+.discover-title-lockup .brand-mark {
+  width: 30px;
+  height: 30px;
+}
+.discover-title-lockup h1 {
+  font-size: clamp(28px, 8vw, 38px);
+  letter-spacing: -0.05em;
+}
+.discover-title-lockup p {
+  grid-column: 2;
+  margin: 1px 0 0;
+  font-size: 12.5px;
+}
+.discover-filter-toggle {
+  width: 44px;
+  height: 44px;
+  flex-basis: 44px;
+  border-radius: 17px;
+  background: rgba(30,28,32,.86);
+  box-shadow: inset 0 0 0 1px rgba(255,255,255,.035);
+}
+.discover-kind-tabs {
+  gap: 9px;
+  margin-bottom: 22px;
+}
+.discover-kind-tabs a {
+  min-height: 40px;
+  padding-inline: 18px;
+  background: rgba(28,26,29,.86);
+  font-weight: 600;
+  color: rgba(245,241,232,.7);
+}
+.discover-kind-tabs a.active {
+  border-color: rgba(255,77,109,.62);
+  background: rgba(255,77,109,.16);
+  color: #ff6b83;
+  box-shadow: inset 0 0 0 1px rgba(255,77,109,.12);
+}
+.discover-count {
+  display: none;
+}
+.discover-stack {
+  min-height: clamp(470px, 64dvh, 590px);
+}
+.discover-stack::before {
+  display: none;
+}
+.discover-card {
+  min-height: clamp(470px, 64dvh, 590px);
+  border-radius: 34px;
+  background: linear-gradient(180deg, rgba(31,29,32,.98), rgba(17,16,18,.98));
+  box-shadow: 0 22px 58px rgba(0,0,0,.42);
+}
+.discover-card-media {
+  min-height: clamp(178px, 25dvh, 250px);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 86% 72%, rgba(255,77,109,.18), transparent 44%),
+    linear-gradient(180deg, rgba(45,42,46,.9), rgba(15,14,16,.95));
+}
+.discover-card-media::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 54%;
+  background: linear-gradient(180deg, transparent, rgba(6,6,7,.82));
+  pointer-events: none;
+}
+.discover-card-media .discover-card-topline {
+  position: relative;
+  z-index: 1;
+  padding: 16px 18px 0;
+}
+.discover-card-topline-inline {
+  display: none;
+}
+.discover-card-kind {
+  padding: 6px 10px;
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 999px;
+  background: rgba(8,8,8,.52);
+  color: var(--ink);
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.discover-media-icon {
+  margin: auto;
+  width: 72px;
+  height: 72px;
+  display: grid;
+  place-items: center;
+  color: rgba(245,241,232,.18);
+}
+.discover-media-icon svg {
+  width: 72px;
+  height: 72px;
+}
+.discover-card-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  padding: 18px 20px 108px;
+}
+.discover-card-body h2 {
+  font-size: clamp(29px, 8vw, 42px);
+  line-height: .98;
+  letter-spacing: -0.06em;
+}
+.discover-card-body > div > p {
+  margin: 7px 0 0;
+  color: var(--ink-mid);
+  font-size: 14px;
+  font-weight: 600;
+}
+.discover-description {
+  margin: 13px 0 0;
+  font-size: 13.5px;
+  line-height: 1.45;
+  -webkit-line-clamp: 2;
+}
+.discover-facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  margin: 18px 0 0;
+  border: 0;
+}
+.discover-facts div,
+.discover-facts div:nth-child(even) {
+  padding: 0;
+  border-left: 0;
+}
+.discover-facts dt {
+  display: none;
+}
+.discover-facts dd {
+  margin: 0;
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+.discover-facts dd::after {
+  content: attr(data-label);
+}
+.discover-tags {
+  padding: 13px 0 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.discover-tags::-webkit-scrollbar {
+  display: none;
+}
+.discover-tags span {
+  padding: 8px 12px;
+  background: rgba(255,255,255,.035);
+  font-size: 13px;
+  font-weight: 600;
+}
+.discover-relevance {
+  margin: 14px 0 0;
+  padding: 12px;
+  border-left-color: rgba(255,77,109,.72);
+  border-radius: 14px;
+  background: rgba(255,255,255,.035);
+}
+.discover-relevance span {
+  color: #ff6b83;
+}
+.discover-trust-note {
+  margin: 10px 0 0;
+}
+.discover .discover-detail-form {
+  display: none;
+}
+.discover-actions {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: 88px 88px minmax(0, 1fr);
+  gap: 12px;
+  margin: -110px 28px 0;
+  padding: 0;
+  border-top: 0;
+  background: transparent;
+  backdrop-filter: none;
+}
+.discover-actions button {
+  min-height: 58px;
+  border-radius: 18px;
+  background: rgba(27,25,28,.96);
+  color: rgba(245,241,232,.72);
+  box-shadow: 0 14px 30px rgba(0,0,0,.22);
+}
+.discover-actions button span:not([data-primary-label]) {
+  display: none;
+}
+.discover-actions button.primary {
+  border-color: rgba(255,77,109,.78);
+  background: #ff4d6d;
+  color: #fff;
+  font-size: 15px;
+}
+.discover-actions button.primary svg {
+  width: 22px;
+  height: 22px;
+}
+.discover-action-meta {
+  position: relative;
+  z-index: 2;
+  margin: 16px 0 0;
+}
+.discover-undo {
+  min-height: 36px;
+  padding: 0 16px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 999px;
+  background: rgba(28,26,29,.82);
+  text-decoration: none;
+  font-weight: 600;
+}
+@media (max-width: 374px) {
+  .discover {
+    padding-inline: 10px;
+  }
+  .discover-kind-tabs {
+    margin-left: -10px;
+    margin-right: -10px;
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+  .discover-kind-tabs a {
+    padding-inline: 14px;
+  }
+  .discover-actions {
+    grid-template-columns: 70px 70px minmax(0, 1fr);
+    gap: 8px;
+    margin-inline: 18px;
+  }
+  .discover-actions button.primary {
+    font-size: 13.5px;
+  }
+}
+@media (max-width: 719px) {
+  .discover-title-lockup p {
+    display: none;
+  }
+  .discover-relevance,
+  .discover-trust-note {
+    display: none;
+  }
+}
+@media (min-width: 720px) and (max-width: 999px) {
+  #view > .view:has(.discover) {
+    max-width: none;
+  }
+  .discover {
+    padding-inline: 28px;
+  }
+  .discover-head {
+    max-width: 620px;
+    margin-inline: auto;
+  }
+  .discover-kind-tabs {
+    max-width: 620px;
+    margin-inline: auto;
+  }
+  .discover-layout {
+    display: block;
+  }
+  .discover-filter-toggle {
+    display: inline-grid;
+  }
+  .discover-filters {
+    display: none;
+    max-width: 620px;
+    margin: 0 auto 18px;
+  }
+  .discover-filters.is-open {
+    display: block;
+  }
+  .discover-stage {
+    max-width: 620px;
+    margin-inline: auto;
+  }
+}
+@media (min-width: 720px) {
+  .discover {
+    padding-bottom: 48px;
+  }
+  .discover-title-lockup {
+    grid-template-columns: 36px minmax(0, auto);
+  }
+  .discover-title-lockup .brand-mark {
+    width: 34px;
+    height: 34px;
+  }
+  .discover-layout {
+    grid-template-columns: 220px minmax(0, 620px);
+  }
+  .discover-card,
+  .discover-stack {
+    min-height: 610px;
+  }
+  .discover-actions {
+    max-width: 564px;
+    margin-inline: auto;
   }
 }
 
