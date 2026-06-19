@@ -184,8 +184,8 @@ def test_magic_link_route_returns_friendly_error_when_limited(monkeypatch):
     payload = {"email": "alice@example.com", "role": "creator"}
 
     r1 = client.post("/auth/magic-link", data=payload)
-    assert r1.status_code == 200, r1.text  # success page renders 200
-    assert "Too many sign-in attempts" not in r1.text
+    assert r1.status_code == 303
+    assert r1.headers["location"] == "/auth/magic-link/sent?role=creator"
 
     # Second send is rate-limited. The route renders an HTML login page
     # with status 400 (not a 429 JSON), so users get a recoverable error.

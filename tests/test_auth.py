@@ -274,9 +274,8 @@ def test_magic_link_sends_otp_and_sets_pending_role(
         "/auth/magic-link",
         data={"email": "Anna@Example.com", "role": "creator"},
     )
-    assert r.status_code == 200
-    assert "check your email" in r.text
-    assert "anna@example.com" in r.text  # email is lowercased
+    assert r.status_code == 303
+    assert r.headers["location"] == "/auth/magic-link/sent?role=creator"
 
     assert fake_auth.last_otp_args is not None
     assert fake_auth.last_otp_args["email"] == "anna@example.com"
@@ -298,7 +297,8 @@ def test_magic_link_sends_brand_otp_and_sets_pending_role(
         "/auth/magic-link",
         data={"email": "Brand@Example.com", "role": "brand"},
     )
-    assert r.status_code == 200
+    assert r.status_code == 303
+    assert r.headers["location"] == "/auth/magic-link/sent?role=brand"
     assert fake_auth.last_otp_args is not None
     assert fake_auth.last_otp_args["email"] == "brand@example.com"
     assert fake_auth.last_otp_args["options"]["data"]["requested_role"] == "brand"
@@ -328,7 +328,7 @@ def test_magic_link_prefers_canonical_public_app_url(
         data={"email": "anna@example.com", "role": "creator"},
     )
 
-    assert r.status_code == 200
+    assert r.status_code == 303
     assert fake_auth.last_otp_args is not None
     assert fake_auth.last_otp_args["options"]["email_redirect_to"] == (
         "https://www.babyg.ai/auth/callback"
@@ -350,8 +350,8 @@ def test_magic_link_operator_silently_skips_send_for_unknown_email(
     r = client.post(
         "/auth/magic-link", data={"email": "ghost@example.com", "role": "operator"}
     )
-    assert r.status_code == 200
-    assert "check your email" in r.text  # same UX as success — no enumeration
+    assert r.status_code == 303
+    assert r.headers["location"] == "/auth/magic-link/sent?role=operator"
     assert fake_auth.last_otp_args is None
 
 
@@ -364,7 +364,7 @@ def test_magic_link_operator_sends_for_known_operator(
     r = client.post(
         "/auth/magic-link", data={"email": "op@example.com", "role": "operator"}
     )
-    assert r.status_code == 200
+    assert r.status_code == 303
     assert fake_auth.last_otp_args is not None
     assert fake_auth.last_otp_args["email"] == "op@example.com"
 
@@ -927,13 +927,17 @@ def test_code_submit_refuses_first_time_operator(
 def test_magic_link_sent_page_links_to_code_fallback(
     client: TestClient, fake_auth: FakeAuth, fake_service: FakeService
 ) -> None:
-    r = client.post(
-        "/auth/magic-link",
-        data={"email": "anna@example.com", "role": "creator"},
-    )
+    r = client.get("/auth/magic-link/sent?role=creator")
     assert r.status_code == 200
+    assert "check your email" in r.text.lower()
     assert "got a code instead?" in r.text.lower()
     assert "/auth/code?role=creator" in r.text
+
+
+def test_magic_link_sent_page_normalizes_unknown_role(client: TestClient) -> None:
+    r = client.get("/auth/magic-link/sent?role=unknown")
+    assert r.status_code == 200
+    assert "creator sign in" in r.text.lower()
 
 
 # -----------------------------------------------------------------------------
