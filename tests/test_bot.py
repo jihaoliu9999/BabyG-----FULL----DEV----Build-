@@ -95,6 +95,10 @@ def test_bot_page_renders_history(monkeypatch, client: TestClient) -> None:
     assert '/static/js/bot.js' in response.text
     assert "Need a caption" in response.text
     assert "Drafting it." in response.text
+    assert 'class="babyg-guide-form"' in response.text
+    assert 'action="/creator/bot"' in response.text
+    assert "babyg guide" in response.text
+    assert "review my recent dms and email" in response.text
 
 
 def test_bot_page_renders_pending_action_controls(monkeypatch, client: TestClient) -> None:
