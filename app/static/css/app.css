@@ -7698,13 +7698,6 @@ hr.hairline {
 .is-creator-app .profile-fidelity-tags { display: flex; gap: 7px; overflow-x: auto; scrollbar-width: none; }
 .is-creator-app .profile-fidelity-tags::-webkit-scrollbar { display: none; }
 .is-creator-app .profile-fidelity-tags span { min-height: 28px; display: inline-flex; align-items: center; padding: 5px 11px; color: var(--text-secondary); border: 1px solid var(--border-default); border-radius: 999px; background: var(--surface-2); font-size: 10.5px; font-weight: 600; white-space: nowrap; }
-.is-creator-app .profile-fidelity-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
-.is-creator-app .profile-fidelity-stat { min-width: 0; min-height: 112px; display: grid; align-content: space-between; gap: 13px; padding: 14px; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--surface-1); box-shadow: var(--shadow-card); }
-.is-creator-app .profile-fidelity-stat:hover { border-color: var(--border-default); background: var(--surface-2); transform: translateY(-1px); }
-.is-creator-app .profile-fidelity-stat > span { min-width: 0; display: flex; align-items: center; justify-content: space-between; gap: 5px; overflow: hidden; color: var(--text-tertiary); font-family: var(--mono); font-size: 9px; font-weight: 650; letter-spacing: .05em; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
-.is-creator-app .profile-fidelity-stat svg { width: 15px; height: 15px; flex: none; padding: 2px; border-radius: 5px; background: var(--surface-3); }
-.is-creator-app .profile-fidelity-stat strong { overflow: hidden; color: var(--text-primary); font-family: var(--mono); font-size: clamp(17px, 5vw, 26px); font-weight: 550; letter-spacing: -.04em; text-overflow: ellipsis; white-space: nowrap; }
-.is-creator-app .profile-fidelity-stat-safe strong { color: var(--safe); }
 .is-creator-app .profile-fidelity-settings-list { display: grid; gap: 10px; }
 .is-creator-app .profile-fidelity-settings-list > h2 { margin: 0; color: var(--text-primary); font-size: 17px; font-weight: 650; letter-spacing: -.02em; }
 .is-creator-app .profile-fidelity-settings-card { overflow: hidden; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--surface-1); box-shadow: var(--shadow-card); }
@@ -7734,28 +7727,23 @@ hr.hairline {
   .is-creator-app .app-shell:has(.profile-fidelity-topbar) .mobile-header { display: none; }
   .is-creator-app .app-shell:has(.profile-fidelity-topbar) .view { padding-top: 0; }
   .is-creator-app .profile-shell { gap: 18px; padding-top: max(8px, env(safe-area-inset-top)); }
-  .is-creator-app .profile-fidelity-stat { min-height: 104px; padding: 12px; }
   .is-creator-app .profile-fidelity-settings-card strong span { display: none; }
   .is-creator-app .profile-management-body { padding: 12px; }
 }
 
 @media (max-width: 374px) {
   .is-creator-app .profile-fidelity-preview { padding: 14px; }
-  .is-creator-app .profile-fidelity-stats { gap: 6px; }
-  .is-creator-app .profile-fidelity-stat { min-height: 96px; padding: 10px; }
-  .is-creator-app .profile-fidelity-stat > span { font-size: 8px; }
   .is-creator-app .profile-fidelity-settings-card > a { padding-inline: 11px; }
 }
 
 @media (min-width: 1000px) {
   .is-creator-app .profile-shell { max-width: 1040px; grid-template-columns: minmax(0, 1.12fr) minmax(340px, .88fr); align-items: start; column-gap: 22px; }
   .is-creator-app .profile-fidelity-topbar { grid-column: 1 / -1; }
-  .is-creator-app .profile-fidelity-preview { grid-column: 1; grid-row: 2 / span 2; min-height: 256px; align-content: start; padding: 24px; }
+  .is-creator-app .profile-fidelity-preview { grid-column: 1; grid-row: 2; min-height: 256px; align-content: start; padding: 24px; }
   .is-creator-app .profile-fidelity-avatar { width: 76px; height: 76px; flex-basis: 76px; }
   .is-creator-app .profile-fidelity-copy h2 { font-size: 21px; }
   .is-creator-app .profile-fidelity-copy > p { font-size: 14px; }
-  .is-creator-app .profile-fidelity-stats { grid-column: 2; }
-  .is-creator-app .profile-fidelity-settings-list { grid-column: 2; }
+  .is-creator-app .profile-fidelity-settings-list { grid-column: 2; grid-row: 2; }
   .is-creator-app .profile-management { grid-column: 1 / -1; }
 }
 [data-babyg-redesign="true"] .network-swipe-queue[hidden] { display: none !important; }
