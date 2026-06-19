@@ -1,13 +1,14 @@
 {% extends "base.html" %}
 
-{% block title %}feed — babyg{% endblock %}
+{% block title %}home — babyg{% endblock %}
 
 {% block content %}
 <div class="wrap">
   <div class="page-header">
     <div class="title-block">
       <span class="mono eyebrow">welcome back, {{ (profile.full_name or 'creator').split(' ')[0].lower() if profile is defined and profile is not none else 'creator' }}</span>
-      <p class="sub">things worth your attention.</p>
+      <h1>your day, protected.</h1>
+      <p class="sub">the work, conversations, and opportunities worth your attention.</p>
     </div>
     <div class="actions">
       <a href="/creator/notifications" class="btn btn-ghost btn-sm">alerts · {{ unread_total or 0 }}</a>
@@ -16,6 +17,29 @@
       </a>
     </div>
   </div>
+
+  <section class="home-command-grid" aria-label="daily command center">
+    <a class="home-command-card home-command-calendar" href="/creator/calendar">
+      <span class="home-command-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/><path d="M8 15h3M8 18h6"/></svg>
+      </span>
+      <span>
+        <small>calendar</small>
+        <strong>see what is next</strong>
+        <span>bookings, deadlines, and connected calendar events.</span>
+      </span>
+      <span class="home-command-arrow" aria-hidden="true">&rarr;</span>
+    </a>
+    <a class="home-command-card home-command-ai" href="/creator/bot">
+      <span class="home-command-icon" aria-hidden="true"><img src="/static/assets/logo-bg.png" alt="" /></span>
+      <span>
+        <small>private manager</small>
+        <strong>ask babyg</strong>
+        <span>get a clear next move without leaving your workspace.</span>
+      </span>
+      <span class="home-command-arrow" aria-hidden="true">&rarr;</span>
+    </a>
+  </section>
 
   <div class="stat-row" style="margin-bottom:22px;">
     <a href="/creator/dm" class="stat-card"><span class="l">inbox</span><span class="v">{{ unread_dms or 0 }}</span></a>
@@ -69,6 +93,14 @@
     <a href="/creator?category={{ slug }}" class="chip {{ 'chip-active' if active_category == slug }}">{{ label }}</a>
     {% endif %}
     {% endfor %}
+  </div>
+
+  <div class="home-section-head">
+    <div>
+      <span class="mono eyebrow">hot drops</span>
+      <h2>worth knowing now</h2>
+    </div>
+    <span>curated for your work</span>
   </div>
 
   {% if posts %}
