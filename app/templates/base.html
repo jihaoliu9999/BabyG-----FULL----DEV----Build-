@@ -37,17 +37,13 @@
 <div class="app-shell" id="app">
 
   <!-- DESKTOP TOP BAR -->
-  <header class="app-topbar">
-    <a href="/creator" class="brand-lockup">
-      <span class="brand-mark sm"><img src="/static/assets/logo-bg.png" alt="" /></span>
-      <span class="logo-text">babyg</span>
-    </a>
+  <header class="app-topbar" aria-label="profile access">
     <div class="right">
-      <a href="/creator/profile" class="avatar av-g3" style="width:32px;height:32px;font-size:13px;text-decoration:none;overflow:hidden;padding:0;" aria-label="profile">
+      <a href="/creator/profile" class="creator-profile-link" aria-label="profile">
         {% if profile is defined and profile is not none and profile.profile_photo_url %}
-        <img src="{{ profile.profile_photo_url }}" alt="" style="width:100%;height:100%;object-fit:cover;display:block;" />
+        <img src="{{ profile.profile_photo_url }}" alt="" />
         {% else %}
-        {{ (profile.full_name or 'M')[0].upper() if profile is defined and profile is not none else 'M' }}
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>
         {% endif %}
       </a>
     </div>
