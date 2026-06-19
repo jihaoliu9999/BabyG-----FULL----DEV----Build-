@@ -6927,18 +6927,19 @@ hr.hairline {
   min-height: 44px;
 }
 .skip-link {
-  position: fixed;
-  top: max(8px, env(safe-area-inset-top));
-  left: 12px;
-  z-index: 200;
+  position: absolute;
+  top: calc(max(8px, env(safe-area-inset-top)) + 4px);
+  left: -10000px;
+  z-index: -1;
   padding: 10px 14px;
   border-radius: var(--radius-md);
   background: var(--bone);
   color: var(--jet);
-  transform: translateY(-160%);
-  transition: transform 160ms ease;
 }
-.skip-link:focus { transform: translateY(0); }
+.skip-link:focus-visible {
+  left: max(12px, env(safe-area-inset-left));
+  z-index: 200;
+}
 
 /* Product shell and shared surfaces */
 .is-product-app .app-shell {
