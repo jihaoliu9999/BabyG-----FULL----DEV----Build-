@@ -72,7 +72,8 @@ def test_creator_profile_uses_reference_composition(monkeypatch, client: TestCli
     assert response.status_code == 200
     assert 'class="profile-fidelity-preview"' in response.text
     assert "What brands see" in response.text
-    assert 'class="profile-fidelity-stats"' in response.text
+    assert 'class="profile-fidelity-stats"' not in response.text
+    assert "creator profile metrics" not in response.text
     assert response.text.count('class="profile-setting-icon ') == 4
     assert 'href="/creator/profile/settings#privacy"' in response.text
     assert 'href="/creator/profile/settings#babyg-behavior"' in response.text
