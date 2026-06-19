@@ -115,6 +115,8 @@ def test_home_renders_today_section_when_calendar_not_connected(
     assert "today's calls" in r.text.lower()
     # "view calendar" link is always present so the user can dig in.
     assert "/creator/calendar" in r.text
+    assert 'class="app-topbar"' in r.text
+    assert 'class="mobile-header"' in r.text
     assert 'aria-label="next five days"' in r.text
     assert 'aria-current="date"' in r.text
     assert "<strong>now</strong>" not in r.text

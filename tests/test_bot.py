@@ -90,6 +90,8 @@ def test_bot_page_renders_history(monkeypatch, client: TestClient) -> None:
     assert response.status_code == 200
     assert "your private manager" in response.text
     assert "What are we working on today?" not in response.text
+    assert 'class="app-topbar"' not in response.text
+    assert 'class="mobile-header"' not in response.text
     assert '/static/js/bot.js' in response.text
     assert "Need a caption" in response.text
     assert "Drafting it." in response.text
