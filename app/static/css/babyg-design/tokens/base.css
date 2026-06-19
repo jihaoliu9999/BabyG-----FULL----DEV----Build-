@@ -1,0 +1,71 @@
+/* ============================================================
+   babyg · BASE / RESET
+   Minimal, dark-first. Sets the premium foundation every
+   surface inherits. No-JS friendly.
+   ============================================================ */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background-color: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--text-body);
+  line-height: var(--lh-normal);
+  letter-spacing: var(--ls-normal);
+  font-weight: var(--fw-regular);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Subtle ambient field — cool radial glow, never a loud gradient */
+body.babyg-ambient {
+  background-image:
+    radial-gradient(120% 80% at 85% -10%, rgba(255,77,109,0.10), transparent 55%),
+    radial-gradient(90% 60% at 0% 0%, rgba(201,107,214,0.05), transparent 50%);
+  background-attachment: fixed;
+}
+
+h1, h2, h3, h4, h5, h6 { margin: 0; font-weight: var(--fw-semibold); }
+p { margin: 0; }
+a { color: var(--accent-text); text-decoration: none; }
+a:hover { color: var(--accent-hover); }
+
+button { font-family: inherit; }
+
+img, svg, video { display: block; max-width: 100%; }
+
+::selection { background: var(--accent-subtle-2); color: var(--text-primary); }
+
+/* Scrollbars — slim, cool */
+* { scrollbar-width: thin; scrollbar-color: var(--gray-600) transparent; }
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-thumb { background: var(--gray-600); border-radius: 999px; }
+*::-webkit-scrollbar-track { background: transparent; }
+
+/* Focus visibility */
+:focus-visible {
+  outline: none;
+  box-shadow: var(--ring);
+  border-radius: var(--radius-sm);
+}
+
+/* Utility: tabular numerals for any metric */
+.tnum { font-variant-numeric: tabular-nums; }
+
+/* Shared keyframes used by components */
+@keyframes bg-spin { to { transform: rotate(360deg); } }
+@keyframes bg-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+@keyframes bg-fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}

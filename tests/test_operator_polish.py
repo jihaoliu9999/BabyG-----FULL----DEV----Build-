@@ -234,3 +234,5 @@ def test_unknown_route_renders_html_404(client, world):
     # Should be the HTML page, not the FastAPI default JSON
     assert "Page not found" in r.text
     assert r.headers["content-type"].startswith("text/html")
+    assert "css/babyg-design/styles.css" in r.text
+    assert 'class="is-error-app' in r.text

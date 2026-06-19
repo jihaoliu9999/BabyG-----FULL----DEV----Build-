@@ -9,11 +9,11 @@
    data-tab values are preserved (feed / chat / inbox / network / profile)
    so the per-tab accent color CSS in app.css keeps working unchanged. #}
 {% set path = request.url.path %}
-<nav class="app-tabbar" id="tabbar">
+<nav class="app-tabbar creator-tabbar" id="tabbar" aria-label="creator navigation">
   <a href="/creator"
      data-tab="feed"
      class="{{ 'active' if path == '/creator' or path.startswith('/creator/calendar') }}">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 9.5L12 3l9 6.5"/><path d="M5 9v11h14V9"/><path d="M9 20v-6h6v6"/></svg>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M3 12h4l3-9 4 18 3-9h4"/></svg>
     home
   </a>
   <a href="/creator/discover"
@@ -24,14 +24,14 @@
   </a>
   <a href="/creator/bot"
      data-tab="chat"
-     class="{{ 'active' if path.startswith('/creator/bot') }}">
-    <img src="/static/assets/logo-bg.png" alt="" class="nav-bg-icon" />
+     class="creator-tabbar-babyg {{ 'active' if path.startswith('/creator/bot') }}">
+    <span class="creator-tabbar-mark"><img src="/static/assets/logo-bg.png" alt="" class="nav-bg-icon" /></span>
     babyg
   </a>
   <a href="/creator/dm"
      data-tab="inbox"
      class="{{ 'active' if path.startswith('/creator/dm') }}">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M22 12V6a2 2 0 00-2-2H4a2 2 0 00-2 2v12a2 2 0 002 2h10"/><path d="M2 6l10 6 10-6"/></svg>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 5.5h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-5 3v-4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2Z"/><path d="M7 10h10M7 14h6"/></svg>
     dms
   </a>
   <a href="/creator/profile"

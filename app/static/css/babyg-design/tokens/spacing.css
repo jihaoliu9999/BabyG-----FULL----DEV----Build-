@@ -1,0 +1,39 @@
+/* ============================================================
+   babyg · SPACING — 4px base rhythm
+   ============================================================ */
+
+:root {
+  --space-0:   0;
+  --space-1:   0.25rem;  /* 4  */
+  --space-2:   0.5rem;   /* 8  */
+  --space-3:   0.75rem;  /* 12 */
+  --space-4:   1rem;     /* 16 */
+  --space-5:   1.25rem;  /* 20 */
+  --space-6:   1.5rem;   /* 24 */
+  --space-7:   2rem;     /* 32 */
+  --space-8:   2.5rem;   /* 40 */
+  --space-9:   3rem;     /* 48 */
+  --space-10:  4rem;     /* 64 */
+  --space-11:  5rem;     /* 80 */
+  --space-12:  6rem;     /* 96 */
+
+  /* Semantic spacing */
+  --gutter:        var(--space-4);   /* default screen padding (mobile) */
+  --gutter-lg:     var(--space-6);   /* desktop screen padding */
+  --stack:         var(--space-4);   /* default vertical block gap */
+  --inline:        var(--space-2);   /* default inline gap */
+  --card-pad:      var(--space-5);   /* default card interior */
+  --card-pad-sm:   var(--space-4);
+  --section-gap:   var(--space-7);
+
+  /* App shell metrics */
+  --topbar-h:      56px;
+  --bottomnav-h:   64px;
+  --content-max:   1200px;   /* desktop content cap */
+  --mobile-max:    440px;    /* phone column cap */
+  --safe-bottom:   env(safe-area-inset-bottom, 0px);
+  --safe-top:      env(safe-area-inset-top, 0px);
+
+  /* Min tap target */
+  --tap-min:       44px;
+}

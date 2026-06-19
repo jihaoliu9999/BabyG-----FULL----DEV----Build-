@@ -5,16 +5,17 @@
 {% block content %}
 <div class="wrap">
 
-  <div class="brand-page-head">
+  <div class="brand-page-head brand-dashboard-head">
     <div>
-      <span class="mono eyebrow">brand dashboard</span>
+      <span class="mono eyebrow">brand workspace</span>
       <h1>{{ profile.company_name or "your brand" }}</h1>
-      <p>discover creators, run campaigns, manage outreach in one place.</p>
+      <p>Discover creators, run campaigns, and manage outreach.</p>
     </div>
+    <span class="brand-status-chip"><span></span> workspace live</span>
   </div>
 
   {# ---------- Profile completion ---------- #}
-  <div class="profile-details-card" style="margin-bottom:22px;">
+  <div class="profile-details-card brand-profile-completion" style="margin-bottom:22px;">
     <div class="profile-details-head">
       <span>profile completion</span>
       <a href="/brand/profile" class="profile-chip-edit profile-details-edit" style="text-decoration:none;">edit profile</a>
@@ -39,7 +40,7 @@
   </div>
 
   {# ---------- Live counts ---------- #}
-  <span class="mono" style="display:block;margin:0 0 10px;">activity</span>
+  <div class="brand-section-head"><div><h2>Overview</h2><span>live activity</span></div></div>
   <div class="brand-stat-grid">
     <a class="brand-stat-tile" href="/brand/campaigns">
       <span class="l">active campaigns</span>
@@ -64,7 +65,7 @@
   </div>
 
   {# ---------- Quick actions ---------- #}
-  <span class="mono" style="display:block;margin:18px 0 10px;">quick actions</span>
+  <div class="brand-section-head"><div><h2>Quick actions</h2><span>keep work moving</span></div></div>
   <div class="brand-quick-actions">
     <a class="brand-quick-action" href="/brand/campaigns/new">
       <span class="h">create a campaign →</span>

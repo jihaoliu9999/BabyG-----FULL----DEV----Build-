@@ -24,6 +24,8 @@ def test_landing_renders_for_anon(client: TestClient) -> None:
     r = client.get("/")
     assert r.status_code == 200
     assert "babyg" in r.text.lower()
+    assert "css/babyg-design/styles.css" not in r.text
+    assert 'data-babyg-redesign="true"' not in r.text
 
 
 def test_landing_exposes_both_creator_and_brand_entry_points(
@@ -87,6 +89,8 @@ def test_landing_handles_unknown_role_safely(client: TestClient) -> None:
 def test_get_started_renders_role_cards(client: TestClient) -> None:
     r = client.get("/get-started")
     assert r.status_code == 200
+    assert "css/babyg-design/styles.css" in r.text
+    assert 'data-babyg-redesign="true"' in r.text
     assert "/auth/login?role=creator" in r.text
     assert "/auth/login?role=brand" in r.text
     # Operator card removed from the visual chooser — operators reach
