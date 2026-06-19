@@ -63,6 +63,24 @@ def test_creator_profile_page_renders(monkeypatch, client: TestClient) -> None:
     assert "/creator/profile/settings" in response.text
 
 
+def test_creator_profile_uses_reference_composition(monkeypatch, client: TestClient) -> None:
+    _signed_in(client, role="creator")
+    monkeypatch.setattr(creator_routes.profiles, "get_creator_profile", lambda uid: _profile())
+
+    response = client.get("/creator/profile")
+
+    assert response.status_code == 200
+    assert 'class="profile-fidelity-preview"' in response.text
+    assert "What brands see" in response.text
+    assert 'class="profile-fidelity-stats"' in response.text
+    assert response.text.count('class="profile-setting-icon ') == 4
+    assert 'href="/creator/profile/settings#privacy"' in response.text
+    assert 'href="/creator/profile/settings#babyg-behavior"' in response.text
+    assert 'href="/creator/profile/settings#integrations"' in response.text
+    assert 'data-open-profile-management' in response.text
+    assert 'id="deal-preferences"' in response.text
+
+
 def test_creator_profile_chip_update_saves_existing_fields(
     monkeypatch, client: TestClient
 ) -> None:

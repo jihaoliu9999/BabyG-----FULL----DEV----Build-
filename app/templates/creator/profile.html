@@ -18,6 +18,86 @@
 <div class="ambient-page profile-page">
 <div class="wrap ambient-shell profile-shell">
 
+  <header class="profile-fidelity-topbar">
+    <div class="profile-fidelity-title">
+      <span class="profile-fidelity-mark" aria-hidden="true"><img src="/static/assets/logo-bg.png" alt="" /></span>
+      <h1>Profile</h1>
+    </div>
+    <a class="profile-fidelity-settings" href="/creator/profile/settings" aria-label="Open settings">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/></svg>
+    </a>
+  </header>
+
+  <section class="profile-fidelity-preview" aria-labelledby="profile-preview-name">
+    <div class="profile-fidelity-preview-head">
+      <span>What brands see</span>
+      <small>Discover preview</small>
+    </div>
+    <div class="profile-fidelity-identity">
+      <div class="profile-fidelity-avatar" aria-hidden="true">
+        {% if profile_preview.profile_photo_url %}
+        <img src="{{ profile_preview.profile_photo_url|safe_url }}" alt="" loading="lazy" decoding="async" />
+        {% else %}
+        <span>{{ initials }}</span>
+        {% endif %}
+      </div>
+      <div class="profile-fidelity-copy">
+        <h2 id="profile-preview-name">{{ profile_preview.full_name or 'creator' }}</h2>
+        <p>{% if profile_preview.niches %}{{ profile_preview.niches[:2]|join(' & ') }} creator{% elif profile_preview.primary_platform %}{{ profile_preview.primary_platform }} creator{% else %}Creator profile{% endif %}</p>
+        <div class="profile-fidelity-meta">
+          {% if profile_preview.location_label %}<span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg>{{ profile_preview.location_label }}</span>{% endif %}
+          {% if profile_preview.instagram_handle %}<span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><path d="M17.5 6.5h.01"/></svg>@{{ profile_preview.instagram_handle }}</span>{% endif %}
+        </div>
+      </div>
+    </div>
+    <div class="profile-fidelity-tags" aria-label="creator specialties">
+      {% for value in (profile_preview.niches or [])[:3] %}<span>{{ value }}</span>{% endfor %}
+      {% for value in profile_chip_values.get('formats', [])[:2] %}<span>{{ value }}</span>{% endfor %}
+      {% if not profile_preview.niches and not profile_chip_values.get('formats') %}<span>Add specialties</span>{% endif %}
+    </div>
+  </section>
+
+  <section class="profile-fidelity-stats" aria-label="creator profile metrics">
+    <a href="/creator/performance" class="profile-fidelity-stat">
+      <span>Reach <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12Z"/><circle cx="12" cy="12" r="2.5"/></svg></span>
+      <strong>{{ profile.follower_range or 'not set' }}</strong>
+    </a>
+    <a href="/creator/performance" class="profile-fidelity-stat">
+      <span>Engagement <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M4 5h16v12H8l-4 3V5Z"/><path d="M8 9h8M8 13h5"/></svg></span>
+      <strong>{{ profile.engagement_range or '&mdash;'|safe }}</strong>
+    </a>
+    <a href="/creator/performance" class="profile-fidelity-stat profile-fidelity-stat-safe">
+      <span>Status <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m12 3 2.7 5.5 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1-4.4-4.3 6.1-.9L12 3Z"/></svg></span>
+      <strong>{{ profile.tier or 'basic' }}</strong>
+    </a>
+  </section>
+
+  <section class="profile-fidelity-settings-list" aria-labelledby="profile-settings-title">
+    <h2 id="profile-settings-title">Settings</h2>
+    <div class="profile-fidelity-settings-card">
+      <a href="/creator/profile/settings#privacy">
+        <span class="profile-setting-icon profile-setting-icon-safe"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 3 4 6v5c0 5 3.4 8.5 8 10 4.6-1.5 8-5 8-10V6l-8-3Z"/><path d="m9 12 2 2 4-4"/></svg></span>
+        <strong>Privacy &amp; who can DM</strong><span class="profile-setting-arrow" aria-hidden="true">&#8250;</span>
+      </a>
+      <a href="/creator/profile/settings#babyg-behavior">
+        <span class="profile-setting-icon profile-setting-icon-ai"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m12 2 1.5 5.5L19 9l-5.5 1.5L12 16l-1.5-5.5L5 9l5.5-1.5L12 2Z"/><path d="m19 15 .8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg></span>
+        <strong>babyg behavior &amp; tone</strong><span class="profile-setting-arrow" aria-hidden="true">&#8250;</span>
+      </a>
+      <a href="/creator/profile/settings#integrations">
+        <span class="profile-setting-icon profile-setting-icon-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M8 3v5M16 3v5M5 8h14v3a7 7 0 0 1-7 7 7 7 0 0 1-7-7V8Z"/><path d="M12 18v3"/></svg></span>
+        <strong>Integrations <span>Google, Instagram</span></strong><span class="profile-setting-arrow" aria-hidden="true">&#8250;</span>
+      </a>
+      <a href="#deal-preferences" data-open-profile-management>
+        <span class="profile-setting-icon profile-setting-icon-caution"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/></svg></span>
+        <strong>Deal preferences</strong><span class="profile-setting-arrow" aria-hidden="true">&#8250;</span>
+      </a>
+    </div>
+  </section>
+
+  <details class="profile-management" id="profile-management">
+    <summary><span>Manage public profile</span><small>Photo, bio, specialties, details, receipts, and account</small></summary>
+    <div class="profile-management-body">
+
   {# Discover-card preview. Renders the same fields brands and peers
      see in /creator/discover so privacy + completeness decisions feel
      concrete. Owner-private fields (tier, baseline followers, exact
@@ -235,7 +315,7 @@
 
   {% set deals_flash = request.query_params.get('deals') %}
   <span class="mono" style="display:block;margin:18px 0 10px;">deal preferences</span>
-  <form class="profile-details-card settings-form" method="post" action="/creator/profile/deals">
+  <form class="profile-details-card settings-form" id="deal-preferences" method="post" action="/creator/profile/deals">
     {% include "_partials/csrf.html" %}
     <div class="profile-details-head">
       <span>working terms (private)</span>
@@ -379,6 +459,8 @@
       </form>
     </dialog>
   </div>
+  </div>
+  </details>
 </div>
 </div>
 {% endblock %}
