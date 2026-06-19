@@ -1,0 +1,37 @@
+/* ============================================================
+   babyg · INTERACTION STATES
+   The few :hover / :active / :focus-within rules components
+   can't express inline. Components carry base styles inline;
+   these layer interactive feedback on top.
+   ============================================================ */
+
+/* ---- Buttons ---- */
+.bg-btn:active:not(:disabled) { transform: scale(var(--press-scale)); }
+.bg-btn--primary:hover:not(:disabled)   { background: var(--accent-hover) !important; }
+.bg-btn--primary:active:not(:disabled)  { background: var(--accent-press) !important; }
+.bg-btn--secondary:hover:not(:disabled) { background: var(--surface-3) !important; border-color: var(--border-strong) !important; }
+.bg-btn--ghost:hover:not(:disabled)     { background: var(--surface-2) !important; color: var(--text-primary) !important; }
+.bg-btn--danger:hover:not(:disabled)    { background: color-mix(in oklab, var(--risk) 22%, transparent) !important; }
+.bg-btn--chrome:hover:not(:disabled)    { filter: brightness(1.05); }
+
+/* ---- Inputs ---- */
+.bg-input:focus-within {
+  border-color: var(--border-accent) !important;
+  box-shadow: var(--sheen-top), 0 0 0 3px var(--accent-ring);
+}
+
+/* ---- Cards ---- */
+.bg-card--interactive:hover {
+  background: var(--surface-2) !important;
+  border-color: var(--border-default) !important;
+  transform: translateY(-1px);
+}
+.bg-card--interactive:active { transform: translateY(0) scale(0.995); }
+
+/* ---- Nav items ---- */
+.bg-navitem { transition: var(--transition-colors); }
+.bg-navitem:active { transform: scale(0.94); }
+
+/* ---- Generic pressable ---- */
+.bg-pressable { transition: transform var(--dur-fast) var(--ease-out); cursor: pointer; }
+.bg-pressable:active { transform: scale(var(--press-scale)); }

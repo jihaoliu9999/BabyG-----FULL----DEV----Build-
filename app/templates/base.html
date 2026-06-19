@@ -10,6 +10,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  {% if request is defined and request.url.path != '/' %}
+  <link rel="stylesheet" href="{{ asset_url('css/babyg-design/styles.css') }}" />
+  {% endif %}
   <link rel="stylesheet" href="{{ asset_url('css/app.css') }}" />
   {% block head_extra %}{% endblock %}
 </head>
@@ -23,8 +26,8 @@
 {% set is_onboarding = cp.startswith('/onboarding') %}
 {% set is_legal = cp in ['/privacy', '/terms', '/accessibility', '/data-deletion'] %}
 {% set is_get_started = cp == '/get-started' %}
-{% set product_scope = 'is-creator-app' if is_creator else ('is-brand-app' if is_brand else ('is-operator-app' if is_operator else ('is-auth-app' if is_auth else ('is-onboarding-app' if is_onboarding else ('is-legal-app' if is_legal else ('is-get-started-app' if is_get_started else '')))))) %}
-<body class="{{ product_scope }} {{ 'is-product-app' if is_creator or is_brand or is_operator else '' }} {{ 'is-chat' if is_creator and cp.startswith('/creator/bot') else ('is-dm-thread' if is_dm_thread else '') }}">
+{% set product_scope = 'is-creator-app' if is_creator else ('is-brand-app' if is_brand else ('is-operator-app' if is_operator else ('is-auth-app' if is_auth else ('is-onboarding-app' if is_onboarding else ('is-legal-app' if is_legal else ('is-get-started-app' if is_get_started else ('is-error-app' if cp != '/' else ''))))))) %}
+<body{% if cp != '/' %} data-babyg-redesign="true"{% endif %} class="{{ product_scope }} {{ 'is-product-app' if is_creator or is_brand or is_operator else '' }} {{ 'is-chat' if is_creator and cp.startswith('/creator/bot') else ('is-dm-thread' if is_dm_thread else '') }}">
 
 {% if is_creator or is_brand or is_operator %}
 <a class="skip-link" href="#main-content">skip to content</a>
