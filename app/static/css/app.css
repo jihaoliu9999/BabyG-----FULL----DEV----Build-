@@ -2857,8 +2857,8 @@ h1, h2, h3, h4 {
 }
 .bot-composer .box {
   display: flex; gap: 8px;
-  background: var(--surface-2);
-  border: 1px solid var(--hairline);
+  background: transparent;
+  border: none;
   border-radius: 22px;
   padding: 8px 8px 8px 16px;
   align-items: flex-end;
