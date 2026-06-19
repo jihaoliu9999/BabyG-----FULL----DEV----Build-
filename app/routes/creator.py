@@ -117,6 +117,26 @@ async def dashboard(
     unread_total = notifications.unread_count(session["user_id"])
     unread_dms = dms.unread_count_for_user(session["user_id"])
 
+    # Home becomes the daily command center: include a compact calendar
+    # preview so creators don't have to leave Home to see what's next.
+    # Each helper degrades to an empty/false default so a flaky Supabase
+    # or unconnected Google Calendar doesn't blank the dashboard.
+    try:
+        upcoming_bookings = bookings.list_for_user(
+            session["user_id"], horizon="upcoming", limit=4
+        )
+    except Exception:
+        upcoming_bookings = []
+    try:
+        google_connection = oauth_connections.get_google_connection(
+            session["user_id"]
+        )
+        calendar_connected = oauth_connections.google_calendar_connected(
+            google_connection
+        )
+    except Exception:
+        calendar_connected = False
+
     return templates.TemplateResponse(
         request,
         "creator/dashboard.html",
@@ -129,6 +149,8 @@ async def dashboard(
             "unread_notifs": unread_notifs,
             "unread_total": unread_total,
             "unread_dms": unread_dms,
+            "upcoming_bookings": upcoming_bookings,
+            "calendar_connected": calendar_connected,
         },
     )
 
