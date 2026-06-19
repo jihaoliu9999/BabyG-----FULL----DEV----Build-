@@ -20,6 +20,11 @@
     el.style.color = isError ? "var(--lime)" : "var(--ink-dim)";
   }
 
+  // Bind the delegated submit handler once — this script may be re-run on
+  // soft navigation. The handler resolves the form from the live event, so
+  // a single binding keeps working after a client-side content swap.
+  if (window.__connDisconnectBound) return;
+  window.__connDisconnectBound = true;
   document.addEventListener("submit", function (e) {
     var form = e.target.closest("[data-disconnect-form]");
     if (!form) return;
