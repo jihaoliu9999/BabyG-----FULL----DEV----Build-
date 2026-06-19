@@ -60,10 +60,9 @@
   function pinToLatest() {
     var lists = document.querySelectorAll(".bot-messages, .dm-messages");
     lists.forEach(function (list) {
-      var last = list.lastElementChild;
-      if (last && last.scrollIntoView) {
-        last.scrollIntoView({ block: "end" });
-      }
+      // Keep scrolling local to the message list. scrollIntoView() can move
+      // the entire document on iOS and leave the app shell vertically offset.
+      list.scrollTop = list.scrollHeight;
     });
   }
 

@@ -2563,23 +2563,21 @@ h1, h2, h3, h4 {
   /* 100dvh = dynamic viewport height; tracks the visible area as the iOS
      address bar shows/hides so we never overflow into the body background.
      --keyboard-inset is set by bot.js from window.visualViewport — it's
-     0 when no keyboard, > 0 when the iOS keyboard (plus its accessory
-     bar) occupies part of the layout viewport. dvh sometimes lags the
-     real keyboard position during transitions; subtracting the inset
-     explicitly closes the gap. 100vh fallback for old browsers. */
-  height: calc(100vh - 54px - env(safe-area-inset-top, 0px) - var(--tabbar-h));
-  height: calc(100dvh - 54px - env(safe-area-inset-top, 0px) - var(--tabbar-h) - var(--keyboard-inset, 0px));
+     visual viewport height is published by bot.js so keyboard and browser
+     chrome transitions do not leave a blank band around the composer. */
+  height: calc(100dvh - var(--tabbar-h) - env(safe-area-inset-bottom, 0px));
+  height: calc(var(--visual-viewport-height, 100dvh) - var(--tabbar-h) - env(safe-area-inset-bottom, 0px));
   display: flex; flex-direction: column;
   overflow: hidden;
   overscroll-behavior: contain;
 }
 @media (min-width: 1000px) {
-  .is-chat #view { height: calc(100vh - var(--topbar-h)); height: calc(100dvh - var(--topbar-h)); }
+  .is-chat #view { height: 100dvh; height: var(--visual-viewport-height, 100dvh); }
 }
 @media (max-width: 999px) {
   .is-chat.chat-keyboard-open #view {
-    height: calc(100vh - 54px - env(safe-area-inset-top, 0px));
-    height: calc(100dvh - 54px - env(safe-area-inset-top, 0px));
+    height: 100dvh;
+    height: var(--visual-viewport-height, 100dvh);
   }
   .is-chat.chat-keyboard-open .app-tabbar {
     transform: translateY(110%);
@@ -2613,34 +2611,17 @@ h1, h2, h3, h4 {
   margin: 0;
   padding: 0;
 }
-.is-creator-app.is-chat #view {
-  height: calc(100vh - var(--tabbar-h));
-  height: calc(100dvh - var(--tabbar-h) - var(--keyboard-inset, 0px));
-}
-@media (max-width: 999px) {
-  .is-creator-app.is-chat.chat-keyboard-open #view {
-    height: 100vh;
-    height: 100dvh;
-  }
-}
-@media (min-width: 1000px) {
-  .is-creator-app.is-chat #view {
-    height: 100vh;
-    height: 100dvh;
-  }
-}
 /* DM thread: same full-height behavior as bot chat, separate body flag
    so the marketing/dashboard pages keep their normal scroll. */
 .is-dm-thread .app-main { padding-bottom: 0; }
 .is-dm-thread #view {
-  height: calc(100vh - 54px - env(safe-area-inset-top, 0px) - var(--tabbar-h));
-  height: calc(100dvh - 54px - env(safe-area-inset-top, 0px) - var(--tabbar-h));
+  height: calc(100dvh - var(--tabbar-h) - env(safe-area-inset-bottom, 0px));
   display: flex; flex-direction: column;
   overflow: hidden;
   overscroll-behavior: contain;
 }
 @media (min-width: 1000px) {
-  .is-dm-thread #view { height: calc(100vh - var(--topbar-h)); height: calc(100dvh - var(--topbar-h)); }
+  .is-dm-thread #view { height: 100dvh; }
 }
 .is-dm-thread #view > .view {
   display: flex;
@@ -2651,16 +2632,6 @@ h1, h2, h3, h4 {
   max-width: none;
   margin: 0;
   padding: 0;
-}
-.is-creator-app.is-dm-thread #view {
-  height: calc(100vh - var(--tabbar-h));
-  height: calc(100dvh - var(--tabbar-h));
-}
-@media (min-width: 1000px) {
-  .is-creator-app.is-dm-thread #view {
-    height: 100vh;
-    height: 100dvh;
-  }
 }
 .dm-screen { display: flex; flex-direction: column; flex: 1; min-height: 0; height: 100%; }
 .dm-screen .dm-head {
@@ -2877,7 +2848,7 @@ h1, h2, h3, h4 {
 .bot-prompts button:hover { color: var(--ink); border-color: var(--hairline-strong); }
 
 .bot-composer {
-  padding: 12px 16px max(env(safe-area-inset-bottom, 18px), 18px);
+  padding: 10px 16px 12px;
   background: rgba(8,8,8,0.92);
   border-top: 1px solid var(--hairline);
   backdrop-filter: blur(20px);
@@ -6928,17 +6899,27 @@ hr.hairline {
 }
 .skip-link {
   position: fixed;
-  top: max(8px, env(safe-area-inset-top));
+  top: 0;
   left: 12px;
   z-index: 200;
   padding: 10px 14px;
   border-radius: var(--radius-md);
   background: var(--bone);
   color: var(--jet);
-  transform: translateY(-160%);
-  transition: transform 160ms ease;
+  opacity: 0;
+  pointer-events: none;
+  clip-path: inset(100%);
+  transform: translateY(calc(-100% - 12px));
+  transition: opacity 160ms ease, transform 160ms ease;
 }
-.skip-link:focus { transform: translateY(0); }
+.skip-link:focus,
+.skip-link:focus-visible {
+  top: max(8px, env(safe-area-inset-top, 0px));
+  opacity: 1;
+  pointer-events: auto;
+  clip-path: none;
+  transform: translateY(0);
+}
 
 /* Product shell and shared surfaces */
 .is-product-app .app-shell {
@@ -7559,6 +7540,31 @@ hr.hairline {
 .is-legal-app .legal-pane h1 { font-family: var(--sans); font-weight: 600; letter-spacing: -.045em; }
 .is-legal-app .legal-pane :is(p, li) { color: var(--ink-mid); font-size: 16px; line-height: 1.75; }
 
+/* Logged-in mobile shell: reserve each safe area exactly once. Primary
+   screens render their own headers, so they do not also reserve the shared
+   floating-profile header slot. */
+@media (max-width: 999px) {
+  .is-creator-app .app-main { padding-bottom: 0; }
+  .is-brand-shell .brand-main {
+    padding-top: max(18px, env(safe-area-inset-top, 0px));
+  }
+  .is-creator-app .app-shell:has(.creator-home) .mobile-header,
+  .is-creator-app .app-shell:has(.creator-screen-topbar) .mobile-header,
+  .is-creator-app .app-shell:has(.profile-fidelity-topbar) .mobile-header,
+  .is-creator-app .app-shell:has(.discover) .mobile-header { display: none; }
+  .is-creator-app .app-shell:has(.creator-home) .app-main > #view,
+  .is-creator-app .app-shell:has(.creator-screen-topbar) .app-main > #view,
+  .is-creator-app .app-shell:has(.profile-fidelity-topbar) .app-main > #view,
+  .is-creator-app .app-shell:has(.discover) .app-main > #view { padding-top: 0; }
+  .is-creator-app .app-shell:has(.creator-home) .view,
+  .is-creator-app .app-shell:has(.creator-screen-topbar) .view,
+  .is-creator-app .app-shell:has(.profile-fidelity-topbar) .view,
+  .is-creator-app .app-shell:has(.discover) .view { padding-top: 0; }
+  .is-creator-app .creator-inbox-page,
+  .is-creator-app .discover { padding-top: max(12px, env(safe-area-inset-top, 0px)); }
+  .is-product-app :is(input:not([type="checkbox"]):not([type="radio"]), textarea, select) { font-size: 16px; }
+}
+
 /* iPhone range: SE through Pro Max, portrait and landscape. */
 @media (max-width: 767px) {
   .is-product-app .view { padding-top: 18px; }
@@ -7566,7 +7572,9 @@ hr.hairline {
   .is-product-app .page-header .title-block { text-align: left; width: 100%; }
   .is-product-app .page-header .actions { width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .is-product-app .page-header .actions .btn { width: 100%; }
-  .is-creator-app .app-main > #view { padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 12px); }
+  .is-creator-app:not(.is-chat):not(.is-dm-thread) .app-main > #view { padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px) + 12px); }
+  .is-creator-app.is-chat #view,
+  .is-creator-app.is-dm-thread #view { padding-bottom: 0; }
   .is-creator-app .app-shell:has(.creator-home) .mobile-header,
   .is-creator-app .app-shell:has(.creator-screen-topbar) .mobile-header { display: none; }
   .is-creator-app .app-shell:has(.creator-home) .view,
@@ -7624,6 +7632,7 @@ hr.hairline {
   .is-operator-app .op-table td:first-child { grid-column: 1 / -1; }
   .is-operator-app .op-table-actions { grid-column: 1 / -1; }
   .is-operator-app .op-table-actions .link-btn { min-height: 44px; display: flex; align-items: center; justify-content: center; border: 1px solid var(--hairline-strong); border-radius: var(--radius-md); }
+  .is-creator-app .creator-tabbar { border-radius: 0; }
 }
 
 @media (max-width: 374px) {
@@ -7647,7 +7656,7 @@ hr.hairline {
 
 @media (min-width: 768px) and (max-width: 999px) {
   .is-creator-app .creator-tabbar { left: 50%; right: auto; width: min(680px, calc(100% - 32px)); bottom: 12px; transform: translateX(-50%); border: 1px solid rgba(255,255,255,.12); border-radius: 34px; padding-bottom: 13px; }
-  .is-creator-app .app-main > #view { padding-bottom: 100px; }
+  .is-creator-app:not(.is-chat):not(.is-dm-thread) .app-main > #view { padding-bottom: 100px; }
   .is-brand-app .app-tabbar { left: 50%; right: auto; width: min(620px, calc(100% - 32px)); bottom: 12px; transform: translateX(-50%); border: 1px solid var(--hairline-strong); border-radius: 22px; padding-bottom: 7px; }
 }
 
