@@ -22,7 +22,7 @@ Flow:
        d. Sets a 10-minute signed cookie remembering the requested role.
           The callback also accepts the signed-up user's metadata as a
           creator/brand fallback when the email opens in another browser.
-       e. Renders auth/magic_link_sent.html.
+       e. Redirects to a GET confirmation page (Post/Redirect/Get).
 
   3. GET/POST /auth/callback
        a. Accepts token_hash/type, code, or ConfirmationURL fragment tokens.
@@ -183,11 +183,25 @@ async def magic_link(
                 message="We're having trouble sending email right now. Try again shortly.",
             )
 
-    response = templates.TemplateResponse(
-        request, "auth/magic_link_sent.html", {"role": role, "email": email}
+    response = RedirectResponse(
+        f"/auth/magic-link/sent?role={role}", status_code=303
     )
     write_pending_role(response, role)
     return response
+
+
+@router.get("/magic-link/sent", response_class=HTMLResponse)
+async def magic_link_sent(
+    request: Request,
+    role: str = Query("creator"),
+):
+    if role not in VALID_ROLES:
+        role = "creator"
+    return templates.TemplateResponse(
+        request,
+        "auth/magic_link_sent.html",
+        {"role": role, "email": None},
+    )
 
 
 @router.api_route("/callback", methods=["GET", "POST"])
