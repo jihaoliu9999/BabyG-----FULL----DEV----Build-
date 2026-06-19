@@ -458,6 +458,14 @@ h1, h2, h3, h4 {
   min-height: var(--tabbar-h);
   height: auto;
   transition: transform .18s cubic-bezier(.2,.7,.2,1), opacity .18s ease;
+  /* Bottom-of-screen "skirt" — covers any space below the tabbar with
+     a solid dark continuation of the nav. iOS Safari (not standalone)
+     shows its URL bar at the bottom of the layout viewport; when it
+     collapses, a slim dark band remains. Without this skirt the
+     translucent tabbar looks like it's floating above an unrelated
+     gap. box-shadow paints without affecting layout, so this is safe
+     to add to every page. */
+  box-shadow: 0 200px 0 0 rgba(8,8,8,0.98);
 }
 .app-tabbar a {
   --nav-accent: rgba(245,241,232,.72);

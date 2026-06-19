@@ -43,3 +43,27 @@ def test_mobile_controls_keep_ios_safe_font_size() -> None:
 def test_hidden_brand_topbar_does_not_reserve_mobile_space() -> None:
     assert ".is-brand-shell .brand-main" in APP_CSS
     assert "padding-top: max(18px, env(safe-area-inset-top, 0px))" in APP_CSS
+
+
+def test_visual_viewport_height_includes_offset_top() -> None:
+    """When iOS auto-scrolls on input focus, ``visualViewport.offsetTop``
+    becomes the scroll amount. Body is ``position: fixed; inset: 0`` so
+    it stays at the layout-viewport origin — ``#view``'s height has to
+    include offsetTop so the composer reaches the real bottom of the
+    visible area instead of stranding mid-screen above a black gap."""
+    update_fn = BOT_JS.split("function updateKeyboardInset()", 1)[1].split(
+        "if (window.visualViewport)", 1
+    )[0]
+    assert "vv.height + vv.offsetTop" in update_fn
+
+
+def test_tabbar_extends_dark_backdrop_below_bottom_edge() -> None:
+    """iOS Safari's bottom URL bar (non-standalone) sits below the
+    tabbar; without an extending background, the collapsed URL bar +
+    safe-area combination looks like a stray gap. A box-shadow below
+    the tabbar paints a solid dark continuation without affecting
+    layout. Locate the main `.app-tabbar` declaration (the standalone
+    selector, not `.is-marketing .app-tabbar`) and assert the skirt
+    is present inside it."""
+    rule = APP_CSS.split("\n.app-tabbar {", 1)[1].split("}", 1)[0]
+    assert "box-shadow: 0 200px 0 0" in rule
