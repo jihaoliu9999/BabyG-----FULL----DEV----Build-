@@ -199,6 +199,13 @@
   // Publish the actual visible viewport height. On iOS this already excludes
   // browser chrome and the software keyboard, avoiding ambiguous dvh behavior
   // and preventing an empty band between the composer and navigation.
+  //
+  // When iOS auto-scrolls the layout viewport on focus to bring the input
+  // into view, visualViewport.offsetTop becomes the scroll amount. Body is
+  // position:fixed inset:0 so it stays anchored to the layout viewport
+  // origin — `#view`'s height must therefore include offsetTop so its
+  // bottom edge reaches the real bottom of the visible area, not just
+  // (offsetTop + vv.height) measured from the layout origin.
   function updateKeyboardInset() {
     const vv = window.visualViewport;
     if (!vv) {
@@ -211,7 +218,7 @@
     }
     document.documentElement.style.setProperty(
       "--visual-viewport-height",
-      Math.round(vv.height) + "px"
+      Math.round(vv.height + vv.offsetTop) + "px"
     );
     const inset = Math.max(
       0,
