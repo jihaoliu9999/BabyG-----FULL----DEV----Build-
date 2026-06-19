@@ -2214,6 +2214,74 @@ h1, h2, h3, h4 {
   padding: 16px 18px;
   margin-bottom: 22px;
 }
+
+/* ───── home / today preview ─────
+   Compact calendar peek on the dashboard. Reuses existing surface +
+   hairline + mono tokens so it sits visually with the intel feed
+   instead of becoming a parallel design language. */
+.home-today {
+  background: var(--surface-1);
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin: 0 0 18px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.home-today-head {
+  display: flex; justify-content: space-between; align-items: baseline;
+  gap: 10px; flex-wrap: wrap;
+}
+.home-today-link {
+  color: var(--ink-mid);
+  font-size: 12.5px;
+  text-decoration: none;
+  border-bottom: 1px dashed var(--hairline-strong);
+  padding-bottom: 1px;
+}
+.home-today-link:hover { color: var(--lime); border-color: var(--lime); }
+.home-today-list {
+  list-style: none;
+  margin: 0; padding: 0;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.home-today-item {
+  display: grid;
+  grid-template-columns: minmax(110px, auto) 1fr;
+  gap: 4px 14px;
+  padding: 10px 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  border-radius: 10px;
+  align-items: baseline;
+}
+.home-today-when {
+  color: var(--ink-dim);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+}
+.home-today-title { color: var(--ink); font-size: 14px; font-weight: 500; }
+.home-today-where {
+  grid-column: 2;
+  color: var(--ink-mid);
+  font-size: 12.5px;
+}
+.home-today-empty {
+  color: var(--ink-mid);
+  font-size: 13px;
+  margin: 0;
+}
+.home-today-cta {
+  color: var(--lime);
+  text-decoration: none;
+  margin-left: 6px;
+  font-weight: 500;
+}
+@media (max-width: 480px) {
+  /* Stack the time + title on phones so long titles don't get squeezed. */
+  .home-today-item { grid-template-columns: 1fr; gap: 2px; }
+  .home-today-where { grid-column: 1; }
+}
 .attention-strip .top {
   display: flex; justify-content: space-between; align-items: center;
   margin-bottom: 8px;

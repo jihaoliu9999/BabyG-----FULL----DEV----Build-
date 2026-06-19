@@ -33,6 +33,35 @@
   </div>
   {% endif %}
 
+  {# ---------- today / upcoming ----------
+     Compact preview so Home stays the daily command center. Full
+     calendar is still one tap away at /creator/calendar. Empty-state
+     copy is honest — no fake events, no fake "connect for ai" upsell. #}
+  <section class="home-today" aria-label="today and upcoming">
+    <div class="home-today-head">
+      <span class="mono eyebrow">today &amp; upcoming</span>
+      <a href="/creator/calendar" class="home-today-link">view calendar →</a>
+    </div>
+    {% if upcoming_bookings %}
+    <ul class="home-today-list">
+      {% for ev in upcoming_bookings[:4] %}
+      <li class="home-today-item">
+        <span class="home-today-when mono">{{ ev.starts_at[:16].replace('T', ' · ') if ev.starts_at else 'tbd' }}</span>
+        <span class="home-today-title">{{ ev.title }}</span>
+        {% if ev.venue_name %}<span class="home-today-where">{{ ev.venue_name }}</span>{% endif %}
+      </li>
+      {% endfor %}
+    </ul>
+    {% elif not calendar_connected %}
+    <p class="home-today-empty">
+      connect calendar to see today's calls and deadlines.
+      <a href="/creator/profile/settings" class="home-today-cta">connect →</a>
+    </p>
+    {% else %}
+    <p class="home-today-empty">nothing on the books in the next few days.</p>
+    {% endif %}
+  </section>
+
   <div class="filter-row">
     <a href="/creator" class="chip {{ 'chip-active' if not active_category }}">All</a>
     {% for slug, label in categories %}
