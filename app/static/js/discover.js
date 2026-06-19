@@ -117,17 +117,25 @@
     });
   });
 
-  document.addEventListener("keydown", function (event) {
-    if (event.target.matches("input, textarea, select")) return;
-    var form = null;
-    if (event.key === "ArrowLeft") form = root.querySelector('[data-swipe-form="passed"]');
-    if (event.key.toLowerCase() === "s") form = root.querySelector('[data-swipe-form="saved"]');
-    if (event.key === "ArrowRight") form = root.querySelector('[data-swipe-form="primary"]');
-    if (form) {
-      event.preventDefault();
-      form.requestSubmit();
-    }
-  });
+  // Bind the document-level keyboard shortcut exactly once (this script is
+  // re-run on soft navigation). Resolve the live discover root at event
+  // time so it keeps working after a client-side content swap.
+  if (!window.__discoverKeydownBound) {
+    window.__discoverKeydownBound = true;
+    document.addEventListener("keydown", function (event) {
+      if (event.target.matches && event.target.matches("input, textarea, select")) return;
+      var liveRoot = document.querySelector("[data-discover-root]");
+      if (!liveRoot) return;
+      var form = null;
+      if (event.key === "ArrowLeft") form = liveRoot.querySelector('[data-swipe-form="passed"]');
+      if (event.key.toLowerCase() === "s") form = liveRoot.querySelector('[data-swipe-form="saved"]');
+      if (event.key === "ArrowRight") form = liveRoot.querySelector('[data-swipe-form="primary"]');
+      if (form) {
+        event.preventDefault();
+        form.requestSubmit();
+      }
+    });
+  }
 
   syncDock();
 }());

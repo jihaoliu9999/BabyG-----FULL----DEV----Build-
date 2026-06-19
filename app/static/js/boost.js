@@ -1,21 +1,20 @@
 /* boost.js — soft client-side navigation for the babyg creator app.
 
-   Problem it solves: every tab click did a full document reload, which
-   tore down and repainted the fixed bottom tab bar (it "twitches") and
-   felt slow. With JS we intercept internal GET navigations, fetch the
-   next page, and swap only the page content + nav active-states + title.
-   The shell (fixed tab bar, sidebar) stays mounted, so it never moves,
-   and there's no full reload.
+   Why: every tab click did a full document reload, which tore down and
+   repainted the fixed bottom tab bar (it "twitches") and felt slow. With
+   JS we intercept internal GET navigations, fetch the next page, and swap
+   only the page content + nav active-states + title. The fixed shell (tab
+   bar, sidebar) stays mounted, so it never moves and there's no reload.
 
-   Safety first — this NEVER breaks interactivity or special layouts:
-     * Only same-origin GET links under /creator are intercepted.
-     * If the destination ships its own <script> (discover, chat, dm
-       thread, network, etc.) or uses a different <body> shell class
-       (chat / dm-thread), we fall back to a normal full navigation so
-       those pages' scripts and layouts work exactly as before.
-     * Modified clicks, new-tab, downloads, hashes, redirects, non-HTML,
-       and any fetch error all fall back to the browser's default.
-   No server, CSRF, or form behavior changes — forms still POST normally.
+   Page scripts: most creator pages ship a small page script. We re-run the
+   destination page's script after the swap so its DOM gets wired up. Only
+   scripts that are safe to re-run are allowed (element-scoped, or with
+   their document/window listeners guarded to bind once against the live
+   DOM — see SOFT_SAFE). Anything else (chat, dm thread, old network, or an
+   inline script) falls back to a normal full navigation, so nothing
+   interactive ever breaks.
+
+   No server, CSRF, or form changes — forms still POST and reload normally.
 */
 (function () {
   "use strict";
@@ -24,9 +23,43 @@
   if (!root || root.className.indexOf("is-creator-app") === -1) return;
   if (!window.history || !window.fetch || !window.DOMParser) return;
 
-  // Scripts present on every shell page. Anything else in a fetched page
-  // means that page has its own behavior → full navigation.
-  var SHARED_SCRIPTS = ["/static/js/motion.js", "/static/js/boost.js"];
+  // Loaded on every shell page.
+  var SHARED = ["/static/js/motion.js", "/static/js/boost.js"];
+  // Page scripts that are safe to (re-)run after a content swap.
+  var SOFT_SAFE = [
+    "/static/js/discover.js",
+    "/static/js/network_connections.js",
+    "/static/js/profile.js",
+  ];
+
+  // Inspect a document's scripts. `unsafe` means it has a script we can't
+  // safely re-run (so we must full-navigate). `page` is the re-runnable
+  // page scripts to inject after a swap.
+  function classify(doc) {
+    var page = [];
+    var unsafe = false;
+    var scripts = doc.querySelectorAll("script");
+    for (var i = 0; i < scripts.length; i++) {
+      var s = scripts[i];
+      if (!s.src) {
+        if ((s.textContent || "").trim()) unsafe = true;
+        continue;
+      }
+      var p = new URL(s.src, location.origin).pathname;
+      if (SHARED.indexOf(p) !== -1) continue;
+      if (SOFT_SAFE.indexOf(p) !== -1) {
+        page.push(p);
+        continue;
+      }
+      unsafe = true;
+    }
+    return { unsafe: unsafe, page: page };
+  }
+
+  // If THIS page runs a script we can't safely re-run (chat, dm thread,
+  // old network, or any inline script), don't soft-navigate from it — its
+  // listeners could linger. Every navigation from here stays a full load.
+  if (classify(document).unsafe) return;
 
   function isPlainLeftClick(e) {
     return (
@@ -57,24 +90,24 @@
     return url;
   }
 
-  function hasOwnScripts(doc) {
-    var scripts = doc.querySelectorAll("script");
-    for (var i = 0; i < scripts.length; i++) {
-      var s = scripts[i];
-      if (!s.src) {
-        if ((s.textContent || "").trim()) return true; // inline script
-        continue;
-      }
-      var path = new URL(s.src, location.origin).pathname;
-      if (SHARED_SCRIPTS.indexOf(path) === -1) return true;
-    }
-    return false;
-  }
-
   function swapInner(id, doc) {
     var cur = document.getElementById(id);
     var next = doc.getElementById(id);
     if (cur && next) cur.innerHTML = next.innerHTML;
+  }
+
+  // Replace the previously-injected page scripts with this page's set.
+  // Re-running element-scoped scripts rebinds the fresh DOM; document/window
+  // listeners in SOFT_SAFE scripts are self-guarded so they don't stack.
+  function setPageScripts(srcs) {
+    var old = document.querySelectorAll("script[data-page-script]");
+    for (var i = 0; i < old.length; i++) old[i].remove();
+    srcs.forEach(function (src) {
+      var sc = document.createElement("script");
+      sc.src = src;
+      sc.setAttribute("data-page-script", "");
+      document.body.appendChild(sc);
+    });
   }
 
   var current = null;
@@ -91,20 +124,16 @@
         var type = r.headers.get("content-type") || "";
         if (!r.ok || type.indexOf("text/html") === -1) throw new Error("not html");
         if (r.redirected && new URL(r.url).pathname !== url.pathname) {
-          throw new Error("redirected"); // onboarding/auth bounce → full load
+          throw new Error("redirected");
         }
         return r.text();
       })
       .then(function (html) {
         if (current !== token) return; // a newer click superseded this one
         var doc = new DOMParser().parseFromString(html, "text/html");
+        var cls = classify(doc);
         var nextBody = doc.body ? doc.body.className : "";
-        // Different shell (chat/dm-thread) or page ships scripts → full load.
-        if (
-          !doc.getElementById("view") ||
-          nextBody !== root.className ||
-          hasOwnScripts(doc)
-        ) {
+        if (!doc.getElementById("view") || nextBody !== root.className || cls.unsafe) {
           location.assign(url.href);
           return;
         }
@@ -117,6 +146,7 @@
         var view = document.getElementById("view");
         if (view) view.scrollTop = 0;
         window.scrollTo(0, 0);
+        setPageScripts(cls.page);
         root.classList.remove("boost-loading");
         document.dispatchEvent(new CustomEvent("babyg:navigated"));
       })
@@ -124,13 +154,6 @@
         location.assign(url.href);
       });
   }
-
-  // If THIS page ships its own scripts (chat, discover, dm thread, ...),
-  // their document-level listeners would linger after a soft content swap.
-  // Don't activate boost here — navigations from this page stay full loads,
-  // which tears those listeners down cleanly. The common static pages
-  // (home, profile, dms list, settings, stats) still get instant soft-nav.
-  if (hasOwnScripts(document)) return;
 
   document.addEventListener("click", function (e) {
     if (!isPlainLeftClick(e)) return;
