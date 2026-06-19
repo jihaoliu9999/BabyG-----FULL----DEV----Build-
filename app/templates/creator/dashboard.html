@@ -4,13 +4,16 @@
 
 {% block content %}
 {% set first_name = (profile.full_name or 'creator').split(' ')[0].lower() if profile is defined and profile is not none else 'creator' %}
-{% set needs_count = (unread_total or 0) + (unread_dms or 0) %}
+{% set needs_count = (unread_total or 0) + (unread_dms or 0) + (1 if upcoming_bookings else 0) %}
 <main class="creator-home wrap">
   <header class="creator-home-hero">
-    <div>
-      <span class="creator-home-kicker">your day with babyg</span>
-      <h1>good to see you, {{ first_name }}.</h1>
-      <p>{% if needs_count %}{{ needs_count }} {{ 'thing needs' if needs_count == 1 else 'things need' }} you today{% else %}nothing urgent needs you right now{% endif %}</p>
+    <div class="creator-home-lockup">
+      <span class="creator-screen-mark" aria-hidden="true"><img src="/static/assets/logo-bg.png" alt="" /></span>
+      <div>
+        <span class="creator-home-kicker">your day with babyg</span>
+        <h1>good to see you, {{ first_name }}.</h1>
+        <p>{% if needs_count %}{{ needs_count }} {{ 'thing needs' if needs_count == 1 else 'things need' }} you today{% else %}nothing urgent needs you right now{% endif %}</p>
+      </div>
     </div>
     <div class="creator-home-hero-actions">
       <a href="/creator/calendar" class="creator-icon-action" aria-label="open calendar">
@@ -36,6 +39,17 @@
         </span>
         <span class="creator-row-copy"><strong>{{ unread_dms }} unread {{ 'message' if unread_dms == 1 else 'messages' }}</strong><small>Open your inbox and keep conversations moving.</small></span>
         <span class="trust-chip trust-chip-caution">reply</span>
+        <span class="creator-row-chevron" aria-hidden="true">&#8250;</span>
+      </a>
+      {% endif %}
+      {% if upcoming_bookings %}
+      {% set next_booking = upcoming_bookings[0] %}
+      <a href="/creator/calendar/{{ next_booking.id }}" class="creator-action-row">
+        <span class="creator-row-icon creator-row-icon-safe" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+        </span>
+        <span class="creator-row-copy"><strong>{{ next_booking.title }}</strong><small>{{ next_booking.starts_at[:16].replace('T', ' · ') if next_booking.starts_at else 'Time to be confirmed' }}{% if next_booking.venue_name %} · {{ next_booking.venue_name }}{% endif %}</small></span>
+        <span class="trust-chip trust-chip-safe">up next</span>
         <span class="creator-row-chevron" aria-hidden="true">&#8250;</span>
       </a>
       {% endif %}
@@ -76,17 +90,15 @@
       <a href="/creator/calendar">Open calendar</a>
     </div>
     <div class="creator-calendar-preview">
-      <div class="creator-calendar-strip" aria-hidden="true">
-        <span class="is-active"><small>today</small><strong>now</strong></span>
-        <span><small>next</small><strong>&mdash;</strong></span>
-        <span><small>then</small><strong>&mdash;</strong></span>
-        <span><small>later</small><strong>&mdash;</strong></span>
-        <span><small>ahead</small><strong>&mdash;</strong></span>
+      <div class="creator-calendar-strip" aria-label="next five days">
+        {% for day in calendar_days %}
+        <span class="{{ 'is-active' if day.is_today }}"{% if day.is_today %} aria-current="date"{% endif %}><small>{{ day.weekday }}</small><strong>{{ day.day }}</strong>{% if day.is_today %}<i aria-hidden="true"></i>{% endif %}</span>
+        {% endfor %}
       </div>
       {% if upcoming_bookings %}
       <div class="creator-calendar-events">
         {% for ev in upcoming_bookings[:4] %}
-        <a class="creator-calendar-event" href="/creator/calendar">
+        <a class="creator-calendar-event" href="/creator/calendar{% if ev.id %}/{{ ev.id }}{% endif %}">
           <span class="creator-event-time">{{ ev.starts_at[:16].replace('T', ' · ') if ev.starts_at else 'tbd' }}</span>
           <span><strong>{{ ev.title }}</strong>{% if ev.venue_name %}<small>{{ ev.venue_name }}</small>{% endif %}</span>
           <span class="creator-row-chevron" aria-hidden="true">&#8250;</span>
