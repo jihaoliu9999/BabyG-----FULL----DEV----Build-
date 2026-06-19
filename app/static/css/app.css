@@ -739,79 +739,8 @@ h1, h2, h3, h4 {
   letter-spacing: 0.12em;
   color: var(--lime);
 }
-/* live AI-manager status panel. Thin hairline card with a slow ambient
-   coral breathe on the edge — premium, not loud. All motion is killed
-   under prefers-reduced-motion. */
-.app-sidebar .babyg-card {
-  position: relative;
-  margin-top: 22px;
-  padding: 13px 14px 12px;
-  background:
-    radial-gradient(120% 90% at 18% 0%, rgba(255,77,109,0.05), transparent 55%),
-    var(--surface-1);
-  border: 1px solid var(--hairline);
-  border-radius: 14px;
-  overflow: hidden;
-  animation: babyg-card-breathe 6s ease-in-out infinite;
-}
-@keyframes babyg-card-breathe {
-  0%, 100% {
-    border-color: var(--hairline);
-    box-shadow: 0 0 0 0 rgba(255,77,109,0);
-  }
-  50% {
-    border-color: rgba(255,77,109,0.22);
-    box-shadow: 0 0 18px -6px rgba(255,77,109,0.28);
-  }
-}
-.app-sidebar .babyg-card .eyebrow {
-  display: inline-flex; align-items: center; gap: 8px;
-  color: var(--lime);
-  font-size: 9.5px;
-  letter-spacing: 0.22em;
-}
-.app-sidebar .babyg-card .pulse-dot {
-  width: 5px; height: 5px;
-  animation-duration: 3.2s;
-  flex-shrink: 0;
-}
-.app-sidebar .babyg-card p {
-  margin: 7px 0 11px;
-  color: var(--ink-mid);
-  font-size: 12px;
-  letter-spacing: 0.01em;
-  line-height: 1.4;
-}
-.app-sidebar .babyg-card-cta {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  padding: 8px 12px;
-  border: 1px solid var(--hairline-strong);
-  border-radius: 999px;
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.18em;
-  text-transform: lowercase;
-  color: var(--ink-mid);
-  text-decoration: none;
-  transition: color .25s ease, border-color .25s ease, box-shadow .25s ease, transform .15s ease;
-}
-.app-sidebar .babyg-card-cta:hover,
-.app-sidebar .babyg-card-cta:focus-visible {
-  color: var(--ink);
-  border-color: rgba(255,77,109,0.45);
-  box-shadow: 0 0 14px -4px rgba(255,77,109,0.35);
-  transform: translateY(-1px);
-}
-.app-sidebar .babyg-card-cta:active { transform: translateY(0); }
 @media (prefers-reduced-motion: reduce) {
   .app-tabbar { transition: none; }
-  .app-sidebar .babyg-card { animation: none; }
-  .app-sidebar .babyg-card .pulse-dot { animation: none; }
-  .app-sidebar .babyg-card-cta,
-  .app-sidebar .babyg-card-cta:hover { transition: none; transform: none; }
 }
 
 /* main column */
