@@ -196,17 +196,23 @@
     updateKeyboardInset();
   };
 
-  // Publish the keyboard height as --keyboard-inset on <html>. The CSS
-  // subtracts it from `#view` height so the composer never sits behind
-  // the iOS keyboard accessory bar and the hero never gets scrolled
-  // off-screen. dvh alone doesn't track keyboard transitions cleanly
-  // on iOS; visualViewport.height + offsetTop is the reliable signal.
+  // Publish the actual visible viewport height. On iOS this already excludes
+  // browser chrome and the software keyboard, avoiding ambiguous dvh behavior
+  // and preventing an empty band between the composer and navigation.
   function updateKeyboardInset() {
     const vv = window.visualViewport;
     if (!vv) {
+      document.documentElement.style.setProperty(
+        "--visual-viewport-height",
+        Math.round(window.innerHeight) + "px"
+      );
       document.documentElement.style.setProperty("--keyboard-inset", "0px");
       return;
     }
+    document.documentElement.style.setProperty(
+      "--visual-viewport-height",
+      Math.round(vv.height) + "px"
+    );
     const inset = Math.max(
       0,
       Math.round(window.innerHeight - vv.height - vv.offsetTop)
@@ -221,6 +227,8 @@
     window.visualViewport.addEventListener("scroll", updateKeyboardInset);
     updateKeyboardInset();
   }
+  window.addEventListener("resize", updateKeyboardInset);
+  window.addEventListener("orientationchange", updateKeyboardInset);
 
   async function send() {
     if (inFlight) return;
