@@ -12,9 +12,8 @@ MOTION_JS = (ROOT / "app/static/js/motion.js").read_text(encoding="utf-8")
 
 def test_skip_link_is_hidden_until_focused() -> None:
     skip_rule = APP_CSS.split(".skip-link {", 1)[1].split("}", 1)[0]
-    assert "opacity: 0" in skip_rule
-    assert "pointer-events: none" in skip_rule
-    assert "clip-path: inset(100%)" in skip_rule
+    assert "left: -10000px" in skip_rule
+    assert "z-index: -1" in skip_rule
     assert ".skip-link:focus-visible" in APP_CSS
 
 
