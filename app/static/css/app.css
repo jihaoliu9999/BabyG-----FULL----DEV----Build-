@@ -303,6 +303,14 @@ h1, h2, h3, h4 {
 
 /* ───── app chrome ───── */
 .app-shell { min-height: 100vh; display: flex; flex-direction: column; }
+/* In-app shells use --jet (#050505) instead of the default --obsidian
+   (#0A0A0A) so anything visible below the bottom tabbar reads as
+   *darker* than the tabbar's blurred surface, not lighter. Otherwise
+   the body shows through as a brighter band right under the tabbar
+   and reads as a stray gap during tab navigation. Marketing shell is
+   exempt — it doesn't have a tabbar to anchor the relationship. */
+.app-shell:not(.is-marketing),
+.operator-shell { background: var(--jet); }
 .is-marketing .app-topbar,
 .is-marketing .app-sidebar,
 .is-marketing .app-tabbar { display: none; }
@@ -2522,7 +2530,11 @@ h1, h2, h3, h4 {
     pointer-events: none;
   }
   .is-chat.chat-keyboard-open .bot-composer {
-    padding-bottom: max(env(safe-area-inset-bottom, 4px), 4px);
+    /* The keyboard already covers the home-indicator safe-area, so we
+       collapse the bottom padding to a hairline — anything more reads
+       as a gap between the input and the keyboard's accessory bar. */
+    padding-top: 6px;
+    padding-bottom: 2px;
   }
   /* When the keyboard is up, iOS will otherwise scroll the body itself
      to bring the focused composer into view — that scroll lifts the
