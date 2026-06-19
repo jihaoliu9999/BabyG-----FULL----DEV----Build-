@@ -2743,6 +2743,59 @@ h1, h2, h3, h4 {
   cursor: not-allowed;
   opacity: 0.65;
 }
+.integration-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.integration-card-actions form { margin: 0; }
+
+.babyg-guide-form { margin: 0; }
+.babyg-guide-button {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 13px;
+  color: var(--ink-mid);
+  border: 1px solid rgba(255, 77, 109, 0.24);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.035);
+  box-shadow: inset 0 1px rgba(255, 255, 255, 0.045);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 160ms ease, border-color 160ms ease, background-color 160ms ease, transform 140ms ease;
+}
+.babyg-guide-dot {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 6px;
+  border-radius: 50%;
+  background: var(--lime);
+  box-shadow: 0 0 0 3px rgba(255, 77, 109, 0.08);
+}
+.babyg-guide-button:focus-visible {
+  outline: 2px solid rgba(255, 77, 109, 0.58);
+  outline-offset: 2px;
+}
+.babyg-guide-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+@media (hover: hover) and (pointer: fine) {
+  .babyg-guide-button:not(:disabled):hover {
+    color: var(--ink);
+    border-color: rgba(255, 77, 109, 0.4);
+    background: rgba(255, 77, 109, 0.07);
+    transform: translateY(-1px);
+  }
+}
+.babyg-guide-button:not(:disabled):active { transform: scale(0.98); }
 
 /* Live typing indicator. Created by bot.js when a fetch is in flight,
    removed when the response arrives or fails. Three dots blink in
@@ -7299,27 +7352,17 @@ hr.hairline {
 }
 .is-creator-app .dm-risk-radar { border-color: var(--ai); background: rgba(201,107,214,.035); border-radius: 0 12px 12px 0; }
 .is-creator-app .dm-follow-ups button { min-height: 38px; }
-.is-creator-app .dm-brief-prompt {
+.is-creator-app .dm-thread-tools {
   display: flex;
-  justify-content: flex-start;
-  margin: 0 18px 2px;
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-  overflow: visible;
+  align-items: center;
+  justify-content: flex-end;
+  min-height: 44px;
 }
-.is-creator-app .dm-brief-prompt .btn {
-  min-height: 36px;
-  padding: 0 8px;
-  border: 0;
-  background: transparent;
-  box-shadow: none;
-  color: var(--text-tertiary);
-  font-size: 11px;
-}
+.is-creator-app .dm-thread-tools form { margin: 0; }
 @media (prefers-reduced-motion: reduce) {
   .is-creator-app .dm-composer-status-dot { animation: none; opacity: 1; }
   .is-creator-app .dm-composer .send { transition: none; }
+  .babyg-guide-button { transition: none; }
 }
 .is-creator-app .settings-group { padding: clamp(18px, 5vw, 24px); }
 .is-creator-app .settings-row { min-height: 56px; }
@@ -7363,10 +7406,21 @@ hr.hairline {
 .is-creator-app .creator-screen-action { width: 44px; height: 44px; flex: 0 0 44px; display: grid; place-items: center; color: var(--text-secondary); border: 1px solid var(--border-default); border-radius: var(--radius-md); background: var(--surface-2); }
 .is-creator-app .creator-screen-action svg { width: 19px; height: 19px; }
 .is-creator-app .creator-private-chip { min-height: 26px; display: inline-flex; align-items: center; padding: 4px 9px; color: var(--ai); border: 1px solid color-mix(in srgb, var(--ai) 32%, transparent); border-radius: 999px; background: color-mix(in srgb, var(--ai) 9%, transparent); font-family: var(--mono); font-size: 9px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+.is-creator-app .creator-babyg-tools { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
 .is-creator-app .creator-inbox-page { width: min(100%, 760px); }
 .is-creator-app .creator-inbox-page .stack { gap: 8px; }
 .is-creator-app .creator-inbox-page .thread-row { min-height: 72px; padding: 12px 14px; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--surface-1); box-shadow: var(--shadow-card); }
 .is-creator-app .creator-babyg-topbar { margin: 0; padding: max(12px, env(safe-area-inset-top)) 16px 10px; border-bottom: 1px solid var(--border-subtle); background: var(--surface-overlay); backdrop-filter: blur(16px); }
+@media (max-width: 430px) {
+  .is-creator-app .creator-babyg-topbar { gap: 8px; padding-inline: 12px; }
+  .is-creator-app .creator-babyg-topbar .creator-screen-title { gap: 8px; }
+  .is-creator-app .creator-babyg-topbar .creator-screen-mark { width: 32px; height: 32px; flex-basis: 32px; }
+  .is-creator-app .creator-babyg-topbar .creator-screen-mark img { width: 21px; height: 21px; }
+  .is-creator-app .creator-babyg-topbar .creator-screen-title p { display: none; }
+  .is-creator-app .creator-babyg-tools { gap: 6px; }
+  .is-creator-app .creator-babyg-tools .babyg-guide-button { padding-inline: 10px; }
+  .is-creator-app .creator-private-chip { padding-inline: 7px; }
+}
 .is-creator-app .creator-home-kicker,
 .is-creator-app .creator-section-head span,
 .is-brand-app .brand-section-head span {

@@ -40,10 +40,20 @@
     </div>
     <p class="integration-body">Connecting Gmail lets babyg read recent threads and prepare draft replies for your approval. babyg never sends.</p>
     {% if google_gmail_connected %}
-    <form method="post" action="/creator/google/gmail/disconnect" style="display:inline;">
-      {% include "_partials/csrf.html" %}
-      <button type="submit" class="btn btn-ghost btn-sm">disconnect Gmail</button>
-    </form>
+    <div class="integration-card-actions">
+      <form method="post" action="/creator/bot" class="babyg-guide-form">
+        {% include "_partials/csrf.html" %}
+        <input type="hidden" name="message" value="read my recent email threads and guide me on what needs attention, follow-up timing, and the next best reply." />
+        <button type="submit" class="babyg-guide-button">
+          <span class="babyg-guide-dot" aria-hidden="true"></span>
+          babyg guide
+        </button>
+      </form>
+      <form method="post" action="/creator/google/gmail/disconnect">
+        {% include "_partials/csrf.html" %}
+        <button type="submit" class="btn btn-ghost btn-sm">disconnect Gmail</button>
+      </form>
+    </div>
     {% elif google_configured %}
     <a class="btn btn-lime btn-sm" href="/creator/google/connect?service=gmail&next=/creator/profile/settings">connect Gmail</a>
     {% else %}

@@ -302,6 +302,11 @@ def test_creator_dm_thread_marks_messages_read(client, world, monkeypatch):
     r = client.get("/creator/dm/c-2")
     assert r.status_code == 200
     assert all(m["read_at"] is not None for m in world.messages)
+    assert 'class="dm-thread-tools"' in r.text
+    assert 'action="/creator/dm/c-2/brief"' in r.text
+    assert "babyg guide" in r.text
+    assert "ask babyg about this message" not in r.text
+    assert "ask babyg to re-check" not in r.text
 
 
 def test_creator_dm_send_appends_and_notifies(client, world, monkeypatch):

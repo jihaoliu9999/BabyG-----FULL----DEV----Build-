@@ -27,6 +27,16 @@
     <div class="dm-brief-notice">babyg has reviewed several messages recently. try again in a moment.</div>
     {% endif %}
 
+    <div class="dm-thread-tools" aria-label="conversation tools">
+      <form method="post" action="/creator/dm/{{ peer_id }}/brief" data-brief-refresh>
+        {% include "_partials/csrf.html" %}
+        <button type="submit" class="babyg-guide-button" data-ask-babyg{% if not brief and not brief_message_id %} disabled aria-disabled="true" title="available after babyg receives a message"{% endif %}>
+          <span class="babyg-guide-dot" aria-hidden="true"></span>
+          babyg guide
+        </button>
+      </form>
+    </div>
+
     {% if messages %}
       {% include "_partials/dm_thread_messages.html" %}
     {% else %}
@@ -163,22 +173,9 @@
         </aside>
         {% endif %}
 
-        <div class="dm-brief-actions">
-          <form method="post" action="/creator/dm/{{ peer_id }}/brief" data-brief-refresh style="margin:0;">
-            {% include "_partials/csrf.html" %}
-            <button type="submit" class="btn btn-ghost btn-sm" data-ask-babyg>ask babyg to re-check</button>
-          </form>
-        </div>
         <p class="dm-brief-foot mono">private to you · drafts only · babyg never sends without you</p>
       </div>
     </details>
-  </section>
-  {% elif brief_message_id %}
-  <section class="dm-brief dm-brief-prompt" data-dm-brief aria-label="babyg brief">
-    <form method="post" action="/creator/dm/{{ peer_id }}/brief" data-brief-refresh style="margin:0;">
-      {% include "_partials/csrf.html" %}
-      <button type="submit" class="btn btn-ghost btn-sm" data-ask-babyg>ask babyg about this message</button>
-    </form>
   </section>
   {% endif %}
 

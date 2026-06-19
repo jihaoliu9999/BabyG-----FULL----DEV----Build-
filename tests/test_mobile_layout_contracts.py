@@ -115,3 +115,13 @@ def test_dm_composer_polish_keeps_controls_scoped_and_stable() -> None:
     body_end = DM_THREAD_TEMPLATE.index("  </div>\n\n  {% set high_risk")
     composer_position = DM_THREAD_TEMPLATE.index('class="dm-composer"')
     assert report_position < body_end < composer_position
+
+
+def test_babyg_guide_is_tap_friendly_and_replaces_old_dm_prompts() -> None:
+    guide_rule = APP_CSS.split(".babyg-guide-button {", 1)[1].split("}", 1)[0]
+    assert "min-height: 44px" in guide_rule
+    assert "data-brief-refresh" in DM_THREAD_TEMPLATE
+    assert "babyg guide" in DM_THREAD_TEMPLATE
+    assert "dm-brief-prompt" not in DM_THREAD_TEMPLATE
+    assert "ask babyg about this message" not in DM_THREAD_TEMPLATE
+    assert "ask babyg to re-check" not in DM_THREAD_TEMPLATE

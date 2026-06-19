@@ -862,6 +862,28 @@ def test_creator_profile_settings_google_states_are_scope_aware(
     assert "/creator/gmail/connect" not in response.text
 
 
+def test_connected_gmail_renders_babyg_guide_action(
+    monkeypatch, client: TestClient
+) -> None:
+    _signed_in(client, role="creator")
+    monkeypatch.setattr(creator_routes.profiles, "get_creator_profile", lambda uid: _profile())
+    monkeypatch.setattr(
+        creator_routes.oauth_connections,
+        "get_google_connection",
+        lambda uid: {"scopes": [google_calendar.GMAIL_READONLY_SCOPE]},
+    )
+    monkeypatch.setattr(creator_routes.google_calendar, "is_configured", lambda: True)
+
+    response = client.get("/creator/profile/settings")
+
+    assert response.status_code == 200
+    assert 'class="integration-card-actions"' in response.text
+    assert 'action="/creator/bot"' in response.text
+    assert "babyg guide" in response.text
+    assert "read my recent email threads" in response.text
+    assert 'action="/creator/google/gmail/disconnect"' in response.text
+
+
 # ---------------------------------------------------------------------------
 # Operational diagnostic: /creator/_debug/integrations
 # Exposes only booleans + resolved redirect URIs — never tokens / IDs /
