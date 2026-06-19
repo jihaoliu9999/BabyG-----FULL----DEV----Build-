@@ -12,13 +12,37 @@
 (function () {
   "use strict";
 
+  var composerInput = document.querySelector("[data-dm-composer-input]");
+  var composerSend = document.querySelector("[data-dm-send]");
+  var readingStatus = document.querySelector("[data-dm-brief-status]");
+  var readingStatusCopy = document.querySelector("[data-dm-brief-status-copy]");
+
+  function syncComposerState() {
+    if (composerInput && composerSend) {
+      composerSend.disabled = !composerInput.value.trim();
+    }
+  }
+
+  function setReading(isReading) {
+    if (!readingStatus || !readingStatusCopy) return;
+    readingStatus.classList.toggle("is-active", isReading);
+    readingStatusCopy.textContent = isReading ? "babyg is reading" : "";
+  }
+
+  if (composerInput) {
+    composerInput.addEventListener("input", syncComposerState);
+    composerInput.addEventListener("change", syncComposerState);
+    syncComposerState();
+  }
+
   document.addEventListener("click", function (e) {
     var useBtn = e.target.closest("[data-use-draft]");
     if (!useBtn) return;
-    var input = document.querySelector("[data-dm-composer-input]");
+    var input = composerInput;
     var draft = useBtn.getAttribute("data-draft") || "";
     if (draft && input) {
       input.value = draft.trim();
+      syncComposerState();
       input.focus();
     }
   });
@@ -30,8 +54,8 @@
     var btn = form.querySelector("[data-ask-babyg]");
     if (btn) {
       btn.disabled = true;
-      btn.textContent = "babyg is reading…";
     }
+    setReading(true);
     fetch(form.action, {
       method: "POST",
       body: new FormData(form),
@@ -50,6 +74,7 @@
         window.location.reload();
       })
       .catch(function () {
+        setReading(false);
         if (btn) {
           btn.disabled = false;
           btn.textContent = "try again";
@@ -70,9 +95,10 @@
       button.disabled = true;
     });
     if (resultEl) {
-      resultEl.hidden = false;
-      resultEl.textContent = "babyg is reading the thread...";
+      resultEl.hidden = true;
+      resultEl.textContent = "";
     }
+    setReading(true);
     fetch(form.action, {
       method: "POST",
       body: data,
@@ -87,6 +113,7 @@
       })
       .then(function (result) {
         if (!resultEl) return;
+        resultEl.hidden = false;
         resultEl.textContent = "";
         var title = document.createElement("strong");
         title.textContent = result.title || "babyg follow-up";
@@ -109,9 +136,13 @@
         }
       })
       .catch(function () {
-        if (resultEl) resultEl.textContent = "babyg could not complete that review. try again shortly.";
+        if (resultEl) {
+          resultEl.hidden = false;
+          resultEl.textContent = "babyg could not complete that review. try again shortly.";
+        }
       })
       .then(function () {
+        setReading(false);
         Array.prototype.forEach.call(form.querySelectorAll("button"), function (button) {
           button.disabled = false;
         });
