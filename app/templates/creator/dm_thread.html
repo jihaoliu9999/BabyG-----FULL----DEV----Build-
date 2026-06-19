@@ -34,6 +34,14 @@
         <p class="mono" style="font-size:11px;">start of your conversation.</p>
       </div>
     {% endif %}
+
+    <div class="dm-thread-report">
+      {% set target_type = "dm_thread" %}
+      {% set target_id = thread.id %}
+      {% set return_to = "/creator/dm/" ~ peer_id %}
+      {% set label = "this conversation" %}
+      {% include "_partials/report_form.html" %}
+    </div>
   </div>
 
   {% set high_risk = ["suspicious_identity", "unsafe_meetup", "adult_minor_risk", "scam_phishing", "payment_risk", "legal_contract_review", "inappropriate"] %}
@@ -166,7 +174,7 @@
     </details>
   </section>
   {% elif brief_message_id %}
-  <section class="dm-brief" data-dm-brief aria-label="babyg brief">
+  <section class="dm-brief dm-brief-prompt" data-dm-brief aria-label="babyg brief">
     <form method="post" action="/creator/dm/{{ peer_id }}/brief" data-brief-refresh style="margin:0;">
       {% include "_partials/csrf.html" %}
       <button type="submit" class="btn btn-ghost btn-sm" data-ask-babyg>ask babyg about this message</button>
@@ -177,20 +185,18 @@
   <div class="dm-composer">
     <form method="post" action="/creator/dm/{{ peer_id }}/send">
       {% include "_partials/csrf.html" %}
+      <div class="dm-composer-status" data-dm-brief-status aria-live="polite" aria-atomic="true">
+        <span class="dm-composer-status-dot" aria-hidden="true"></span>
+        <span data-dm-brief-status-copy></span>
+      </div>
       <div class="box">
         <input name="body" data-dm-composer-input required maxlength="4000" placeholder="reply…" />
-        <button type="submit" class="send" aria-label="send">
+        <button type="submit" class="send" aria-label="send" data-dm-send>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg>
         </button>
       </div>
     </form>
   </div>
-
-  {% set target_type = "dm_thread" %}
-  {% set target_id = thread.id %}
-  {% set return_to = "/creator/dm/" ~ peer_id %}
-  {% set label = "this conversation" %}
-  {% include "_partials/report_form.html" %}
 </section>
 {% endblock %}
 

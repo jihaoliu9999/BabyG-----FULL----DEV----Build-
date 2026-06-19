@@ -7,6 +7,10 @@ from pathlib import Path
 ROOT = Path(__file__).parents[1]
 APP_CSS = (ROOT / "app/static/css/app.css").read_text(encoding="utf-8")
 BOT_JS = (ROOT / "app/static/js/bot.js").read_text(encoding="utf-8")
+DM_BRIEFS_JS = (ROOT / "app/static/js/dm_briefs.js").read_text(encoding="utf-8")
+DM_THREAD_TEMPLATE = (ROOT / "app/templates/creator/dm_thread.html").read_text(
+    encoding="utf-8"
+)
 MOTION_JS = (ROOT / "app/static/js/motion.js").read_text(encoding="utf-8")
 
 
@@ -90,3 +94,24 @@ def test_chat_keyboard_composer_drops_safe_area_padding() -> None:
     assert "padding-bottom: 2px" in keyboard_open_rule
     # No safe-area-inset-bottom involvement when keyboard is up.
     assert "safe-area-inset-bottom" not in keyboard_open_rule
+
+
+def test_dm_composer_polish_keeps_controls_scoped_and_stable() -> None:
+    status_rule = APP_CSS.split(
+        ".is-creator-app .dm-composer-status {", 1
+    )[1].split("}", 1)[0]
+    assert "min-height: 18px" in status_rule
+    assert "visibility: hidden" in status_rule
+    assert "data-dm-brief-status" in DM_THREAD_TEMPLATE
+    assert '"babyg is reading"' in DM_BRIEFS_JS
+    assert "babyg is reading…" not in DM_BRIEFS_JS
+
+    assert "composerSend.disabled = !composerInput.value.trim()" in DM_BRIEFS_JS
+    assert "data-dm-send" in DM_THREAD_TEMPLATE
+    assert ".is-creator-app.is-dm-thread #view" in APP_CSS
+    assert "var(--tabbar-h) - 12px" in APP_CSS
+
+    report_position = DM_THREAD_TEMPLATE.index('class="dm-thread-report"')
+    body_end = DM_THREAD_TEMPLATE.index("  </div>\n\n  {% set high_risk")
+    composer_position = DM_THREAD_TEMPLATE.index('class="dm-composer"')
+    assert report_position < body_end < composer_position
