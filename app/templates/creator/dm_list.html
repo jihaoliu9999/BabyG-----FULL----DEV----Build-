@@ -3,13 +3,19 @@
 {% block title %}inbox — babyg{% endblock %}
 
 {% block content %}
-<div class="wrap">
-  <div class="page-header">
-    <div class="title-block">
-      <span class="mono eyebrow">messages</span>
-      <p class="sub">connected creators only.</p>
+<div class="wrap creator-inbox-page">
+  <header class="creator-screen-topbar">
+    <div class="creator-screen-title">
+      <span class="creator-screen-mark" aria-hidden="true"><img src="/static/assets/logo-bg.png" alt="" /></span>
+      <div>
+        <h1>DMs</h1>
+        <p>babyg briefs every new conversation</p>
+      </div>
     </div>
-  </div>
+    <a class="creator-screen-action" href="/creator/network" aria-label="Start a new conversation">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg>
+    </a>
+  </header>
 
   {% if threads %}
   <div class="stack">
@@ -18,7 +24,7 @@
     {% set kind = peer_kinds.get(t.peer_id, "unknown") %}
     {% set peer_name = peer.full_name if peer and peer.full_name else (peer.instagram_handle if peer and peer.instagram_handle else 'Creator') %}
     {% set peer_initial = peer_name[0].upper() %}
-    <a href="/creator/dm/{{ t.peer_id }}" class="thread-row">
+    <a href="/creator/dm/{{ t.peer_id }}" class="thread-row{{ ' unread' if t.unread_count|default(0) }}">
       {% set creator = peer %}{% set palette = "1" %}{% set size = "" %}{% include "_partials/_avatar.html" %}
       <div class="body">
         <div class="top">

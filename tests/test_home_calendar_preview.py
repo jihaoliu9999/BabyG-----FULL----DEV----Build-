@@ -15,6 +15,7 @@ Service calls are stubbed so tests never hit Supabase.
 
 from __future__ import annotations
 
+from datetime import date
 from typing import Any
 
 import pytest
@@ -23,6 +24,7 @@ from fastapi.testclient import TestClient
 
 from app.core.security import SESSION_COOKIE, write_session
 from app.main import app
+from app.routes import creator as creator_routes
 from app.services import (
     bookings as bookings_module,
 )
@@ -113,6 +115,20 @@ def test_home_renders_today_section_when_calendar_not_connected(
     assert "today's calls" in r.text.lower()
     # "view calendar" link is always present so the user can dig in.
     assert "/creator/calendar" in r.text
+    assert 'aria-label="next five days"' in r.text
+    assert 'aria-current="date"' in r.text
+    assert "<strong>now</strong>" not in r.text
+
+
+def test_calendar_preview_days_are_real_and_consecutive() -> None:
+    days = creator_routes._calendar_preview_days(date(2026, 6, 29))
+    assert days == [
+        {"weekday": "Mon", "day": 29, "is_today": True},
+        {"weekday": "Tue", "day": 30, "is_today": False},
+        {"weekday": "Wed", "day": 1, "is_today": False},
+        {"weekday": "Thu", "day": 2, "is_today": False},
+        {"weekday": "Fri", "day": 3, "is_today": False},
+    ]
 
 
 def test_home_renders_upcoming_events_when_present(
@@ -138,6 +154,8 @@ def test_home_renders_upcoming_events_when_present(
     assert r.status_code == 200
     assert "Brand intro call" in r.text
     assert "Studio shoot" in r.text
+    assert 'href="/creator/calendar/b-1"' in r.text
+    assert "up next" in r.text.lower()
     # The connect-calendar prompt must not also appear once connected.
     assert "connect calendar" not in r.text.lower()
 

@@ -10,7 +10,7 @@ in the full design but were removed when brand was deferred to v1.5
 from __future__ import annotations
 
 import re
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any
 
 from fastapi import (
@@ -96,6 +96,19 @@ PROFILE_CHIP_OPTIONS = {
 }
 
 
+def _calendar_preview_days(today: date | None = None) -> list[dict[str, Any]]:
+    """Return the real five-day strip used by Creator Home."""
+    start = today or date.today()
+    return [
+        {
+            "weekday": (start + timedelta(days=offset)).strftime("%a"),
+            "day": (start + timedelta(days=offset)).day,
+            "is_today": offset == 0,
+        }
+        for offset in range(5)
+    ]
+
+
 @router.get("/creator", response_class=HTMLResponse)
 async def dashboard(
     request: Request,
@@ -151,6 +164,7 @@ async def dashboard(
             "unread_dms": unread_dms,
             "upcoming_bookings": upcoming_bookings,
             "calendar_connected": calendar_connected,
+            "calendar_days": _calendar_preview_days(),
         },
     )
 
