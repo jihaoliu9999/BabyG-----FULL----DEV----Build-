@@ -67,3 +67,26 @@ def test_tabbar_extends_dark_backdrop_below_bottom_edge() -> None:
     is present inside it."""
     rule = APP_CSS.split("\n.app-tabbar {", 1)[1].split("}", 1)[0]
     assert "box-shadow: 0 200px 0 0" in rule
+
+
+def test_in_app_shell_background_is_darker_than_tabbar_blur() -> None:
+    """The body background visible below the tabbar must be at least as
+    dark as the tabbar's blurred tone (~rgb(8,8,8)). Otherwise the body
+    shows through as a brighter band and reads as a stray gap during
+    tab navigation. In-app shells use --jet (#050505) so any visible
+    area below the tabbar recedes instead of contrasting."""
+    assert ".app-shell:not(.is-marketing)," in APP_CSS
+    assert ".operator-shell { background: var(--jet); }" in APP_CSS
+
+
+def test_chat_keyboard_composer_drops_safe_area_padding() -> None:
+    """When the keyboard is open, the iOS home-indicator safe-area is
+    already covered by the keyboard, so the composer must collapse its
+    bottom padding to a hairline. Anything bigger reads as the gap the
+    screenshot showed."""
+    keyboard_open_rule = APP_CSS.split(
+        ".is-chat.chat-keyboard-open .bot-composer {", 1
+    )[1].split("}", 1)[0]
+    assert "padding-bottom: 2px" in keyboard_open_rule
+    # No safe-area-inset-bottom involvement when keyboard is up.
+    assert "safe-area-inset-bottom" not in keyboard_open_rule
