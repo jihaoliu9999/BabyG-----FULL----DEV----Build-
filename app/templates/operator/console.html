@@ -4,13 +4,13 @@
 
 {% block content %}
 <section class="op">
-  <header class="op-header op-dashboard-header">
+  <header class="op-header op-dashboard-header op-command-head">
     <div>
-      <div class="auth-tag">workspace / operations</div>
-      <h1 class="op-title">operator console</h1>
-      <p class="op-sub">publish intel, review reports, and keep creator operations moving.</p>
+      <div class="auth-tag">mission control / live</div>
+      <h1 class="op-title">command center</h1>
+      <p class="op-sub">Publish intel, review trust signals, and keep creator operations moving.</p>
     </div>
-    <a class="btn btn-primary" href="/operator/intel/new">new Hot Drop</a>
+    <div class="op-command-actions"><span class="op-system-chip"><span></span> systems nominal</span><a class="btn btn-primary" href="/operator/intel/new">new Hot Drop</a></div>
   </header>
 
   <section class="op-metrics" aria-label="Operational metrics">
@@ -37,15 +37,17 @@
     </a>
   </section>
 
+  <div class="op-console-layout">
+  <section class="op-command-panel">
   <div class="op-section-heading">
     <div>
-      <span class="auth-tag">workspaces</span>
-      <h2>operations</h2>
+      <span class="auth-tag">queues</span>
+      <h2>Operations</h2>
     </div>
     <span>choose a queue</span>
   </div>
 
-  <div class="op-grid">
+  <div class="op-grid op-command-grid">
     <a class="op-card" href="/operator/intel">
       <div class="op-card-index">01</div>
       <div class="op-card-tag">Hot Drops</div>
@@ -96,8 +98,9 @@
       <div class="op-card-cta">view audit <span aria-hidden="true">&rarr;</span></div>
     </a>
   </div>
+  </section>
 
-  <section class="op-activity" aria-labelledby="recent-activity-title">
+  <section class="op-activity op-command-activity" aria-labelledby="recent-activity-title">
     <div class="op-section-heading">
       <div>
         <span class="auth-tag">audit preview</span>
@@ -122,5 +125,6 @@
     </div>
     {% endif %}
   </section>
+  </div>
 </section>
 {% endblock %}
