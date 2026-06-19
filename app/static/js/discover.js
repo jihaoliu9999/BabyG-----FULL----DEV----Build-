@@ -36,7 +36,7 @@
     var action = root.querySelector("[data-primary-action]");
     var label = root.querySelector("[data-primary-label]");
     if (action) action.value = kind === "opportunity" ? "interested" : "connected";
-    if (label) label.textContent = kind === "opportunity" ? "i'm interested" : (kind === "brand" ? "say hi" : "connect");
+    if (label) label.textContent = kind === "opportunity" ? "i'm interested" : "connect";
     if (count) count.textContent = String(cards.length - index);
   }
 
