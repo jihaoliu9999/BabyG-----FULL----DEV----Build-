@@ -2857,11 +2857,21 @@ h1, h2, h3, h4 {
 }
 .bot-composer .box {
   display: flex; gap: 8px;
-  background: transparent;
-  border: none;
+  /* Soft, defined field — a gentle surface fill and a translucent
+     hairline, not the heavy dark outline. align-items:center keeps the
+     resting single-line placeholder vertically centered; as the textarea
+     grows the row stays balanced against the send button. */
+  background: var(--surface-2);
+  border: 1px solid rgba(255,255,255,0.08);
   border-radius: 22px;
-  padding: 8px 8px 8px 16px;
-  align-items: flex-end;
+  padding: 6px 6px 6px 16px;
+  align-items: center;
+  box-shadow: inset 0 1px rgba(255,255,255,0.025);
+  transition: border-color 160ms ease, box-shadow 160ms ease;
+}
+.bot-composer .box:focus-within {
+  border-color: rgba(255,77,109,0.34);
+  box-shadow: 0 0 0 3px rgba(255,77,109,0.07), inset 0 1px rgba(255,255,255,0.035);
 }
 .bot-composer textarea {
   flex: 1;
@@ -2872,11 +2882,11 @@ h1, h2, h3, h4 {
      refocuses the textarea after every send to keep the keyboard up —
      a sub-16 value re-triggers zoom on every message. Don't drop this. */
   font-size: 16px;
-  line-height: 1.45;
+  line-height: 1.4;
   resize: none;
-  padding: 8px 0;
+  padding: 6px 0;
   max-height: 100px;
-  min-height: 24px;
+  min-height: 22px;
   font-family: inherit;
 }
 .bot-composer textarea::placeholder { color: var(--ink-dim); }
