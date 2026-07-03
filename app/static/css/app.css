@@ -2863,8 +2863,11 @@ h1, h2, h3, h4 {
      grows the row stays balanced against the send button. */
   background: var(--surface-2);
   border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 22px;
-  padding: 6px 6px 6px 16px;
+  border-radius: 24px;
+  /* Extra left inset + a guaranteed min-height so the centered placeholder
+     always keeps clear air from the rounded border and the focus accent. */
+  padding: 6px 6px 6px 20px;
+  min-height: 52px;
   align-items: center;
   box-shadow: inset 0 1px rgba(255,255,255,0.025);
   transition: border-color 160ms ease, box-shadow 160ms ease;
@@ -2884,7 +2887,7 @@ h1, h2, h3, h4 {
   font-size: 16px;
   line-height: 1.4;
   resize: none;
-  padding: 6px 0;
+  padding: 4px 0;
   max-height: 100px;
   min-height: 22px;
   font-family: inherit;
@@ -7418,6 +7421,87 @@ hr.hairline {
 .is-creator-app .creator-inbox-page { width: min(100%, 760px); }
 .is-creator-app .creator-inbox-page .stack { gap: 8px; }
 .is-creator-app .creator-inbox-page .thread-row { min-height: 72px; padding: 12px 14px; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--surface-1); box-shadow: var(--shadow-card); }
+
+/* Notifications — card rows on the shared 760px inbox column. Scoped to
+   .creator-notifs-page so nothing here touches DMs / other inbox pages. */
+.is-creator-app .creator-notifs-page .notif-readall-form { margin: 0; flex-shrink: 0; }
+.is-creator-app .creator-notifs-page .notif-readall {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 9px 13px;
+  color: var(--ink-mid);
+  border: 1px solid var(--border-default);
+  border-radius: 999px;
+  background: var(--surface-2);
+  font-size: 12px; font-weight: 500;
+  white-space: nowrap; cursor: pointer;
+  transition: color 160ms ease, border-color 160ms ease, background-color 160ms ease;
+}
+.is-creator-app .creator-notifs-page .notif-readall svg { width: 14px; height: 14px; }
+.is-creator-app .creator-notifs-page .notif-readall:hover { color: var(--ink); border-color: rgba(255,77,109,.4); background: var(--surface-3); }
+.is-creator-app .creator-notifs-page .notif-readall:active { transform: scale(.97); }
+
+.is-creator-app .creator-notifs-page .notif-stack { display: flex; flex-direction: column; gap: 8px; }
+.is-creator-app .creator-notifs-page .notif-form { margin: 0; }
+.is-creator-app .creator-notifs-page .notif-row {
+  width: 100%;
+  display: flex; align-items: flex-start; gap: 12px;
+  text-align: left;
+  padding: 14px;
+  color: inherit;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+  box-shadow: var(--shadow-card);
+  cursor: pointer;
+  transition: border-color 160ms ease, background-color 160ms ease, transform 120ms ease;
+}
+.is-creator-app .creator-notifs-page .notif-row:hover { border-color: var(--border-default); background: var(--surface-2); }
+.is-creator-app .creator-notifs-page .notif-row:active { transform: scale(.995); }
+.is-creator-app .creator-notifs-page .notif-row.unread {
+  border-color: rgba(255,77,109,.26);
+  background: linear-gradient(0deg, rgba(255,77,109,.05), rgba(255,77,109,.05)), var(--surface-1);
+}
+
+.is-creator-app .creator-notifs-page .notif-icon {
+  flex: 0 0 34px; width: 34px; height: 34px;
+  display: grid; place-items: center;
+  color: var(--ink-mid);
+  border: 1px solid var(--border-subtle);
+  border-radius: 11px;
+  background: var(--surface-2);
+}
+.is-creator-app .creator-notifs-page .notif-icon svg { width: 17px; height: 17px; }
+.is-creator-app .creator-notifs-page .notif-row.unread .notif-icon {
+  color: var(--accent);
+  border-color: rgba(255,77,109,.3);
+  background: rgba(255,77,109,.09);
+}
+
+.is-creator-app .creator-notifs-page .notif-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.is-creator-app .creator-notifs-page .notif-meta {
+  display: flex; align-items: center; gap: 6px;
+  font-family: var(--mono); font-size: 10.5px;
+  letter-spacing: .05em; text-transform: uppercase;
+  color: var(--text-tertiary);
+}
+.is-creator-app .creator-notifs-page .notif-sep { color: var(--ink-faint); }
+.is-creator-app .creator-notifs-page .notif-when { color: var(--ink-faint); }
+.is-creator-app .creator-notifs-page .notif-row.unread .notif-kind { color: var(--accent); }
+.is-creator-app .creator-notifs-page .notif-title { font-size: 14.5px; font-weight: 550; line-height: 1.35; color: var(--ink); overflow-wrap: anywhere; }
+.is-creator-app .creator-notifs-page .notif-preview { font-size: 13px; line-height: 1.45; color: var(--ink-mid); overflow-wrap: anywhere; }
+.is-creator-app .creator-notifs-page .notif-dot {
+  flex: 0 0 auto; width: 8px; height: 8px; margin-top: 6px;
+  border-radius: 50%; background: var(--accent);
+  box-shadow: 0 0 0 3px rgba(255,77,109,.12);
+}
+
+.is-creator-app .creator-notifs-page .notif-empty { text-align: center; padding: 64px 0; color: var(--ink-dim); }
+.is-creator-app .creator-notifs-page .notif-empty p { margin: 12px 0 0; font-size: 13.5px; }
+@media (max-width: 430px) {
+  /* Collapse "mark all read" to its icon so it never crowds the title. */
+  .is-creator-app .creator-notifs-page .notif-readall { gap: 0; padding: 10px; }
+  .is-creator-app .creator-notifs-page .notif-readall span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}
 .is-creator-app .creator-babyg-topbar { margin: 0; padding: max(14px, env(safe-area-inset-top)) 16px 12px; border-bottom: none; background: transparent; }
 @media (max-width: 430px) {
   .is-creator-app .creator-babyg-topbar { justify-content: center; padding-inline: 12px; }
