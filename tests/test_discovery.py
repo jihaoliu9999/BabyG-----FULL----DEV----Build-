@@ -597,9 +597,14 @@ def test_profile_view_records_opened_profile_action(world, client):
 def test_pass_then_undo_restores_creator_to_stack(world):
     world.add_creator(user_id="c-1")
     world.add_creator(user_id="c-2", full_name="Second Chance")
+    # Relative dates inside the 30-day cooldown window; a fixed calendar
+    # date would eventually age past PASSED_COOLDOWN_DAYS and flip the
+    # exclusion assertion. The undo stays newer than the pass.
+    passed_at = (datetime.now(UTC) - timedelta(days=2)).isoformat()
+    undo_at = (datetime.now(UTC) - timedelta(days=1)).isoformat()
     world.add_action(
         user_id="c-1", target="c-2", action="passed",
-        created_at="2026-06-01T00:00:00Z",
+        created_at=passed_at,
     )
     # Passed -> excluded.
     assert all(
@@ -608,7 +613,7 @@ def test_pass_then_undo_restores_creator_to_stack(world):
     # Undo (newer than the pass) -> restored.
     world.add_action(
         user_id="c-1", target="c-2", action="undo_pass",
-        created_at="2026-06-02T00:00:00Z",
+        created_at=undo_at,
     )
     assert any(
         c["user_id"] == "c-2" for c in discovery_module.next_stack_for("c-1")
