@@ -1637,6 +1637,18 @@
     min-height: 0;
   }
   .lp .navlinks { display: none; }
+  .lp .nav {
+    display: flex;
+    justify-content: center;
+    gap: clamp(10px, 3vw, 18px);
+  }
+  .lp .brand,
+  .lp .nav-right {
+    justify-self: auto;
+  }
+  .lp .brand {
+    flex: 0 0 auto;
+  }
   .lp .nav-right .lp-btn-ghost { display: none; }
   /* Two side-by-side buttons in nav-right need a tighter footprint at
      narrow widths so they don't crowd the brand mark. Keeps the visual
@@ -1648,6 +1660,18 @@
 }
 
 @media (max-width: 600px) {
+  .lp .site-header .wrap-wide {
+    padding-inline: 14px;
+  }
+  .lp .nav {
+    gap: clamp(8px, 2.6vw, 12px);
+  }
+  .lp .brand {
+    gap: 9px;
+  }
+  .lp .nav-right .lp-btn {
+    padding-inline: 12px;
+  }
   .lp .lp-hero {
     padding: 126px 0 92px;
   }
