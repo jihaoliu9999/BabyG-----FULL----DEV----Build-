@@ -2866,9 +2866,10 @@ h1, h2, h3, h4 {
   background: linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.02));
   border: 1px solid rgba(255,255,255,0.07);
   border-radius: 26px;
-  /* Extra left inset + a guaranteed min-height so the centered placeholder
-     always keeps clear air from the rounded border and the accent. */
-  padding: 6px 6px 6px 28px;
+  /* The horizontal inset now lives on the textarea itself (below) so the
+     placeholder/text is guaranteed to clear the pill edge; the box keeps a
+     small symmetric pad plus min-height for vertical centering. */
+  padding: 6px 6px 6px 10px;
   min-height: 52px;
   align-items: center;
   box-shadow: inset 0 1px rgba(255,255,255,0.04);
@@ -2890,7 +2891,9 @@ h1, h2, h3, h4 {
   font-size: 16px;
   line-height: 1.4;
   resize: none;
-  padding: 4px 0;
+  /* Left inset carried here so placeholder + typed text always clear the
+     pill edge/accent; small right pad keeps long text off the send button. */
+  padding: 4px 4px 4px 20px;
   max-height: 100px;
   min-height: 22px;
   font-family: inherit;
