@@ -10,7 +10,6 @@
     <div class="creator-home-lockup">
       <span class="creator-screen-mark" aria-hidden="true"><img src="/static/assets/logo-bg.png" alt="" /></span>
       <div>
-        <span class="creator-home-kicker">your day with babyg</span>
         <h1>good to see you, {{ first_name }}.</h1>
         <p>{% if needs_count %}{{ needs_count }} {{ 'thing needs' if needs_count == 1 else 'things need' }} you today{% else %}nothing urgent needs you right now{% endif %}</p>
       </div>
@@ -132,7 +131,7 @@
 
   <section class="creator-home-section creator-hot-drops" aria-labelledby="hot-drops-title">
     <div class="creator-section-head">
-      <div><h2 id="hot-drops-title">Hot Drops</h2><span>worth knowing now</span></div>
+      <div><h2 id="hot-drops-title">Hot Drops</h2></div>
       <span>curated for your work</span>
     </div>
     <nav class="creator-hot-drop-filters" aria-label="Hot Drop categories">
