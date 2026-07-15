@@ -23,7 +23,9 @@ from app.config import get_settings
 from app.core.templating import templates
 from app.routes import abuse as abuse_routes
 from app.routes import auth as auth_routes
+from app.routes import brand as brand_routes
 from app.routes import creator as creator_routes
+from app.routes import discover as discover_routes
 from app.routes import legal as legal_routes
 from app.routes import marketing as marketing_routes
 from app.routes import onboarding as onboarding_routes
@@ -36,7 +38,15 @@ STATIC_DIR = Path(__file__).resolve().parent / "static"
 def create_app() -> FastAPI:
     settings = get_settings()
     _assert_session_secret(settings)
+    _assert_app_url(settings)
     _configure_logging(settings)
+    # Surface migration drift between repo files and the Supabase
+    # registry. Logs WARN on drift by default; fails the boot when
+    # STRICT_MIGRATION_CHECK=1. Skipped in env=dev. Never crashes on
+    # transient Supabase errors — see app/core/migration_check.py.
+    from app.core.migration_check import assert_migrations_applied
+
+    assert_migrations_applied(settings)
     app = FastAPI(
         title="babyg",
         version="0.1.0",
@@ -66,6 +76,8 @@ def create_app() -> FastAPI:
     app.include_router(auth_routes.router)
     app.include_router(onboarding_routes.router)
     app.include_router(creator_routes.router)
+    app.include_router(discover_routes.router)
+    app.include_router(brand_routes.router)
     app.include_router(operator_routes.router)
     app.include_router(abuse_routes.router)
     app.include_router(legal_routes.router)
@@ -267,6 +279,43 @@ def _assert_session_secret(settings) -> None:
         )
 
 
+def _assert_app_url(settings) -> None:
+    """Refuse to boot in staging/production with a misconfigured APP_URL.
+
+    Magic-link auth builds the callback as `{APP_URL}/auth/callback` and
+    Supabase will only accept the redirect if its allow-list matches
+    exactly. A wrong scheme, a localhost leak, or an empty value breaks
+    every signup silently — users click the link and land on a
+    redirect_uri error from Supabase, not on babyg. Catch it at boot.
+    Local `dev` keeps the http://localhost default.
+    """
+    from urllib.parse import urlsplit
+
+    url = (settings.app_url or "").strip()
+    if settings.env == "dev":
+        return
+    if not url:
+        raise RuntimeError(
+            f"APP_URL is unset in env={settings.env}. "
+            "Set it to the canonical https origin Supabase Auth is configured to redirect to."
+        )
+    try:
+        parts = urlsplit(url)
+    except ValueError as exc:
+        raise RuntimeError(f"APP_URL is not a valid URL in env={settings.env}: {exc}") from exc
+    if parts.scheme != "https":
+        raise RuntimeError(
+            f"APP_URL must use https in env={settings.env}, got scheme={parts.scheme!r}. "
+            "Magic-link callbacks fail without TLS."
+        )
+    host = (parts.hostname or "").lower()
+    if not host or host in {"localhost", "127.0.0.1", "::1"}:
+        raise RuntimeError(
+            f"APP_URL points at {host!r} in env={settings.env}. "
+            "Use the public hostname Supabase Auth is configured to redirect to."
+        )
+
+
 def _origin(url: str) -> str:
     """Return scheme://host[:port] from a URL, or "" if unparseable."""
     if not url:
@@ -290,8 +339,10 @@ def _wants_html(request: Request) -> bool:
 
 
 def _role_hint_from_path(path: str) -> str:
-    if path.startswith("/operator"):
+    if path.startswith("/operator") or path.startswith("/onboarding/operator"):
         return "operator"
+    if path.startswith("/brand") or path.startswith("/onboarding/brand"):
+        return "brand"
     return "creator"
 
 

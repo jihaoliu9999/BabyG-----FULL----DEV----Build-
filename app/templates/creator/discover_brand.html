@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}brand · discover · babyg{% endblock %}
+
+{% block content %}
+<section class="discover-detail">
+  <a class="back-link" href="/creator/discover?kind=brand">← discover</a>
+
+  <article class="discover-detail-card">
+    <div class="discover-card-topline">
+      <span class="discover-card-kind">brand</span>
+      {% if card.trust %}
+      <span class="discover-trust trust-{{ card.trust.tone }}">{{ card.trust.label }}</span>
+      {% endif %}
+    </div>
+
+    <div class="discover-identity">
+      <div class="discover-avatar">
+        {% if card.image_url %}<img src="{{ card.image_url|safe_url }}" alt="" />{% else %}<span>{{ (card.title or 'B')[0].upper() }}</span>{% endif %}
+      </div>
+      <div>
+        <h1>{{ card.title }}</h1>
+        {% if card.subtitle %}<p>{{ card.subtitle }}</p>{% endif %}
+      </div>
+    </div>
+
+    <dl class="discover-facts">
+      {% if card.location_label %}<div><dt>location</dt><dd>{{ card.location_label }}</dd></div>{% endif %}
+      {% if card.tags %}<div><dt>focus</dt><dd>{{ card.tags[:2]|join(', ') }}</dd></div>{% endif %}
+    </dl>
+
+    <div class="discover-relevance">
+      <span>why this is relevant</span>
+      <p>{{ card.why_relevant }}</p>
+    </div>
+
+    {% if card.trust and card.trust.status not in ['verified', 'likely_legitimate'] %}
+    <div class="discover-trust-note trust-{{ card.trust.tone }}">
+      {{ card.trust.summary }}
+    </div>
+    {% endif %}
+
+    <form method="post" action="/creator/discover/swipe" class="discover-detail-actions">
+      {% include "_partials/csrf.html" %}
+      <input type="hidden" name="target_kind" value="{{ card.card_kind }}" />
+      <input type="hidden" name="target_card_id" value="{{ card.card_id }}" />
+      <input type="hidden" name="action" value="connected" />
+      <input type="hidden" name="kind" value="brand" />
+      <button type="submit" class="btn btn-lime">say hi</button>
+    </form>
+  </article>
+</section>
+{% endblock %}

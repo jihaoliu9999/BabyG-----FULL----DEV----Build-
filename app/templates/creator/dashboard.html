@@ -1,84 +1,171 @@
 {% extends "base.html" %}
 
-{% block title %}feed — babyg{% endblock %}
+{% block title %}home - babyg{% endblock %}
 
 {% block content %}
-<div class="wrap">
-  <div class="page-header">
-    <div class="title-block">
-      <span class="mono eyebrow">welcome back, {{ (profile.full_name or 'creator').split(' ')[0].lower() if profile is defined and profile is not none else 'creator' }}</span>
-      <p class="sub">things worth your attention.</p>
+{% set first_name = (profile.full_name or 'creator').split(' ')[0].lower() if profile is defined and profile is not none else 'creator' %}
+{% set needs_count = (unread_total or 0) + (unread_dms or 0) + (1 if upcoming_bookings else 0) %}
+<main class="creator-home wrap">
+  <header class="creator-home-hero">
+    <div class="creator-home-lockup">
+      <span class="creator-screen-mark" aria-hidden="true"><img src="/static/assets/logo-bg.png" alt="" /></span>
+      <div>
+        <h1>good to see you, {{ first_name }}.</h1>
+        <p>{% if needs_count %}{{ needs_count }} {{ 'thing needs' if needs_count == 1 else 'things need' }} you today{% else %}nothing urgent needs you right now{% endif %}</p>
+      </div>
     </div>
-    <div class="actions">
-      <a href="/creator/notifications" class="btn btn-ghost btn-sm">alerts · {{ unread_total or 0 }}</a>
-      <a href="/creator/bot" class="btn btn-lime btn-sm">ask babyg
-        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 9L9 3M9 3H4M9 3V8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <div class="creator-home-hero-actions">
+      <a href="/creator/calendar" class="creator-icon-action" aria-label="open calendar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+      </a>
+      <a href="/creator/notifications" class="creator-icon-action" aria-label="open notifications">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 8a6 6 0 0112 0c0 6 3 9 3 9H3s3-2 3-9M10 21a2 2 0 004 0"/></svg>
+        {% if unread_total %}<span class="creator-action-dot" aria-hidden="true"></span>{% endif %}
       </a>
     </div>
-  </div>
+  </header>
 
-  <div class="stat-row" style="margin-bottom:22px;">
-    <a href="/creator/dm" class="stat-card"><span class="l">inbox</span><span class="v">{{ unread_dms or 0 }}</span></a>
-    <a href="/creator/notifications" class="stat-card {{ 'alert' if unread_total and unread_total > 0 }}"><span class="l">needs you</span><span class="v">{{ unread_total or 0 }}</span></a>
-  </div>
-
-  {% if unread_total and unread_total > 0 and unread_notifs %}
-  <div class="attention-strip">
-    <div class="top">
-      <span class="l">{{ unread_total }} unread · needs you</span>
-      <a href="/creator/notifications" class="r">open all</a>
+  <section class="creator-home-section" aria-labelledby="needs-you-title">
+    <div class="creator-section-head">
+      <div><h2 id="needs-you-title">Needs you</h2><span>action required</span></div>
+      {% if needs_count %}<span class="creator-count-chip">{{ needs_count }}</span>{% else %}<span class="trust-chip trust-chip-safe">all clear</span>{% endif %}
     </div>
-    {% set n = unread_notifs[0] %}
-    <p>{{ n.title }}{% if n.body %} — {{ n.body[:120] }}{% if n.body|length > 120 %}…{% endif %}{% endif %}</p>
-  </div>
-  {% endif %}
+    <div class="creator-action-card">
+      {% if unread_dms %}
+      <a href="/creator/dm" class="creator-action-row">
+        <span class="creator-row-icon creator-row-icon-accent" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a4 4 0 01-4 4H8l-5 3V7a4 4 0 014-4h10a4 4 0 014 4z"/></svg>
+        </span>
+        <span class="creator-row-copy"><strong>{{ unread_dms }} unread {{ 'message' if unread_dms == 1 else 'messages' }}</strong><small>Open your inbox and keep conversations moving.</small></span>
+        <span class="trust-chip trust-chip-caution">reply</span>
+        <span class="creator-row-chevron" aria-hidden="true">&#8250;</span>
+      </a>
+      {% endif %}
+      {% if upcoming_bookings %}
+      {% set next_booking = upcoming_bookings[0] %}
+      <a href="/creator/calendar/{{ next_booking.id }}" class="creator-action-row">
+        <span class="creator-row-icon creator-row-icon-safe" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+        </span>
+        <span class="creator-row-copy"><strong>{{ next_booking.title }}</strong><small>{{ next_booking.starts_at[:16].replace('T', ' · ') if next_booking.starts_at else 'Time to be confirmed' }}{% if next_booking.venue_name %} · {{ next_booking.venue_name }}{% endif %}</small></span>
+        <span class="trust-chip trust-chip-safe">up next</span>
+        <span class="creator-row-chevron" aria-hidden="true">&#8250;</span>
+      </a>
+      {% endif %}
+      {% for n in unread_notifs[:3] %}
+      <a href="/creator/notifications" class="creator-action-row">
+        <span class="creator-row-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v2m0 14v2M3 12h2m14 0h2M5.6 5.6L7 7m10 10 1.4 1.4M18.4 5.6L17 7M7 17l-1.4 1.4"/><circle cx="12" cy="12" r="4"/></svg>
+        </span>
+        <span class="creator-row-copy"><strong>{{ n.title }}</strong><small>{{ (n.body or 'Open the alert for the latest details.')[:110] }}</small></span>
+        <span class="trust-chip trust-chip-neutral">new</span>
+        <span class="creator-row-chevron" aria-hidden="true">&#8250;</span>
+      </a>
+      {% endfor %}
+      {% if unread_total and not unread_notifs %}
+      <a href="/creator/notifications" class="creator-action-row">
+        <span class="creator-row-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 8a6 6 0 0112 0c0 6 3 9 3 9H3s3-2 3-9M10 21a2 2 0 004 0"/></svg>
+        </span>
+        <span class="creator-row-copy"><strong>{{ unread_total }} unread {{ 'alert' if unread_total == 1 else 'alerts' }}</strong><small>Open notifications to review what changed.</small></span>
+        <span class="trust-chip trust-chip-neutral">new</span>
+        <span class="creator-row-chevron" aria-hidden="true">&#8250;</span>
+      </a>
+      {% endif %}
+      {% if not needs_count %}
+      <div class="creator-action-row creator-action-row-empty">
+        <span class="creator-row-icon creator-row-icon-safe" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 12l4 4L19 6"/></svg>
+        </span>
+        <span class="creator-row-copy"><strong>You are caught up</strong><small>New replies, alerts, and deal activity will appear here.</small></span>
+      </div>
+      {% endif %}
+    </div>
+  </section>
 
-  <div class="filter-row">
-    <a href="/creator" class="chip {{ 'chip-active' if not active_category }}">All</a>
-    {% for slug, label in categories %}
-    {% if slug != "alert" %}
-    <a href="/creator?category={{ slug }}" class="chip {{ 'chip-active' if active_category == slug }}">{{ label }}</a>
-    {% endif %}
-    {% endfor %}
+  <section class="creator-home-section" aria-labelledby="calendar-preview-title">
+    <div class="creator-section-head">
+      <div><h2 id="calendar-preview-title">Up next</h2><span>calendar</span></div>
+      <a href="/creator/calendar">Open calendar</a>
+    </div>
+    <div class="creator-calendar-preview">
+      <div class="creator-calendar-strip" aria-label="next five days">
+        {% for day in calendar_days %}
+        <span class="{{ 'is-active' if day.is_today }}"{% if day.is_today %} aria-current="date"{% endif %}><small>{{ day.weekday }}</small><strong>{{ day.day }}</strong>{% if day.is_today %}<i aria-hidden="true"></i>{% endif %}</span>
+        {% endfor %}
+      </div>
+      {% if upcoming_bookings %}
+      <div class="creator-calendar-events">
+        {% for ev in upcoming_bookings[:4] %}
+        <a class="creator-calendar-event" href="/creator/calendar{% if ev.id %}/{{ ev.id }}{% endif %}">
+          <span class="creator-event-time">{{ ev.starts_at[:16].replace('T', ' · ') if ev.starts_at else 'tbd' }}</span>
+          <span><strong>{{ ev.title }}</strong>{% if ev.venue_name %}<small>{{ ev.venue_name }}</small>{% endif %}</span>
+          <span class="creator-row-chevron" aria-hidden="true">&#8250;</span>
+        </a>
+        {% endfor %}
+      </div>
+      {% elif not calendar_connected %}
+      <div class="creator-calendar-empty">
+        <span class="creator-row-icon creator-row-icon-safe" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+        </span>
+        <span><strong>Connect calendar</strong><small>Connect calendar to see today's calls and deadlines.</small></span>
+        <a class="creator-calendar-connect" href="/creator/profile/settings">Connect</a>
+      </div>
+      {% else %}
+      <a class="creator-calendar-empty" href="/creator/calendar">
+        <span class="creator-row-icon creator-row-icon-safe" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 12l4 4L19 6"/></svg>
+        </span>
+        <span><strong>Nothing on the books</strong><small>Your connected calendar has no events in the next few days.</small></span>
+        <span class="creator-row-chevron" aria-hidden="true">&#8250;</span>
+      </a>
+      {% endif %}
+    </div>
+  </section>
+
+  <div class="creator-home-stats" aria-label="daily activity">
+    <a href="/creator/dm"><span>Unread DMs</span><strong>{{ unread_dms or 0 }}</strong><small>{{ 'needs a reply' if unread_dms else 'inbox is clear' }}</small></a>
+    <a href="/creator/notifications"><span>Open alerts</span><strong>{{ unread_total or 0 }}</strong><small>{{ 'needs review' if unread_total else 'nothing urgent' }}</small></a>
   </div>
 
-  {% if posts %}
-  <div class="stack-lg">
-    {% for post in posts %}
-    <article class="intel-card">
-      <div class="head">
-        <div class="tags">
-          <span class="badge badge-muted">{{ post.kind or post.category or 'intel' }}</span>
-          {% if post.confidence == 'high' or post.is_high_confidence %}<span class="badge badge-chrome">high confidence</span>{% endif %}
+  <section class="creator-home-section creator-hot-drops" aria-labelledby="hot-drops-title">
+    <div class="creator-section-head">
+      <div><h2 id="hot-drops-title">Hot Drops</h2></div>
+      <span>curated for your work</span>
+    </div>
+    <nav class="creator-hot-drop-filters" aria-label="Hot Drop categories">
+      <a href="/creator" class="{{ 'is-active' if not active_category }}">All</a>
+      {% for slug, label in categories %}{% if slug != 'alert' %}<a href="/creator?category={{ slug }}" class="{{ 'is-active' if active_category == slug }}">{{ label }}</a>{% endif %}{% endfor %}
+    </nav>
+    {% if posts %}
+    <div class="creator-hot-drop-list">
+      {% for post in posts %}
+      <article class="creator-hot-drop-card">
+        <div class="creator-hot-drop-meta">
+          <span class="creator-drop-kind">{{ post.kind or post.category or 'intel' }}</span>
+          {% if post.confidence == 'high' or post.is_high_confidence %}<span class="trust-chip trust-chip-safe">high confidence</span>{% else %}<span class="trust-chip trust-chip-neutral">reviewed</span>{% endif %}
+          {% if post.valid_until %}<time>{{ post.valid_until }}</time>{% endif %}
         </div>
-        {% if post.valid_until %}<span class="mono">{{ post.valid_until }}</span>{% endif %}
-      </div>
-      <h3>{{ post.title }}</h3>
-      <p>{{ post.body or post.description or '' }}</p>
-      {% if post.source_url %}<span class="source">source ↗</span>{% endif %}
-      <div class="feedback">
-        {% if post.id %}
-        <form method="post" action="/creator/intel/{{ post.id }}/feedback" style="display:contents;">
-          {% include "_partials/csrf.html" %}
-          {% set my_fb = feedback_map.get(post.id|string) if feedback_map is defined else None %}
-          <button class="feedback-btn {% if my_fb == 'useful' %}feedback-btn-active{% endif %}" name="signal" value="useful" aria-pressed="{{ 'true' if my_fb == 'useful' else 'false' }}">useful</button>
-          <button class="feedback-btn {% if my_fb == 'not_useful' %}feedback-btn-active{% endif %}" name="signal" value="not_useful" aria-pressed="{{ 'true' if my_fb == 'not_useful' else 'false' }}">not useful</button>
-          <button class="feedback-btn {% if my_fb == 'acted_on' %}feedback-btn-active{% endif %}" name="signal" value="acted_on" aria-pressed="{{ 'true' if my_fb == 'acted_on' else 'false' }}">acted on</button>
-        </form>
-        {% else %}
-        <button class="feedback-btn">useful</button>
-        <button class="feedback-btn">not useful</button>
-        <button class="feedback-btn">acted on</button>
-        {% endif %}
-      </div>
-    </article>
-    {% endfor %}
-  </div>
-  {% else %}
-  <div style="text-align:center;padding:60px 0;color:var(--ink-dim);">
-    <span class="mono">nothing today.</span>
-    <p style="margin:12px 0 0;font-size:13.5px;">your feed is clear. check back soon.</p>
-  </div>
-  {% endif %}
-</div>
+        <h3>{{ post.title }}</h3>
+        {% if post.body or post.description %}<p>{{ post.body or post.description }}</p>{% endif %}
+        <div class="creator-hot-drop-foot">
+          {% if post.source_url %}<a href="{{ post.source_url|safe_url }}" target="_blank" rel="noopener">View source <span aria-hidden="true">&#8599;</span></a>{% else %}<span>Babyg intel</span>{% endif %}
+          {% if post.id %}
+          <form method="post" action="/creator/intel/{{ post.id }}/feedback" class="creator-drop-feedback">
+            {% include "_partials/csrf.html" %}
+            {% set my_fb = feedback_map.get(post.id|string) if feedback_map is defined else None %}
+            <button name="signal" value="useful" class="{{ 'is-active feedback-btn-active' if my_fb == 'useful' }}" aria-pressed="{{ 'true' if my_fb == 'useful' else 'false' }}">useful</button>
+            <button name="signal" value="acted_on" class="{{ 'is-active feedback-btn-active' if my_fb == 'acted_on' }}" aria-pressed="{{ 'true' if my_fb == 'acted_on' else 'false' }}">acted on</button>
+          </form>
+          {% endif %}
+        </div>
+      </article>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="creator-empty-card"><strong>nothing today.</strong><p>Your feed is clear. Operator-published updates will appear here.</p></div>
+    {% endif %}
+  </section>
+</main>
 {% endblock %}

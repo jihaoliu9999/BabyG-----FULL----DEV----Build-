@@ -3,11 +3,11 @@
 {% block title %}{{ title }} — babyg{% endblock %}
 
 {% block content %}
-<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh;text-align:center;padding:40px 24px;">
-  <img src="/static/assets/logo-bg.png" alt="babyg" style="width:48px;height:48px;margin-bottom:24px;opacity:0.6;" />
-  <span class="mono" style="font-size:11px;color:var(--lime);letter-spacing:.1em;text-transform:uppercase;margin-bottom:12px;">{{ status_code }}</span>
-  <h1 style="font-size:28px;font-weight:700;line-height:1.1;margin:0 0 12px;">{{ title }}</h1>
-  <p style="color:var(--ink-mid);font-size:14.5px;margin:0 0 28px;max-width:320px;line-height:1.55;">{{ message }}</p>
+<div class="error-state">
+  <img src="/static/assets/logo-bg.png" alt="babyg" />
+  <span class="mono">{{ status_code }}</span>
+  <h1>{{ title }}</h1>
+  <p>{{ message }}</p>
   <a href="/" class="btn btn-ghost btn-sm">back home</a>
 </div>
 {% endblock %}

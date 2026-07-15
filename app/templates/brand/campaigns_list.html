@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}campaigns — babyg{% endblock %}
+
+{% set created_flash = request.query_params.get('created') %}
+
+{% block content %}
+<div class="wrap">
+
+  <div class="brand-page-head">
+    <div>
+      <span class="mono eyebrow">campaigns</span>
+      <h1>your campaigns</h1>
+      <p>posted briefs that creators can discover.</p>
+    </div>
+    <a href="/brand/campaigns/new" class="btn btn-lime btn-sm">post campaign +</a>
+  </div>
+
+  {% if created_flash == 'ok' %}
+  <div class="settings-flash settings-flash-ok" style="margin-bottom:14px;">campaign posted. creators will see it next in their discover feed.</div>
+  {% endif %}
+
+  {% if listings %}
+  <div class="brand-stat-grid" style="grid-template-columns:1fr;">
+    {% for l in listings %}
+    <article class="profile-details-card" style="display:flex;flex-direction:column;gap:10px;">
+      <div class="profile-details-head">
+        <span>{{ l.title }}</span>
+        <span style="display:inline-flex;gap:8px;align-items:center;">
+          {% if l.is_taken_down %}
+            <span class="badge badge-muted">taken down</span>
+          {% elif l.is_active %}
+            <span class="badge badge-coral">active</span>
+          {% else %}
+            <span class="badge badge-muted">closed</span>
+          {% endif %}
+        </span>
+      </div>
+      <p style="color:var(--ink-mid);font-size:13.5px;margin:0;">{{ l.description[:240] }}{% if l.description|length > 240 %}…{% endif %}</p>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+        {% if l.compensation_text %}<span class="tag">{{ l.compensation_text[:60] }}</span>{% endif %}
+        {% for n in (l.target_niches or [])[:4] %}<span class="tag">{{ n }}</span>{% endfor %}
+        {% if (l.target_niches or [])|length > 4 %}<span class="tag">+{{ (l.target_niches|length) - 4 }}</span>{% endif %}
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="brand-empty">
+    <span class="icon-circle" aria-hidden="true">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18"/><path d="M9 14h6"/></svg>
+    </span>
+    <h2>no campaigns yet</h2>
+    <p>post a brief and creators will see it in discover. you control the budget, the deliverables, and who sees it.</p>
+    <a href="/brand/campaigns/new" class="btn btn-lime btn-sm" style="margin-top:6px;">post your first campaign →</a>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

@@ -1,0 +1,14 @@
+/* ============================================================
+   babyg DESIGN SYSTEM · global entry point
+   Consumers link THIS file. It only @imports the token and
+   foundation layers — no rules live here directly.
+   ============================================================ */
+
+@import url("./tokens/fonts.css");
+@import url("./tokens/colors.css");
+@import url("./tokens/typography.css");
+@import url("./tokens/spacing.css");
+@import url("./tokens/radius.css");
+@import url("./tokens/motion.css");
+@import url("./tokens/base.css");
+@import url("./tokens/interactions.css");

@@ -1,14 +1,11 @@
-"""Onboarding wizard for creators.
+"""Onboarding wizards for creators and brands.
 
-Single-page submit; data goes to the creator_profile row that the auth
+Single-page submit; data goes to the matching profile row that the auth
 callback pre-created. On success we set `onboarding_completed_at` and
 redirect to the dashboard.
 
 Operators have no onboarding form — they're invite-only and pre-provisioned.
 `/onboarding/operator` just renders a one-time welcome card.
-
-Brand-side onboarding is deferred to v1.5 (preserved on the
-brand-side-v1.5 branch).
 
 Validation is intentionally light: required fields are checked, free text is
 length-capped, and unknown values for closed-set fields are dropped (we don't
@@ -25,6 +22,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 from app.core.security import SessionPayload
 from app.core.templating import templates
+from app.core.url_guard import http_url_or_none
 from app.deps import require_role
 from app.integrations import google_calendar, instagram_meta
 from app.services import locations, oauth_connections, profiles
@@ -50,6 +48,21 @@ CREATOR_HARD_LIMITS = [
     "no MLM", "no gambling", "no political",
 ]
 CREATOR_TIERS = ["basic", "pro", "vip"]
+
+BRAND_INDUSTRIES = [
+    "fashion", "beauty", "food & beverage", "fitness & wellness",
+    "travel & hospitality", "tech", "finance", "lifestyle",
+    "home goods", "automotive", "other",
+]
+BRAND_SCALES = ["boutique", "growth-stage", "established", "enterprise"]
+BRAND_MODELS = ["DTC", "wholesale", "subscription", "marketplace", "service"]
+BRAND_POSITIONINGS = ["luxury", "premium", "mid-market", "value", "ethical/sustainable"]
+BRAND_CAMPAIGN_TYPES = [
+    "ugc", "paid posts", "gifting", "events", "ambassadors", "brand integrations",
+]
+BRAND_CREATOR_SIZES = ["nano", "micro", "mid", "macro"]
+BRAND_NICHE_PREFS = CREATOR_NICHES
+BRAND_BUDGET_RANGES = ["<$1k", "$1-5k", "$5-15k", "$15-50k", "$50k+"]
 
 
 # -----------------------------------------------------------------------------
@@ -163,6 +176,34 @@ async def creator_submit(
     return RedirectResponse("/creator", status_code=303)
 
 
+@router.get("/brand", response_class=HTMLResponse)
+async def brand_form(
+    request: Request, session: SessionPayload = Depends(require_role("brand"))
+):
+    profile = profiles.get_brand_profile(session["user_id"]) or {}
+    if profile.get("onboarding_completed_at"):
+        return RedirectResponse("/brand", status_code=302)
+    return templates.TemplateResponse(
+        request,
+        "onboarding/brand.html",
+        {"profile": profile, "vocab": _brand_vocab(), "error": None},
+    )
+
+
+@router.post("/brand")
+async def brand_submit(
+    request: Request, session: SessionPayload = Depends(require_role("brand"))
+):
+    form = await request.form()
+    payload, error = _validate_brand(form)
+    if error:
+        return _brand_error(request, form, error)
+
+    if not profiles.complete_brand_onboarding(session["user_id"], payload):
+        return _brand_error(request, form, "we couldn't save your profile. try again.")
+    return RedirectResponse("/brand", status_code=303)
+
+
 @router.get("/operator", response_class=HTMLResponse)
 async def operator_welcome(
     request: Request, session: SessionPayload = Depends(require_role("operator"))
@@ -234,6 +275,51 @@ def _validate_creator(
     return payload, None
 
 
+def _validate_brand(form) -> tuple[dict[str, Any], str | None]:
+    company = _str(form.get("company_name"), 160)
+    website = _str(form.get("brand_website"), 240)
+    contact_name = _str(form.get("contact_full_name"), 120)
+    contact_title = _str(form.get("contact_title"), 120)
+    description = _str(form.get("product_description"), 800)
+
+    if not company:
+        return {}, "please enter your company name."
+    if not website:
+        return {}, "please enter your brand website."
+    safe_website = http_url_or_none(website)
+    if safe_website is None:
+        return {}, "please enter a valid http or https url for your brand website."
+    if not contact_name:
+        return {}, "please enter your name."
+
+    payload: dict[str, Any] = {
+        "company_name": company,
+        "brand_website": safe_website,
+        "contact_full_name": contact_name,
+        "contact_title": contact_title or None,
+        "product_description": description or None,
+        "industry": _enum(form.get("industry"), BRAND_INDUSTRIES),
+        "scale_descriptor": _enum(form.get("scale_descriptor"), BRAND_SCALES),
+        "model_descriptor": _enum(form.get("model_descriptor"), BRAND_MODELS),
+        "positioning_descriptor": _enum(
+            form.get("positioning_descriptor"), BRAND_POSITIONINGS
+        ),
+        "campaign_types": _multi(form.getlist("campaign_types"), BRAND_CAMPAIGN_TYPES),
+        "creator_size_preferences": _multi(
+            form.getlist("creator_size_preferences"), BRAND_CREATOR_SIZES
+        ),
+        "niche_preferences": _multi(form.getlist("niche_preferences"), BRAND_NICHE_PREFS),
+        "budget_range": _enum(form.get("budget_range"), BRAND_BUDGET_RANGES),
+    }
+
+    if not payload["campaign_types"]:
+        return {}, "pick at least one campaign type."
+    if not payload["creator_size_preferences"]:
+        return {}, "pick at least one creator size."
+
+    return payload, None
+
+
 # -----------------------------------------------------------------------------
 # Helpers
 # -----------------------------------------------------------------------------
@@ -278,6 +364,19 @@ def _creator_vocab() -> dict[str, list[str]]:
     }
 
 
+def _brand_vocab() -> dict[str, list[str]]:
+    return {
+        "industries": BRAND_INDUSTRIES,
+        "scales": BRAND_SCALES,
+        "models": BRAND_MODELS,
+        "positionings": BRAND_POSITIONINGS,
+        "campaign_types": BRAND_CAMPAIGN_TYPES,
+        "creator_sizes": BRAND_CREATOR_SIZES,
+        "niche_preferences": BRAND_NICHE_PREFS,
+        "budget_ranges": BRAND_BUDGET_RANGES,
+    }
+
+
 def _creator_error(request: Request, form, message: str) -> Response:
     return templates.TemplateResponse(
         request,
@@ -297,11 +396,31 @@ def _creator_error(request: Request, form, message: str) -> Response:
     )
 
 
+def _brand_error(request: Request, form, message: str) -> Response:
+    return templates.TemplateResponse(
+        request,
+        "onboarding/brand.html",
+        {
+            "profile": _form_to_profile(form),
+            "vocab": _brand_vocab(),
+            "error": message,
+        },
+        status_code=400,
+    )
+
+
 def _form_to_profile(form) -> dict[str, Any]:
     """Reconstruct a profile-shaped dict from form data so the template can
     re-render the user's selections after a validation error."""
     out: dict[str, Any] = {}
-    multi_keys = {"niches", "content_formats", "hard_limits"}
+    multi_keys = {
+        "niches",
+        "content_formats",
+        "hard_limits",
+        "campaign_types",
+        "creator_size_preferences",
+        "niche_preferences",
+    }
     for key in form:
         if key in multi_keys:
             out[key] = list(form.getlist(key))

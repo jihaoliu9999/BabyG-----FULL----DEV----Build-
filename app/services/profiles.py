@@ -1,4 +1,4 @@
-"""Profile data access for creator onboarding (v1 creator-only scope).
+"""Profile data access for creator and brand onboarding.
 
 Uses the service-role client so it bypasses RLS. Safe here because every
 caller is server-side and gated by `require_role` in the route layer — by
@@ -6,17 +6,11 @@ the time we hit this module, the user_id has already been read from the
 signed session cookie and the role has been checked. Never expose any of
 these functions over a public endpoint without an auth check first.
 
-**Public vs. private fields.** Owner-side reads (a creator looking at
-their own dashboard) get the full row. Cross-user reads (peers viewing
-each other, operator-side surfaces, future agent tools) MUST go through
-`public_creator` so internal fields (`baseline_followers`, `tier`,
-`writing_samples`, etc.) don't leak. Service helpers in `creators.py`
+**Public vs. private fields.** Owner-side reads get the full row.
+Cross-user reads MUST go through `public_creator` / `public_brand` so
+internal fields (`baseline_followers`, `tier`, `writing_samples`,
+`verification_notes`, etc.) don't leak. Service helpers in `creators.py`
 and `network.py` apply this projection.
-
-Brand-side profile helpers (`get_brand_profile`, `update_brand_profile`,
-`complete_brand_onboarding`, `public_brand`, `PUBLIC_BRAND_FIELDS`)
-shipped in v1 but were removed when brand scope deferred to v1.5.
-See the brand-side-v1.5 branch for the full set.
 """
 
 from __future__ import annotations
@@ -36,6 +30,32 @@ logger = logging.getLogger(__name__)
 # viewing connected peers, operators viewing anyone). Internal fields
 # (`baseline_followers`, `tier`, `writing_samples`,
 # `notification_settings`, `sub_bot_persona`) are deliberately omitted.
+# Closed vocabularies for the Phase 3 owner-private preference columns
+# (migration 0016). Source of truth for the CHECK constraints and the
+# route-level allow-listing. First value of each is the default that
+# preserves current behavior.
+DM_PREFERENCE_VALUES: tuple[str, ...] = ("open", "connections_only")
+LOCATION_DISPLAY_LEVELS: tuple[str, ...] = ("city", "region", "hidden")
+BABYG_TONES: tuple[str, ...] = ("casual", "professional", "direct")
+BABYG_RISK_TOLERANCES: tuple[str, ...] = ("cautious", "balanced", "latitude")
+
+# Migration 0017. Deal preferences are owner-private — never projected
+# through public_creator(); they feed babyg drafts and the upcoming
+# brand-outreach negotiation surface.
+DEAL_USAGE_RIGHTS_VALUES: tuple[str, ...] = (
+    "organic_only",
+    "paid_organic",
+    "paid_with_usage",
+    "flexible",
+)
+DEAL_TRAVEL_WILLINGNESS_VALUES: tuple[str, ...] = (
+    "no",
+    "local_only",
+    "regional",
+    "open",
+)
+
+
 PUBLIC_CREATOR_FIELDS: tuple[str, ...] = (
     "user_id",
     "full_name",
@@ -60,6 +80,31 @@ PUBLIC_CREATOR_FIELDS: tuple[str, ...] = (
     "updated_at",
 )
 
+# Fields visible to non-operators viewing a brand. Excludes
+# `verification_notes` (operator-private review notes) and any future
+# internal-only flags.
+PUBLIC_BRAND_FIELDS: tuple[str, ...] = (
+    "user_id",
+    "company_name",
+    "brand_website",
+    "logo_url",
+    "industry",
+    "is_verified",
+    "verification_status",
+    "verified_at",
+    "location_city",
+    "location_region",
+    "onboarding_completed_at",
+    "niche_preferences",
+    "creator_size_preferences",
+    "campaign_types",
+    "product_description",
+    "scale_descriptor",
+    "model_descriptor",
+    "positioning_descriptor",
+    "budget_range",
+)
+
 def public_creator(row: dict[str, Any] | None) -> dict[str, Any] | None:
     """Project a creator row to fields safe to render to non-owners."""
     if row is None:
@@ -69,16 +114,37 @@ def public_creator(row: dict[str, Any] | None) -> dict[str, Any] | None:
     return projected
 
 
+def public_brand(row: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Project a brand row to fields safe to render to non-operators."""
+    if row is None:
+        return None
+    return {k: row.get(k) for k in PUBLIC_BRAND_FIELDS}
+
+
 def safe_location_label(row: dict[str, Any] | None) -> str | None:
     """Return city/region-level location text safe for public rendering.
 
-    Exact coordinates intentionally never appear in this label.
+    Honors the creator's `location_display_level` preference (Phase 3,
+    migration 0016):
+      * ``city``   — full label: city + region or city + country (current behavior)
+      * ``region`` — drops the city; renders region/country only
+      * ``hidden`` — returns None; no public location text at all
+
+    Exact coordinates intentionally never appear in this label regardless
+    of the setting; that's enforced by `PUBLIC_CREATOR_FIELDS`.
     """
     if not row:
+        return None
+    level = (row.get("location_display_level") or "city").strip().lower()
+    if level == "hidden":
         return None
     city = _clean_location_part(row.get("location_city"))
     region = _clean_location_part(row.get("location_region"))
     country = _clean_location_part(row.get("location_country"))
+    if level == "region":
+        # Drop the city — region first, then country as a fallback.
+        parts = [p for p in (region, country) if p]
+        return ", ".join(parts[:2]) or None
     parts = [p for p in (city, region) if p]
     if len(parts) < 2 and country:
         parts.append(country)
@@ -94,6 +160,12 @@ def get_creator_profile(user_id: str) -> dict[str, Any] | None:
     """Owner-side full read. Caller is expected to be the profile owner
     (or an operator). For cross-user reads use `creators.get_for_view`."""
     return _get_profile("creator_profiles", user_id)
+
+
+def get_brand_profile(user_id: str) -> dict[str, Any] | None:
+    """Owner-side full read. For non-operator cross-user reads, project
+    with `public_brand` before rendering."""
+    return _get_profile("brand_profiles", user_id)
 
 
 def get_creators_by_ids(user_ids: list[str]) -> dict[str, dict[str, Any]]:
@@ -135,6 +207,11 @@ def is_creator_onboarded(user_id: str) -> bool:
     return bool(profile and profile.get("onboarding_completed_at"))
 
 
+def is_brand_onboarded(user_id: str) -> bool:
+    profile = get_brand_profile(user_id)
+    return bool(profile and profile.get("onboarding_completed_at"))
+
+
 def _get_profile(table: str, user_id: str) -> dict[str, Any] | None:
     try:
         result = (
@@ -161,6 +238,10 @@ def update_creator_profile(user_id: str, payload: dict[str, Any]) -> bool:
     return _update_profile("creator_profiles", user_id, payload)
 
 
+def update_brand_profile(user_id: str, payload: dict[str, Any]) -> bool:
+    return _update_profile("brand_profiles", user_id, payload)
+
+
 class HandleAlreadyTakenError(RuntimeError):
     """Raised when an instagram_handle update would violate the UNIQUE
     constraint on creator_profiles.instagram_handle. Routes catch this and
@@ -170,6 +251,14 @@ class HandleAlreadyTakenError(RuntimeError):
 def complete_creator_onboarding(user_id: str, payload: dict[str, Any]) -> bool:
     return _update_profile(
         "creator_profiles",
+        user_id,
+        {**payload, "onboarding_completed_at": _now_iso()},
+    )
+
+
+def complete_brand_onboarding(user_id: str, payload: dict[str, Any]) -> bool:
+    return _update_profile(
+        "brand_profiles",
         user_id,
         {**payload, "onboarding_completed_at": _now_iso()},
     )

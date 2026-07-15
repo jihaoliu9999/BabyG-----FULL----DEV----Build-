@@ -1,8 +1,5 @@
 """Onboarding wizard tests.
 
-v1 ships creator-only onboarding. Brand onboarding tests shipped on the
-brand-side-v1.5 branch.
-
 Stubs the profiles service so DB calls become in-memory dict ops. Covers:
 
   * GET wizard renders pre-filled fields
@@ -17,6 +14,7 @@ Stubs the profiles service so DB calls become in-memory dict ops. Covers:
 from __future__ import annotations
 
 from typing import Any
+from uuid import uuid4
 
 import pytest
 from fastapi import Response
@@ -24,6 +22,7 @@ from fastapi.testclient import TestClient
 
 from app.core.security import SESSION_COOKIE, write_session
 from app.main import app
+from app.services import discover as discover_module
 from app.services import profiles as profiles_module
 
 # -----------------------------------------------------------------------------
@@ -34,8 +33,11 @@ from app.services import profiles as profiles_module
 class FakeProfileStore:
     def __init__(self) -> None:
         self.creator: dict[str, dict[str, Any]] = {}
+        self.brand: dict[str, dict[str, Any]] = {}
         self.last_creator_payload: dict[str, Any] | None = None
+        self.last_brand_payload: dict[str, Any] | None = None
         self.complete_creator_should_fail = False
+        self.complete_brand_should_fail = False
 
 
 @pytest.fixture()
@@ -49,6 +51,13 @@ def store(monkeypatch) -> FakeProfileStore:
         p = s.creator.get(uid)
         return bool(p and p.get("onboarding_completed_at"))
 
+    def _get_brand(uid: str):
+        return s.brand.get(uid)
+
+    def _is_brand(uid: str) -> bool:
+        p = s.brand.get(uid)
+        return bool(p and p.get("onboarding_completed_at"))
+
     def _complete_creator(uid: str, payload: dict[str, Any]) -> bool:
         if s.complete_creator_should_fail:
             return False
@@ -58,9 +67,20 @@ def store(monkeypatch) -> FakeProfileStore:
         s.creator.setdefault(uid, {}).update(full)
         return True
 
+    def _complete_brand(uid: str, payload: dict[str, Any]) -> bool:
+        if s.complete_brand_should_fail:
+            return False
+        full = {**payload, "onboarding_completed_at": "2026-05-07T00:00:00Z"}
+        s.last_brand_payload = full
+        s.brand.setdefault(uid, {}).update(full)
+        return True
+
     monkeypatch.setattr(profiles_module, "get_creator_profile", _get_creator)
     monkeypatch.setattr(profiles_module, "is_creator_onboarded", _is_creator)
     monkeypatch.setattr(profiles_module, "complete_creator_onboarding", _complete_creator)
+    monkeypatch.setattr(profiles_module, "get_brand_profile", _get_brand)
+    monkeypatch.setattr(profiles_module, "is_brand_onboarded", _is_brand)
+    monkeypatch.setattr(profiles_module, "complete_brand_onboarding", _complete_brand)
     return s
 
 
@@ -125,6 +145,23 @@ def test_creator_wizard_pre_fills_existing_values(client, store):
     text_squashed = " ".join(r.text.split())
     assert 'value="fashion" checked' in text_squashed
     assert 'value="lifestyle" checked' in text_squashed
+
+
+def test_brand_wizard_renders_blank_for_new_user(client, store):
+    _signed_in(client, role="brand")
+    r = client.get("/onboarding/brand")
+    assert r.status_code == 200
+    assert "brand setup" in r.text
+    assert "who is the brand?" in r.text
+    assert 'name="company_name"' in r.text
+
+
+def test_brand_wizard_redirects_when_already_onboarded(client, store):
+    _signed_in(client, role="brand")
+    store.brand["u-1"] = {"onboarding_completed_at": "2026-05-07T00:00:00Z"}
+    r = client.get("/onboarding/brand")
+    assert r.status_code == 302
+    assert r.headers["location"] == "/brand"
 
 
 # -----------------------------------------------------------------------------
@@ -283,6 +320,82 @@ def test_creator_submit_allows_missing_location(client, store):
 
 
 # -----------------------------------------------------------------------------
+# POST /onboarding/brand
+# -----------------------------------------------------------------------------
+
+
+def _valid_brand_form() -> dict:
+    return {
+        "company_name": "Studio House",
+        "brand_website": "https://studio.example",
+        "contact_full_name": "Alex Morgan",
+        "contact_title": "partnerships",
+        "product_description": "premium essentials.",
+        "industry": "fashion",
+        "scale_descriptor": "growth-stage",
+        "model_descriptor": "DTC",
+        "positioning_descriptor": "premium",
+        "campaign_types": ["paid posts", "events"],
+        "creator_size_preferences": ["micro", "mid"],
+        "niche_preferences": ["fashion", "lifestyle"],
+        "budget_range": "$5-15k",
+    }
+
+
+def test_brand_submit_saves_and_redirects(client, store):
+    _signed_in(client, role="brand")
+
+    r = client.post("/onboarding/brand", data=_valid_brand_form())
+
+    assert r.status_code == 303
+    assert r.headers["location"] == "/brand"
+    assert store.last_brand_payload is not None
+    p = store.last_brand_payload
+    assert p["company_name"] == "Studio House"
+    assert p["brand_website"] == "https://studio.example"
+    assert p["contact_full_name"] == "Alex Morgan"
+    assert p["campaign_types"] == ["paid posts", "events"]
+    assert p["creator_size_preferences"] == ["micro", "mid"]
+    assert "onboarding_completed_at" in p
+
+
+def test_brand_submit_rejects_missing_company(client, store):
+    _signed_in(client, role="brand")
+    form = _valid_brand_form()
+    del form["company_name"]
+    r = client.post("/onboarding/brand", data=form)
+    assert r.status_code == 400
+    assert "company name" in r.text.lower()
+    assert store.last_brand_payload is None
+
+
+def test_brand_submit_rejects_unsafe_website(client, store):
+    _signed_in(client, role="brand")
+    form = _valid_brand_form()
+    form["brand_website"] = "javascript:alert(1)"
+    r = client.post("/onboarding/brand", data=form)
+    assert r.status_code == 400
+    assert "valid http" in r.text.lower()
+    assert store.last_brand_payload is None
+
+
+def test_brand_submit_drops_unknown_enum_values(client, store):
+    _signed_in(client, role="brand")
+    form = _valid_brand_form()
+    form["campaign_types"] = ["paid posts", "<script>"]
+    form["creator_size_preferences"] = ["macro", "giant"]
+    form["industry"] = "evil"
+
+    r = client.post("/onboarding/brand", data=form)
+
+    assert r.status_code == 303
+    p = store.last_brand_payload
+    assert p["campaign_types"] == ["paid posts"]
+    assert p["creator_size_preferences"] == ["macro"]
+    assert p["industry"] is None
+
+
+# -----------------------------------------------------------------------------
 # Dashboard onboarding gate
 # -----------------------------------------------------------------------------
 
@@ -293,6 +406,84 @@ def test_creator_dashboard_redirects_to_onboarding_when_incomplete(client, store
     r = client.get("/creator")
     assert r.status_code == 302
     assert r.headers["location"] == "/onboarding/creator"
+
+
+def test_brand_dashboard_redirects_to_onboarding_when_incomplete(client, store):
+    _signed_in(client, role="brand")
+    r = client.get("/brand")
+    assert r.status_code == 302
+    assert r.headers["location"] == "/onboarding/brand"
+
+
+def test_brand_dashboard_renders_when_onboarded(client, store):
+    """Onboarded brands now land on a real dashboard page instead of
+    the legacy redirect to /brand/discover. The page surfaces profile
+    completion + activity counts; if any of the count-services blow
+    up the route degrades to zero — see _dashboard_counts in brand.py."""
+    _signed_in(client, role="brand")
+    store.brand["u-1"] = {
+        "company_name": "Studio House",
+        "brand_website": "https://studio.example",
+        "contact_full_name": "Alex Morgan",
+        "campaign_types": ["paid posts"],
+        "creator_size_preferences": ["micro"],
+        "onboarding_completed_at": "2026-05-07T00:00:00Z",
+    }
+    r = client.get("/brand")
+    assert r.status_code == 200
+    assert "Studio House" in r.text
+    assert "brand dashboard" in r.text.lower()
+    # Quick actions link to every brand surface so a brand can navigate
+    # from the dashboard alone.
+    assert "/brand/campaigns/new" in r.text
+    assert "/brand/discover" in r.text
+    assert "/brand/profile" in r.text
+    assert "/brand/dm" in r.text
+
+
+def test_brand_discover_renders_when_onboarded(client, store, monkeypatch):
+    _signed_in(client, role="brand")
+    store.brand["u-1"] = {
+        "company_name": "Studio House",
+        "brand_website": "https://studio.example",
+        "contact_full_name": "Alex Morgan",
+        "campaign_types": ["paid posts"],
+        "creator_size_preferences": ["micro"],
+        "niche_preferences": ["fashion"],
+        "onboarding_completed_at": "2026-05-07T00:00:00Z",
+    }
+    creator_id = str(uuid4())
+
+    monkeypatch.setattr(
+        discover_module,
+        "list_cards",
+        lambda **kwargs: [
+            {
+                "card_kind": "creator",
+                "card_id": creator_id,
+                "owner_user_id": creator_id,
+                "title": "Mia Santos",
+                "subtitle": "@mia",
+                "image_url": None,
+                "location_label": "Miami, FL",
+                "tags": ["fashion"],
+                "description": "fashion creator",
+                "primary_platform": "Instagram",
+                "follower_range": "10k-50k",
+                "compensation_text": None,
+                "deadline": None,
+                "detail_path": f"/brand/discover/creator/{creator_id}",
+                "why_relevant": "matches your fashion focus",
+            }
+        ],
+    )
+    monkeypatch.setattr(discover_module, "last_undoable_pass", lambda uid: None)
+    monkeypatch.setattr(discover_module, "record_action", lambda **kwargs: True)
+
+    r = client.get("/brand/discover")
+    assert r.status_code == 200
+    assert "Mia Santos" in r.text
+    assert "brand path is active" not in r.text
 
 
 # `creator dashboard renders when onboarded` and `operator dashboard skips
@@ -319,6 +510,18 @@ def test_onboarding_creator_requires_auth(client, store):
     assert r.headers["location"] == "/auth/login?role=creator"
     r = client.get("/onboarding/creator", headers={"accept": "application/json"})
     assert r.status_code == 401
+
+
+def test_onboarding_brand_requires_brand_role(client, store):
+    _signed_in(client, role="creator")
+    r = client.get("/onboarding/brand")
+    assert r.status_code == 403
+
+
+def test_onboarding_brand_requires_auth(client, store):
+    r = client.get("/onboarding/brand")
+    assert r.status_code == 302
+    assert r.headers["location"] == "/auth/login?role=brand"
 
 
 # ---------------------------------------------------------------------------

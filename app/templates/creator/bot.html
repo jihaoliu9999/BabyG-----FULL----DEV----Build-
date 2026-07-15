@@ -8,7 +8,13 @@
 
 {% block content %}
 <section class="bot-screen" id="botScreen">
-  <div class="bot-hero">
+  <header class="creator-screen-topbar creator-babyg-topbar">
+    <div class="creator-screen-title">
+      <span class="creator-screen-mark" aria-hidden="true"><img src="/static/assets/logo-bg.png" alt="" /></span>
+      <div><h1>babyg</h1><p>your private manager</p></div>
+    </div>
+  </header>
+  {% if not messages %}<div class="bot-hero">
     <div class="head">
       <div style="position:relative;">
         <span class="avatar" style="background:var(--obsidian);border:1px solid var(--ink-dim);padding:6px;width:44px;height:44px;">
@@ -17,11 +23,10 @@
         <span style="right:-2px;bottom:-2px;position:absolute;width:11px;height:11px;border-radius:50%;background:var(--lime);border:2px solid var(--obsidian);box-shadow:0 0 6px var(--lime);display:block;"></span>
       </div>
       <div>
-        <span class="status-pill"><span class="pulse-dot"></span> on · ready</span>
         <h1 style="margin-top:6px;">What are we working on today?</h1>
       </div>
     </div>
-  </div>
+  </div>{% endif %}
 
   <div data-bot-error-slot>
   {% if error %}
@@ -37,7 +42,7 @@
     {% include "_partials/csrf.html" %}
     <div class="box">
       <label class="sr-only" for="bot-message">message babyg</label>
-      <textarea id="bot-message" name="message" rows="1" placeholder="ask babyg…" maxlength="4000" autocomplete="off" required></textarea>
+      <textarea id="bot-message" name="message" rows="1" placeholder="tell babyg what to handle…" maxlength="4000" autocomplete="off" required></textarea>
       <button class="send" type="submit" data-bot-submit aria-label="send">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg>
       </button>

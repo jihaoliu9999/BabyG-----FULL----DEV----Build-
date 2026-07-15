@@ -24,6 +24,28 @@ def test_landing_renders_for_anon(client: TestClient) -> None:
     r = client.get("/")
     assert r.status_code == 200
     assert "babyg" in r.text.lower()
+    assert "css/babyg-design/styles.css" not in r.text
+    assert 'data-babyg-redesign="true"' not in r.text
+
+
+def test_landing_exposes_both_creator_and_brand_entry_points(
+    client: TestClient,
+) -> None:
+    """The top-right nav must surface both role paths so a brand visitor
+    doesn't have to know about /get-started to reach the brand login.
+    Both must be reachable on every viewport — the mobile-hide rule for
+    ghost buttons doesn't apply to the .lp-btn-outline class used here."""
+    r = client.get("/")
+    assert r.status_code == 200
+    assert "/auth/login?role=creator" in r.text
+    assert "/auth/login?role=brand" in r.text
+    # Both labels render so users can distinguish the paths.
+    text_lower = r.text.lower()
+    assert "for creators" in text_lower
+    assert "for brands" in text_lower
+    # The brand button uses the outline modifier — not the ghost class
+    # (which the responsive CSS hides at narrow widths).
+    assert 'class="lp-btn lp-btn-outline" href="/auth/login?role=brand"' in r.text
 
 
 def test_landing_redirects_signed_in_creator(client: TestClient) -> None:
@@ -46,6 +68,15 @@ def test_landing_redirects_signed_in_operator(client: TestClient) -> None:
     assert r.headers["location"] == "/operator"
 
 
+def test_landing_redirects_signed_in_brand(client: TestClient) -> None:
+    resp = _R()
+    write_session(resp, {"user_id": "u-brand", "role": "brand"})
+    cookie = resp.headers["set-cookie"].split(";")[0].split("=", 1)[1]
+    client.cookies.set(SESSION_COOKIE, cookie)
+    r = client.get("/")
+    assert r.headers["location"] == "/brand"
+
+
 def test_landing_handles_unknown_role_safely(client: TestClient) -> None:
     # If a malformed cookie ever surfaces a role we don't recognize, the
     # session reader should reject it, so this is anonymous behavior.
@@ -58,19 +89,19 @@ def test_landing_handles_unknown_role_safely(client: TestClient) -> None:
 def test_get_started_renders_role_cards(client: TestClient) -> None:
     r = client.get("/get-started")
     assert r.status_code == 200
+    assert "css/babyg-design/styles.css" in r.text
+    assert 'data-babyg-redesign="true"' in r.text
     assert "/auth/login?role=creator" in r.text
+    assert "/auth/login?role=brand" in r.text
     # Operator card removed from the visual chooser — operators reach
     # /auth/login?role=operator via direct URL from an admin invite.
     # The route still accepts ?role=operator and the auth gate still
     # works; see test_get_started_with_role_query_redirects below.
     assert "/auth/login?role=operator" not in r.text
     assert "i manage babyg" not in r.text.lower()
-    # Brand card was removed when scope shipped creator-only (v1.5
-    # branch carries the brand surface).
-    assert "/auth/login?role=brand" not in r.text
 
 
-@pytest.mark.parametrize("role", ["creator", "operator"])
+@pytest.mark.parametrize("role", ["creator", "brand", "operator"])
 def test_get_started_with_role_query_redirects(
     client: TestClient, role: str
 ) -> None:

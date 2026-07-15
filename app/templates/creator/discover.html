@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+
+{% block title %}discover · babyg{% endblock %}
+
+{% block content %}
+<section class="discover" data-discover-root>
+  <header class="discover-head">
+    <div class="discover-title-lockup">
+      <span class="brand-mark sm"><img src="/static/assets/logo-bg.png" alt="" /></span>
+      <h1>discover</h1>
+      <p>{{ discover_subtitle|default('people, brands, and opportunities worth knowing.') }}</p>
+    </div>
+    <button class="discover-filter-toggle" type="button" data-filter-toggle aria-expanded="false" aria-controls="discover-filters">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M6 14v6"/></svg>
+      <span class="sr-only">filters</span>
+    </button>
+  </header>
+
+  <nav class="discover-kind-tabs" aria-label="discover card type">
+    {% for value, label in discover_tabs|default([('all', 'all'), ('creator', 'creators'), ('brand', 'brands'), ('opportunity', 'opportunities')]) %}
+    <a href="{{ discover_base_path }}?kind={{ value }}" class="{{ 'active' if active_kind == value }}" {% if active_kind == value %}aria-current="page"{% endif %}>{{ label }}</a>
+    {% endfor %}
+  </nav>
+
+  <div class="discover-layout">
+    <aside class="discover-filters" id="discover-filters" data-filter-panel>
+      <form method="get" action="{{ discover_base_path }}">
+        <input type="hidden" name="kind" value="{{ active_kind }}" />
+        <label>
+          <span>category</span>
+          <input type="text" name="category" value="{{ category }}" maxlength="40" placeholder="fashion, food, fitness" />
+        </label>
+        <label>
+          <span>location</span>
+          <input type="text" name="location" value="{{ location }}" maxlength="80" placeholder="city or region" />
+        </label>
+        {% if active_kind in ['all', 'opportunity'] %}
+        <div class="discover-budget-fields">
+          <label>
+            <span>minimum budget</span>
+            <input type="number" name="budget_min" value="{{ budget_min if budget_min is not none else '' }}" min="0" inputmode="numeric" placeholder="0" />
+          </label>
+          <label>
+            <span>maximum budget</span>
+            <input type="number" name="budget_max" value="{{ budget_max if budget_max is not none else '' }}" min="0" inputmode="numeric" placeholder="any" />
+          </label>
+        </div>
+        {% endif %}
+        <div class="discover-filter-actions">
+          <button class="btn btn-primary" type="submit">apply filters</button>
+          <a class="btn btn-ghost" href="{{ discover_base_path }}?kind={{ active_kind }}">clear</a>
+        </div>
+      </form>
+    </aside>
+
+    <div class="discover-stage">
+      {% if cards %}
+      <div class="discover-count" aria-live="polite"><strong data-card-count>{{ cards|length }}</strong> left</div>
+      <div class="discover-stack" data-card-stack>
+        {% for card in cards %}
+        <article class="discover-card discover-card-{{ card.card_kind }}" data-discover-card data-card-kind="{{ card.card_kind }}" {% if not loop.first %}hidden{% endif %}>
+          <div class="discover-card-media">
+            <div class="discover-card-topline">
+              <span class="discover-card-kind">{{ 'creator' if card.card_kind == 'creator' else card.card_kind }}</span>
+              {% if card.card_kind in ['brand', 'opportunity'] and card.trust %}
+              <span class="discover-trust trust-{{ card.trust.tone }}">{{ card.trust.label }}</span>
+              {% endif %}
+            </div>
+            <div class="discover-media-icon" aria-hidden="true">
+              {% if card.card_kind == 'brand' %}
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 20V7l8-4 8 4v13"/><path d="M8 20v-8h8v8"/><path d="M10 9h4"/></svg>
+              {% elif card.card_kind == 'opportunity' %}
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 7h12l2 13H4L6 7z"/><path d="M9 7a3 3 0 016 0"/></svg>
+              {% else %}
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>
+              {% endif %}
+            </div>
+          </div>
+          <div class="discover-card-body">
+            <div class="discover-card-topline discover-card-topline-inline">
+              <span class="discover-card-kind">{{ 'creator' if card.card_kind == 'creator' else card.card_kind }}</span>
+            {% if card.card_kind in ['brand', 'opportunity'] and card.trust %}
+              <span class="discover-trust trust-{{ card.trust.tone }}">{{ card.trust.label }}</span>
+            {% endif %}
+            </div>
+
+            <div>
+              <h2>{{ card.title }}</h2>
+              {% if card.subtitle %}<p>{{ card.subtitle }}</p>{% endif %}
+            </div>
+
+            {% if card.description %}<p class="discover-description">{{ card.description }}</p>{% endif %}
+
+            <dl class="discover-facts">
+              {% if card.compensation_text %}<div><dt>compensation</dt><dd>{{ card.compensation_text }}</dd></div>{% endif %}
+              {% if card.deadline %}<div><dt>deadline</dt><dd>{{ card.deadline[:10] }}</dd></div>{% endif %}
+              {% if card.location_label %}<div><dt>location</dt><dd>{{ card.location_label }}</dd></div>{% endif %}
+              {% if card.primary_platform %}<div><dt>platform</dt><dd>{{ card.primary_platform }}{% if card.follower_range %} · {{ card.follower_range }}{% endif %}</dd></div>{% endif %}
+            </dl>
+
+            {% if card.tags %}
+            <div class="discover-tags" aria-label="categories">
+              {% for tag in card.tags[:3] %}<span>{{ tag }}</span>{% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="discover-relevance">
+              <span>why this is relevant</span>
+              <p>{{ card.why_relevant }}</p>
+            </div>
+
+            {% if card.card_kind in ['brand', 'opportunity'] and card.trust and card.trust.status not in ['verified', 'likely_legitimate'] %}
+            <div class="discover-trust-note trust-{{ card.trust.tone }}">
+              {{ card.trust.summary }}
+            </div>
+            {% endif %}
+          </div>
+
+          <form method="post" action="{{ discover_swipe_path }}" class="discover-detail-form">
+            {% include "_partials/csrf.html" %}
+            <input type="hidden" name="target_kind" value="{{ card.card_kind }}" />
+            <input type="hidden" name="target_card_id" value="{{ card.card_id }}" />
+            <input type="hidden" name="action" value="opened_profile" />
+            <input type="hidden" name="kind" value="{{ active_kind }}" />
+            <input type="hidden" name="category" value="{{ category }}" />
+            <input type="hidden" name="location" value="{{ location }}" />
+            {% if budget_min is not none %}<input type="hidden" name="budget_min" value="{{ budget_min }}" />{% endif %}
+            {% if budget_max is not none %}<input type="hidden" name="budget_max" value="{{ budget_max }}" />{% endif %}
+            <button type="submit">view details <span aria-hidden="true">›</span></button>
+          </form>
+        </article>
+        {% endfor %}
+      </div>
+
+      <div class="discover-actions" data-action-dock>
+        <form method="post" action="{{ discover_swipe_path }}" data-swipe-form="passed">
+          {% include "_partials/csrf.html" %}
+          <input type="hidden" name="target_kind" value="{{ cards[0].card_kind }}" data-target-kind />
+          <input type="hidden" name="target_card_id" value="{{ cards[0].card_id }}" data-target-id />
+          <input type="hidden" name="action" value="passed" />
+          <input type="hidden" name="kind" value="{{ active_kind }}" />
+          <input type="hidden" name="category" value="{{ category }}" />
+          <input type="hidden" name="location" value="{{ location }}" />
+          {% if budget_min is not none %}<input type="hidden" name="budget_min" value="{{ budget_min }}" />{% endif %}
+          {% if budget_max is not none %}<input type="hidden" name="budget_max" value="{{ budget_max }}" />{% endif %}
+          <button type="submit" aria-label="pass"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 6l12 12M18 6L6 18"/></svg><span>pass</span></button>
+        </form>
+        <form method="post" action="{{ discover_swipe_path }}" data-swipe-form="saved">
+          {% include "_partials/csrf.html" %}
+          <input type="hidden" name="target_kind" value="{{ cards[0].card_kind }}" data-target-kind />
+          <input type="hidden" name="target_card_id" value="{{ cards[0].card_id }}" data-target-id />
+          <input type="hidden" name="action" value="saved" />
+          <input type="hidden" name="kind" value="{{ active_kind }}" />
+          <input type="hidden" name="category" value="{{ category }}" />
+          <input type="hidden" name="location" value="{{ location }}" />
+          {% if budget_min is not none %}<input type="hidden" name="budget_min" value="{{ budget_min }}" />{% endif %}
+          {% if budget_max is not none %}<input type="hidden" name="budget_max" value="{{ budget_max }}" />{% endif %}
+          <button type="submit" aria-label="save"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M6 4h12v17l-6-4-6 4z"/></svg><span>save</span></button>
+        </form>
+        <form method="post" action="{{ discover_swipe_path }}" data-swipe-form="primary">
+          {% include "_partials/csrf.html" %}
+          <input type="hidden" name="target_kind" value="{{ cards[0].card_kind }}" data-target-kind />
+          <input type="hidden" name="target_card_id" value="{{ cards[0].card_id }}" data-target-id />
+          <input type="hidden" name="action" value="{{ 'interested' if cards[0].card_kind == 'opportunity' else 'connected' }}" data-primary-action />
+          <input type="hidden" name="kind" value="{{ active_kind }}" />
+          <input type="hidden" name="category" value="{{ category }}" />
+          <input type="hidden" name="location" value="{{ location }}" />
+          {% if budget_min is not none %}<input type="hidden" name="budget_min" value="{{ budget_min }}" />{% endif %}
+          {% if budget_max is not none %}<input type="hidden" name="budget_max" value="{{ budget_max }}" />{% endif %}
+          <button type="submit" class="primary" aria-label="{{ "i'm interested" if cards[0].card_kind == 'opportunity' else 'connect' }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M4 12l5 5L20 6"/></svg><span data-primary-label>{{ "i'm interested" if cards[0].card_kind == 'opportunity' else 'connect' }}</span></button>
+        </form>
+      </div>
+
+      <div class="discover-action-meta">
+        <form method="post" action="{{ discover_undo_path }}">
+          {% include "_partials/csrf.html" %}
+          <input type="hidden" name="kind" value="{{ active_kind }}" />
+          <input type="hidden" name="category" value="{{ category }}" />
+          <input type="hidden" name="location" value="{{ location }}" />
+          {% if budget_min is not none %}<input type="hidden" name="budget_min" value="{{ budget_min }}" />{% endif %}
+          {% if budget_max is not none %}<input type="hidden" name="budget_max" value="{{ budget_max }}" />{% endif %}
+          <button type="submit" class="discover-undo" {% if not can_undo %}disabled{% endif %}>undo last pass</button>
+        </form>
+      </div>
+      {% else %}
+      <div class="discover-empty">
+        <h2>you’re caught up.</h2>
+        <p>try another filter or check back when new people and opportunities arrive.</p>
+        <a class="btn btn-ghost" href="{{ discover_base_path }}">reset filters</a>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block foot_scripts %}<script src="{{ asset_url('js/discover.js') }}" defer></script>{% endblock %}

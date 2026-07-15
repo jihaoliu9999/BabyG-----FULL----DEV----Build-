@@ -27,6 +27,38 @@ logger = logging.getLogger(__name__)
 
 
 # -----------------------------------------------------------------------------
+# Access gates
+# -----------------------------------------------------------------------------
+
+
+def recipient_accepts_cold_thread(recipient_profile: dict[str, Any] | None) -> bool:
+    """Does the recipient allow an unconnected opener to start a thread?
+
+    Reads ``dm_preference`` from the recipient's profile (migration 0016):
+
+      * ``open``              — yes, anyone may open. Default for creators
+                                who haven't picked a preference.
+      * ``connections_only``  — no, opener must already be an accepted
+                                connection (or, when brand→creator DMs
+                                land in Phase 2, an opportunity-matched
+                                party).
+
+    Today's creator-to-creator route enforces an accepted-connection
+    requirement unconditionally, so this helper has no live consumer in
+    v1. It's the contract Phase 2 brand→creator DMs will call into:
+    when a brand tries to cold-DM a creator with
+    ``dm_preference=connections_only``, the call should refuse. Locking
+    the shape down here means the Phase 2 work doesn't have to invent
+    the gate from scratch.
+    """
+    if not recipient_profile:
+        # No profile means we can't honor the preference — fail closed.
+        return False
+    pref = (recipient_profile.get("dm_preference") or "open").strip().lower()
+    return pref != "connections_only"
+
+
+# -----------------------------------------------------------------------------
 # Threads
 # -----------------------------------------------------------------------------
 

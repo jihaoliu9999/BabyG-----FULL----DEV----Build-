@@ -236,6 +236,18 @@
 })();
 
 (() => {
+  const management = document.querySelector("#profile-management");
+  const links = document.querySelectorAll("[data-open-profile-management]");
+  if (!management || !links.length) return;
+
+  links.forEach((link) => {
+    link.addEventListener("click", () => {
+      management.open = true;
+    });
+  });
+})();
+
+(() => {
   const triggers = document.querySelectorAll("[data-profile-chip-open]");
   const dialogs = document.querySelectorAll("[data-profile-chip-dialog]");
 

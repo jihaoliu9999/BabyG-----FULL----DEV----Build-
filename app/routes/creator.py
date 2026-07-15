@@ -10,7 +10,8 @@ in the full design but were removed when brand was deferred to v1.5
 from __future__ import annotations
 
 import re
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
+from typing import Any
 
 from fastapi import (
     APIRouter,
@@ -25,6 +26,7 @@ from fastapi import (
 )
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
+from app.core.rate_limit import dm_brief_manual_limiter
 from app.core.redirects import safe_same_origin
 from app.core.security import SessionPayload
 from app.core.templating import templates
@@ -37,6 +39,7 @@ from app.services import (
     bot,
     calendar_sync,
     discovery,
+    dm_briefs,
     dms,
     intel,
     jobs,
@@ -93,6 +96,19 @@ PROFILE_CHIP_OPTIONS = {
 }
 
 
+def _calendar_preview_days(today: date | None = None) -> list[dict[str, Any]]:
+    """Return the real five-day strip used by Creator Home."""
+    start = today or date.today()
+    return [
+        {
+            "weekday": (start + timedelta(days=offset)).strftime("%a"),
+            "day": (start + timedelta(days=offset)).day,
+            "is_today": offset == 0,
+        }
+        for offset in range(5)
+    ]
+
+
 @router.get("/creator", response_class=HTMLResponse)
 async def dashboard(
     request: Request,
@@ -114,6 +130,26 @@ async def dashboard(
     unread_total = notifications.unread_count(session["user_id"])
     unread_dms = dms.unread_count_for_user(session["user_id"])
 
+    # Home becomes the daily command center: include a compact calendar
+    # preview so creators don't have to leave Home to see what's next.
+    # Each helper degrades to an empty/false default so a flaky Supabase
+    # or unconnected Google Calendar doesn't blank the dashboard.
+    try:
+        upcoming_bookings = bookings.list_for_user(
+            session["user_id"], horizon="upcoming", limit=4
+        )
+    except Exception:
+        upcoming_bookings = []
+    try:
+        google_connection = oauth_connections.get_google_connection(
+            session["user_id"]
+        )
+        calendar_connected = oauth_connections.google_calendar_connected(
+            google_connection
+        )
+    except Exception:
+        calendar_connected = False
+
     return templates.TemplateResponse(
         request,
         "creator/dashboard.html",
@@ -126,6 +162,9 @@ async def dashboard(
             "unread_notifs": unread_notifs,
             "unread_total": unread_total,
             "unread_dms": unread_dms,
+            "upcoming_bookings": upcoming_bookings,
+            "calendar_connected": calendar_connected,
+            "calendar_days": _calendar_preview_days(),
         },
     )
 
@@ -264,16 +303,25 @@ async def profile_page(
     request: Request,
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
-    profile = profiles.get_creator_profile(session["user_id"]) or {}
-    if not profile.get("onboarding_completed_at"):
+    raw_profile = profiles.get_creator_profile(session["user_id"]) or {}
+    if not raw_profile.get("onboarding_completed_at"):
         return RedirectResponse("/onboarding/creator", status_code=302)
-    profile = {**profile, "location_label": profiles.safe_location_label(profile)}
+    profile = {
+        **raw_profile,
+        "location_label": profiles.safe_location_label(raw_profile),
+    }
+    # `profile_preview` is the public-projected view of the creator's own
+    # row — what brands and peers see in Discover. Surfacing it at the
+    # top of /creator/profile gives the creator an explicit mirror so
+    # privacy + completeness decisions feel concrete instead of abstract.
+    profile_preview = profiles.public_creator(raw_profile) or {}
     chip_values = _profile_chip_values(profile)
     return templates.TemplateResponse(
         request,
         "creator/profile.html",
         {
             "profile": profile,
+            "profile_preview": profile_preview,
             "profile_chip_values": chip_values,
             "profile_chip_options": _profile_chip_options(chip_values),
         },
@@ -338,6 +386,112 @@ async def profile_location_update(
     if not profiles.update_creator_profile(session["user_id"], payload):
         return RedirectResponse("/creator/profile?details=save_failed", status_code=303)
     return RedirectResponse("/creator/profile?details=ok", status_code=303)
+
+
+@router.post("/creator/profile/deals")
+async def profile_deals_update(
+    deal_min_rate_text: str = Form(""),
+    deal_usage_rights_default: str = Form(""),
+    deal_travel_willingness: str = Form(""),
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    """Update the deal preferences section: rate floor (free text), the
+    default usage-rights posture, and travel willingness. All three are
+    owner-private — they inform babyg drafts and discover-quality
+    ranking but never appear in `public_creator()`."""
+    profile = profiles.get_creator_profile(session["user_id"]) or {}
+    if not profile.get("onboarding_completed_at"):
+        return RedirectResponse("/onboarding/creator", status_code=302)
+
+    payload: dict[str, Any] = {}
+    rate = " ".join(deal_min_rate_text.strip().split())[:120]
+    # Clear-on-empty so the creator can blank it out.
+    payload["deal_min_rate_text"] = rate or None
+    usage = deal_usage_rights_default.strip().lower()
+    if usage in profiles.DEAL_USAGE_RIGHTS_VALUES:
+        payload["deal_usage_rights_default"] = usage
+    elif usage == "":
+        payload["deal_usage_rights_default"] = None
+    travel = deal_travel_willingness.strip().lower()
+    if travel in profiles.DEAL_TRAVEL_WILLINGNESS_VALUES:
+        payload["deal_travel_willingness"] = travel
+    elif travel == "":
+        payload["deal_travel_willingness"] = None
+    if not profiles.update_creator_profile(session["user_id"], payload):
+        return RedirectResponse("/creator/profile?deals=save_failed", status_code=303)
+    return RedirectResponse("/creator/profile?deals=ok", status_code=303)
+
+
+@router.post("/creator/profile/privacy")
+async def profile_privacy_update(
+    dm_preference: str = Form(""),
+    location_display_level: str = Form(""),
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    """Update the privacy section — who can DM and how much of the
+    creator's location is exposed via `public_creator()`. Both values
+    are closed-vocabulary (see DM_PREFERENCE_VALUES /
+    LOCATION_DISPLAY_LEVELS in app/services/profiles.py)."""
+    profile = profiles.get_creator_profile(session["user_id"]) or {}
+    if not profile.get("onboarding_completed_at"):
+        return RedirectResponse("/onboarding/creator", status_code=302)
+
+    payload: dict[str, str] = {}
+    dm = dm_preference.strip().lower()
+    if dm in profiles.DM_PREFERENCE_VALUES:
+        payload["dm_preference"] = dm
+    loc = location_display_level.strip().lower()
+    if loc in profiles.LOCATION_DISPLAY_LEVELS:
+        payload["location_display_level"] = loc
+    if not payload:
+        return RedirectResponse(
+            "/creator/profile/settings?privacy=invalid", status_code=303
+        )
+    if not profiles.update_creator_profile(session["user_id"], payload):
+        return RedirectResponse(
+            "/creator/profile/settings?privacy=save_failed", status_code=303
+        )
+    return RedirectResponse("/creator/profile/settings?privacy=ok", status_code=303)
+
+
+@router.post("/creator/profile/babyg")
+async def profile_babyg_update(
+    babyg_tone: str = Form(""),
+    babyg_risk_tolerance: str = Form(""),
+    babyg_auto_brief_dms: str = Form(""),
+    babyg_email_assistance: str = Form(""),
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    """Update the babyg-behavior section — tone, risk tolerance, and
+    the two opt-in toggles (auto-brief DMs, email assistance). The
+    booleans accept any HTML-form-truthy value ("on", "true", "1") so
+    a missing checkbox cleanly maps to false."""
+    profile = profiles.get_creator_profile(session["user_id"]) or {}
+    if not profile.get("onboarding_completed_at"):
+        return RedirectResponse("/onboarding/creator", status_code=302)
+
+    payload: dict[str, Any] = {}
+    tone = babyg_tone.strip().lower()
+    if tone in profiles.BABYG_TONES:
+        payload["babyg_tone"] = tone
+    risk = babyg_risk_tolerance.strip().lower()
+    if risk in profiles.BABYG_RISK_TOLERANCES:
+        payload["babyg_risk_tolerance"] = risk
+    payload["babyg_auto_brief_dms"] = _form_bool(babyg_auto_brief_dms)
+    payload["babyg_email_assistance"] = _form_bool(babyg_email_assistance)
+    if not profiles.update_creator_profile(session["user_id"], payload):
+        return RedirectResponse(
+            "/creator/profile/settings?babyg=save_failed", status_code=303
+        )
+    return RedirectResponse("/creator/profile/settings?babyg=ok", status_code=303)
+
+
+def _form_bool(value: str) -> bool:
+    """HTML checkboxes submit ``"on"`` (or nothing); the magic-link
+    style settings forms below sometimes ship the value as ``"true"``.
+    Treat anything truthy as true so the route stays template-agnostic.
+    """
+    return value.strip().lower() in {"on", "true", "1", "yes"}
 
 
 @router.get("/creator/profile/settings", response_class=HTMLResponse)
@@ -590,10 +744,19 @@ async def dm_list(
     peer_ids = sorted({str(t["peer_id"]) for t in threads})
     peers = profiles.get_creators_by_ids(peer_ids)
     peer_kinds = {pid: ("creator" if pid in peers else "unknown") for pid in peer_ids}
+    # Private babyg risk chips: latest brief per thread, recipient-scoped.
+    briefs = dm_briefs.latest_briefs_for_threads(
+        [str(t["id"]) for t in threads], recipient_id=session["user_id"]
+    )
     return templates.TemplateResponse(
         request,
         "creator/dm_list.html",
-        {"threads": threads, "peers": peers, "peer_kinds": peer_kinds},
+        {
+            "threads": threads,
+            "peers": peers,
+            "peer_kinds": peer_kinds,
+            "briefs": briefs,
+        },
     )
 
 
@@ -616,6 +779,14 @@ async def dm_thread(
         str(thread["id"]), participant_id=session["user_id"]
     )
     dms.mark_thread_read_for(str(thread["id"]), reader_id=session["user_id"])
+
+    # Private babyg brief for the latest INCOMING message (best-effort:
+    # auto-generates only for "serious" messages, never blocks the render,
+    # and stays invisible to the other party). Manual refresh lives at
+    # POST /creator/dm/{peer}/brief ("ask babyg").
+    brief, brief_message_id = _latest_incoming_brief(
+        thread=thread, messages=messages, me_id=session["user_id"], peer=peer
+    )
     return templates.TemplateResponse(
         request,
         "creator/dm_thread.html",
@@ -626,8 +797,44 @@ async def dm_thread(
             "peer_id": peer_user_id,
             "peer_kind": peer_kind,
             "me_id": session["user_id"],
+            "brief": brief,
+            "brief_message_id": brief_message_id,
         },
     )
+
+
+def _latest_incoming_brief(
+    *, thread: dict, messages: list[dict], me_id: str, peer: dict, force: bool = False
+) -> tuple[dict | None, str | None]:
+    """Return (brief, message_id) for the most recent message the peer
+    sent (incoming to me). Best-effort; auto-generation is gated to
+    serious messages inside the service. Returns (None, msg_id) when
+    there's an incoming message but no brief yet."""
+    incoming = [m for m in messages if str(m.get("sender_id")) != me_id]
+    if not incoming:
+        return None, None
+    latest = incoming[-1]
+    message_id = str(latest.get("id") or "")
+    sender_public = profiles.public_creator(peer) or {}
+    me_full = profiles.get_creator_profile(me_id)
+    recipient_public = profiles.public_creator(me_full) or {}
+    auto_enabled = not (
+        me_full is not None and me_full.get("babyg_auto_brief_dms") is False
+    )
+    try:
+        brief = dm_briefs.get_or_generate_brief(
+            thread_id=str(thread["id"]),
+            message=latest,
+            recipient_id=me_id,
+            sender_public=sender_public,
+            recipient_public=recipient_public,
+            recent_messages=messages,
+            auto_enabled=auto_enabled,
+            force=force,
+        )
+    except Exception:  # brief must never break the thread render
+        brief = dm_briefs.get_brief_for_message(message_id, recipient_id=me_id)
+    return brief, (message_id or None)
 
 
 @router.post("/creator/dm/{peer_user_id}/send")
@@ -673,6 +880,99 @@ async def dm_send(
             link_path=target,
         )
     return RedirectResponse(f"/creator/dm/{peer_user_id}", status_code=303)
+
+
+@router.post("/creator/dm/{peer_user_id}/brief")
+async def dm_brief(
+    peer_user_id: str,
+    request: Request,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    """Manual "ask babyg" — (re)generate the private brief for the latest
+    incoming message in this thread. Recipient-only, read-only, never
+    sends anything. Returns JSON for the AJAX path, redirect for no-JS.
+    """
+    peer, _kind = _resolve_creator_dm_peer(
+        me_id=session["user_id"], peer_user_id=peer_user_id
+    )
+    if peer is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    if not dm_brief_manual_limiter.allow(
+        "dm-brief-manual", session["user_id"]
+    ):
+        if request.headers.get("X-Requested-With") == "fetch":
+            return JSONResponse(
+                {"ok": False, "error": "rate_limited"}, status_code=429
+            )
+        return RedirectResponse(
+            f"/creator/dm/{peer_user_id}?brief_rate_limited=1", status_code=303
+        )
+    thread = dms.get_or_create_thread(session["user_id"], peer_user_id)
+    if thread is None:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    messages = dms.list_messages(
+        str(thread["id"]), participant_id=session["user_id"]
+    )
+    brief, _mid = _latest_incoming_brief(
+        thread=thread, messages=messages, me_id=session["user_id"],
+        peer=peer, force=True,
+    )
+    if request.headers.get("X-Requested-With") == "fetch":
+        return JSONResponse(
+            {"ok": brief is not None, "brief": _brief_public(brief)}
+        )
+    return RedirectResponse(f"/creator/dm/{peer_user_id}", status_code=303)
+
+
+@router.post("/creator/dm/{peer_user_id}/brief/follow-up")
+async def dm_brief_follow_up(
+    peer_user_id: str,
+    request: Request,
+    focus: str = Form(...),
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    """Return ephemeral private analysis. It never updates the canonical brief."""
+    if focus not in dm_briefs.FOLLOW_UP_FOCUSES:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
+    peer, _kind = _resolve_creator_dm_peer(
+        me_id=session["user_id"], peer_user_id=peer_user_id
+    )
+    if peer is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    if not dm_brief_manual_limiter.allow(
+        "dm-brief-manual", session["user_id"]
+    ):
+        return JSONResponse(
+            {"ok": False, "error": "rate_limited"}, status_code=429
+        )
+    thread = dms.get_or_create_thread(session["user_id"], peer_user_id)
+    if thread is None:
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    messages = dms.list_messages(
+        str(thread["id"]), participant_id=session["user_id"]
+    )
+    result = dm_briefs.generate_follow_up(
+        focus=focus,
+        messages=messages,
+        recipient_id=session["user_id"],
+        sender_public=profiles.public_creator(peer) or {},
+    )
+    return JSONResponse({"ok": result is not None, "result": result})
+
+
+def _brief_public(brief: dict | None) -> dict | None:
+    """Shape a brief for the recipient's own AJAX consumption (display
+    fields only)."""
+    if not brief:
+        return None
+    keys = (
+        "risk_level", "risk_reasons", "summary", "missing_terms",
+        "recommended_next_action", "suggested_reply", "trust_notes",
+        "intent_type", "confidence_level", "sender_ask", "why_it_matters",
+        "deal_terms", "deal_stage", "message_annotations", "reply_options",
+        "generated_at",
+    )
+    return {k: brief.get(k) for k in keys}
 
 
 def _resolve_creator_dm_peer(

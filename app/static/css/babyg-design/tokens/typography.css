@@ -1,0 +1,75 @@
+/* ============================================================
+   babyg · TYPOGRAPHY
+   Geist Sans for UI/editorial, Geist Mono for data, code,
+   operator command-center, and numeric/metric readouts.
+   ============================================================ */
+
+:root {
+  /* Families */
+  --font-sans: "Geist", "Geist Sans", -apple-system, BlinkMacSystemFont,
+               "Segoe UI", Helvetica, Arial, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, "SF Mono", "JetBrains Mono",
+               "Menlo", monospace;
+  --font-display: var(--font-sans);
+
+  /* Weights */
+  --fw-regular: 400; /* @kind font */
+  --fw-medium:  500; /* @kind font */
+  --fw-semibold: 600; /* @kind font */
+  --fw-bold:    700; /* @kind font */
+
+  /* ---- Type scale (mobile-first; .t-display/.t-h1 add fluid scaling) ---- */
+  --text-display:    3.5rem;     /* 56 — desktop; .t-display scales down on mobile */
+  --text-h1:         2.5rem;     /* 40 — desktop; .t-h1 scales down on mobile */
+  --text-h2:         1.5rem;     /* 24 */
+  --text-h3:         1.25rem;    /* 20 */
+  --text-h4:         1.0625rem;  /* 17 */
+  --text-body-lg:    1.0625rem;  /* 17 */
+  --text-body:       0.9375rem;  /* 15 */
+  --text-sm:         0.875rem;   /* 14 */
+  --text-xs:         0.8125rem;  /* 13 */
+  --text-2xs:        0.75rem;    /* 12 — labels/chips */
+  --text-micro:      0.6875rem;  /* 11 — overline/meta */
+
+  /* Line heights */
+  --lh-tight:   1.1; /* @kind font */
+  --lh-snug:    1.25; /* @kind font */
+  --lh-normal:  1.45; /* @kind font */
+  --lh-relaxed: 1.6; /* @kind font */
+
+  /* Letter spacing */
+  --ls-tighter: -0.03em; /* @kind font */
+  --ls-tight:   -0.015em; /* @kind font */
+  --ls-normal:  -0.006em; /* @kind font */
+  --ls-wide:    0.02em; /* @kind font */
+  --ls-caps:    0.08em; /* @kind font */
+
+  /* Semantic roles */
+  --font-heading: var(--font-sans);
+  --font-body:    var(--font-sans);
+  --font-data:    var(--font-mono);
+}
+
+/* ---- Optional helper classes (tokens are the source of truth) ---- */
+.t-display  { font-size: var(--text-display); font-weight: var(--fw-semibold);
+              line-height: var(--lh-tight); letter-spacing: var(--ls-tighter); }
+.t-h1       { font-size: var(--text-h1); font-weight: var(--fw-semibold);
+              line-height: var(--lh-tight); letter-spacing: var(--ls-tight); }
+@media (max-width: 600px) {
+  .t-display { font-size: 2.5rem; }   /* 40 on phones */
+  .t-h1      { font-size: 1.875rem; } /* 30 on phones */
+}
+.t-h2       { font-size: var(--text-h2); font-weight: var(--fw-semibold);
+              line-height: var(--lh-snug); letter-spacing: var(--ls-tight); }
+.t-h3       { font-size: var(--text-h3); font-weight: var(--fw-semibold);
+              line-height: var(--lh-snug); letter-spacing: var(--ls-tight); }
+.t-body     { font-size: var(--text-body); font-weight: var(--fw-regular);
+              line-height: var(--lh-normal); letter-spacing: var(--ls-normal); }
+.t-sm       { font-size: var(--text-sm); line-height: var(--lh-normal); }
+.t-eyebrow  { font-size: var(--text-micro); font-weight: var(--fw-semibold);
+              text-transform: uppercase; letter-spacing: var(--ls-caps);
+              color: var(--text-tertiary); }
+.t-mono     { font-family: var(--font-mono); letter-spacing: 0;
+              font-variant-numeric: tabular-nums; }
+.t-metric   { font-family: var(--font-mono); font-weight: var(--fw-medium);
+              font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }

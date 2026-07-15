@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+
+{% block title %}Brands - operator console{% endblock %}
+
+{% block content %}
+<section class="op">
+  <a class="back-link" href="/operator">Back to console</a>
+
+  <header class="op-header op-header-row">
+    <div>
+      <div class="auth-tag">Brands</div>
+      <h1 class="op-title">Brand review</h1>
+      <p class="op-sub">Search brand accounts, review verification state, and open campaign context.</p>
+    </div>
+  </header>
+
+  <form class="op-toolbar" method="get" action="/operator/brands">
+    <label class="sr-only" for="brand-q">Search brands</label>
+    <input id="brand-q" name="q" value="{{ query }}" placeholder="search company, website, contact" />
+    <label class="sr-only" for="brand-verification">Verification</label>
+    <select id="brand-verification" name="verification">
+      {% for value in verification_filters %}
+      <option value="{{ value }}" {% if active_verification == value %}selected{% endif %}>
+        {{ value|replace("_", " ") }}
+      </option>
+      {% endfor %}
+    </select>
+    <button class="btn btn-secondary" type="submit">Filter</button>
+  </form>
+
+  {% if brands %}
+  <div class="table-wrap">
+    <table class="op-table">
+      <thead>
+        <tr>
+          <th>Company</th>
+          <th>Website</th>
+          <th>Industry</th>
+          <th>Verification</th>
+          <th>Campaigns</th>
+          <th>Reports</th>
+          <th>Last activity</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for brand in brands %}
+        <tr>
+          <td>
+            <a class="op-table-title" href="/operator/brands/{{ brand.user_id }}">
+              {{ brand.company_name or "unnamed brand" }}
+            </a>
+            {% if brand.contact_full_name %}
+            <div class="op-table-meta">{{ brand.contact_full_name }}</div>
+            {% endif %}
+          </td>
+          <td class="op-table-meta">
+            {% if brand.brand_website %}
+            <a href="{{ brand.brand_website }}" rel="noreferrer" target="_blank">{{ brand.brand_website }}</a>
+            {% else %}-{% endif %}
+          </td>
+          <td class="op-table-meta">{{ brand.industry or "-" }}</td>
+          <td>
+            <span class="status-pill status-{{ brand.trust.tone if brand.trust else 'neutral' }}">
+              {{ brand.trust.label if brand.trust else brand.review_status|replace("_", " ") }}
+            </span>
+          </td>
+          <td class="op-table-meta">{{ campaign_counts.get(brand.user_id|string, 0) }}</td>
+          <td class="op-table-meta">{{ report_counts.get(brand.user_id|string, 0) }}</td>
+          <td class="op-table-meta">{{ brand.last_activity_at|short_dt if brand.last_activity_at else "-" }}</td>
+          <td class="op-table-actions">
+            <a class="link-btn" href="/operator/brands/{{ brand.user_id }}">Review</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="feed-empty">
+    <h2>No brands found.</h2>
+    <p>Try a wider search or switch the verification filter.</p>
+  </div>
+  {% endif %}
+</section>
+{% endblock %}

@@ -17,6 +17,7 @@ from app.services import audit as audit_module
 from app.services import intel as intel_module
 from app.services import members as members_module
 from app.services import notifications as notifications_module
+from app.services import operator_brands as operator_brands_module
 from app.services import operator_notes as operator_notes_module
 from app.services import profiles as profiles_module
 
@@ -84,6 +85,17 @@ def world(monkeypatch) -> FakeWorld:
     # Quiet everything else used by the operator console
     monkeypatch.setattr(notifications_module, "create", lambda **kw: True)
     monkeypatch.setattr(intel_module, "list_for_operator", lambda **kw: [])
+    monkeypatch.setattr(
+        operator_brands_module,
+        "brand_counts",
+        lambda: {
+            "total_brands": 0,
+            "verified_brands": 0,
+            "pending_brand_reviews": 0,
+            "blocked_or_flagged_brands": 0,
+            "active_brand_campaigns": 0,
+        },
+    )
     monkeypatch.setattr(profiles_module, "get_creator_profile", lambda uid: None)
     monkeypatch.setattr(abuse_module, "count_pending", lambda: 0)
     return w
@@ -222,3 +234,5 @@ def test_unknown_route_renders_html_404(client, world):
     # Should be the HTML page, not the FastAPI default JSON
     assert "Page not found" in r.text
     assert r.headers["content-type"].startswith("text/html")
+    assert "css/babyg-design/styles.css" in r.text
+    assert 'class="is-error-app' in r.text

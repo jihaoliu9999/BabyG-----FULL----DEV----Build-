@@ -88,10 +88,19 @@ def test_bot_page_renders_history(monkeypatch, client: TestClient) -> None:
     response = client.get("/creator/bot")
 
     assert response.status_code == 200
-    assert "What are we working on today?" in response.text
+    assert "your private manager" in response.text
+    assert "What are we working on today?" not in response.text
+    assert 'class="app-topbar"' not in response.text
+    assert 'class="mobile-header"' not in response.text
     assert '/static/js/bot.js' in response.text
     assert "Need a caption" in response.text
     assert "Drafting it." in response.text
+    # The chat header no longer carries the "babyg guide" shortcut or the
+    # "private" pill — it's just the logo/name lockup now. The composer
+    # form still posts to /creator/bot.
+    assert 'action="/creator/bot"' in response.text
+    assert 'class="babyg-guide-form"' not in response.text
+    assert 'class="creator-private-chip"' not in response.text
 
 
 def test_bot_page_renders_pending_action_controls(monkeypatch, client: TestClient) -> None:

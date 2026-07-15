@@ -1,10 +1,9 @@
 {% extends "base.html" %}
 
-{% block title %}babyg · your ai manager{% endblock %}
+{% block title %}babyg · creator business network{% endblock %}
 
 {% block head_extra %}
-<link rel="stylesheet" href="/static/css/landing.css" />
-<link rel="stylesheet" href="/static/css/landing-task-cards.css" />
+<link rel="stylesheet" href="{{ asset_url('css/landing.css') }}" />
 {% endblock %}
 
 {% block content %}
@@ -20,11 +19,13 @@
     </a>
     <nav class="navlinks">
       <a href="#features">features</a>
-      <a href="#features">what babyg handles</a>
-      <a href="#creators">for creators</a>
+      <a href="#features">for creators</a>
+      <a href="#network">for brands</a>
+      <a href="#network">network</a>
     </nav>
     <div class="nav-right">
-      <a class="lp-btn lp-btn-lime" href="/auth/login?role=creator">log in</a>
+      <a class="lp-btn lp-btn-outline" href="/auth/login?role=brand">for brands</a>
+      <a class="lp-btn lp-btn-lime" href="/auth/login?role=creator">for creators</a>
     </div>
   </div>
 </header>
@@ -50,14 +51,20 @@
 
     <div class="hero-mark reveal" id="heroMark" aria-hidden="true">
       <img class="mark-img" src="/static/assets/logo-bg.png" alt="babyg" />
+      <span class="feature-chip chip-1"><span class="chip-dot">✍️</span>captions</span>
+      <span class="feature-chip chip-2"><span class="chip-dot">💬</span>replies</span>
+      <span class="feature-chip chip-3"><span class="chip-dot">🤝</span>deals</span>
+      <span class="feature-chip chip-4"><span class="chip-dot">📅</span>calendar</span>
+      <span class="feature-chip chip-5"><span class="chip-dot">📥</span>inbox</span>
+      <span class="feature-chip chip-6"><span class="chip-dot">📌</span>posts</span>
     </div>
 
     <h1 class="display reveal delay-1">
-      <span class="chrome">your ai manager.</span>
+      <span class="chrome">manage creator work. find creator fit.</span>
     </h1>
 
     <p class="lede reveal delay-2">
-      text babyg or use the platform to manage deals, replies, content, schedule, and everything around being a creator.
+      babyg helps creators manage content, replies, deals, and opportunities while giving brands a cleaner way to find and connect with the right creators.
     </p>
 
     <div class="cta-row reveal delay-3">
@@ -66,7 +73,7 @@
         <svg width="13" height="13" viewBox="0 0 12 12" fill="none"><path d="M3 9L9 3M9 3H4M9 3V8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"></path></svg>
       </a>
       <a class="lp-btn lp-btn-ghost" href="#features">
-        see what it handles
+        see the network
         <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="5" stroke="currentColor" stroke-width="1"></circle><path d="M5 4l3 2-3 2V4z" fill="currentColor"></path></svg>
       </a>
     </div>
@@ -74,13 +81,19 @@
 </section>
 
 <section class="lp-marquee" aria-hidden="true">
+  <div class="marquee-blooms">
+    <span class="marquee-bloom bloom-1"></span>
+    <span class="marquee-bloom bloom-2"></span>
+    <span class="marquee-bloom bloom-3"></span>
+    <span class="marquee-bloom bloom-4"></span>
+  </div>
   <div class="marquee-track" id="marqueeTrack">
     <div class="marquee-item">
       <span>deals</span><span class="dot"></span>
       <span>messages</span><span class="dot"></span>
       <span>schedule</span><span class="dot"></span>
       <span>content</span><span class="dot"></span>
-      <span>negotiation</span><span class="dot"></span>
+      <span>opportunities</span><span class="dot"></span>
       <span>always on</span><span class="dot"></span>
     </div>
     <div class="marquee-item">
@@ -88,56 +101,8 @@
       <span>messages</span><span class="dot"></span>
       <span>schedule</span><span class="dot"></span>
       <span>content</span><span class="dot"></span>
-      <span>negotiation</span><span class="dot"></span>
+      <span>opportunities</span><span class="dot"></span>
       <span>always on</span><span class="dot"></span>
-    </div>
-  </div>
-</section>
-
-<section class="mod-section">
-  <div class="wrap-wide">
-    <div class="mod-head reveal">
-      <h2>for creators.<br>only creators.</h2>
-      <p class="right">two ways in. one for the big moves, one for daily work.</p>
-    </div>
-    <div class="mod-grid">
-
-      <article class="mod-card dark reveal delay-1">
-        <div>
-          <div class="label">for the deals</div>
-          <h3>handle the deal.<br>not the drama.</h3>
-        </div>
-        <div class="mod-art creators"></div>
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap;">
-          <div style="font-size:14px;color:var(--lp-ink-mid);">negotiate, reply, schedule, without losing your voice.</div>
-          <a class="read-more-btn" href="/auth/login?role=creator">
-            read more
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M4 12L12 4M12 4H6M12 4V10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg>
-          </a>
-        </div>
-      </article>
-
-      <article class="mod-card dark reveal delay-2">
-        <div>
-          <div class="label">for daily work</div>
-          <h3>negotiates while<br>you create.</h3>
-        </div>
-        <div class="mod-art talent">
-          <div class="pill">live deal</div>
-          <div class="mini-chat">
-            <div class="mc-bub">brand countered at $4.2k for 3 videos. i'm holding at $5.8k with a 6 month cap. want me to keep pushing?</div>
-            <div class="mc-bub you">yes. push. lock 6mo.</div>
-          </div>
-        </div>
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap;">
-          <div style="font-size:14px;color:var(--lp-ink-mid);">drafts the move, holds the line, lets you decide.</div>
-          <a class="read-more-btn" href="/auth/login?role=creator">
-            read more
-            <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M4 12L12 4M12 4H6M12 4V10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path></svg>
-          </a>
-        </div>
-      </article>
-
     </div>
   </div>
 </section>
@@ -145,7 +110,6 @@
 <section class="lp-demo">
   <div class="wrap">
     <div class="demo-head reveal">
-      <span class="demo-eyebrow">● live demo</span>
       <h2>always a text away. <span class="quiet">always answers.</span></h2>
     </div>
 
@@ -191,77 +155,181 @@
   </div>
 </section>
 
-<section class="lp-task-reveal" id="features">
+<section class="lp-loop-section" id="features" data-loop-section>
   <div class="wrap-wide">
-    <div class="mod-head reveal">
-      <h2>what babyg handles.</h2>
-      <p class="right">brand replies, rate checks, deadlines, and captions, drafted when you need them.</p>
+    <div class="loop-head reveal">
+      <div class="loop-head-copy">
+        <span class="loop-kicker">creator business network</span>
+        <h2>one place for creator work and creator fit.</h2>
+        <p>creators manage the work. brands find who fits. babyg keeps the next move clear for both sides.</p>
+      </div>
+      <div class="loop-audience-toggle" role="tablist" aria-label="choose audience">
+        <button class="is-active" type="button" role="tab" aria-selected="true" data-loop-audience="creator">i'm a creator</button>
+        <button type="button" role="tab" aria-selected="false" data-loop-audience="brand">i'm a brand</button>
+      </div>
     </div>
 
-    <div class="task-card-grid" data-task-cards>
-      <article class="task-card task-feature-card reveal delay-1">
-        <button class="task-card-toggle task-feature-toggle" type="button" aria-expanded="false" aria-controls="task-reply" aria-label="open reply to a brand">
-          <span class="task-card-top">
-            <span class="task-card-kicker">01</span>
-            <span class="task-card-action">open</span>
+    <div class="loop-body reveal delay-1">
+      <div class="loop-stepper" role="tablist" aria-label="opportunity loop steps">
+        <span class="loop-rail" aria-hidden="true"></span>
+        <button class="loop-step is-active" type="button" role="tab" aria-selected="true" data-loop-step="0">
+          <span class="loop-step-node" aria-hidden="true"></span>
+          <span class="loop-step-copy">
+            <span class="loop-step-title"><span>01</span> profile</span>
+            <span class="loop-step-desc">creator and brand pages with the basics that matter.</span>
           </span>
-          <span class="task-card-title">reply to a brand</span>
-          <span class="task-card-copy">turn a rates dm into a clean response with your price, availability, and next step.</span>
-          <span class="task-card-mini">rate reply ready</span>
         </button>
-        <div class="task-card-reveal" id="task-reply">
-          <p class="task-example">“hey, what are your rates?”</p>
-          <p>babyg drafts the response so the brand gets a clear answer and you do not have to start from scratch.</p>
+        <button class="loop-step" type="button" role="tab" aria-selected="false" data-loop-step="1">
+          <span class="loop-step-node" aria-hidden="true"></span>
+          <span class="loop-step-copy">
+            <span class="loop-step-title"><span>02</span> discover</span>
+            <span class="loop-step-desc">filter by fit, style, location, and opportunity.</span>
+          </span>
+        </button>
+        <button class="loop-step" type="button" role="tab" aria-selected="false" data-loop-step="2">
+          <span class="loop-step-node" aria-hidden="true"></span>
+          <span class="loop-step-copy">
+            <span class="loop-step-title"><span>03</span> message</span>
+            <span class="loop-step-desc">start the conversation with context.</span>
+          </span>
+        </button>
+        <button class="loop-step loop-step-brief" type="button" role="tab" aria-selected="false" data-loop-step="3">
+          <span class="loop-step-node" aria-hidden="true"></span>
+          <span class="loop-step-copy">
+            <span class="loop-step-title"><span>04</span> babyg brief</span>
+            <span class="loop-step-desc">what changed, what matters, what to do next.</span>
+          </span>
+        </button>
+        <button class="loop-step" type="button" role="tab" aria-selected="false" data-loop-step="4">
+          <span class="loop-step-node" aria-hidden="true"></span>
+          <span class="loop-step-copy">
+            <span class="loop-step-title"><span>05</span> deal</span>
+            <span class="loop-step-desc">move replies, rates, deadlines, and opportunities forward.</span>
+          </span>
+        </button>
+        <div class="loop-return" aria-hidden="true">
+          <svg width="30" height="40" viewBox="0 0 30 40" fill="none"><path d="M27 2 C27 24, 3 16, 3 38" stroke="currentColor" stroke-width="1.6" stroke-dasharray="3 4" stroke-linecap="round"></path><path d="M3 38 l-3 -6 M3 38 l4 -5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"></path></svg>
+          <span>loops back · always on</span>
         </div>
-      </article>
+      </div>
 
-      <article class="task-card task-feature-card reveal delay-2">
-        <button class="task-card-toggle task-feature-toggle" type="button" aria-expanded="false" aria-controls="task-rate" aria-label="open check the rate">
-          <span class="task-card-top">
-            <span class="task-card-kicker">02</span>
-            <span class="task-card-action">open</span>
-          </span>
-          <span class="task-card-title">check the rate</span>
-          <span class="task-card-copy">catch usage, paid ads, extra deliverables, and anything that should change the price.</span>
-          <span class="task-card-mini">usage flagged</span>
-        </button>
-        <div class="task-card-reveal" id="task-rate">
-          <p class="task-example">“can we use this in ads too?”</p>
-          <p>babyg flags what changed before you agree to more work or give away extra rights for free.</p>
-        </div>
-      </article>
+      <div class="loop-preview" aria-live="polite">
+        <article class="loop-preview-card is-active" data-loop-panel="0">
+          <div class="loop-cap">two cards · one network</div>
+          <div class="loop-profile-grid">
+            <div class="loop-mini-card is-creator" data-audience-card="creator">
+              <div class="loop-profile-row">
+                <span class="loop-avatar avatar-coral"></span>
+                <span><strong>wellness creator</strong><small>@creator</small></span>
+              </div>
+              <div class="loop-label">creator</div>
+              <div class="loop-chip-row">
+                <span>los angeles</span><span>short video · photo</span><span>wellness</span><span class="good">verified</span>
+              </div>
+            </div>
+            <div class="loop-mini-card" data-audience-card="brand">
+              <div class="loop-profile-row">
+                <span class="loop-avatar avatar-cream"></span>
+                <span><strong>skincare brand</strong><small>@brand</small></span>
+              </div>
+              <div class="loop-label">brand</div>
+              <div class="loop-chip-row">
+                <span>summer campaign</span><span>short video · photo</span><span>$750 fit</span><span class="good">verified</span>
+              </div>
+            </div>
+          </div>
+          <p class="loop-foot">clear pages make better matches.</p>
+        </article>
 
-      <article class="task-card task-feature-card reveal delay-3">
-        <button class="task-card-toggle task-feature-toggle" type="button" aria-expanded="false" aria-controls="task-deadline" aria-label="open track a deadline">
-          <span class="task-card-top">
-            <span class="task-card-kicker">03</span>
-            <span class="task-card-action">open</span>
-          </span>
-          <span class="task-card-title">track a deadline</span>
-          <span class="task-card-copy">keep due dates, deliverables, and reminders visible before something slips.</span>
-          <span class="task-card-mini">post due friday</span>
-        </button>
-        <div class="task-card-reveal" id="task-deadline">
-          <p class="task-example">“reel due friday”</p>
-          <p>babyg keeps the deliverable in front of you and reminds you what still needs to be sent.</p>
-        </div>
-      </article>
+        <article class="loop-preview-card" data-loop-panel="1" hidden>
+          <div class="loop-chip-row loop-filter-row">
+            <span class="active">all</span><span>brands</span><span>creators</span><span>campaigns</span><span>collabs</span><span>opportunities</span>
+          </div>
+          <div class="loop-stack-card">
+            <div>
+              <div class="loop-label accent-violet" data-copy-creator="opportunity" data-copy-brand="creator">opportunity</div>
+              <h3 data-copy-creator="short video · summer" data-copy-brand="wellness creator">short video · summer</h3>
+              <p data-copy-creator="skincare brand · $750 · remote" data-copy-brand="wellness · 48k followers">skincare brand · $750 · remote</p>
+            </div>
+            <span class="loop-chip-good" data-copy-creator="strong fit" data-copy-brand="new match">strong fit</span>
+            <div class="loop-action-row">
+              <span>pass</span><span>save</span><span>open</span><strong>connect</strong>
+            </div>
+          </div>
+          <p class="loop-foot">creators, brands, and opportunities stay in one network.</p>
+        </article>
 
-      <article class="task-card task-feature-card reveal delay-4">
-        <button class="task-card-toggle task-feature-toggle" type="button" aria-expanded="false" aria-controls="task-caption" aria-label="open write the caption">
-          <span class="task-card-top">
-            <span class="task-card-kicker">04</span>
-            <span class="task-card-action">open</span>
-          </span>
-          <span class="task-card-title">write the caption</span>
-          <span class="task-card-copy">turn a photo dump, product, or rough idea into hooks, captions, and a posting angle.</span>
-          <span class="task-card-mini">caption options ready</span>
-        </button>
-        <div class="task-card-reveal" id="task-caption">
-          <p class="task-example">“photo dump from today”</p>
-          <p>babyg gives you usable caption options without making the post sound overworked.</p>
-        </div>
-      </article>
+        <article class="loop-preview-card" data-loop-panel="2" hidden>
+          <div class="loop-message-head">
+            <span class="loop-avatar avatar-cream" data-initial-creator="s" data-initial-brand="w">s</span>
+            <span><strong data-copy-creator="skincare brand" data-copy-brand="wellness creator">skincare brand</strong><small data-copy-creator="@brand" data-copy-brand="@creator">@brand</small></span>
+            <span class="loop-chip-good">domain matches</span>
+          </div>
+          <div class="loop-message-bubble" data-copy-creator="“can you make 2 short videos and 3 story frames for our launch?”" data-copy-brand="“love your summer content, open to a 3 video collab?”">“can you make 2 short videos and 3 story frames for our launch?”</div>
+          <div class="loop-label accent-cyan">babyg is reading…</div>
+          <div class="loop-chip-row">
+            <span class="good">deliverables clear</span><span class="good">timeline mentioned</span><span class="flag">budget missing</span><span class="flag">usage rights missing</span>
+          </div>
+          <p class="loop-foot">better context makes better conversations.</p>
+        </article>
+
+        <article class="loop-preview-card loop-brief-card" data-loop-panel="3" hidden>
+          <div class="loop-brief-head">
+            <div>
+              <span class="loop-brief-icon" aria-hidden="true">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 7.4L5.7 10L11 4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+              </span>
+              <strong>babyg brief</strong>
+              <span class="loop-private">private</span>
+            </div>
+            <span class="loop-chip-good">verified</span>
+          </div>
+          <div class="loop-chip-row loop-brief-flags">
+            <span class="good">deliverables clear</span><span class="good">timeline mentioned</span><span class="flag">budget missing</span><span class="flag">usage rights missing</span>
+          </div>
+          <dl class="loop-brief-list">
+            <dt>summary</dt><dd data-copy-creator="potential brand deal" data-copy-brand="potential creator collab">potential brand deal</dd>
+            <dt>stage</dt><dd>early negotiation</dd>
+            <dt>missing</dt><dd><span class="loop-chip-flag">budget</span><span class="loop-chip-flag">usage rights</span></dd>
+            <dt>risk</dt><dd class="warn">usage terms unclear</dd>
+            <dt>next move</dt><dd>ask for budget, usage length, platforms, and paid ad rights.</dd>
+          </dl>
+          <div class="loop-draft-box">
+            <div class="loop-draft-top">
+              <span>next move</span>
+              <div class="loop-tone-tabs" role="tablist" aria-label="reply tone">
+                <button class="is-active" type="button" data-loop-tone="warm">warm</button>
+                <button type="button" data-loop-tone="business">business</button>
+                <button type="button" data-loop-tone="firm">firm</button>
+              </div>
+            </div>
+            <p class="loop-draft-copy" data-loop-draft>hey! love this, i'm definitely open. could you share the budget, usage length, platforms, and whether paid ad rights are included?</p>
+            <div class="loop-composer">
+              <input type="text" value="" placeholder="composer preview" aria-label="composer preview" data-loop-composer />
+              <button type="button" data-loop-use-draft>use draft</button>
+            </div>
+            <p class="loop-composer-note">babyg drafts. you decide.</p>
+          </div>
+        </article>
+
+        <article class="loop-preview-card" data-loop-panel="4" hidden>
+          <div class="loop-cap">deal in motion</div>
+          <div class="loop-stage-row">
+            <span class="done">new</span><i>›</i><span class="active">negotiating</span><i>›</i><span>call scheduled</span><i>›</i><span>deadline</span><i>›</i><span>follow up</span>
+          </div>
+          <div class="loop-metric-grid">
+            <div><span>budget</span><strong>$1,500</strong></div>
+            <div><span>usage</span><strong>30 day organic</strong></div>
+          </div>
+          <div class="loop-today">
+            <div class="loop-label">today · what needs you</div>
+            <p><span class="dot coral"></span>2 brand messages need replies</p>
+            <p><span class="dot amber"></span>1 offer · usage rights still open</p>
+            <p><span class="dot cyan"></span>brand call · 3 pm</p>
+          </div>
+          <p class="loop-foot">replies, rates, deadlines, and opportunities stay moving.</p>
+        </article>
+      </div>
     </div>
   </div>
 </section>
@@ -269,40 +337,43 @@
 <section class="lp-network" id="network">
   <div class="wrap-wide">
     <div class="mod-head reveal">
-      <h2>creators meet creators.</h2>
-      <p class="right">every creator on babyg knows every other one. intros, collabs, quiet support. handled when the timing's right.</p>
+      <h2>brands find who fits.</h2>
+      <p class="right">creator pages, brand pages, and better matches — all in one place.</p>
     </div>
 
-    <div class="lp-network-grid">
-      <div class="lp-creator-card reveal delay-1">
-        <div class="lp-creator-avatar av-g1"><div class="badge-dot"></div></div>
-        <div class="lp-creator-name">@maya.fits</div>
-        <div class="lp-creator-tag">fashion · nyc</div>
-        <a class="creator-cta" href="/auth/login?role=creator">intro</a>
+    <div class="lp-match-panel reveal delay-1" aria-label="creator brand match preview">
+      <article class="lp-match-item">
+        <span>creator</span>
+        <strong>@maya.fits</strong>
+        <p>fashion · nyc</p>
+      </article>
+
+      <div class="lp-match-bridge" aria-hidden="true">
+        <span></span>
       </div>
-      <div class="lp-creator-card reveal delay-2">
-        <div class="lp-creator-avatar av-g2"><div class="badge-dot"></div></div>
-        <div class="lp-creator-name">@daniel.creates</div>
-        <div class="lp-creator-tag">photo · la</div>
-        <a class="creator-cta" href="/auth/login?role=creator">intro</a>
-      </div>
-      <div class="lp-creator-card reveal delay-3">
-        <div class="lp-creator-avatar av-g3"><div class="badge-dot"></div></div>
-        <div class="lp-creator-name">@aria.draws</div>
-        <div class="lp-creator-tag">art · berlin</div>
-        <a class="creator-cta" href="/auth/login?role=creator">intro</a>
-      </div>
-      <div class="lp-creator-card reveal delay-4">
-        <div class="lp-creator-avatar av-g4"><div class="badge-dot"></div></div>
-        <div class="lp-creator-name">@kj.builds</div>
-        <div class="lp-creator-tag">dev · ldn</div>
-        <a class="creator-cta" href="/auth/login?role=creator">intro</a>
-      </div>
-      <div class="lp-creator-card reveal delay-4">
-        <div class="lp-creator-avatar av-g5"><div class="badge-dot"></div></div>
-        <div class="lp-creator-name">@nia.films</div>
-        <div class="lp-creator-tag">film · syd</div>
-        <a class="creator-cta" href="/auth/login?role=creator">intro</a>
+
+      <article class="lp-match-item">
+        <span>brand</span>
+        <strong>skincare studio</strong>
+        <p>summer campaign</p>
+      </article>
+
+      <article class="lp-match-result">
+        <span>match</span>
+        <strong>strong fit</strong>
+        <p>ready to connect</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<section class="lp-conversion" aria-labelledby="conversion-title">
+  <div class="wrap">
+    <div class="lp-conversion-shell reveal">
+      <h2 id="conversion-title">one network. babyg handles the middle.</h2>
+      <p>creators stay organized. brands find better fits.</p>
+      <div class="cta-row">
+        <a class="lp-btn lp-btn-lime" href="/auth/login">log in</a>
       </div>
     </div>
   </div>
@@ -318,14 +389,14 @@
           <span class="brand-mark"><img src="/static/assets/logo-bg.png" alt="" /></span>
           <span class="logo-text">babyg</span>
         </a>
-        <p>your ai manager.</p>
+        <p>creator work and creator fit.</p>
         <a class="lp-btn lp-btn-lime" href="/auth/login?role=creator">log in</a>
       </div>
       <div class="lp-foot-col">
         <h5>product</h5>
         <ul>
           <li><a href="#features">features</a></li>
-          <li><a href="#features">what it handles</a></li>
+          <li><a href="#network">network</a></li>
           <li><a href="/auth/login?role=creator">get access</a></li>
           <li><a href="/auth/login?role=creator">sign in</a></li>
         </ul>
@@ -333,7 +404,7 @@
       <div class="lp-foot-col">
         <h5>creators</h5>
         <ul>
-          <li><a href="#creators">for creators</a></li>
+          <li><a href="#features">for creators</a></li>
           <li><a href="#network">network</a></li>
           <li><a href="/auth/login?role=creator">log in</a></li>
           <li><a href="/auth/login?role=creator">sign in</a></li>
@@ -352,6 +423,7 @@
         <h5>access</h5>
         <ul>
           <li><a href="/auth/login?role=creator">creator login</a></li>
+          <li><a href="/auth/login?role=brand">brand login</a></li>
           <li><a href="/auth/login?role=creator">log in</a></li>
           <li><a href="#top">back to top</a></li>
         </ul>
@@ -359,8 +431,8 @@
     </div>
     <div class="lp-foot-bot">
       <span>© 2026 babyg · all rights reserved</span>
-      <span>your ai manager</span>
-      <span>public beta · creator led</span>
+      <span>creator work · brand discovery</span>
+      <span>public beta · network led</span>
     </div>
   </div>
 </footer>
@@ -369,5 +441,5 @@
 {% endblock %}
 
 {% block foot_scripts %}
-<script src="/static/js/landing.js" defer></script>
+<script src="{{ asset_url('js/landing.js') }}" defer></script>
 {% endblock %}

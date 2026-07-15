@@ -1,0 +1,138 @@
+/* ============================================================
+   babyg · COLOR SYSTEM
+   Dark premium base, cool near-black graphite, electric
+   "babyg rose" (#FF4D6D) signature accent, chrome/platinum for
+   premium moments, and a trust/risk semantic layer.
+   ============================================================ */
+
+:root {
+  /* ---- Raw neutrals (warm charcoal ramp, faint mauve — pairs with rose) ---- */
+  --gray-1000: #080606;   /* deepest sunken */
+  --gray-950:  #0C0A0A;   /* app base */
+  --gray-900:  #121011;   /* base elevated */
+  --gray-850:  #181517;   /* surface 1 (cards) */
+  --gray-800:  #1F1B1E;   /* surface 2 (inputs, raised) */
+  --gray-750:  #262125;   /* surface 3 (hover) */
+  --gray-700:  #2F2A2E;   /* surface 4 (active) */
+  --gray-600:  #3E3940;   /* hairline strong */
+  --gray-500:  #5A545B;   /* disabled fg / muted line */
+  --gray-400:  #7D7780;   /* tertiary text */
+  --gray-300:  #A7A1A8;   /* secondary text */
+  --gray-200:  #CDC8CE;   /* high secondary */
+  --gray-100:  #EAE7EB;   /* near-white */
+  --gray-050:  #F7F5F8;   /* white-ish primary text */
+  --white:     #FFFFFF;
+
+  /* ---- babyg rose (electric signature accent · #FF4D6D) ---- */
+  --rose-50:   #FFE9ED;
+  --rose-100:  #FFD0D9;
+  --rose-200:  #FFA9B8;
+  --rose-300:  #FF8095;
+  --rose-400:  #FF6B85;
+  --rose-500:  #FF4D6D;   /* primary accent */
+  --rose-600:  #ED3B5C;
+  --rose-700:  #C42945;
+  --rose-800:  #7E1C2E;
+  --rose-900:  #3A1019;   /* deep tint surface */
+  --rose-950:  #240A10;
+
+  /* ---- Semantic / trust hues (muted, premium) ---- */
+  --green-400: #4FD49A;
+  --green-500: #34BD84;   /* verified / safe / success */
+  --green-700: #16604A;
+  --green-900: #0E2A23;
+
+  --amber-400: #F2C25B;
+  --amber-500: #E8B341;   /* caution / warning */
+  --amber-700: #8A5E1B;
+  --amber-900: #2E2310;
+
+  --red-400:   #FF7B72;
+  --red-500:   #F2554D;   /* risk / danger / error */
+  --red-700:   #8A2722;
+  --red-900:   #2E1413;
+
+  --orchid-500: #C96BD6;  /* AI / babyg intelligence accent (warm, sparing) */
+  --orchid-900: #281430;
+
+  /* ============================================================
+     SEMANTIC ALIASES — reference these in product UI
+     ============================================================ */
+
+  /* Backgrounds & surfaces */
+  --bg-base:        var(--gray-950);
+  --bg-sunken:      var(--gray-1000);
+  --surface-1:      var(--gray-850);
+  --surface-2:      var(--gray-800);
+  --surface-3:      var(--gray-750);
+  --surface-4:      var(--gray-700);
+  --surface-overlay: rgba(12, 14, 18, 0.72);   /* + backdrop-blur */
+  --surface-glass:  rgba(22, 26, 33, 0.64);    /* + backdrop-blur */
+
+  /* Text */
+  --text-primary:   var(--gray-050);
+  --text-secondary: var(--gray-300);
+  --text-tertiary:  var(--gray-400);
+  --text-disabled:  var(--gray-500);
+  --text-inverse:   var(--gray-1000);
+  --text-on-accent: #FFFFFF;
+
+  /* Borders / hairlines */
+  --border-subtle:  rgba(255, 255, 255, 0.06);
+  --border-default: rgba(255, 255, 255, 0.10);
+  --border-strong:  rgba(255, 255, 255, 0.16);
+  --border-accent:  rgba(255, 77, 109, 0.45);
+
+  /* Accent (interactive) */
+  --accent:          var(--rose-500);
+  --accent-hover:    var(--rose-400);
+  --accent-press:    var(--rose-600);
+  --accent-fg:       var(--text-on-accent);
+  --accent-subtle:   var(--rose-900);
+  --accent-subtle-2: rgba(255, 77, 109, 0.12);
+  --accent-ring:     rgba(255, 77, 109, 0.40);
+  --accent-text:     var(--rose-300);
+
+  /* AI / babyg intelligence */
+  --ai:             var(--orchid-500);
+  --ai-subtle:      var(--orchid-900);
+
+  /* Trust / risk semantics */
+  --safe:           var(--green-500);
+  --safe-subtle:    var(--green-900);
+  --safe-text:      var(--green-400);
+  --caution:        var(--amber-500);
+  --caution-subtle: var(--amber-900);
+  --caution-text:   var(--amber-400);
+  --risk:           var(--red-500);
+  --risk-subtle:    var(--red-900);
+  --risk-text:      var(--red-400);
+
+  /* Status (alias to trust hues) */
+  --success:        var(--safe);
+  --success-subtle: var(--safe-subtle);
+  --warning:        var(--caution);
+  --warning-subtle: var(--caution-subtle);
+  --danger:         var(--risk);
+  --danger-subtle:  var(--risk-subtle);
+
+  /* Chrome / platinum — premium metallic moments (wordmark, hero) */
+  --chrome-1: #F3F6F9;
+  --chrome-2: #C2CCD8;
+  --chrome-3: #94A0AF;
+  --chrome-4: #DCE3EA;
+  --chrome-gradient: linear-gradient(
+      155deg,
+      #F4F7FA 0%, #C9D3DE 26%,
+      #9AA7B6 48%, #E2E8EF 60%,
+      #A7B2C0 78%, #7E8B9B 100%); /* @kind color */
+  --chrome-gradient-soft: linear-gradient(
+      155deg, #E9EEF3 0%, #B9C4D1 50%, #8E9BAB 100%); /* @kind color */
+
+  /* Accent gradient (sparing — hero CTAs, focus glows) */
+  --accent-gradient: linear-gradient(135deg, #FF6B85 0%, #ED3B5C 100%); /* @kind color */
+  --glow-accent: 0 0 0 1px rgba(255,77,109,0.30), 0 8px 32px -8px rgba(255,77,109,0.45); /* @kind shadow */
+  --glow-ai:     0 0 0 1px rgba(201,107,214,0.30), 0 8px 32px -8px rgba(201,107,214,0.40); /* @kind shadow */
+
+  color-scheme: dark;
+}

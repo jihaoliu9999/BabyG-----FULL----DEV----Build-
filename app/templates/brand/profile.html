@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+
+{% block title %}brand profile — babyg{% endblock %}
+
+{% set identity_flash = request.query_params.get('identity') %}
+{% set preferences_flash = request.query_params.get('preferences') %}
+
+{% block content %}
+<div class="wrap">
+
+  <div class="brand-page-head">
+    <div>
+      <span class="mono eyebrow">your brand profile</span>
+      <h1>{{ profile.company_name or "your brand" }}</h1>
+      <p>this is the card creators see when you appear in discover.</p>
+    </div>
+  </div>
+
+  {# ---------- Discover-card preview (mirrors profiles.public_brand) ---------- #}
+  <section style="margin-bottom:26px;">
+    <div style="display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:10px;">
+      <span class="mono eyebrow">discover preview</span>
+      <span style="color:var(--ink-dim);font-size:12.5px;">this is how creators see your card.</span>
+    </div>
+    <div class="creator-card creator-card-static" aria-hidden="false">
+      <div class="creator-card-top">
+        {% if profile.logo_url %}
+        <div class="creator-avatar creator-avatar-photo" aria-hidden="true">
+          <img src="{{ profile.logo_url }}" alt="" loading="lazy" />
+        </div>
+        {% else %}
+        <div class="creator-avatar" aria-hidden="true">
+          {{ (profile.company_name or "B")[:1]|upper }}
+        </div>
+        {% endif %}
+        <div class="creator-card-head">
+          <div class="creator-card-name">{{ profile.company_name or "your brand" }}</div>
+          {% if profile.brand_website %}<div class="creator-card-handle">{{ profile.brand_website }}</div>{% endif %}
+        </div>
+      </div>
+      <div class="creator-card-meta">
+        {% if profile.industry %}<span>{{ profile.industry }}</span>{% endif %}
+        {% if profile.budget_range %}<span>{{ profile.budget_range.replace('_', ' ') }} budget</span>{% endif %}
+        {% if profile.is_verified %}<span style="color:var(--lime);">verified</span>{% endif %}
+      </div>
+      <div class="tag-row tag-row-tight">
+        {% for n in (profile.niche_preferences or [])[:5] %}<span class="tag">{{ n }}</span>{% endfor %}
+      </div>
+      {% if profile.product_description %}
+      <p class="creator-card-bio">{{ profile.product_description[:140] }}{% if profile.product_description|length > 140 %}…{% endif %}</p>
+      {% else %}
+      <p class="creator-card-bio" style="color:var(--ink-dim);font-style:italic;">add a product description so your card has a hook.</p>
+      {% endif %}
+    </div>
+  </section>
+
+  {# ---------- Identity edit form ---------- #}
+  <form class="settings-group settings-form" method="post" action="/brand/profile/identity">
+    {% include "_partials/csrf.html" %}
+    <h2>identity</h2>
+    <p class="settings-help">basic facts about your brand. company name + contact name are required to keep your card visible.</p>
+    {% if identity_flash == 'ok' %}<div class="settings-flash settings-flash-ok">saved.</div>
+    {% elif identity_flash == 'save_failed' %}<div class="settings-flash">couldn't save. try again.</div>
+    {% endif %}
+
+    <div class="settings-row settings-row-stack">
+      <label for="company_name"><span>company name</span></label>
+      <input type="text" id="company_name" name="company_name" maxlength="120"
+        value="{{ profile.company_name or '' }}"
+        required autocomplete="organization"
+        style="background:var(--surface-2);color:var(--ink);border:1px solid var(--hairline-strong);border-radius:8px;padding:9px 10px;font-size:13.5px;width:100%;max-width:360px;" />
+    </div>
+
+    <div class="settings-row settings-row-stack">
+      <label for="brand_website"><span>website</span></label>
+      <input type="url" id="brand_website" name="brand_website" maxlength="200"
+        value="{{ profile.brand_website or '' }}"
+        placeholder="https://yourbrand.com"
+        autocomplete="url"
+        style="background:var(--surface-2);color:var(--ink);border:1px solid var(--hairline-strong);border-radius:8px;padding:9px 10px;font-size:13.5px;width:100%;max-width:360px;" />
+    </div>
+
+    <div class="settings-row settings-row-stack">
+      <label for="industry"><span>industry</span></label>
+      <select id="industry" name="industry">
+        <option value="" {% if not profile.industry %}selected{% endif %}>not set</option>
+        {% for ind in industries %}
+        <option value="{{ ind }}" {% if profile.industry == ind %}selected{% endif %}>{{ ind }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="settings-row settings-row-stack">
+      <label for="contact_full_name"><span>contact name</span></label>
+      <input type="text" id="contact_full_name" name="contact_full_name" maxlength="120"
+        value="{{ profile.contact_full_name or '' }}"
+        required autocomplete="name"
+        style="background:var(--surface-2);color:var(--ink);border:1px solid var(--hairline-strong);border-radius:8px;padding:9px 10px;font-size:13.5px;width:100%;max-width:360px;" />
+    </div>
+
+    <div class="settings-row settings-row-stack">
+      <label for="contact_title"><span>contact title</span></label>
+      <input type="text" id="contact_title" name="contact_title" maxlength="120"
+        value="{{ profile.contact_title or '' }}"
+        placeholder='e.g. "head of partnerships"'
+        autocomplete="organization-title"
+        style="background:var(--surface-2);color:var(--ink);border:1px solid var(--hairline-strong);border-radius:8px;padding:9px 10px;font-size:13.5px;width:100%;max-width:360px;" />
+    </div>
+
+    <div class="settings-row settings-row-stack">
+      <label for="product_description"><span>what you do</span></label>
+      <textarea id="product_description" name="product_description" maxlength="600" rows="3"
+        placeholder="one or two sentences. shown to creators on your card."
+        style="background:var(--surface-2);color:var(--ink);border:1px solid var(--hairline-strong);border-radius:8px;padding:9px 10px;font-size:13.5px;width:100%;max-width:520px;resize:vertical;">{{ profile.product_description or '' }}</textarea>
+    </div>
+
+    <div class="settings-actions">
+      <button class="btn btn-lime btn-sm" type="submit">save identity</button>
+    </div>
+  </form>
+
+  {# ---------- Working terms / preferences ---------- #}
+  <form class="settings-group settings-form" method="post" action="/brand/profile/preferences">
+    {% include "_partials/csrf.html" %}
+    <h2>working terms</h2>
+    <p class="settings-help">how babyg ranks creators in your discover feed and what budget creators expect.</p>
+    {% if preferences_flash == 'ok' %}<div class="settings-flash settings-flash-ok">saved.</div>
+    {% elif preferences_flash == 'save_failed' %}<div class="settings-flash">couldn't save. try again.</div>
+    {% endif %}
+
+    <div class="settings-row settings-row-stack">
+      <span>campaign types</span>
+      <div class="chips" role="group" aria-label="campaign types">
+        {% for ct in campaign_types %}
+        <label class="chip {{ 'chip-active' if ct in (profile.campaign_types or []) }}">
+          <input type="checkbox" name="campaign_types" value="{{ ct }}" {% if ct in (profile.campaign_types or []) %}checked{% endif %} hidden />
+          {{ ct.replace('_', ' ') }}
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="settings-row settings-row-stack">
+      <span>creator sizes you target</span>
+      <div class="chips" role="group" aria-label="creator size preferences">
+        {% for sz in creator_sizes %}
+        <label class="chip {{ 'chip-active' if sz in (profile.creator_size_preferences or []) }}">
+          <input type="checkbox" name="creator_size_preferences" value="{{ sz }}" {% if sz in (profile.creator_size_preferences or []) %}checked{% endif %} hidden />
+          {{ sz }}
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="settings-row settings-row-stack">
+      <span>niches you care about</span>
+      <div class="chips" role="group" aria-label="niche preferences">
+        {% for n in ['lifestyle', 'nightlife', 'fashion', 'fitness', 'beauty', 'food', 'travel', 'music', 'tech', 'gaming', 'wellness'] %}
+        <label class="chip {{ 'chip-active' if n in (profile.niche_preferences or []) }}">
+          <input type="checkbox" name="niche_preferences" value="{{ n }}" {% if n in (profile.niche_preferences or []) %}checked{% endif %} hidden />
+          {{ n }}
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="settings-row settings-row-stack">
+      <label for="budget_range"><span>budget range per campaign</span></label>
+      <select id="budget_range" name="budget_range">
+        <option value="" {% if not profile.budget_range %}selected{% endif %}>not set</option>
+        {% for b in budget_ranges %}
+        <option value="{{ b }}" {% if profile.budget_range == b %}selected{% endif %}>{{ b.replace('_', ' ').replace('plus', '+') }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="settings-actions">
+      <button class="btn btn-lime btn-sm" type="submit">save preferences</button>
+    </div>
+  </form>
+
+  {# ---------- Verification status (read-only) ---------- #}
+  <div class="settings-group">
+    <h2>verification</h2>
+    <div class="settings-row">
+      <span>status</span>
+      <strong>
+        {% set status = profile.verification_status or ('verified' if profile.is_verified else 'unverified') %}
+        {% if status == 'verified' %}
+          <span style="color:var(--lime);">verified</span>
+        {% elif status == 'likely_legitimate' %}
+          <span style="color:var(--lime);">likely legitimate</span>
+        {% elif status == 'needs_review' %}
+          <span style="color:var(--accent);">needs review</span>
+        {% elif status in ['high_risk', 'blocked'] %}
+          <span style="color:var(--accent);">contact support</span>
+        {% else %}
+          <span style="color:var(--ink-mid);">unverified</span>
+        {% endif %}
+      </strong>
+    </div>
+    <div class="settings-row">
+      <span>website</span>
+      <strong>{{ profile.brand_website or "—" }}</strong>
+    </div>
+    <p class="settings-help" style="margin-top:6px;">babyg verifies brands manually after review. add a clear website to speed this up.</p>
+  </div>
+
+</div>
+{% endblock %}

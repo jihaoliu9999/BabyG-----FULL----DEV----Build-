@@ -14,6 +14,11 @@ from fastapi.testclient import TestClient
 
 from app.config import get_settings
 from app.core import csrf
+from app.core.rate_limit import (
+    dm_brief_auto_limiter,
+    dm_brief_manual_limiter,
+    magic_link_limiter,
+)
 from app.main import app
 
 
@@ -21,6 +26,20 @@ from app.main import app
 def _clear_settings_cache():
     yield
     get_settings.cache_clear()
+
+
+@pytest.fixture(autouse=True)
+def _reset_rate_limiter():
+    """Reset the in-process magic-link bucket between tests so a test that
+    POSTs to /auth/magic-link or /auth/code six+ times doesn't starve the
+    next test of the same IP's quota."""
+    magic_link_limiter._buckets.clear()
+    dm_brief_auto_limiter._buckets.clear()
+    dm_brief_manual_limiter._buckets.clear()
+    yield
+    magic_link_limiter._buckets.clear()
+    dm_brief_auto_limiter._buckets.clear()
+    dm_brief_manual_limiter._buckets.clear()
 
 
 @pytest.fixture(autouse=True)

@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}{{ card.title }} · discover · babyg{% endblock %}
+
+{% block content %}
+<section class="discover-detail">
+  <a class="back-link" href="/brand/discover">← discover</a>
+
+  <article class="discover-detail-card">
+    <div class="discover-card-topline">
+      <span class="discover-card-kind">{{ 'person' if card.card_kind == 'creator' else 'opportunity' }}</span>
+    </div>
+
+    <div class="discover-identity">
+      <div class="discover-avatar">
+        {% if card.image_url %}<img src="{{ card.image_url|safe_url }}" alt="" />{% else %}<span>{{ (card.title or 'B')[0].upper() }}</span>{% endif %}
+      </div>
+      <div>
+        <h1>{{ card.title }}</h1>
+        {% if card.subtitle %}<p>{{ card.subtitle }}</p>{% endif %}
+      </div>
+    </div>
+
+    {% if card.description %}<p class="discover-description">{{ card.description }}</p>{% endif %}
+
+    <dl class="discover-facts">
+      {% if card.compensation_text %}<div><dt>compensation</dt><dd>{{ card.compensation_text }}</dd></div>{% endif %}
+      {% if card.deadline %}<div><dt>deadline</dt><dd>{{ card.deadline[:10] }}</dd></div>{% endif %}
+      {% if card.location_label %}<div><dt>location</dt><dd>{{ card.location_label }}</dd></div>{% endif %}
+      {% if card.primary_platform %}<div><dt>platform</dt><dd>{{ card.primary_platform }}{% if card.follower_range %} · {{ card.follower_range }}{% endif %}</dd></div>{% endif %}
+    </dl>
+
+    {% if card.tags %}
+    <div class="discover-tags" aria-label="categories">
+      {% for tag in card.tags[:4] %}<span>{{ tag }}</span>{% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="discover-relevance">
+      <span>why this is relevant</span>
+      <p>{{ card.why_relevant }}</p>
+    </div>
+
+    <form method="post" action="/brand/discover/swipe" class="discover-detail-actions">
+      {% include "_partials/csrf.html" %}
+      <input type="hidden" name="target_kind" value="{{ card.card_kind }}" />
+      <input type="hidden" name="target_card_id" value="{{ card.card_id }}" />
+      <input type="hidden" name="action" value="{{ 'interested' if card.card_kind == 'opportunity' else 'connected' }}" />
+      <input type="hidden" name="kind" value="{{ card.card_kind }}" />
+      <button type="submit" class="btn btn-lime">{{ "i'm interested" if card.card_kind == 'opportunity' else 'connect' }}</button>
+    </form>
+  </article>
+</section>
+{% endblock %}

@@ -8,6 +8,7 @@
 {% set chips_flash = request.query_params.get('chips') %}
 {% set bio_flash = request.query_params.get('bio') %}
 {% set details_flash = request.query_params.get('details') %}
+{% set deals_flash = request.query_params.get('deals') %}
 {% set chip_sections = [
   ('niches', 'niches', 'what you make and where babyg should look first.'),
   ('formats', 'formats', 'how your work usually shows up.'),
@@ -44,6 +45,11 @@
       {% elif value == 'save_failed' %}couldn't save details
       {% else %}{{ value }}
       {% endif %}
+    {% elif name == 'deals' %}
+      {% if value == 'ok' %}deal preferences saved
+      {% elif value == 'save_failed' %}couldn't save deal preferences
+      {% else %}{{ value }}
+      {% endif %}
     {% endif %}
   </div>
   {% endif %}
@@ -67,10 +73,15 @@
   {{ flash_block('chips', chips_flash) }}
   {{ flash_block('bio', bio_flash) }}
   {{ flash_block('details', details_flash) }}
+  {{ flash_block('deals', deals_flash) }}
 
   <section class="profile-fidelity-preview" aria-label="discover preview">
     <div class="profile-preview-top">
-      {% if profile.profile_photo_url %}
+      {% if profile_preview.profile_photo_url %}
+      <span class="avatar av-g3 xl profile-preview-avatar" aria-hidden="true">
+        <img data-profile-photo-preview src="{{ profile_preview.profile_photo_url|safe_url }}{% if profile_preview.updated_at %}?v={{ profile_preview.updated_at|short_dt|replace(' ', 'T')|replace(':', '-') }}{% endif %}" alt="" />
+      </span>
+      {% elif profile.profile_photo_url %}
       <span class="avatar av-g3 xl profile-preview-avatar" aria-hidden="true">
         <img data-profile-photo-preview src="{{ profile.profile_photo_url }}{% if profile.updated_at %}?v={{ profile.updated_at | replace(':','') | replace('-','') | replace('.','') | replace(' ','') }}{% endif %}" alt="" />
       </span>
@@ -82,22 +93,25 @@
       {% endif %}
       <div class="profile-preview-copy">
         <span class="mono">discover preview</span>
-        <h2>{{ profile.full_name or profile.instagram_handle or 'creator' }}</h2>
+        <h2>{{ profile_preview.full_name or profile_preview.instagram_handle or 'creator' }}</h2>
         <p>
-          {% if profile.instagram_handle %}@{{ profile.instagram_handle }}{% endif %}
-          {% if profile.location_label %}{% if profile.instagram_handle %} / {% endif %}{{ profile.location_label }}{% endif %}
+          {% if profile_preview.instagram_handle %}@{{ profile_preview.instagram_handle }}{% endif %}
+          {% if profile_preview.location_label %}{% if profile_preview.instagram_handle %} / {% endif %}{{ profile_preview.location_label }}{% endif %}
+          {% if not profile_preview.location_label %}{% if profile_preview.instagram_handle %} / {% endif %}location hidden{% endif %}
         </p>
       </div>
     </div>
 
-    {% if profile.bio %}
-    <p class="profile-preview-bio">{{ profile.bio }}</p>
+    {% if profile_preview.bio %}
+    <p class="profile-preview-bio">{{ profile_preview.bio }}</p>
+    {% else %}
+    <p class="profile-preview-bio profile-chip-empty">add a bio so your card has a hook.</p>
     {% endif %}
 
     <div class="profile-preview-meta" aria-label="public profile details">
-      {% if profile.primary_platform %}<span>{{ profile.primary_platform }}</span>{% endif %}
-      {% if profile.follower_range %}<span>{{ profile.follower_range }} followers</span>{% endif %}
-      {% if profile.engagement_range %}<span>{{ profile.engagement_range }} engagement</span>{% endif %}
+      {% if profile_preview.primary_platform %}<span>{{ profile_preview.primary_platform }}</span>{% endif %}
+      {% if profile_preview.follower_range %}<span>{{ profile_preview.follower_range }} followers</span>{% endif %}
+      {% if profile_preview.engagement_range %}<span>{{ profile_preview.engagement_range }} engagement</span>{% endif %}
     </div>
 
     <div class="chip-group profile-preview-tags" aria-label="public profile tags">
@@ -294,6 +308,58 @@
       </div>
     </form>
   </dialog>
+
+  <section class="profile-section profile-deals" id="deal-preferences" aria-labelledby="profile-deals-title">
+    <div class="profile-section-head">
+      <div>
+        <span class="mono">deal preferences</span>
+        <h2 id="profile-deals-title">private working terms</h2>
+      </div>
+    </div>
+    <form class="profile-deals-form" method="post" action="/creator/profile/deals">
+      {% include "_partials/csrf.html" %}
+      <p class="profile-section-copy">babyg uses these when drafting replies and screening brand outreach. brands never see them.</p>
+
+      <label class="profile-field" for="deal_min_rate_text">
+        <span>rate floor</span>
+        <input
+          type="text"
+          id="deal_min_rate_text"
+          name="deal_min_rate_text"
+          maxlength="120"
+          placeholder='e.g. "$2k organic" or "DM for rates"'
+          value="{{ profile.deal_min_rate_text or '' }}"
+          autocomplete="off"
+        />
+      </label>
+
+      <label class="profile-field" for="deal_usage_rights_default">
+        <span>usage rights default</span>
+        <select id="deal_usage_rights_default" name="deal_usage_rights_default">
+          <option value="" {% if not profile.deal_usage_rights_default %}selected{% endif %}>not set</option>
+          <option value="organic_only" {% if profile.deal_usage_rights_default == 'organic_only' %}selected{% endif %}>organic only, no paid amplification</option>
+          <option value="paid_organic" {% if profile.deal_usage_rights_default == 'paid_organic' %}selected{% endif %}>paid usage on my channels OK</option>
+          <option value="paid_with_usage" {% if profile.deal_usage_rights_default == 'paid_with_usage' %}selected{% endif %}>full usage rights negotiable for paid</option>
+          <option value="flexible" {% if profile.deal_usage_rights_default == 'flexible' %}selected{% endif %}>flexible, case-by-case</option>
+        </select>
+      </label>
+
+      <label class="profile-field" for="deal_travel_willingness">
+        <span>travel willingness</span>
+        <select id="deal_travel_willingness" name="deal_travel_willingness">
+          <option value="" {% if not profile.deal_travel_willingness %}selected{% endif %}>not set</option>
+          <option value="no" {% if profile.deal_travel_willingness == 'no' %}selected{% endif %}>no travel</option>
+          <option value="local_only" {% if profile.deal_travel_willingness == 'local_only' %}selected{% endif %}>local only</option>
+          <option value="regional" {% if profile.deal_travel_willingness == 'regional' %}selected{% endif %}>regional</option>
+          <option value="open" {% if profile.deal_travel_willingness == 'open' %}selected{% endif %}>open to anywhere</option>
+        </select>
+      </label>
+
+      <div class="profile-chip-actions">
+        <button class="btn btn-lime btn-sm" type="submit">save deal preferences</button>
+      </div>
+    </form>
+  </section>
 
   <section class="profile-section profile-manage" aria-labelledby="profile-manage-title">
     <div class="profile-section-head">

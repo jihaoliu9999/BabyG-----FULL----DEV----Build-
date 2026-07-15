@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% import "_partials/brand_mark.html" as brand %}
+
+{% block title %}enter your code — babyg{% endblock %}
+{% block head_extra %}<link rel="stylesheet" href="/static/css/legal.css" />{% endblock %}
+
+{% block content %}
+<div class="auth-page">
+  <div class="auth-bg-watermarks" aria-hidden="true">
+    <img class="auth-bg-mark m1" src="/static/assets/logo-bg.png" alt="" />
+    <img class="auth-bg-mark m2" src="/static/assets/logo-bg.png" alt="" />
+    <img class="auth-bg-mark m3" src="/static/assets/logo-bg.png" alt="" />
+    <img class="auth-bg-mark m4" src="/static/assets/logo-bg.png" alt="" />
+    <img class="auth-bg-mark m5" src="/static/assets/logo-bg.png" alt="" />
+    <img class="auth-bg-mark m6" src="/static/assets/logo-bg.png" alt="" />
+  </div>
+
+  <div class="auth-pane">
+    <div class="auth-logo-row">
+      {{ brand.wordmark("brand-lockup-small") }}
+    </div>
+    <div class="auth-tag">{{ role }} sign in</div>
+    <h1 class="auth-title">enter the code.</h1>
+    <p class="auth-sub">
+      we emailed a 6-digit code along with the link. paste it here if the link won't open.
+    </p>
+
+    {% if error %}
+    <div class="auth-error">{{ error }}</div>
+    {% endif %}
+
+    <form class="auth-form" method="post" action="/auth/code">
+      {% include "_partials/csrf.html" %}
+      <input type="hidden" name="role" value="{{ role }}" />
+      <label for="email" class="sr-only">email</label>
+      <input
+        type="email"
+        id="email"
+        name="email"
+        autocomplete="email"
+        placeholder="you@domain.com"
+        required
+        value="{{ email or '' }}"
+      />
+      <label for="code" class="sr-only">code</label>
+      <input
+        type="text"
+        id="code"
+        name="code"
+        inputmode="numeric"
+        autocomplete="one-time-code"
+        pattern="[0-9 \-]{4,12}"
+        placeholder="6-digit code"
+        required
+        autofocus
+      />
+      <button type="submit" class="btn btn-lime btn-wide">verify code
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 9L9 3M9 3H4M9 3V8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </form>
+
+    <div class="auth-foot-meta">
+      <span><a href="/auth/login?role={{ role }}" style="color:inherit;text-decoration:underline;">send a new link</a> · <a href="/get-started" style="color:inherit;text-decoration:underline;">wrong role</a></span>
+    </div>
+
+    <nav class="legal-meta-strip" aria-label="legal">
+      <a href="/privacy">privacy</a>
+      <span class="sep">·</span>
+      <a href="/terms">terms</a>
+      <span class="sep">·</span>
+      <a href="/accessibility">accessibility</a>
+      <span class="sep">·</span>
+      <a href="/data-deletion">data deletion</a>
+    </nav>
+  </div>
+</div>
+{% endblock %}
