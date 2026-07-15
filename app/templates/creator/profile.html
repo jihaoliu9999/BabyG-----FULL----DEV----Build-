@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}profile — babyg{% endblock %}
+{% block title %}profile - babyg{% endblock %}
 {% block head_extra %}<script src="/static/js/profile.js" defer></script>{% endblock %}
 
 {% set initials = (profile.full_name or profile.instagram_handle or 'creator')[:2]|upper %}
@@ -14,142 +14,254 @@
   ('limits', 'limits', 'categories and asks babyg should keep off the table.')
 ] %}
 
+{% macro flash_block(name, value) %}
+  {% if value %}
+  <div class="profile-flash profile-flash-{{ 'ok' if value == 'ok' or value == 'removed' else 'error' }}" role="status">
+    {% if name == 'photo' %}
+      {% if value == 'ok' %}photo updated
+      {% elif value == 'removed' %}photo removed
+      {% elif value == 'too_big' %}photo too big, max 6 MB
+      {% elif value == 'bad_type' %}photo must be jpeg, png, or webp. iphone tip: open the photo, tap share, then Save to Files as JPEG, or switch Settings > Camera > Formats to Most Compatible.
+      {% elif value == 'corrupt' %}couldn't read that image, try another file
+      {% elif value == 'missing' %}no file picked
+      {% elif value == 'save_failed' %}upload succeeded but save failed, try again
+      {% elif value == 'storage_failed' %}image storage is having trouble, try again in a minute
+      {% else %}{{ value }}
+      {% endif %}
+    {% elif name == 'chips' %}
+      {% if value == 'ok' %}profile updated
+      {% elif value == 'save_failed' %}couldn't save profile choices
+      {% else %}{{ value }}
+      {% endif %}
+    {% elif name == 'bio' %}
+      {% if value == 'ok' %}bio updated
+      {% elif value == 'save_failed' %}couldn't save bio
+      {% else %}{{ value }}
+      {% endif %}
+    {% elif name == 'details' %}
+      {% if value == 'ok' %}details updated
+      {% elif value == 'invalid_location' %}location could not be saved
+      {% elif value == 'save_failed' %}couldn't save details
+      {% else %}{{ value }}
+      {% endif %}
+    {% endif %}
+  </div>
+  {% endif %}
+{% endmacro %}
+
 {% block content %}
 <div class="ambient-page profile-page">
 <div class="wrap ambient-shell profile-shell">
-  <div style="display:flex;align-items:center;gap:18px;margin-bottom:22px;flex-wrap:wrap;">
-    {% if profile.profile_photo_url %}
-    <span class="avatar av-g3 xl" style="overflow:hidden;padding:0;">
-      <img data-profile-photo-preview src="{{ profile.profile_photo_url }}{% if profile.updated_at %}?v={{ profile.updated_at | replace(':','') | replace('-','') | replace('.','') | replace(' ','') }}{% endif %}" alt="" style="width:100%;height:100%;object-fit:cover;display:block;" />
-    </span>
-    {% else %}
-    <span class="avatar av-g3 xl" data-profile-photo-fallback style="overflow:hidden;padding:0;display:inline-flex;align-items:center;justify-content:center;">
-      <img data-profile-photo-preview hidden alt="" style="width:100%;height:100%;object-fit:cover;display:block;" />
-      <span data-profile-photo-initials>{{ initials[0] }}</span>
-    </span>
-    {% endif %}
-    <div>
+  <header class="profile-header">
+    <div class="profile-header-copy">
       <span class="mono eyebrow">your profile</span>
       <h1 class="detail-title">{{ profile.full_name or 'creator' }}</h1>
       {% if profile.instagram_handle %}
-      <div style="color:var(--ink-mid);margin-top:4px;font-size:13.5px;">@{{ profile.instagram_handle }}{% if profile.primary_platform %} · {{ profile.primary_platform }}{% endif %}</div>
+      <p>@{{ profile.instagram_handle }}{% if profile.primary_platform %} / {{ profile.primary_platform }}{% endif %}</p>
       {% endif %}
     </div>
-  </div>
+    <a href="/creator/profile/settings" class="profile-header-link">settings</a>
+  </header>
 
-  {% if photo_flash %}
-  <div class="mono" style="font-size:10.5px;letter-spacing:0.14em;text-transform:uppercase;margin:0 0 14px;padding:8px 12px;border-radius:10px;border:1px solid var(--hairline);
-    {% if photo_flash == 'ok' %}color:var(--lime);border-color:var(--lime);background:var(--lime-soft);
-    {% elif photo_flash == 'removed' %}color:var(--ink-mid);
-    {% else %}color:var(--accent);border-color:var(--accent);background:var(--accent-bg);
-    {% endif %}">
-    {% if photo_flash == 'ok' %}photo updated
-    {% elif photo_flash == 'removed' %}photo removed
-    {% elif photo_flash == 'too_big' %}photo too big — max 6 MB
-    {% elif photo_flash == 'bad_type' %}photo must be jpeg, png, or webp. iphone tip: open the photo, tap share, then Save to Files as JPEG — or switch Settings → Camera → Formats to Most Compatible.
-    {% elif photo_flash == 'corrupt' %}couldn't read that image — try another file
-    {% elif photo_flash == 'missing' %}no file picked
-    {% elif photo_flash == 'save_failed' %}upload succeeded but save failed — try again
-    {% elif photo_flash == 'storage_failed' %}image storage is having trouble — try again in a minute
-    {% else %}{{ photo_flash }}
+  {{ flash_block('photo', photo_flash) }}
+  {{ flash_block('chips', chips_flash) }}
+  {{ flash_block('bio', bio_flash) }}
+  {{ flash_block('details', details_flash) }}
+
+  <section class="profile-fidelity-preview" aria-label="discover preview">
+    <div class="profile-preview-top">
+      {% if profile.profile_photo_url %}
+      <span class="avatar av-g3 xl profile-preview-avatar" aria-hidden="true">
+        <img data-profile-photo-preview src="{{ profile.profile_photo_url }}{% if profile.updated_at %}?v={{ profile.updated_at | replace(':','') | replace('-','') | replace('.','') | replace(' ','') }}{% endif %}" alt="" />
+      </span>
+      {% else %}
+      <span class="avatar av-g3 xl profile-preview-avatar" data-profile-photo-fallback aria-hidden="true">
+        <img data-profile-photo-preview hidden alt="" />
+        <span data-profile-photo-initials>{{ initials[0] }}</span>
+      </span>
+      {% endif %}
+      <div class="profile-preview-copy">
+        <span class="mono">discover preview</span>
+        <h2>{{ profile.full_name or profile.instagram_handle or 'creator' }}</h2>
+        <p>
+          {% if profile.instagram_handle %}@{{ profile.instagram_handle }}{% endif %}
+          {% if profile.location_label %}{% if profile.instagram_handle %} / {% endif %}{{ profile.location_label }}{% endif %}
+        </p>
+      </div>
+    </div>
+
+    {% if profile.bio %}
+    <p class="profile-preview-bio">{{ profile.bio }}</p>
     {% endif %}
-  </div>
-  {% endif %}
 
-  <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;">
-    <form method="post" action="/creator/profile/photo" enctype="multipart/form-data"
-          style="display:inline-flex;align-items:center;gap:10px;margin:0;"
-          data-profile-photo-form>
-      {% include "_partials/csrf.html" %}
-      <label class="btn btn-ghost btn-sm" style="cursor:pointer;margin:0;">
-        <span data-profile-photo-label>{% if profile.profile_photo_url %}change photo{% else %}upload photo{% endif %}</span>
-        <input type="file" name="photo" accept="image/jpeg,image/png,image/webp"
-               data-profile-photo-input style="display:none;" />
-      </label>
-      <button type="submit" class="btn btn-lime btn-sm" hidden data-profile-photo-submit>save</button>
-      <span class="mono" data-profile-photo-status hidden
-            style="font-size:10px;letter-spacing:0.14em;color:var(--ink-dim);text-transform:uppercase;margin-left:4px;"></span>
-    </form>
-    {% if profile.profile_photo_url %}
-    <form method="post" action="/creator/profile/photo/delete" style="display:inline;margin:0;">
-      {% include "_partials/csrf.html" %}
-      <button type="submit" class="btn btn-ghost btn-sm">remove photo</button>
-    </form>
-    {% endif %}
-  </div>
+    <div class="profile-preview-meta" aria-label="public profile details">
+      {% if profile.primary_platform %}<span>{{ profile.primary_platform }}</span>{% endif %}
+      {% if profile.follower_range %}<span>{{ profile.follower_range }} followers</span>{% endif %}
+      {% if profile.engagement_range %}<span>{{ profile.engagement_range }} engagement</span>{% endif %}
+    </div>
 
-  <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
-    <a href="/creator/profile/settings" class="btn btn-ghost btn-sm">edit account info</a>
-    <form method="post" action="/auth/logout" style="display:inline;">
-      {% include "_partials/csrf.html" %}
-      <button type="submit" class="btn btn-ghost btn-sm">sign out</button>
-    </form>
-  </div>
+    <div class="chip-group profile-preview-tags" aria-label="public profile tags">
+      {% for value in (profile_chip_values.get('niches', []) + profile_chip_values.get('formats', []))[:6] %}
+      <span class="chip profile-chip-static">{{ value }}</span>
+      {% endfor %}
+    </div>
+  </section>
 
-  {% if chips_flash %}
-  <div class="mono" style="font-size:10.5px;letter-spacing:0.14em;text-transform:uppercase;margin:0 0 14px;padding:8px 12px;border-radius:10px;border:1px solid var(--hairline);
-    {% if chips_flash == 'ok' %}color:var(--lime);border-color:var(--lime);background:var(--lime-soft);
-    {% else %}color:var(--accent);border-color:var(--accent);background:var(--accent-bg);
-    {% endif %}">
-    {% if chips_flash == 'ok' %}profile updated
-    {% elif chips_flash == 'save_failed' %}couldn't save profile choices
-    {% else %}{{ chips_flash }}
-    {% endif %}
-  </div>
-  {% endif %}
+  <section class="profile-section" aria-labelledby="profile-quick-edits-title">
+    <div class="profile-section-head">
+      <div>
+        <span class="mono">quick edits</span>
+        <h2 id="profile-quick-edits-title">shape the public card</h2>
+      </div>
+    </div>
 
-  {% if bio_flash %}
-  <div class="mono" style="font-size:10.5px;letter-spacing:0.14em;text-transform:uppercase;margin:0 0 14px;padding:8px 12px;border-radius:10px;border:1px solid var(--hairline);
-    {% if bio_flash == 'ok' %}color:var(--lime);border-color:var(--lime);background:var(--lime-soft);
-    {% else %}color:var(--accent);border-color:var(--accent);background:var(--accent-bg);
-    {% endif %}">
-    {% if bio_flash == 'ok' %}bio updated
-    {% elif bio_flash == 'save_failed' %}couldn't save bio
-    {% else %}{{ bio_flash }}
-    {% endif %}
-  </div>
-  {% endif %}
+    <div class="profile-photo-actions" aria-label="profile photo actions">
+      <form method="post" action="/creator/profile/photo" enctype="multipart/form-data"
+            class="profile-photo-form"
+            data-profile-photo-form>
+        {% include "_partials/csrf.html" %}
+        <label class="btn btn-ghost btn-sm profile-photo-picker">
+          <span data-profile-photo-label>{% if profile.profile_photo_url %}change photo{% else %}upload photo{% endif %}</span>
+          <input type="file" name="photo" accept="image/jpeg,image/png,image/webp"
+                 data-profile-photo-input />
+        </label>
+        <button type="submit" class="btn btn-lime btn-sm" hidden data-profile-photo-submit>save</button>
+        <span class="mono profile-photo-status" data-profile-photo-status hidden></span>
+      </form>
+      {% if profile.profile_photo_url %}
+      <form method="post" action="/creator/profile/photo/delete" class="profile-inline-form">
+        {% include "_partials/csrf.html" %}
+        <button type="submit" class="btn btn-ghost btn-sm">remove photo</button>
+      </form>
+      {% endif %}
+    </div>
 
-  {% if details_flash %}
-  <div class="mono" style="font-size:10.5px;letter-spacing:0.14em;text-transform:uppercase;margin:0 0 14px;padding:8px 12px;border-radius:10px;border:1px solid var(--hairline);
-    {% if details_flash == 'ok' %}color:var(--lime);border-color:var(--lime);background:var(--lime-soft);
-    {% else %}color:var(--accent);border-color:var(--accent);background:var(--accent-bg);
-    {% endif %}">
-    {% if details_flash == 'ok' %}details updated
-    {% elif details_flash == 'invalid_location' %}location could not be saved
-    {% elif details_flash == 'save_failed' %}couldn't save details
-    {% else %}{{ details_flash }}
-    {% endif %}
-  </div>
-  {% endif %}
+    <div class="profile-chip-stack">
+      <div class="profile-chip-section">
+        <button type="button"
+                class="profile-chip-trigger"
+                data-profile-chip-open="bio"
+                aria-controls="profile-chip-bio">
+          <span>
+            <span class="mono profile-chip-label">bio</span>
+            <span class="profile-chip-hint">one public sentence that explains your world.</span>
+          </span>
+          <span class="profile-chip-edit">edit</span>
+        </button>
+        {% if profile.bio %}
+        <p class="profile-bio-copy">{{ profile.bio }}</p>
+        {% else %}
+        <p class="profile-chip-empty">tap to add bio.</p>
+        {% endif %}
+      </div>
 
-  <span class="mono" style="display:block;margin-bottom:10px;">details</span>
-  <div class="profile-details-card">
-    <div class="profile-details-head">
-      <span>creator basics</span>
+      {% for section, label, hint in chip_sections %}
+      {% set values = profile_chip_values.get(section, []) %}
+      {% set options = profile_chip_options.get(section, []) %}
+      <div class="profile-chip-section">
+        <button type="button"
+                class="profile-chip-trigger"
+                data-profile-chip-open="{{ section }}"
+                aria-controls="profile-chip-{{ section }}">
+          <span>
+            <span class="mono profile-chip-label">{{ label }}</span>
+            <span class="profile-chip-hint">{{ hint }}</span>
+          </span>
+          <span class="profile-chip-edit">edit</span>
+        </button>
+        {% if values %}
+        <div class="chip-group profile-chip-display" aria-label="{{ label }}">
+          {% for value in values %}
+          <span class="chip profile-chip-static">{{ value }}</span>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="profile-chip-empty">tap to add {{ label }}.</p>
+        {% endif %}
+      </div>
+
+      <dialog class="profile-chip-dialog" id="profile-chip-{{ section }}" data-profile-chip-dialog>
+        <form method="post" action="/creator/profile/chips" class="profile-chip-sheet">
+          {% include "_partials/csrf.html" %}
+          <input type="hidden" name="section" value="{{ section }}" />
+          <div class="profile-chip-sheet-head">
+            <div>
+              <span class="mono profile-chip-label">{{ label }}</span>
+              <h2>edit {{ label }}</h2>
+            </div>
+            <button type="button" class="profile-chip-close" data-profile-chip-close aria-label="close">&times;</button>
+          </div>
+          <p>{{ hint }}</p>
+          <div class="profile-chip-options">
+            {% for option in options %}
+            <label class="profile-chip-option">
+              <input type="checkbox" name="values" value="{{ option }}" {% if option in values %}checked{% endif %} />
+              <span>{{ option }}</span>
+            </label>
+            {% endfor %}
+          </div>
+          <div class="profile-chip-actions">
+            <button type="button" class="btn btn-ghost btn-sm" data-profile-chip-close>cancel</button>
+            <button type="submit" class="btn btn-lime btn-sm">save</button>
+          </div>
+        </form>
+      </dialog>
+      {% endfor %}
+    </div>
+
+    <dialog class="profile-chip-dialog" id="profile-chip-bio" data-profile-chip-dialog>
+      <form method="post" action="/creator/profile/bio" class="profile-chip-sheet">
+        {% include "_partials/csrf.html" %}
+        <div class="profile-chip-sheet-head">
+          <div>
+            <span class="mono profile-chip-label">bio</span>
+            <h2>edit bio</h2>
+          </div>
+          <button type="button" class="profile-chip-close" data-profile-chip-close aria-label="close">&times;</button>
+        </div>
+        <p>what should babyg know about how you show up?</p>
+        <label for="profile-bio-input" class="sr-only">bio</label>
+        <textarea id="profile-bio-input" name="bio" rows="5" class="profile-bio-textarea">{{ profile.bio or '' }}</textarea>
+        <div class="profile-chip-actions">
+          <button type="button" class="btn btn-ghost btn-sm" data-profile-chip-close>cancel</button>
+          <button type="submit" class="btn btn-lime btn-sm">save</button>
+        </div>
+      </form>
+    </dialog>
+  </section>
+
+  <section class="profile-section" aria-labelledby="profile-details-title">
+    <div class="profile-section-head">
+      <div>
+        <span class="mono">details</span>
+        <h2 id="profile-details-title">basic matching signals</h2>
+      </div>
       <button type="button" class="profile-chip-edit profile-details-edit"
               data-profile-chip-open="details"
               aria-controls="profile-chip-details">edit</button>
     </div>
-    <div class="profile-detail-grid">
-      <div class="profile-detail-item">
-        <span class="l">location</span>
-        <strong>{{ profile.location_label or 'location not set' }}</strong>
-      </div>
-      <div class="profile-detail-item">
-        <span class="l">platform</span>
-        <strong>{{ profile.primary_platform or 'not set' }}</strong>
-      </div>
-      <div class="profile-detail-item">
-        <span class="l">followers</span>
-        <strong>{{ profile.follower_range or 'not set' }}</strong>
-      </div>
-      <div class="profile-detail-item">
-        <span class="l">engagement</span>
-        <strong>{{ profile.engagement_range or 'not set' }}</strong>
+
+    <div class="profile-details-card">
+      <div class="profile-detail-grid">
+        <div class="profile-detail-item">
+          <span class="l">location</span>
+          <strong>{{ profile.location_label or 'location not set' }}</strong>
+        </div>
+        <div class="profile-detail-item">
+          <span class="l">platform</span>
+          <strong>{{ profile.primary_platform or 'not set' }}</strong>
+        </div>
+        <div class="profile-detail-item">
+          <span class="l">followers</span>
+          <strong>{{ profile.follower_range or 'not set' }}</strong>
+        </div>
+        <div class="profile-detail-item">
+          <span class="l">engagement</span>
+          <strong>{{ profile.engagement_range or 'not set' }}</strong>
+        </div>
       </div>
     </div>
-  </div>
+  </section>
 
   <dialog class="profile-chip-dialog" id="profile-chip-details" data-profile-chip-dialog>
     <form method="post" action="/creator/profile/location" class="profile-chip-sheet">
@@ -159,7 +271,7 @@
           <span class="mono profile-chip-label">details</span>
           <h2>edit location</h2>
         </div>
-        <button type="button" class="profile-chip-close" data-profile-chip-close aria-label="close">×</button>
+        <button type="button" class="profile-chip-close" data-profile-chip-close aria-label="close">&times;</button>
       </div>
       <p>city or region is enough. exact location stays private.</p>
       <label for="profile-location-city-input" class="sr-only">city or region</label>
@@ -183,97 +295,34 @@
     </form>
   </dialog>
 
-  <div class="profile-chip-stack">
-    {% for section, label, hint in chip_sections %}
-    {% set values = profile_chip_values.get(section, []) %}
-    {% set options = profile_chip_options.get(section, []) %}
-    <section class="profile-chip-section">
-      <button type="button"
-              class="profile-chip-trigger"
-              data-profile-chip-open="{{ section }}"
-              aria-controls="profile-chip-{{ section }}">
-        <span>
-          <span class="mono profile-chip-label">{{ label }}</span>
-          <span class="profile-chip-hint">{{ hint }}</span>
-        </span>
-        <span class="profile-chip-edit">edit</span>
-      </button>
-      {% if values %}
-      <div class="chip-group profile-chip-display" aria-label="{{ label }}">
-        {% for value in values %}
-        <span class="chip profile-chip-static">{{ value }}</span>
-        {% endfor %}
+  <section class="profile-section profile-manage" aria-labelledby="profile-manage-title">
+    <div class="profile-section-head">
+      <div>
+        <span class="mono">manage account</span>
+        <h2 id="profile-manage-title">deeper controls</h2>
       </div>
-      {% else %}
-      <p class="profile-chip-empty">tap to add {{ label }}.</p>
-      {% endif %}
-    </section>
+    </div>
 
-    <dialog class="profile-chip-dialog" id="profile-chip-{{ section }}" data-profile-chip-dialog>
-      <form method="post" action="/creator/profile/chips" class="profile-chip-sheet">
+    <div class="profile-manage-list">
+      <a href="/creator/profile/settings" class="profile-manage-row">
+        <span>privacy, babyg behavior, integrations</span>
+        <strong>settings</strong>
+      </a>
+      <a href="/creator/performance" class="profile-manage-row">
+        <span>stats and performance</span>
+        <strong>open</strong>
+      </a>
+      <a href="/creator/receipts" class="profile-manage-row">
+        <span>post receipts</span>
+        <strong>open</strong>
+      </a>
+      <form method="post" action="/auth/logout" class="profile-manage-row profile-manage-form">
         {% include "_partials/csrf.html" %}
-        <input type="hidden" name="section" value="{{ section }}" />
-        <div class="profile-chip-sheet-head">
-          <div>
-            <span class="mono profile-chip-label">{{ label }}</span>
-            <h2>edit {{ label }}</h2>
-          </div>
-          <button type="button" class="profile-chip-close" data-profile-chip-close aria-label="close">×</button>
-        </div>
-        <p>{{ hint }}</p>
-        <div class="profile-chip-options">
-          {% for option in options %}
-          <label class="profile-chip-option">
-            <input type="checkbox" name="values" value="{{ option }}" {% if option in values %}checked{% endif %} />
-            <span>{{ option }}</span>
-          </label>
-          {% endfor %}
-        </div>
-        <div class="profile-chip-actions">
-          <button type="button" class="btn btn-ghost btn-sm" data-profile-chip-close>cancel</button>
-          <button type="submit" class="btn btn-lime btn-sm">save</button>
-        </div>
+        <span>signed in as {{ profile.full_name or profile.instagram_handle or 'creator' }}</span>
+        <button type="submit">sign out</button>
       </form>
-    </dialog>
-    {% endfor %}
-
-    <section class="profile-chip-section">
-      <button type="button"
-              class="profile-chip-trigger"
-              data-profile-chip-open="bio"
-              aria-controls="profile-chip-bio">
-        <span>
-          <span class="mono profile-chip-label">bio</span>
-        </span>
-        <span class="profile-chip-edit">edit</span>
-      </button>
-      {% if profile.bio %}
-      <p class="profile-bio-copy">{{ profile.bio }}</p>
-      {% else %}
-      <p class="profile-chip-empty">tap to add bio.</p>
-      {% endif %}
-    </section>
-
-    <dialog class="profile-chip-dialog" id="profile-chip-bio" data-profile-chip-dialog>
-      <form method="post" action="/creator/profile/bio" class="profile-chip-sheet">
-        {% include "_partials/csrf.html" %}
-        <div class="profile-chip-sheet-head">
-          <div>
-            <span class="mono profile-chip-label">bio</span>
-            <h2>edit bio</h2>
-          </div>
-          <button type="button" class="profile-chip-close" data-profile-chip-close aria-label="close">×</button>
-        </div>
-        <p>what should babyg know about how you show up?</p>
-        <label for="profile-bio-input" class="sr-only">bio</label>
-        <textarea id="profile-bio-input" name="bio" rows="5" class="profile-bio-textarea">{{ profile.bio or '' }}</textarea>
-        <div class="profile-chip-actions">
-          <button type="button" class="btn btn-ghost btn-sm" data-profile-chip-close>cancel</button>
-          <button type="submit" class="btn btn-lime btn-sm">save</button>
-        </div>
-      </form>
-    </dialog>
-  </div>
+    </div>
+  </section>
 </div>
 </div>
 {% endblock %}
