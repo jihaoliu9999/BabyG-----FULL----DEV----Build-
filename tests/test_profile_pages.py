@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from fastapi import Response
 from fastapi.testclient import TestClient
 
@@ -63,23 +65,25 @@ def test_creator_profile_page_renders(monkeypatch, client: TestClient) -> None:
     assert "/creator/profile/settings" in response.text
 
 
-def test_creator_profile_uses_reference_composition(monkeypatch, client: TestClient) -> None:
+def test_creator_profile_page_has_single_preview_and_section_budget(
+    monkeypatch, client: TestClient
+) -> None:
     _signed_in(client, role="creator")
     monkeypatch.setattr(creator_routes.profiles, "get_creator_profile", lambda uid: _profile())
 
     response = client.get("/creator/profile")
 
     assert response.status_code == 200
-    assert 'class="profile-fidelity-preview"' in response.text
-    assert "What brands see" in response.text
-    assert 'class="profile-fidelity-stats"' not in response.text
-    assert "creator profile metrics" not in response.text
-    assert response.text.count('class="profile-setting-icon ') == 4
-    assert 'href="/creator/profile/settings#privacy"' in response.text
-    assert 'href="/creator/profile/settings#babyg-behavior"' in response.text
-    assert 'href="/creator/profile/settings#integrations"' in response.text
-    assert 'data-open-profile-management' in response.text
-    assert 'id="deal-preferences"' in response.text
+    html = response.text
+    assert 'class="profile-preview"' not in html
+    assert html.count('class="profile-fidelity-preview"') == 1
+    assert 'action="/creator/profile/deals"' in html
+    assert 'id="deal-preferences"' in html
+
+    section_count = len(re.findall(r"<section\b", html))
+    settings_group_count = len(re.findall(r'<form[^>]+class="[^"]*\bsettings-group\b', html))
+    details_card_count = html.count("profile-details-card")
+    assert section_count + settings_group_count + details_card_count <= 8
 
 
 def test_creator_profile_chip_update_saves_existing_fields(

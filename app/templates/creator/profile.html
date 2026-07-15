@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}profile — babyg{% endblock %}
+{% block title %}profile - babyg{% endblock %}
 {% block head_extra %}<script src="/static/js/profile.js" defer></script>{% endblock %}
 
 {% set initials = (profile.full_name or profile.instagram_handle or 'creator')[:2]|upper %}
@@ -8,263 +8,274 @@
 {% set chips_flash = request.query_params.get('chips') %}
 {% set bio_flash = request.query_params.get('bio') %}
 {% set details_flash = request.query_params.get('details') %}
+{% set deals_flash = request.query_params.get('deals') %}
 {% set chip_sections = [
   ('niches', 'niches', 'what you make and where babyg should look first.'),
   ('formats', 'formats', 'how your work usually shows up.'),
   ('limits', 'limits', 'categories and asks babyg should keep off the table.')
 ] %}
 
+{% macro flash_block(name, value) %}
+  {% if value %}
+  <div class="profile-flash profile-flash-{{ 'ok' if value == 'ok' or value == 'removed' else 'error' }}" role="status">
+    {% if name == 'photo' %}
+      {% if value == 'ok' %}photo updated
+      {% elif value == 'removed' %}photo removed
+      {% elif value == 'too_big' %}photo too big, max 6 MB
+      {% elif value == 'bad_type' %}photo must be jpeg, png, or webp. iphone tip: open the photo, tap share, then Save to Files as JPEG, or switch Settings > Camera > Formats to Most Compatible.
+      {% elif value == 'corrupt' %}couldn't read that image, try another file
+      {% elif value == 'missing' %}no file picked
+      {% elif value == 'save_failed' %}upload succeeded but save failed, try again
+      {% elif value == 'storage_failed' %}image storage is having trouble, try again in a minute
+      {% else %}{{ value }}
+      {% endif %}
+    {% elif name == 'chips' %}
+      {% if value == 'ok' %}profile updated
+      {% elif value == 'save_failed' %}couldn't save profile choices
+      {% else %}{{ value }}
+      {% endif %}
+    {% elif name == 'bio' %}
+      {% if value == 'ok' %}bio updated
+      {% elif value == 'save_failed' %}couldn't save bio
+      {% else %}{{ value }}
+      {% endif %}
+    {% elif name == 'details' %}
+      {% if value == 'ok' %}details updated
+      {% elif value == 'invalid_location' %}location could not be saved
+      {% elif value == 'save_failed' %}couldn't save details
+      {% else %}{{ value }}
+      {% endif %}
+    {% elif name == 'deals' %}
+      {% if value == 'ok' %}deal preferences saved
+      {% elif value == 'save_failed' %}couldn't save deal preferences
+      {% else %}{{ value }}
+      {% endif %}
+    {% endif %}
+  </div>
+  {% endif %}
+{% endmacro %}
+
 {% block content %}
 <div class="ambient-page profile-page">
 <div class="wrap ambient-shell profile-shell">
-
-  <header class="profile-fidelity-topbar">
-    <div class="profile-fidelity-title">
-      <span class="profile-fidelity-mark" aria-hidden="true"><img src="/static/assets/logo-bg.png" alt="" /></span>
-      <h1>Profile</h1>
-    </div>
-    <a class="profile-fidelity-settings" href="/creator/profile/settings" aria-label="Open settings">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H2.8v-4H3a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/></svg>
-    </a>
-  </header>
-
-  <section class="profile-fidelity-preview" aria-labelledby="profile-preview-name">
-    <div class="profile-fidelity-preview-head">
-      <span>What brands see</span>
-      <small>Discover preview</small>
-    </div>
-    <div class="profile-fidelity-identity">
-      <div class="profile-fidelity-avatar" aria-hidden="true">
-        {% if profile_preview.profile_photo_url %}
-        <img src="{{ profile_preview.profile_photo_url|safe_url }}" alt="" loading="lazy" decoding="async" />
-        {% else %}
-        <span>{{ initials }}</span>
-        {% endif %}
-      </div>
-      <div class="profile-fidelity-copy">
-        <h2 id="profile-preview-name">{{ profile_preview.full_name or 'creator' }}</h2>
-        <p>{% if profile_preview.niches %}{{ profile_preview.niches[:2]|join(' & ') }} creator{% elif profile_preview.primary_platform %}{{ profile_preview.primary_platform }} creator{% else %}Creator profile{% endif %}</p>
-        <div class="profile-fidelity-meta">
-          {% if profile_preview.location_label %}<span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg>{{ profile_preview.location_label }}</span>{% endif %}
-          {% if profile_preview.instagram_handle %}<span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><path d="M17.5 6.5h.01"/></svg>@{{ profile_preview.instagram_handle }}</span>{% endif %}
-        </div>
-      </div>
-    </div>
-    <div class="profile-fidelity-tags" aria-label="creator specialties">
-      {% for value in (profile_preview.niches or [])[:3] %}<span>{{ value }}</span>{% endfor %}
-      {% for value in profile_chip_values.get('formats', [])[:2] %}<span>{{ value }}</span>{% endfor %}
-      {% if not profile_preview.niches and not profile_chip_values.get('formats') %}<span>Add specialties</span>{% endif %}
-    </div>
-  </section>
-
-  <section class="profile-fidelity-settings-list" aria-labelledby="profile-settings-title">
-    <h2 id="profile-settings-title">Settings</h2>
-    <div class="profile-fidelity-settings-card">
-      <a href="/creator/profile/settings#privacy">
-        <span class="profile-setting-icon profile-setting-icon-safe"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M12 3 4 6v5c0 5 3.4 8.5 8 10 4.6-1.5 8-5 8-10V6l-8-3Z"/><path d="m9 12 2 2 4-4"/></svg></span>
-        <strong>Privacy &amp; who can DM</strong><span class="profile-setting-arrow" aria-hidden="true">&#8250;</span>
-      </a>
-      <a href="/creator/profile/settings#babyg-behavior">
-        <span class="profile-setting-icon profile-setting-icon-ai"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="m12 2 1.5 5.5L19 9l-5.5 1.5L12 16l-1.5-5.5L5 9l5.5-1.5L12 2Z"/><path d="m19 15 .8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z"/></svg></span>
-        <strong>babyg behavior &amp; tone</strong><span class="profile-setting-arrow" aria-hidden="true">&#8250;</span>
-      </a>
-      <a href="/creator/profile/settings#integrations">
-        <span class="profile-setting-icon profile-setting-icon-accent"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><path d="M8 3v5M16 3v5M5 8h14v3a7 7 0 0 1-7 7 7 7 0 0 1-7-7V8Z"/><path d="M12 18v3"/></svg></span>
-        <strong>Integrations <span>Google, Instagram</span></strong><span class="profile-setting-arrow" aria-hidden="true">&#8250;</span>
-      </a>
-      <a href="#deal-preferences" data-open-profile-management>
-        <span class="profile-setting-icon profile-setting-icon-caution"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/></svg></span>
-        <strong>Deal preferences</strong><span class="profile-setting-arrow" aria-hidden="true">&#8250;</span>
-      </a>
-    </div>
-  </section>
-
-  <details class="profile-management" id="profile-management">
-    <summary><span>Manage public profile</span><small>Photo, bio, specialties, details, receipts, and account</small></summary>
-    <div class="profile-management-body">
-
-  {# Discover-card preview. Renders the same fields brands and peers
-     see in /creator/discover so privacy + completeness decisions feel
-     concrete. Owner-private fields (tier, baseline followers, exact
-     coords, deal prefs, babyg behavior settings) intentionally never
-     surface here. Non-clickable: this is a mirror, not navigation. #}
-  <section class="profile-preview" aria-label="how others see you">
-    <div class="profile-preview-head">
-      <span class="mono eyebrow">discover preview</span>
-      <span class="profile-preview-help">this is how brands and peers see your card.</span>
-    </div>
-    <div class="creator-card creator-card-static" aria-hidden="false">
-      <div class="creator-card-top">
-        {% if profile_preview.profile_photo_url %}
-        <div class="creator-avatar creator-avatar-photo" aria-hidden="true">
-          <img src="{{ profile_preview.profile_photo_url|safe_url }}{% if profile_preview.updated_at %}?v={{ profile_preview.updated_at|short_dt|replace(' ', 'T')|replace(':', '-') }}{% endif %}" alt="" loading="lazy" decoding="async" />
-        </div>
-        {% else %}
-        <div class="creator-avatar" aria-hidden="true">
-          {{ (profile_preview.full_name or profile_preview.instagram_handle or "C")[:1]|upper }}
-        </div>
-        {% endif %}
-        <div class="creator-card-head">
-          <div class="creator-card-name">{{ profile_preview.full_name or "creator" }}</div>
-          {% if profile_preview.instagram_handle %}
-            <div class="creator-card-handle">@{{ profile_preview.instagram_handle }}</div>
-          {% endif %}
-        </div>
-      </div>
-
-      <div class="creator-card-meta">
-        {% if profile_preview.location_label %}<span>{{ profile_preview.location_label }}</span>{% else %}<span class="profile-preview-empty">location hidden</span>{% endif %}
-        {% if profile_preview.follower_range %}<span>{{ profile_preview.follower_range }} followers</span>{% endif %}
-        {% if profile_preview.primary_platform %}<span>{{ profile_preview.primary_platform }}</span>{% endif %}
-      </div>
-
-      <div class="tag-row tag-row-tight">
-        {% for n in (profile_preview.niches or [])[:5] %}<span class="tag">{{ n }}</span>{% endfor %}
-      </div>
-
-      {% if profile_preview.bio %}
-      <p class="creator-card-bio">{{ profile_preview.bio[:140] }}{% if profile_preview.bio|length > 140 %}…{% endif %}</p>
-      {% else %}
-      <p class="creator-card-bio profile-preview-empty">add a bio so your card has a hook.</p>
-      {% endif %}
-    </div>
-  </section>
-
-  <div style="display:flex;align-items:center;gap:18px;margin-bottom:22px;flex-wrap:wrap;">
-    {% if profile.profile_photo_url %}
-    <span class="avatar av-g3 xl" style="overflow:hidden;padding:0;">
-      <img data-profile-photo-preview src="{{ profile.profile_photo_url }}{% if profile.updated_at %}?v={{ profile.updated_at | replace(':','') | replace('-','') | replace('.','') | replace(' ','') }}{% endif %}" alt="" style="width:100%;height:100%;object-fit:cover;display:block;" />
-    </span>
-    {% else %}
-    <span class="avatar av-g3 xl" data-profile-photo-fallback style="overflow:hidden;padding:0;display:inline-flex;align-items:center;justify-content:center;">
-      <img data-profile-photo-preview hidden alt="" style="width:100%;height:100%;object-fit:cover;display:block;" />
-      <span data-profile-photo-initials>{{ initials[0] }}</span>
-    </span>
-    {% endif %}
-    <div>
+  <header class="profile-header">
+    <div class="profile-header-copy">
       <span class="mono eyebrow">your profile</span>
       <h1 class="detail-title">{{ profile.full_name or 'creator' }}</h1>
       {% if profile.instagram_handle %}
-      <div style="color:var(--ink-mid);margin-top:4px;font-size:13.5px;">@{{ profile.instagram_handle }}{% if profile.primary_platform %} · {{ profile.primary_platform }}{% endif %}</div>
+      <p>@{{ profile.instagram_handle }}{% if profile.primary_platform %} / {{ profile.primary_platform }}{% endif %}</p>
       {% endif %}
     </div>
-  </div>
+    <a href="/creator/profile/settings" class="profile-header-link">settings</a>
+  </header>
 
-  {% if photo_flash %}
-  <div class="mono" style="font-size:10.5px;letter-spacing:0.14em;text-transform:uppercase;margin:0 0 14px;padding:8px 12px;border-radius:10px;border:1px solid var(--hairline);
-    {% if photo_flash == 'ok' %}color:var(--lime);border-color:var(--lime);background:var(--lime-soft);
-    {% elif photo_flash == 'removed' %}color:var(--ink-mid);
-    {% else %}color:var(--accent);border-color:var(--accent);background:var(--accent-bg);
-    {% endif %}">
-    {% if photo_flash == 'ok' %}photo updated
-    {% elif photo_flash == 'removed' %}photo removed
-    {% elif photo_flash == 'too_big' %}photo too big — max 6 MB
-    {% elif photo_flash == 'bad_type' %}photo must be jpeg, png, or webp. iphone tip: open the photo, tap share, then Save to Files as JPEG — or switch Settings → Camera → Formats to Most Compatible.
-    {% elif photo_flash == 'corrupt' %}couldn't read that image — try another file
-    {% elif photo_flash == 'missing' %}no file picked
-    {% elif photo_flash == 'save_failed' %}upload succeeded but save failed — try again
-    {% elif photo_flash == 'storage_failed' %}image storage is having trouble — try again in a minute
-    {% else %}{{ photo_flash }}
+  {{ flash_block('photo', photo_flash) }}
+  {{ flash_block('chips', chips_flash) }}
+  {{ flash_block('bio', bio_flash) }}
+  {{ flash_block('details', details_flash) }}
+  {{ flash_block('deals', deals_flash) }}
+
+  <section class="profile-fidelity-preview" aria-label="discover preview">
+    <div class="profile-preview-top">
+      {% if profile_preview.profile_photo_url %}
+      <span class="avatar av-g3 xl profile-preview-avatar" aria-hidden="true">
+        <img data-profile-photo-preview src="{{ profile_preview.profile_photo_url|safe_url }}{% if profile_preview.updated_at %}?v={{ profile_preview.updated_at|short_dt|replace(' ', 'T')|replace(':', '-') }}{% endif %}" alt="" />
+      </span>
+      {% elif profile.profile_photo_url %}
+      <span class="avatar av-g3 xl profile-preview-avatar" aria-hidden="true">
+        <img data-profile-photo-preview src="{{ profile.profile_photo_url }}{% if profile.updated_at %}?v={{ profile.updated_at | replace(':','') | replace('-','') | replace('.','') | replace(' ','') }}{% endif %}" alt="" />
+      </span>
+      {% else %}
+      <span class="avatar av-g3 xl profile-preview-avatar" data-profile-photo-fallback aria-hidden="true">
+        <img data-profile-photo-preview hidden alt="" />
+        <span data-profile-photo-initials>{{ initials[0] }}</span>
+      </span>
+      {% endif %}
+      <div class="profile-preview-copy">
+        <span class="mono">discover preview</span>
+        <h2>{{ profile_preview.full_name or profile_preview.instagram_handle or 'creator' }}</h2>
+        <p>
+          {% if profile_preview.instagram_handle %}@{{ profile_preview.instagram_handle }}{% endif %}
+          {% if profile_preview.location_label %}{% if profile_preview.instagram_handle %} / {% endif %}{{ profile_preview.location_label }}{% endif %}
+          {% if not profile_preview.location_label %}{% if profile_preview.instagram_handle %} / {% endif %}location hidden{% endif %}
+        </p>
+      </div>
+    </div>
+
+    {% if profile_preview.bio %}
+    <p class="profile-preview-bio">{{ profile_preview.bio }}</p>
+    {% else %}
+    <p class="profile-preview-bio profile-chip-empty">add a bio so your card has a hook.</p>
     {% endif %}
-  </div>
-  {% endif %}
 
-  <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;">
-    <form method="post" action="/creator/profile/photo" enctype="multipart/form-data"
-          style="display:inline-flex;align-items:center;gap:10px;margin:0;"
-          data-profile-photo-form>
-      {% include "_partials/csrf.html" %}
-      <label class="btn btn-ghost btn-sm" style="cursor:pointer;margin:0;">
-        <span data-profile-photo-label>{% if profile.profile_photo_url %}change photo{% else %}upload photo{% endif %}</span>
-        <input type="file" name="photo" accept="image/jpeg,image/png,image/webp"
-               data-profile-photo-input style="display:none;" />
-      </label>
-      <button type="submit" class="btn btn-lime btn-sm" hidden data-profile-photo-submit>save</button>
-      <span class="mono" data-profile-photo-status hidden
-            style="font-size:10px;letter-spacing:0.14em;color:var(--ink-dim);text-transform:uppercase;margin-left:4px;"></span>
-    </form>
-    {% if profile.profile_photo_url %}
-    <form method="post" action="/creator/profile/photo/delete" style="display:inline;margin:0;">
-      {% include "_partials/csrf.html" %}
-      <button type="submit" class="btn btn-ghost btn-sm">remove photo</button>
-    </form>
-    {% endif %}
-  </div>
+    <div class="profile-preview-meta" aria-label="public profile details">
+      {% if profile_preview.primary_platform %}<span>{{ profile_preview.primary_platform }}</span>{% endif %}
+      {% if profile_preview.follower_range %}<span>{{ profile_preview.follower_range }} followers</span>{% endif %}
+      {% if profile_preview.engagement_range %}<span>{{ profile_preview.engagement_range }} engagement</span>{% endif %}
+    </div>
 
-  <div style="display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;">
-    <a href="/creator/profile/settings" class="btn btn-ghost btn-sm">edit account info</a>
-    <a href="/creator/performance" class="btn btn-ghost btn-sm">stats &amp; performance</a>
-    <a href="/creator/receipts" class="btn btn-ghost btn-sm">post receipts</a>
-    <form method="post" action="/auth/logout" style="display:inline;">
-      {% include "_partials/csrf.html" %}
-      <button type="submit" class="btn btn-ghost btn-sm">sign out</button>
-    </form>
-  </div>
+    <div class="chip-group profile-preview-tags" aria-label="public profile tags">
+      {% for value in (profile_chip_values.get('niches', []) + profile_chip_values.get('formats', []))[:6] %}
+      <span class="chip profile-chip-static">{{ value }}</span>
+      {% endfor %}
+    </div>
+  </section>
 
-  {% if chips_flash %}
-  <div class="mono" style="font-size:10.5px;letter-spacing:0.14em;text-transform:uppercase;margin:0 0 14px;padding:8px 12px;border-radius:10px;border:1px solid var(--hairline);
-    {% if chips_flash == 'ok' %}color:var(--lime);border-color:var(--lime);background:var(--lime-soft);
-    {% else %}color:var(--accent);border-color:var(--accent);background:var(--accent-bg);
-    {% endif %}">
-    {% if chips_flash == 'ok' %}profile updated
-    {% elif chips_flash == 'save_failed' %}couldn't save profile choices
-    {% else %}{{ chips_flash }}
-    {% endif %}
-  </div>
-  {% endif %}
+  <section class="profile-section" aria-labelledby="profile-quick-edits-title">
+    <div class="profile-section-head">
+      <div>
+        <span class="mono">quick edits</span>
+        <h2 id="profile-quick-edits-title">shape the public card</h2>
+      </div>
+    </div>
 
-  {% if bio_flash %}
-  <div class="mono" style="font-size:10.5px;letter-spacing:0.14em;text-transform:uppercase;margin:0 0 14px;padding:8px 12px;border-radius:10px;border:1px solid var(--hairline);
-    {% if bio_flash == 'ok' %}color:var(--lime);border-color:var(--lime);background:var(--lime-soft);
-    {% else %}color:var(--accent);border-color:var(--accent);background:var(--accent-bg);
-    {% endif %}">
-    {% if bio_flash == 'ok' %}bio updated
-    {% elif bio_flash == 'save_failed' %}couldn't save bio
-    {% else %}{{ bio_flash }}
-    {% endif %}
-  </div>
-  {% endif %}
+    <div class="profile-photo-actions" aria-label="profile photo actions">
+      <form method="post" action="/creator/profile/photo" enctype="multipart/form-data"
+            class="profile-photo-form"
+            data-profile-photo-form>
+        {% include "_partials/csrf.html" %}
+        <label class="btn btn-ghost btn-sm profile-photo-picker">
+          <span data-profile-photo-label>{% if profile.profile_photo_url %}change photo{% else %}upload photo{% endif %}</span>
+          <input type="file" name="photo" accept="image/jpeg,image/png,image/webp"
+                 data-profile-photo-input />
+        </label>
+        <button type="submit" class="btn btn-lime btn-sm" hidden data-profile-photo-submit>save</button>
+        <span class="mono profile-photo-status" data-profile-photo-status hidden></span>
+      </form>
+      {% if profile.profile_photo_url %}
+      <form method="post" action="/creator/profile/photo/delete" class="profile-inline-form">
+        {% include "_partials/csrf.html" %}
+        <button type="submit" class="btn btn-ghost btn-sm">remove photo</button>
+      </form>
+      {% endif %}
+    </div>
 
-  {% if details_flash %}
-  <div class="mono" style="font-size:10.5px;letter-spacing:0.14em;text-transform:uppercase;margin:0 0 14px;padding:8px 12px;border-radius:10px;border:1px solid var(--hairline);
-    {% if details_flash == 'ok' %}color:var(--lime);border-color:var(--lime);background:var(--lime-soft);
-    {% else %}color:var(--accent);border-color:var(--accent);background:var(--accent-bg);
-    {% endif %}">
-    {% if details_flash == 'ok' %}details updated
-    {% elif details_flash == 'invalid_location' %}location could not be saved
-    {% elif details_flash == 'save_failed' %}couldn't save details
-    {% else %}{{ details_flash }}
-    {% endif %}
-  </div>
-  {% endif %}
+    <div class="profile-chip-stack">
+      <div class="profile-chip-section">
+        <button type="button"
+                class="profile-chip-trigger"
+                data-profile-chip-open="bio"
+                aria-controls="profile-chip-bio">
+          <span>
+            <span class="mono profile-chip-label">bio</span>
+            <span class="profile-chip-hint">one public sentence that explains your world.</span>
+          </span>
+          <span class="profile-chip-edit">edit</span>
+        </button>
+        {% if profile.bio %}
+        <p class="profile-bio-copy">{{ profile.bio }}</p>
+        {% else %}
+        <p class="profile-chip-empty">tap to add bio.</p>
+        {% endif %}
+      </div>
 
-  <span class="mono" style="display:block;margin-bottom:10px;">details</span>
-  <div class="profile-details-card">
-    <div class="profile-details-head">
-      <span>creator basics</span>
+      {% for section, label, hint in chip_sections %}
+      {% set values = profile_chip_values.get(section, []) %}
+      {% set options = profile_chip_options.get(section, []) %}
+      <div class="profile-chip-section">
+        <button type="button"
+                class="profile-chip-trigger"
+                data-profile-chip-open="{{ section }}"
+                aria-controls="profile-chip-{{ section }}">
+          <span>
+            <span class="mono profile-chip-label">{{ label }}</span>
+            <span class="profile-chip-hint">{{ hint }}</span>
+          </span>
+          <span class="profile-chip-edit">edit</span>
+        </button>
+        {% if values %}
+        <div class="chip-group profile-chip-display" aria-label="{{ label }}">
+          {% for value in values %}
+          <span class="chip profile-chip-static">{{ value }}</span>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="profile-chip-empty">tap to add {{ label }}.</p>
+        {% endif %}
+      </div>
+
+      <dialog class="profile-chip-dialog" id="profile-chip-{{ section }}" data-profile-chip-dialog>
+        <form method="post" action="/creator/profile/chips" class="profile-chip-sheet">
+          {% include "_partials/csrf.html" %}
+          <input type="hidden" name="section" value="{{ section }}" />
+          <div class="profile-chip-sheet-head">
+            <div>
+              <span class="mono profile-chip-label">{{ label }}</span>
+              <h2>edit {{ label }}</h2>
+            </div>
+            <button type="button" class="profile-chip-close" data-profile-chip-close aria-label="close">&times;</button>
+          </div>
+          <p>{{ hint }}</p>
+          <div class="profile-chip-options">
+            {% for option in options %}
+            <label class="profile-chip-option">
+              <input type="checkbox" name="values" value="{{ option }}" {% if option in values %}checked{% endif %} />
+              <span>{{ option }}</span>
+            </label>
+            {% endfor %}
+          </div>
+          <div class="profile-chip-actions">
+            <button type="button" class="btn btn-ghost btn-sm" data-profile-chip-close>cancel</button>
+            <button type="submit" class="btn btn-lime btn-sm">save</button>
+          </div>
+        </form>
+      </dialog>
+      {% endfor %}
+    </div>
+
+    <dialog class="profile-chip-dialog" id="profile-chip-bio" data-profile-chip-dialog>
+      <form method="post" action="/creator/profile/bio" class="profile-chip-sheet">
+        {% include "_partials/csrf.html" %}
+        <div class="profile-chip-sheet-head">
+          <div>
+            <span class="mono profile-chip-label">bio</span>
+            <h2>edit bio</h2>
+          </div>
+          <button type="button" class="profile-chip-close" data-profile-chip-close aria-label="close">&times;</button>
+        </div>
+        <p>what should babyg know about how you show up?</p>
+        <label for="profile-bio-input" class="sr-only">bio</label>
+        <textarea id="profile-bio-input" name="bio" rows="5" class="profile-bio-textarea">{{ profile.bio or '' }}</textarea>
+        <div class="profile-chip-actions">
+          <button type="button" class="btn btn-ghost btn-sm" data-profile-chip-close>cancel</button>
+          <button type="submit" class="btn btn-lime btn-sm">save</button>
+        </div>
+      </form>
+    </dialog>
+  </section>
+
+  <section class="profile-section" aria-labelledby="profile-details-title">
+    <div class="profile-section-head">
+      <div>
+        <span class="mono">details</span>
+        <h2 id="profile-details-title">basic matching signals</h2>
+      </div>
       <button type="button" class="profile-chip-edit profile-details-edit"
               data-profile-chip-open="details"
               aria-controls="profile-chip-details">edit</button>
     </div>
-    <div class="profile-detail-grid">
-      <div class="profile-detail-item">
-        <span class="l">location</span>
-        <strong>{{ profile.location_label or 'location not set' }}</strong>
-      </div>
-      <div class="profile-detail-item">
-        <span class="l">platform</span>
-        <strong>{{ profile.primary_platform or 'not set' }}</strong>
-      </div>
-      <div class="profile-detail-item">
-        <span class="l">followers</span>
-        <strong>{{ profile.follower_range or 'not set' }}</strong>
-      </div>
-      <div class="profile-detail-item">
-        <span class="l">engagement</span>
-        <strong>{{ profile.engagement_range or 'not set' }}</strong>
+
+    <div class="profile-details-card">
+      <div class="profile-detail-grid">
+        <div class="profile-detail-item">
+          <span class="l">location</span>
+          <strong>{{ profile.location_label or 'location not set' }}</strong>
+        </div>
+        <div class="profile-detail-item">
+          <span class="l">platform</span>
+          <strong>{{ profile.primary_platform or 'not set' }}</strong>
+        </div>
+        <div class="profile-detail-item">
+          <span class="l">followers</span>
+          <strong>{{ profile.follower_range or 'not set' }}</strong>
+        </div>
+        <div class="profile-detail-item">
+          <span class="l">engagement</span>
+          <strong>{{ profile.engagement_range or 'not set' }}</strong>
+        </div>
       </div>
     </div>
-  </div>
+  </section>
 
   <dialog class="profile-chip-dialog" id="profile-chip-details" data-profile-chip-dialog>
     <form method="post" action="/creator/profile/location" class="profile-chip-sheet">
@@ -274,7 +285,7 @@
           <span class="mono profile-chip-label">details</span>
           <h2>edit location</h2>
         </div>
-        <button type="button" class="profile-chip-close" data-profile-chip-close aria-label="close">×</button>
+        <button type="button" class="profile-chip-close" data-profile-chip-close aria-label="close">&times;</button>
       </div>
       <p>city or region is enough. exact location stays private.</p>
       <label for="profile-location-city-input" class="sr-only">city or region</label>
@@ -298,154 +309,86 @@
     </form>
   </dialog>
 
-  {% set deals_flash = request.query_params.get('deals') %}
-  <span class="mono" style="display:block;margin:18px 0 10px;">deal preferences</span>
-  <form class="profile-details-card settings-form" id="deal-preferences" method="post" action="/creator/profile/deals">
-    {% include "_partials/csrf.html" %}
-    <div class="profile-details-head">
-      <span>working terms (private)</span>
-    </div>
-    <p class="settings-help" style="margin:0 0 14px;">babyg uses these when it drafts replies and screens brand outreach. peers and brands never see them.</p>
-
-    {% if deals_flash == 'ok' %}<div class="settings-flash settings-flash-ok">saved.</div>
-    {% elif deals_flash == 'save_failed' %}<div class="settings-flash">couldn't save. try again.</div>
-    {% endif %}
-
-    <div class="settings-row settings-row-stack">
-      <label for="deal_min_rate_text"><span>rate floor</span></label>
-      <input
-        type="text"
-        id="deal_min_rate_text"
-        name="deal_min_rate_text"
-        maxlength="120"
-        placeholder='e.g. "$2k organic" or "DM for rates"'
-        value="{{ profile.deal_min_rate_text or '' }}"
-        autocomplete="off"
-        style="background:var(--surface-2);color:var(--ink);border:1px solid var(--hairline-strong);border-radius:8px;padding:9px 10px;font-size:13.5px;width:100%;max-width:360px;"
-      />
-      <p class="settings-help">free text. babyg-only. leave blank if you'd rather babyg always say "DM to discuss".</p>
-    </div>
-
-    <div class="settings-row settings-row-stack">
-      <label for="deal_usage_rights_default"><span>usage rights default</span></label>
-      <select id="deal_usage_rights_default" name="deal_usage_rights_default">
-        <option value="" {% if not profile.deal_usage_rights_default %}selected{% endif %}>not set</option>
-        <option value="organic_only"    {% if profile.deal_usage_rights_default == 'organic_only' %}selected{% endif %}>organic only — no paid amplification</option>
-        <option value="paid_organic"    {% if profile.deal_usage_rights_default == 'paid_organic' %}selected{% endif %}>paid usage on my channels OK</option>
-        <option value="paid_with_usage" {% if profile.deal_usage_rights_default == 'paid_with_usage' %}selected{% endif %}>full usage rights negotiable for paid</option>
-        <option value="flexible"        {% if profile.deal_usage_rights_default == 'flexible' %}selected{% endif %}>flexible — case-by-case</option>
-      </select>
-    </div>
-
-    <div class="settings-row settings-row-stack">
-      <label for="deal_travel_willingness"><span>travel willingness</span></label>
-      <select id="deal_travel_willingness" name="deal_travel_willingness">
-        <option value="" {% if not profile.deal_travel_willingness %}selected{% endif %}>not set</option>
-        <option value="no"        {% if profile.deal_travel_willingness == 'no' %}selected{% endif %}>no travel</option>
-        <option value="local_only"{% if profile.deal_travel_willingness == 'local_only' %}selected{% endif %}>local only</option>
-        <option value="regional"  {% if profile.deal_travel_willingness == 'regional' %}selected{% endif %}>regional</option>
-        <option value="open"      {% if profile.deal_travel_willingness == 'open' %}selected{% endif %}>open to anywhere</option>
-      </select>
-    </div>
-
-    <div class="settings-actions" style="margin-top:8px;">
-      <button class="btn btn-lime btn-sm" type="submit">save deal preferences</button>
-    </div>
-  </form>
-
-  <div class="profile-chip-stack">
-    {% for section, label, hint in chip_sections %}
-    {% set values = profile_chip_values.get(section, []) %}
-    {% set options = profile_chip_options.get(section, []) %}
-    <section class="profile-chip-section">
-      <button type="button"
-              class="profile-chip-trigger"
-              data-profile-chip-open="{{ section }}"
-              aria-controls="profile-chip-{{ section }}">
-        <span>
-          <span class="mono profile-chip-label">{{ label }}</span>
-          <span class="profile-chip-hint">{{ hint }}</span>
-        </span>
-        <span class="profile-chip-edit">edit</span>
-      </button>
-      {% if values %}
-      <div class="chip-group profile-chip-display" aria-label="{{ label }}">
-        {% for value in values %}
-        <span class="chip profile-chip-static">{{ value }}</span>
-        {% endfor %}
+  <section class="profile-section profile-deals" id="deal-preferences" aria-labelledby="profile-deals-title">
+    <div class="profile-section-head">
+      <div>
+        <span class="mono">deal preferences</span>
+        <h2 id="profile-deals-title">private working terms</h2>
       </div>
-      {% else %}
-      <p class="profile-chip-empty">tap to add {{ label }}.</p>
-      {% endif %}
-    </section>
+    </div>
+    <form class="profile-deals-form" method="post" action="/creator/profile/deals">
+      {% include "_partials/csrf.html" %}
+      <p class="profile-section-copy">babyg uses these when drafting replies and screening brand outreach. brands never see them.</p>
 
-    <dialog class="profile-chip-dialog" id="profile-chip-{{ section }}" data-profile-chip-dialog>
-      <form method="post" action="/creator/profile/chips" class="profile-chip-sheet">
+      <label class="profile-field" for="deal_min_rate_text">
+        <span>rate floor</span>
+        <input
+          type="text"
+          id="deal_min_rate_text"
+          name="deal_min_rate_text"
+          maxlength="120"
+          placeholder='e.g. "$2k organic" or "DM for rates"'
+          value="{{ profile.deal_min_rate_text or '' }}"
+          autocomplete="off"
+        />
+      </label>
+
+      <label class="profile-field" for="deal_usage_rights_default">
+        <span>usage rights default</span>
+        <select id="deal_usage_rights_default" name="deal_usage_rights_default">
+          <option value="" {% if not profile.deal_usage_rights_default %}selected{% endif %}>not set</option>
+          <option value="organic_only" {% if profile.deal_usage_rights_default == 'organic_only' %}selected{% endif %}>organic only, no paid amplification</option>
+          <option value="paid_organic" {% if profile.deal_usage_rights_default == 'paid_organic' %}selected{% endif %}>paid usage on my channels OK</option>
+          <option value="paid_with_usage" {% if profile.deal_usage_rights_default == 'paid_with_usage' %}selected{% endif %}>full usage rights negotiable for paid</option>
+          <option value="flexible" {% if profile.deal_usage_rights_default == 'flexible' %}selected{% endif %}>flexible, case-by-case</option>
+        </select>
+      </label>
+
+      <label class="profile-field" for="deal_travel_willingness">
+        <span>travel willingness</span>
+        <select id="deal_travel_willingness" name="deal_travel_willingness">
+          <option value="" {% if not profile.deal_travel_willingness %}selected{% endif %}>not set</option>
+          <option value="no" {% if profile.deal_travel_willingness == 'no' %}selected{% endif %}>no travel</option>
+          <option value="local_only" {% if profile.deal_travel_willingness == 'local_only' %}selected{% endif %}>local only</option>
+          <option value="regional" {% if profile.deal_travel_willingness == 'regional' %}selected{% endif %}>regional</option>
+          <option value="open" {% if profile.deal_travel_willingness == 'open' %}selected{% endif %}>open to anywhere</option>
+        </select>
+      </label>
+
+      <div class="profile-chip-actions">
+        <button class="btn btn-lime btn-sm" type="submit">save deal preferences</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="profile-section profile-manage" aria-labelledby="profile-manage-title">
+    <div class="profile-section-head">
+      <div>
+        <span class="mono">manage account</span>
+        <h2 id="profile-manage-title">deeper controls</h2>
+      </div>
+    </div>
+
+    <div class="profile-manage-list">
+      <a href="/creator/profile/settings" class="profile-manage-row">
+        <span>privacy, babyg behavior, integrations</span>
+        <strong>settings</strong>
+      </a>
+      <a href="/creator/performance" class="profile-manage-row">
+        <span>stats and performance</span>
+        <strong>open</strong>
+      </a>
+      <a href="/creator/receipts" class="profile-manage-row">
+        <span>post receipts</span>
+        <strong>open</strong>
+      </a>
+      <form method="post" action="/auth/logout" class="profile-manage-row profile-manage-form">
         {% include "_partials/csrf.html" %}
-        <input type="hidden" name="section" value="{{ section }}" />
-        <div class="profile-chip-sheet-head">
-          <div>
-            <span class="mono profile-chip-label">{{ label }}</span>
-            <h2>edit {{ label }}</h2>
-          </div>
-          <button type="button" class="profile-chip-close" data-profile-chip-close aria-label="close">×</button>
-        </div>
-        <p>{{ hint }}</p>
-        <div class="profile-chip-options">
-          {% for option in options %}
-          <label class="profile-chip-option">
-            <input type="checkbox" name="values" value="{{ option }}" {% if option in values %}checked{% endif %} />
-            <span>{{ option }}</span>
-          </label>
-          {% endfor %}
-        </div>
-        <div class="profile-chip-actions">
-          <button type="button" class="btn btn-ghost btn-sm" data-profile-chip-close>cancel</button>
-          <button type="submit" class="btn btn-lime btn-sm">save</button>
-        </div>
+        <span>signed in as {{ profile.full_name or profile.instagram_handle or 'creator' }}</span>
+        <button type="submit">sign out</button>
       </form>
-    </dialog>
-    {% endfor %}
-
-    <section class="profile-chip-section">
-      <button type="button"
-              class="profile-chip-trigger"
-              data-profile-chip-open="bio"
-              aria-controls="profile-chip-bio">
-        <span>
-          <span class="mono profile-chip-label">bio</span>
-        </span>
-        <span class="profile-chip-edit">edit</span>
-      </button>
-      {% if profile.bio %}
-      <p class="profile-bio-copy">{{ profile.bio }}</p>
-      {% else %}
-      <p class="profile-chip-empty">tap to add bio.</p>
-      {% endif %}
-    </section>
-
-    <dialog class="profile-chip-dialog" id="profile-chip-bio" data-profile-chip-dialog>
-      <form method="post" action="/creator/profile/bio" class="profile-chip-sheet">
-        {% include "_partials/csrf.html" %}
-        <div class="profile-chip-sheet-head">
-          <div>
-            <span class="mono profile-chip-label">bio</span>
-            <h2>edit bio</h2>
-          </div>
-          <button type="button" class="profile-chip-close" data-profile-chip-close aria-label="close">×</button>
-        </div>
-        <p>what should babyg know about how you show up?</p>
-        <label for="profile-bio-input" class="sr-only">bio</label>
-        <textarea id="profile-bio-input" name="bio" rows="5" class="profile-bio-textarea">{{ profile.bio or '' }}</textarea>
-        <div class="profile-chip-actions">
-          <button type="button" class="btn btn-ghost btn-sm" data-profile-chip-close>cancel</button>
-          <button type="submit" class="btn btn-lime btn-sm">save</button>
-        </div>
-      </form>
-    </dialog>
-  </div>
-  </div>
-  </details>
+    </div>
+  </section>
 </div>
 </div>
 {% endblock %}
