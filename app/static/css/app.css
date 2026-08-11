@@ -9200,9 +9200,10 @@ hr.hairline {
 
 /* Creator settings: compact, private controls separated from the public profile */
 .is-creator-app .app-sidebar nav a[data-tab="settings"] svg {
-  width: 19px;
-  height: 19px;
-  flex: 0 0 19px;
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  display: block;
   overflow: visible;
 }
 .is-creator-app .settings-clean-shell {
@@ -9252,7 +9253,7 @@ hr.hairline {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: clamp(16px, 2.6vw, 28px);
-  align-items: start;
+  align-items: stretch;
 }
 .is-creator-app .settings-column {
   display: grid;
@@ -9260,6 +9261,7 @@ hr.hairline {
   min-width: 0;
 }
 .is-creator-app .settings-clean-shell .settings-card {
+  min-height: 100%;
   margin: 0;
   padding: clamp(22px, 3vw, 32px);
   border: 1px solid rgba(245,241,232,.14);
@@ -9268,6 +9270,11 @@ hr.hairline {
     radial-gradient(circle at 12% 0%, rgba(255,77,109,.07), transparent 32%),
     rgba(17,17,17,.82);
   box-shadow: 0 24px 58px rgba(0,0,0,.28);
+}
+.is-creator-app .settings-clean-shell .settings-form,
+.is-creator-app .settings-integrations-card {
+  display: flex;
+  flex-direction: column;
 }
 .is-creator-app .settings-clean-shell .settings-card-head {
   margin-bottom: 22px;
@@ -9373,6 +9380,7 @@ hr.hairline {
 .is-creator-app .settings-clean-shell .settings-actions {
   display: flex;
   justify-content: flex-end;
+  margin-top: auto;
   padding-top: 18px;
 }
 .is-creator-app .settings-clean-shell .settings-actions .btn,
@@ -9388,6 +9396,8 @@ hr.hairline {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
+  align-items: stretch;
+  flex: 1;
 }
 .is-creator-app .settings-clean-shell .integration-card {
   min-height: 0;
@@ -9404,7 +9414,9 @@ hr.hairline {
   background: rgba(255,77,109,.045);
 }
 .is-creator-app .settings-clean-shell .integration-head {
-  align-items: flex-start;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 10px;
 }
 .is-creator-app .settings-clean-shell .integration-title,
@@ -9416,6 +9428,36 @@ hr.hairline {
   margin: 0;
   color: var(--text-secondary);
   line-height: 1.45;
+}
+.is-creator-app .settings-clean-shell .status-pill {
+  min-height: 22px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  padding: 0;
+  border: 0 !important;
+  background: transparent;
+  color: var(--text-tertiary) !important;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .2em;
+  line-height: 1;
+}
+.is-creator-app .settings-clean-shell .status-pill-connected {
+  color: var(--accent) !important;
+}
+.is-creator-app .settings-clean-shell .status-pill-ready {
+  color: var(--text-secondary) !important;
+}
+.is-creator-app .settings-clean-shell .status-pill .pulse-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+}
+.is-creator-app .settings-clean-shell .status-pill-ready .pulse-dot {
+  background: var(--text-tertiary);
+  box-shadow: none;
 }
 .is-creator-app .settings-clean-shell .integration-card-actions {
   display: grid;

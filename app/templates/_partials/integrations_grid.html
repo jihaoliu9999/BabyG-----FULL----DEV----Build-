@@ -7,11 +7,11 @@
     <div class="integration-head">
       <span class="mono integration-tag">Google Calendar</span>
       {% if google_calendar_connected %}
-      <span class="status-pill"><span class="pulse-dot"></span> connected</span>
+      <span class="status-pill status-pill-connected"><span class="pulse-dot"></span> connected</span>
       {% elif google_configured %}
-      <span class="status-pill" style="border-color:var(--hairline);color:var(--ink-mid);"><span class="pulse-dot" style="background:var(--ink-dim);box-shadow:none;"></span> ready</span>
+      <span class="status-pill status-pill-ready"><span class="pulse-dot"></span> ready</span>
       {% else %}
-      <span class="status-pill" style="border-color:var(--hairline);color:var(--ink-dim);">not configured</span>
+      <span class="status-pill status-pill-muted">not configured</span>
       {% endif %}
     </div>
     <p class="integration-body">pulls your real schedule so babyg can plan around it.</p>
@@ -31,11 +31,11 @@
     <div class="integration-head">
       <span class="mono integration-tag">Gmail</span>
       {% if google_gmail_connected %}
-      <span class="status-pill"><span class="pulse-dot"></span> connected</span>
+      <span class="status-pill status-pill-connected"><span class="pulse-dot"></span> connected</span>
       {% elif google_configured %}
-      <span class="status-pill" style="border-color:var(--hairline);color:var(--ink-mid);"><span class="pulse-dot" style="background:var(--ink-dim);box-shadow:none;"></span> ready</span>
+      <span class="status-pill status-pill-ready"><span class="pulse-dot"></span> ready</span>
       {% else %}
-      <span class="status-pill" style="border-color:var(--hairline);color:var(--ink-dim);">not configured</span>
+      <span class="status-pill status-pill-muted">not configured</span>
       {% endif %}
     </div>
     <p class="integration-body">Connecting Gmail lets babyg read recent threads and prepare draft replies for your approval. babyg never sends.</p>
@@ -65,11 +65,11 @@
     <div class="integration-head">
       <span class="mono integration-tag">Instagram</span>
       {% if instagram_connected %}
-      <span class="status-pill"><span class="pulse-dot"></span> connected</span>
+      <span class="status-pill status-pill-connected"><span class="pulse-dot"></span> connected</span>
       {% elif instagram_configured %}
-      <span class="status-pill" style="border-color:var(--hairline);color:var(--ink-mid);"><span class="pulse-dot" style="background:var(--ink-dim);box-shadow:none;"></span> ready</span>
+      <span class="status-pill status-pill-ready"><span class="pulse-dot"></span> ready</span>
       {% else %}
-      <span class="status-pill" style="border-color:var(--hairline);color:var(--ink-dim);">coming soon</span>
+      <span class="status-pill status-pill-muted">coming soon</span>
       {% endif %}
     </div>
     <p class="integration-body">live post insights - likes, comments, reach - without manual logging. requires an Instagram Business or Creator account.</p>
@@ -88,7 +88,7 @@
   <article class="integration-card integration-card-soon">
     <div class="integration-head">
       <span class="mono integration-tag">TikTok</span>
-      <span class="status-pill" style="border-color:var(--hairline);color:var(--ink-dim);">coming soon</span>
+      <span class="status-pill status-pill-muted">coming soon</span>
     </div>
     <p class="integration-body">video performance - views, shares, watch time - auto-pulled.</p>
     <button type="button" class="btn btn-ghost btn-sm" disabled aria-disabled="true">connect later</button>
