@@ -4,12 +4,10 @@
 
 {% block content %}
 <div class="wrap settings-shell settings-clean-shell">
-  <a href="/creator/profile" class="back-link settings-back">← profile</a>
-
   <header class="settings-hero">
     <span class="mono eyebrow">settings</span>
     <h1 class="detail-title">control room</h1>
-    <p>private rules, connected accounts, and account controls. your public profile lives on the profile page.</p>
+    <p>private controls for deals, visibility, integrations, and how babyg helps.</p>
   </header>
 
   {% set ig_flash = request.query_params.get('instagram') %}
@@ -29,8 +27,7 @@
   {% endif %}
 
   <div class="settings-grid">
-    <div class="settings-column settings-column-main">
-      <form class="settings-group settings-card settings-form profile-deals" id="deal-preferences" method="post" action="/creator/profile/deals">
+    <form class="settings-group settings-card settings-form profile-deals" id="deal-preferences" method="post" action="/creator/profile/deals">
         {% include "_partials/csrf.html" %}
         <div class="settings-card-head">
           <span class="mono eyebrow">deals</span>
@@ -79,19 +76,8 @@
         <div class="settings-actions">
           <button class="btn btn-lime btn-sm" type="submit">save preferences</button>
         </div>
-      </form>
+    </form>
 
-      <div class="settings-group settings-card settings-integrations-card" id="integrations">
-        <div class="settings-card-head">
-          <span class="mono eyebrow">connections</span>
-          <h2>integrations</h2>
-          <p>connect the accounts babyg can use to read context and draft better moves.</p>
-        </div>
-        {% include "_partials/integrations_grid.html" %}
-      </div>
-    </div>
-
-    <div class="settings-column settings-column-side">
       {% set privacy_flash = request.query_params.get('privacy') %}
       <form class="settings-group settings-card settings-form" id="privacy" method="post" action="/creator/profile/privacy">
         {% include "_partials/csrf.html" %}
@@ -126,6 +112,14 @@
           <button class="btn btn-lime btn-sm" type="submit">save privacy</button>
         </div>
       </form>
+
+      <div class="settings-group settings-card settings-integrations-card" id="integrations">
+        <div class="settings-card-head">
+          <h2>integrations</h2>
+          <p>connect the accounts babyg can use to read context and draft better moves.</p>
+        </div>
+        {% include "_partials/integrations_grid.html" %}
+      </div>
 
       {% set babyg_flash = request.query_params.get('babyg') %}
       <form class="settings-group settings-card settings-form" id="babyg-behavior" method="post" action="/creator/profile/babyg">
@@ -184,34 +178,6 @@
           <button class="btn btn-lime btn-sm" type="submit">save babyg</button>
         </div>
       </form>
-
-      <div class="settings-group settings-card">
-        <div class="settings-card-head">
-          <span class="mono eyebrow">account</span>
-          <h2>controls</h2>
-          <p>open the places you may need after setup.</p>
-        </div>
-        <div class="profile-manage-list">
-          <a href="/creator/profile" class="profile-manage-row">
-            <span>public profile</span>
-            <strong>open</strong>
-          </a>
-          <a href="/creator/performance" class="profile-manage-row">
-            <span>stats and performance</span>
-            <strong>open</strong>
-          </a>
-          <a href="/creator/receipts" class="profile-manage-row">
-            <span>post receipts</span>
-            <strong>open</strong>
-          </a>
-          <form method="post" action="/auth/logout" class="profile-manage-row profile-manage-form">
-            {% include "_partials/csrf.html" %}
-            <span>signed in as {{ profile.full_name or profile.instagram_handle or 'creator' }}</span>
-            <button type="submit">sign out</button>
-          </form>
-        </div>
-      </div>
-    </div>
   </div>
 </div>
 {% endblock %}

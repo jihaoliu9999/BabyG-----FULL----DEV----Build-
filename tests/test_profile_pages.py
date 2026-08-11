@@ -870,11 +870,12 @@ def test_creator_profile_settings_page_renders(monkeypatch, client: TestClient) 
     response = client.get("/creator/profile/settings")
 
     assert response.status_code == 200
-    assert "account" in response.text
+    assert "control room" in response.text
     assert "not configured" in response.text
     assert 'action="/creator/profile/deals"' in response.text
     assert 'id="deal-preferences"' in response.text
-    assert "/auth/logout" in response.text
+    assert "account controls" not in response.text
+    assert "/auth/logout" not in response.text
 
 
 def test_creator_profile_settings_google_states_are_scope_aware(
