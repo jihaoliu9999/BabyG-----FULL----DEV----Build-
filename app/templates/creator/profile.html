@@ -161,7 +161,6 @@
                   <input type="file" name="photo" accept="image/jpeg,image/png,image/webp"
                          data-profile-photo-input />
                 </label>
-                <button type="submit" class="btn btn-lime btn-sm" hidden data-profile-photo-submit>save photo</button>
                 <span class="mono profile-photo-status" data-profile-photo-status hidden></span>
               </form>
               {% if profile.profile_photo_url %}
@@ -186,7 +185,7 @@
             </button>
             {% endfor %}
             <button type="button" class="profile-editor-action" data-profile-chip-open="details" aria-controls="profile-chip-details">
-              <span>matching signals</span>
+              <span>profile signals</span>
               <small>{{ profile.location_label or 'location not set' }}{% if profile.primary_platform %} · {{ profile.primary_platform }}{% endif %}</small>
             </button>
           </div>
@@ -247,8 +246,7 @@
       <section class="profile-section" aria-labelledby="profile-details-title">
         <div class="profile-section-head">
           <div>
-            <span class="mono">matching</span>
-            <h2 id="profile-details-title">basic matching signals</h2>
+            <h2 id="profile-details-title">profile signals</h2>
           </div>
         </div>
 

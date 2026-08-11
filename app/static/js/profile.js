@@ -21,11 +21,10 @@
   const previews = document.querySelectorAll("[data-profile-photo-preview]");
   const initials = document.querySelectorAll("[data-profile-photo-initials]");
   const openers = document.querySelectorAll("[data-profile-photo-open]");
-  const submit = document.querySelector("[data-profile-photo-submit]");
   const label = document.querySelector("[data-profile-photo-label]");
   const status = document.querySelector("[data-profile-photo-status]");
 
-  if (!form || !input || !previews.length || !submit) {
+  if (!form || !input || !previews.length) {
     return;
   }
 
@@ -61,7 +60,6 @@
     initials.forEach((initial) => {
       initial.hidden = true;
     });
-    submit.hidden = true;
     if (label) label.textContent = "saving photo";
   };
 
@@ -82,9 +80,8 @@
 
   const submitPhotoChange = () => {
     setStatus("saving...");
-    submit.hidden = true;
     if (typeof form.requestSubmit === "function") {
-      form.requestSubmit(submit);
+      form.requestSubmit();
     } else {
       form.submit();
     }
