@@ -31,6 +31,11 @@
             {% endif %}
           </span>
           <span style="display:block;color:var(--ink-dim);font-size:13px;margin-top:4px;">read your schedule and help plan around it</span>
+          <span class="mono" style="display:block;color:var(--ink-dim);font-size:10px;margin-top:8px;line-height:1.7;word-break:break-all;">
+            {% for scope in google_service_scopes.calendar %}
+              {{ scope }}{% if not loop.last %}<br>{% endif %}
+            {% endfor %}
+          </span>
         </span>
       </div>
     </div>
@@ -45,12 +50,17 @@
             <span class="mono" style="font-size:10px;color:var(--lime);">connected</span>
             {% endif %}
           </span>
-          <span style="display:block;color:var(--ink-dim);font-size:13px;margin-top:4px;">read email threads and draft replies after approval</span>
+          <span style="display:block;color:var(--ink-dim);font-size:13px;margin-top:4px;">read email threads, draft replies, and send only after approval</span>
+          <span class="mono" style="display:block;color:var(--ink-dim);font-size:10px;margin-top:8px;line-height:1.7;word-break:break-all;">
+            {% for scope in google_service_scopes.gmail %}
+              {{ scope }}{% if not loop.last %}<br>{% endif %}
+            {% endfor %}
+          </span>
         </span>
       </div>
     </div>
 
-    <p style="color:var(--ink-dim);font-size:12.5px;margin:14px 0 0;">Google will show the actual permission request on its consent screen.</p>
+    <p style="color:var(--ink-dim);font-size:12.5px;margin:14px 0 0;">Google will show these requested scopes on its consent screen before redirecting back to babyg.</p>
 
     <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;">
       <button type="submit" class="btn btn-lime btn-sm">continue to Google</button>

@@ -22,15 +22,17 @@ TOKEN_URL = "https://oauth2.googleapis.com/token"
 EVENTS_URL = "https://www.googleapis.com/calendar/v3/calendars/primary/events"
 DEFAULT_CALLBACK_PATH = "/creator/google/calendar/callback"
 CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar.events"
-# Legacy: pre-Slice-2 Gmail connections used the read-only scope. Kept
-# as a named constant so existing-user detection (and back-compat tests)
-# can still reference it. New Gmail connections request COMPOSE which
-# is required for drafts.create; READONLY is a strict subset of what
-# COMPOSE grants.
 GMAIL_READONLY_SCOPE = "https://www.googleapis.com/auth/gmail.readonly"
 GMAIL_COMPOSE_SCOPE = "https://www.googleapis.com/auth/gmail.compose"
 GMAIL_SEND_SCOPE = "https://www.googleapis.com/auth/gmail.send"
 GMAIL_SCOPE_PREFIX = "https://www.googleapis.com/auth/gmail."
+CALENDAR_REQUIRED_SCOPES = (CALENDAR_SCOPE,)
+GMAIL_REQUIRED_SCOPES = (
+    GMAIL_READONLY_SCOPE,
+    GMAIL_COMPOSE_SCOPE,
+    GMAIL_SEND_SCOPE,
+)
+ALLOWED_OAUTH_SCOPES = frozenset((*CALENDAR_REQUIRED_SCOPES, *GMAIL_REQUIRED_SCOPES))
 
 
 class GoogleCalendarError(RuntimeError):
@@ -53,30 +55,25 @@ def scopes() -> list[str]:
     raw = get_settings().google_oauth_scopes or ""
     parsed = [scope.strip() for scope in raw.replace(",", " ").split() if scope.strip()]
     if parsed:
-        return parsed
-    return [CALENDAR_SCOPE]
+        return allowed_scopes(parsed) or [CALENDAR_SCOPE]
+    return list(CALENDAR_REQUIRED_SCOPES)
 
 
 def scopes_for_services(services: list[str]) -> list[str]:
-    configured = scopes()
     selected: list[str] = []
     if "calendar" in services:
-        selected.extend([scope for scope in configured if is_calendar_scope(scope)])
-        if not selected:
-            selected.append(CALENDAR_SCOPE)
+        selected.extend(CALENDAR_REQUIRED_SCOPES)
     if "gmail" in services:
-        gmail_scopes = [scope for scope in configured if is_gmail_scope(scope)]
-        # New Gmail connections grant COMPOSE for approved drafts and
-        # SEND for approved one-off sends. The action proposal system
-        # remains the runtime gate for every external write.
-        selected.extend(gmail_scopes or [GMAIL_COMPOSE_SCOPE, GMAIL_SEND_SCOPE])
+        # Gmail is split deliberately: readonly powers inbox/thread context,
+        # compose stages approved drafts, and send gates approved sends.
+        selected.extend(GMAIL_REQUIRED_SCOPES)
     return _dedupe(selected)
 
 
 def auth_url(state: str, *, scopes_override: list[str] | None = None) -> str:
     if not is_configured():
         raise GoogleCalendarError("Google OAuth is not configured")
-    selected_scopes = scopes_override or scopes()
+    selected_scopes = allowed_scopes(scopes_override or scopes())
     if not selected_scopes:
         raise GoogleCalendarError("Google OAuth scopes are not configured")
     params = {
@@ -108,6 +105,10 @@ def is_gmail_send_scope(scope: str) -> bool:
     return scope == GMAIL_SEND_SCOPE
 
 
+def allowed_scopes(scopes_to_check: list[str] | set[str] | tuple[str, ...]) -> list[str]:
+    return _dedupe([scope for scope in scopes_to_check if scope in ALLOWED_OAUTH_SCOPES])
+
+
 def has_calendar_scope(scopes_to_check: list[str] | set[str] | tuple[str, ...]) -> bool:
     return any(is_calendar_scope(scope) for scope in scopes_to_check)
 
@@ -126,6 +127,10 @@ def has_gmail_send_scope(
     """True only when gmail.send is present. Compose-only connections
     can draft but must reconnect before approved sends are available."""
     return any(is_gmail_send_scope(scope) for scope in scopes_to_check)
+
+
+def has_gmail_read_scope(scopes_to_check: list[str] | set[str] | tuple[str, ...]) -> bool:
+    return any(scope == GMAIL_READONLY_SCOPE for scope in scopes_to_check)
 
 
 def has_gmail_scope(scopes_to_check: list[str] | set[str] | tuple[str, ...]) -> bool:

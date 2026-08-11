@@ -1927,22 +1927,26 @@ async def google_calendar_callback(
     error: str | None = Query(None),
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
-    if error:
-        return RedirectResponse("/creator/calendar?google=denied", status_code=303)
     verified = oauth_connections.verify_google_state(state or "")
-    if not code or not verified:
-        return RedirectResponse("/creator/calendar?google=bad_callback", status_code=303)
-    if verified["user_id"] != session["user_id"]:
+    next_path = _google_callback_next(verified)
+    if verified and verified["user_id"] != session["user_id"]:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+    if error:
+        return RedirectResponse(_with_query(next_path, "google=denied"), status_code=303)
+    if not code or not verified:
+        return RedirectResponse(_with_query(next_path, "google=bad_callback"), status_code=303)
 
     try:
         token_response = google_calendar.exchange_code(code)
     except google_calendar.GoogleCalendarError:
-        return RedirectResponse("/creator/calendar?google=exchange_failed", status_code=303)
-    requested_scopes = verified.get("scopes") or google_calendar.scopes_for_services(
-        [oauth_connections.GOOGLE_SERVICE_CALENDAR]
-    )
-    next_path = safe_same_origin(str(verified.get("next") or ""), default="/creator/calendar")
+        return RedirectResponse(
+            _with_query(next_path, "google=exchange_failed"), status_code=303
+        )
+    requested_scopes = google_calendar.allowed_scopes(verified.get("scopes") or [])
+    if not requested_scopes:
+        requested_scopes = google_calendar.scopes_for_services(
+            verified.get("services") or [oauth_connections.GOOGLE_SERVICE_CALENDAR]
+        )
     if not oauth_connections.save_google_connection(
         session["user_id"],
         token_response,
@@ -2285,7 +2289,22 @@ def _google_connect_context(
         "google_gmail_connected": oauth_connections.google_gmail_connected(
             google_connection
         ),
+        "google_service_scopes": {
+            oauth_connections.GOOGLE_SERVICE_CALENDAR: oauth_connections.google_service_scopes(
+                oauth_connections.GOOGLE_SERVICE_CALENDAR
+            ),
+            oauth_connections.GOOGLE_SERVICE_GMAIL: oauth_connections.google_service_scopes(
+                oauth_connections.GOOGLE_SERVICE_GMAIL
+            ),
+        },
     }
+
+
+def _google_callback_next(
+    verified: dict | None, default: str = "/creator/profile/settings"
+) -> str:
+    raw = (verified or {}).get("next") or ""
+    return safe_same_origin(str(raw), default=default)
 
 
 def _google_effective_callback_scopes(
@@ -2294,7 +2313,7 @@ def _google_effective_callback_scopes(
     requested_scopes: list[str],
 ) -> list[str]:
     explicit = str(token_response.get("scope") or "").replace(",", " ").split()
-    return [scope for scope in explicit if scope] or requested_scopes
+    return google_calendar.allowed_scopes([scope for scope in explicit if scope]) or requested_scopes
 
 
 # -----------------------------------------------------------------------------

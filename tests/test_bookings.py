@@ -272,6 +272,7 @@ def test_google_connect_prechecked_service_submits_expected_service(
             {"gmail": "1"},
             ["gmail"],
             [
+                google_calendar_module.GMAIL_READONLY_SCOPE,
                 google_calendar_module.GMAIL_COMPOSE_SCOPE,
                 google_calendar_module.GMAIL_SEND_SCOPE,
             ],
@@ -282,6 +283,7 @@ def test_google_connect_prechecked_service_submits_expected_service(
             ["calendar", "gmail"],
             [
                 google_calendar_module.CALENDAR_SCOPE,
+                google_calendar_module.GMAIL_READONLY_SCOPE,
                 google_calendar_module.GMAIL_COMPOSE_SCOPE,
                 google_calendar_module.GMAIL_SEND_SCOPE,
             ],
@@ -324,6 +326,8 @@ def test_google_connect_post_redirects_to_oauth_with_selected_scopes(
     assert query["redirect_uri"] == [google_calendar_module.redirect_uri()]
     assert query["response_type"] == ["code"]
     assert query["access_type"] == ["offline"]
+    assert query["prompt"] == ["consent"]
+    assert query["include_granted_scopes"] == ["true"]
     assert query["scope"] == [" ".join(expected_scopes)]
     if unexpected_scope:
         assert unexpected_scope not in query["scope"][0]
@@ -361,6 +365,7 @@ def test_google_connect_posts_selected_services_and_scopes(
     assert calls["state"]["services"] == ["calendar", "gmail"]
     assert calls["state"]["scopes"] == [
         google_calendar_module.CALENDAR_SCOPE,
+        google_calendar_module.GMAIL_READONLY_SCOPE,
         google_calendar_module.GMAIL_COMPOSE_SCOPE,
         google_calendar_module.GMAIL_SEND_SCOPE,
     ]
@@ -380,6 +385,23 @@ def test_google_auth_url_uses_only_selected_scopes(monkeypatch):
     query = parse_qs(urlparse(url).query)
     assert query["scope"] == [google_calendar_module.CALENDAR_SCOPE]
     assert "gmail" not in query["scope"][0]
+
+
+def test_google_scopes_ignore_broad_env_configuration(monkeypatch):
+    monkeypatch.setenv(
+        "GOOGLE_OAUTH_SCOPES",
+        "https://www.googleapis.com/auth/calendar "
+        "https://mail.google.com/ "
+        "https://www.googleapis.com/auth/gmail.modify",
+    )
+    get_settings.cache_clear()
+
+    assert google_calendar_module.scopes_for_services(["calendar", "gmail"]) == [
+        google_calendar_module.CALENDAR_SCOPE,
+        google_calendar_module.GMAIL_READONLY_SCOPE,
+        google_calendar_module.GMAIL_COMPOSE_SCOPE,
+        google_calendar_module.GMAIL_SEND_SCOPE,
+    ]
 
 
 def test_calendar_google_callback_saves_and_syncs(client, world, monkeypatch):
@@ -436,6 +458,7 @@ def test_google_gmail_only_callback_does_not_sync_calendar(
             "next": "/creator/profile/settings",
             "services": ["gmail"],
             "scopes": [
+                google_calendar_module.GMAIL_READONLY_SCOPE,
                 google_calendar_module.GMAIL_COMPOSE_SCOPE,
                 google_calendar_module.GMAIL_SEND_SCOPE,
             ],
@@ -464,6 +487,7 @@ def test_google_gmail_only_callback_does_not_sync_calendar(
     assert calls["saved"] == (
         "c-1",
         [
+            google_calendar_module.GMAIL_READONLY_SCOPE,
             google_calendar_module.GMAIL_COMPOSE_SCOPE,
             google_calendar_module.GMAIL_SEND_SCOPE,
         ],
@@ -478,6 +502,7 @@ def test_google_both_callback_saves_both_and_syncs_calendar(
 
     requested = [
         google_calendar_module.CALENDAR_SCOPE,
+        google_calendar_module.GMAIL_READONLY_SCOPE,
         google_calendar_module.GMAIL_COMPOSE_SCOPE,
         google_calendar_module.GMAIL_SEND_SCOPE,
     ]
@@ -530,6 +555,65 @@ def test_calendar_google_callback_rejects_other_user_state(
     r = client.get("/creator/google/calendar/callback?code=abc&state=signed")
 
     assert r.status_code == 403
+
+
+@pytest.mark.parametrize(
+    ("query", "expected_location"),
+    [
+        (
+            "error=access_denied&state=signed",
+            "/creator/profile/settings?google=denied",
+        ),
+        ("state=signed", "/creator/profile/settings?google=bad_callback"),
+    ],
+)
+def test_google_callback_returns_to_signed_next_on_cancel_or_bad_callback(
+    client, world, monkeypatch, query, expected_location
+):
+    _signed_in(client, role="creator", user_id="c-1")
+    monkeypatch.setattr(
+        oauth_module,
+        "verify_google_state",
+        lambda state: {
+            "user_id": "c-1",
+            "next": "/creator/profile/settings",
+            "services": ["gmail"],
+            "scopes": [google_calendar_module.GMAIL_READONLY_SCOPE],
+        },
+    )
+
+    r = client.get(f"/creator/google/calendar/callback?{query}")
+
+    assert r.status_code == 303
+    assert r.headers["location"] == expected_location
+
+
+def test_google_callback_exchange_failure_returns_to_signed_next(
+    client, world, monkeypatch
+):
+    _signed_in(client, role="creator", user_id="c-1")
+    monkeypatch.setattr(
+        oauth_module,
+        "verify_google_state",
+        lambda state: {
+            "user_id": "c-1",
+            "next": "/creator/profile/settings",
+            "services": ["gmail"],
+            "scopes": [google_calendar_module.GMAIL_READONLY_SCOPE],
+        },
+    )
+    monkeypatch.setattr(
+        google_calendar_module,
+        "exchange_code",
+        lambda code: (_ for _ in ()).throw(
+            google_calendar_module.GoogleCalendarError("exchange failed")
+        ),
+    )
+
+    r = client.get("/creator/google/calendar/callback?code=abc&state=signed")
+
+    assert r.status_code == 303
+    assert r.headers["location"] == "/creator/profile/settings?google=exchange_failed"
 
 
 def test_calendar_google_sync_now(client, world, monkeypatch):

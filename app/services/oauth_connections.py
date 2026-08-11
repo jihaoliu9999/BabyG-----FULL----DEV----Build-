@@ -34,7 +34,9 @@ def create_google_state(
     next_path: str = "/creator/calendar",
 ) -> str:
     selected_services = normalize_google_services(services or [GOOGLE_SERVICE_CALENDAR])
-    selected_scopes = scopes or google_calendar.scopes_for_services(selected_services)
+    selected_scopes = google_calendar.allowed_scopes(
+        scopes or google_calendar.scopes_for_services(selected_services)
+    )
     return _state_serializer().dumps(
         {
             "user_id": user_id,
@@ -59,7 +61,7 @@ def verify_google_state(state: str) -> dict[str, Any] | None:
         "user_id": str(data["user_id"]),
         "next": str(data.get("next") or "/creator/calendar"),
         "services": normalize_google_services(data.get("services")),
-        "scopes": _clean_scopes(data.get("scopes")),
+        "scopes": google_calendar.allowed_scopes(_clean_scopes(data.get("scopes"))),
     }
 
 
@@ -141,8 +143,8 @@ def google_calendar_connected(connection: dict[str, Any] | None) -> bool:
 
 
 def google_gmail_connected(connection: dict[str, Any] | None) -> bool:
-    """True when any Gmail scope is on the connection — read-capable."""
-    return google_calendar.has_gmail_scope(google_connection_scopes(connection))
+    """True only when the Gmail connection can read inbox/thread context."""
+    return google_calendar.has_gmail_read_scope(google_connection_scopes(connection))
 
 
 def google_gmail_compose_connected(connection: dict[str, Any] | None) -> bool:
@@ -242,12 +244,14 @@ def _scopes_for_save(
 ) -> list[str]:
     explicit = _clean_scopes(token_response.get("scope"))
     if explicit:
-        return explicit
+        return google_calendar.allowed_scopes(explicit)
     existing_scopes = google_connection_scopes(existing)
     if requested_scopes is not None:
-        return _dedupe([*existing_scopes, *_clean_scopes(requested_scopes)])
+        return google_calendar.allowed_scopes(
+            _dedupe([*existing_scopes, *_clean_scopes(requested_scopes)])
+        )
     if existing_scopes:
-        return existing_scopes
+        return google_calendar.allowed_scopes(existing_scopes)
     return google_calendar.scopes()
 
 
