@@ -61,8 +61,8 @@
     initials.forEach((initial) => {
       initial.hidden = true;
     });
-    submit.hidden = false;
-    if (label) label.textContent = "pick a different one";
+    submit.hidden = true;
+    if (label) label.textContent = "saving photo";
   };
 
   const showInitialsFallback = (preview) => {

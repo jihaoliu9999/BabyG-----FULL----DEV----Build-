@@ -8776,8 +8776,8 @@ hr.hairline {
 
 /* Creator profile cleanup: keep public profile separate from account settings. */
 .is-creator-app .profile-flow-shell {
-  width: min(100%, 1120px);
-  max-width: 1120px;
+  width: min(100%, 1040px);
+  max-width: 1040px;
   margin-inline: auto;
   display: grid;
   grid-template-columns: 1fr;
@@ -8787,7 +8787,7 @@ hr.hairline {
 .is-creator-app .profile-flow-shell .profile-header {
   width: 100%;
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-columns: auto minmax(0, 1fr);
   gap: clamp(14px, 2vw, 22px);
   align-items: center;
 }
@@ -8799,6 +8799,20 @@ hr.hairline {
 .is-creator-app .profile-flow-shell .profile-header-copy p {
   margin: 0;
   color: var(--text-secondary);
+}
+.is-creator-app .profile-flow-shell .profile-photo-trigger {
+  appearance: none;
+  border: 1px solid rgba(245,241,232,.32);
+  padding: 0;
+  cursor: pointer;
+  transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+.is-creator-app .profile-flow-shell .profile-photo-trigger:hover {
+  border-color: rgba(255,77,109,.45);
+  box-shadow: 0 0 0 5px rgba(255,77,109,.06), 0 18px 38px -24px rgba(0,0,0,.9);
+}
+.is-creator-app .profile-flow-shell .profile-photo-trigger:active {
+  transform: scale(.985);
 }
 .is-creator-app .profile-flow-shell .profile-header-link,
 .is-creator-app .profile-editor-summary,
@@ -8819,7 +8833,7 @@ hr.hairline {
 .is-creator-app .profile-flow-shell .profile-primary-grid {
   width: 100%;
   display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(320px, .95fr);
+  grid-template-columns: minmax(0, 1fr) minmax(320px, .88fr);
   gap: clamp(18px, 2.4vw, 28px);
   align-items: start;
 }
@@ -8844,11 +8858,11 @@ hr.hairline {
   grid-column: auto;
   grid-row: auto;
   width: 100%;
-  min-height: 360px;
+  min-height: 300px;
   display: grid;
   align-content: start;
-  gap: 22px;
-  padding: clamp(22px, 3.6vw, 34px);
+  gap: 18px;
+  padding: clamp(20px, 3vw, 28px);
   border-color: rgba(255,77,109,.42);
 }
 .is-creator-app .profile-flow-shell .profile-preview-top {
@@ -8864,7 +8878,7 @@ hr.hairline {
 .is-creator-app .profile-flow-shell .profile-preview-copy h2 {
   margin: 0;
   color: var(--text-primary);
-  font-size: clamp(26px, 3.4vw, 42px);
+  font-size: clamp(25px, 2.8vw, 36px);
   line-height: .96;
   letter-spacing: -.045em;
 }
@@ -8909,10 +8923,13 @@ hr.hairline {
   overflow: hidden;
 }
 .is-creator-app .profile-editor-panel > summary {
+  position: relative;
   width: 100%;
-  min-height: 78px;
-  padding: 18px 20px;
-  justify-content: space-between;
+  min-height: 68px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  padding: 16px 18px;
   gap: 16px;
   cursor: pointer;
   list-style: none;
@@ -8925,16 +8942,16 @@ hr.hairline {
   display: block;
   margin-top: 5px;
   color: var(--text-primary);
-  font-size: 22px;
+  font-size: 20px;
   letter-spacing: -.04em;
 }
 .is-creator-app .profile-editor-summary small {
-  max-width: 18ch;
+  max-width: 16ch;
   color: var(--text-tertiary);
   text-align: right;
 }
 .is-creator-app .profile-editor-panel > summary::after {
-  content: "+";
+  content: "";
   width: 34px;
   height: 34px;
   display: inline-flex;
@@ -8943,10 +8960,16 @@ hr.hairline {
   flex: 0 0 auto;
   border: 1px solid var(--border-default);
   border-radius: 50%;
-  color: var(--accent-text);
-  font-size: 19px;
+  background:
+    linear-gradient(var(--accent-text), var(--accent-text)) center / 12px 2px no-repeat,
+    linear-gradient(var(--accent-text), var(--accent-text)) center / 2px 12px no-repeat,
+    rgba(255,255,255,.025);
 }
-.is-creator-app .profile-editor-panel[open] > summary::after { content: "-"; }
+.is-creator-app .profile-editor-panel[open] > summary::after {
+  background:
+    linear-gradient(var(--accent-text), var(--accent-text)) center / 12px 2px no-repeat,
+    rgba(255,255,255,.025);
+}
 .is-creator-app .profile-editor-body {
   display: grid;
   gap: 18px;
@@ -9001,6 +9024,11 @@ hr.hairline {
   gap: 10px;
   align-items: center;
 }
+.is-creator-app .profile-flow-shell .profile-photo-status {
+  min-height: 28px;
+  display: inline-flex;
+  align-items: center;
+}
 .is-creator-app .profile-flow-shell .profile-details-card {
   border: 0;
   background: transparent;
@@ -9022,6 +9050,8 @@ hr.hairline {
   background: rgba(255,255,255,.025);
 }
 .is-creator-app .profile-flow-shell .profile-chip-close {
+  width: 44px;
+  height: 44px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -9088,11 +9118,14 @@ hr.hairline {
     grid-template-columns: 1fr;
   }
   .is-creator-app .profile-editor-panel > summary {
-    align-items: flex-start;
-    flex-direction: column;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+    padding-right: 64px;
   }
   .is-creator-app .profile-editor-summary small {
+    grid-column: 1 / -1;
     max-width: none;
+    padding-right: 48px;
     text-align: left;
   }
   .is-creator-app .profile-editor-panel > summary::after {

@@ -569,7 +569,7 @@ def test_profile_page_renders_discover_preview(
     response = client.get("/creator/profile")
 
     assert response.status_code == 200
-    assert "discover preview" in response.text.lower()
+    assert "preview" in response.text.lower()
     # Card body renders public-projected fields.
     assert "Mia Creator" in response.text
     assert "@miacreates" in response.text

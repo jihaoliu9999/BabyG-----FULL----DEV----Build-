@@ -61,10 +61,10 @@
   <header class="profile-header">
     <div class="profile-header-avatar">
       {% if profile.profile_photo_url %}
-      <span class="avatar avatar-photo av-g3 xl profile-identity-avatar" aria-hidden="true">
+      <button type="button" class="avatar avatar-photo av-g3 xl profile-identity-avatar profile-photo-trigger" aria-label="change photo" data-profile-photo-open>
         <img data-profile-photo-preview src="{{ profile.profile_photo_url|safe_url }}{% if profile.updated_at %}?v={{ profile.updated_at | replace(':','') | replace('-','') | replace('.','') | replace(' ','') }}{% endif %}" alt="" />
         <span data-profile-photo-initials hidden>{{ initials[0] }}</span>
-      </span>
+      </button>
       {% else %}
       <button type="button" class="avatar av-g3 xl profile-identity-avatar profile-photo-empty-cta" aria-label="add a photo" data-profile-photo-open>
         <img data-profile-photo-preview hidden alt="" />
@@ -79,7 +79,6 @@
       <p>@{{ profile.instagram_handle }}{% if profile.primary_platform %} / {{ profile.primary_platform }}{% endif %}</p>
       {% endif %}
     </div>
-    <a href="/creator/profile/settings" class="profile-header-link">settings</a>
   </header>
 
   {{ flash_block('photo', photo_flash) }}
@@ -90,7 +89,7 @@
 
   <div class="profile-primary-grid">
     <div class="profile-public-column">
-      <section class="profile-fidelity-preview" aria-label="discover preview">
+      <section class="profile-fidelity-preview" aria-label="profile preview">
         <div class="profile-preview-top">
           {% if profile_preview.profile_photo_url %}
           <span class="avatar av-g3 xl profile-preview-avatar" aria-hidden="true">
@@ -109,7 +108,7 @@
           </span>
           {% endif %}
           <div class="profile-preview-copy">
-            <span class="mono">discover preview</span>
+            <span class="mono">preview</span>
             <h2>{{ profile_preview.full_name or profile_preview.instagram_handle or 'creator' }}</h2>
             <p>
               {% if profile_preview.instagram_handle %}@{{ profile_preview.instagram_handle }}{% endif %}
@@ -146,7 +145,7 @@
             <span class="mono">public card</span>
             <strong>edit profile</strong>
           </span>
-          <small>photo, bio, tags, and matching signals</small>
+          <small>photo, bio, tags, signals</small>
         </summary>
 
         <div class="profile-editor-body">
