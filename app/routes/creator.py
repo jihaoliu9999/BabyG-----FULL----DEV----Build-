@@ -623,6 +623,8 @@ async def profile_photo_upload(
             "/creator/profile?photo=storage_failed", status_code=303
         )
 
+    current_profile = profiles.get_creator_profile(session["user_id"]) or {}
+    old_url = current_profile.get("profile_photo_url")
     if not profiles.update_creator_profile(
         session["user_id"], {"profile_photo_url": url}
     ):
@@ -631,6 +633,8 @@ async def profile_photo_upload(
         return RedirectResponse(
             "/creator/profile?photo=save_failed", status_code=303
         )
+    if old_url and old_url != url:
+        storage.delete_profile_photo(session["user_id"], old_url)
     return RedirectResponse("/creator/profile?photo=ok", status_code=303)
 
 
@@ -640,12 +644,14 @@ async def profile_photo_delete(
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
     # Clear the DB column first (source of truth for "no photo"), then
-    # best-effort remove the storage object. If the remove fails the next
-    # upload overwrites it.
+    # best-effort remove the storage object.
+    current_profile = profiles.get_creator_profile(session["user_id"]) or {}
     profiles.update_creator_profile(
         session["user_id"], {"profile_photo_url": None}
     )
-    storage.delete_profile_photo(session["user_id"])
+    storage.delete_profile_photo(
+        session["user_id"], current_profile.get("profile_photo_url")
+    )
     return RedirectResponse("/creator/profile?photo=removed", status_code=303)
 
 
