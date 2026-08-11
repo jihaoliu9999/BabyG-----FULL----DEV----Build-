@@ -281,18 +281,17 @@ def test_tabbar_marks_home_active_for_calendar_path(stub_dashboard) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Profile page — stats + receipts reachable from Profile tab
+# Profile/settings page — stats + receipts reachable from Settings tab
 # ---------------------------------------------------------------------------
 
 
 def test_profile_page_links_to_performance_and_receipts(
     client: TestClient, stub_dashboard
 ) -> None:
-    """With Stats removed from the bottom tabbar, the Profile page is
-    the entry point for performance + receipts. Both links must be
-    visible there."""
+    """With profile focused on the public card, Settings owns deeper
+    controls such as performance and receipts."""
     _signed_in(client)
-    r = client.get("/creator/profile")
+    r = client.get("/creator/profile/settings")
     assert r.status_code == 200
     assert "/creator/performance" in r.text
     assert "/creator/receipts" in r.text

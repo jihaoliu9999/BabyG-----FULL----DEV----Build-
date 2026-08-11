@@ -238,7 +238,7 @@ def test_feed_returns_targeted_active_posts(client, store, fake_creator):
     assert "Beauty trend" not in r.text
 
 
-def test_creator_mobile_nav_keeps_required_five_tab_order(client, store, fake_creator):
+def test_creator_mobile_nav_keeps_required_tab_order(client, store, fake_creator):
     _signed_in(client, role="creator")
 
     response = client.get("/creator")
@@ -253,8 +253,9 @@ def test_creator_mobile_nav_keeps_required_five_tab_order(client, store, fake_cr
         'href="/creator/bot"',
         'href="/creator/dm"',
         'href="/creator/profile"',
+        'href="/creator/profile/settings"',
     ]
-    assert mobile_nav.count("data-tab=") == 5
+    assert mobile_nav.count("data-tab=") == 6
     assert [mobile_nav.index(destination) for destination in destinations] == sorted(
         mobile_nav.index(destination) for destination in destinations
     )
