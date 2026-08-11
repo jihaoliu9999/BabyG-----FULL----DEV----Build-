@@ -498,6 +498,7 @@ h1, h2, h3, h4 {
 .app-tabbar a[data-tab="network"] { --nav-accent: #b9a4ff; --nav-accent-soft: rgba(185,164,255,.15); --nav-glow: rgba(185,164,255,.4); }
 .app-tabbar a[data-tab="stats"] { --nav-accent: #7edfc4; --nav-accent-soft: rgba(126,223,196,.15); --nav-glow: rgba(126,223,196,.4); }
 .app-tabbar a[data-tab="profile"] { --nav-accent: #ead7b5; --nav-accent-soft: rgba(234,215,181,.14); --nav-glow: rgba(234,215,181,.34); }
+.app-tabbar a[data-tab="settings"] { --nav-accent: #c8b8ff; --nav-accent-soft: rgba(200,184,255,.14); --nav-glow: rgba(200,184,255,.34); }
 .app-tabbar a::after {
   content: "";
   position: absolute;
@@ -621,6 +622,7 @@ h1, h2, h3, h4 {
 .app-sidebar nav a[data-tab="listings"] { --nav-accent: #d8b36d; --nav-accent-soft: rgba(216,179,109,.15); --nav-glow: rgba(216,179,109,.40); }
 .app-sidebar nav a[data-tab="stats"] { --nav-accent: #7edfc4; --nav-accent-soft: rgba(126,223,196,.15); --nav-glow: rgba(126,223,196,.40); }
 .app-sidebar nav a[data-tab="profile"] { --nav-accent: #ead7b5; --nav-accent-soft: rgba(234,215,181,.14); --nav-glow: rgba(234,215,181,.34); }
+.app-sidebar nav a[data-tab="settings"] { --nav-accent: #c8b8ff; --nav-accent-soft: rgba(200,184,255,.14); --nav-glow: rgba(200,184,255,.34); }
 .app-sidebar nav a::before {
   content: "";
   position: absolute;
@@ -7325,12 +7327,12 @@ hr.hairline {
 .is-product-app h1 { text-wrap: balance; }
 .is-product-app p { text-wrap: pretty; }
 
-/* Creator navigation: fixed five-tab order, iPhone-safe. */
+/* Creator navigation: fixed six-tab order, iPhone-safe. */
 .is-creator-app .creator-tabbar {
   min-height: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px));
   padding: 8px max(12px, env(safe-area-inset-right, 0px)) max(13px, env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px));
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   align-items: end;
   background: rgba(9,8,10,.96);
   border: 1px solid rgba(255,255,255,.105);
@@ -8770,4 +8772,370 @@ hr.hairline {
     flex-direction: column;
   }
   [data-babyg-redesign="true"] .connection-disconnect-form .btn { width: 100%; }
+}
+
+/* Creator profile cleanup: keep public profile separate from account settings. */
+.is-creator-app .profile-flow-shell {
+  width: min(100%, 1120px);
+  max-width: 1120px;
+  margin-inline: auto;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: clamp(18px, 2.2vw, 26px);
+  padding: clamp(22px, 5vw, 54px) clamp(16px, 3vw, 28px) 44px;
+}
+.is-creator-app .profile-flow-shell .profile-header {
+  width: 100%;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: clamp(14px, 2vw, 22px);
+  align-items: center;
+}
+.is-creator-app .profile-flow-shell .profile-header-copy {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+.is-creator-app .profile-flow-shell .profile-header-copy p {
+  margin: 0;
+  color: var(--text-secondary);
+}
+.is-creator-app .profile-flow-shell .profile-header-link,
+.is-creator-app .profile-editor-summary,
+.is-creator-app .profile-editor-action,
+.is-creator-app .profile-chip-edit,
+.is-creator-app .profile-details-edit {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-default);
+  border-radius: 999px;
+  background: rgba(255,255,255,.025);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+}
+.is-creator-app .profile-flow-shell .profile-primary-grid {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(320px, .95fr);
+  gap: clamp(18px, 2.4vw, 28px);
+  align-items: start;
+}
+.is-creator-app .profile-flow-shell .profile-public-column,
+.is-creator-app .profile-flow-shell .profile-edit-column {
+  min-width: 0;
+  display: grid;
+  gap: 18px;
+  align-content: start;
+}
+.is-creator-app .profile-flow-shell .profile-fidelity-preview,
+.is-creator-app .profile-flow-shell .profile-section,
+.is-creator-app .settings-shell .settings-group {
+  border: 1px solid rgba(255,255,255,.105);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 18% 0%, rgba(255,77,109,.055), transparent 34%),
+    rgba(19,18,20,.74);
+  box-shadow: inset 0 1px rgba(255,255,255,.045), 0 24px 70px -48px rgba(0,0,0,.9);
+}
+.is-creator-app .profile-flow-shell .profile-fidelity-preview {
+  grid-column: auto;
+  grid-row: auto;
+  width: 100%;
+  min-height: 360px;
+  display: grid;
+  align-content: start;
+  gap: 22px;
+  padding: clamp(22px, 3.6vw, 34px);
+  border-color: rgba(255,77,109,.42);
+}
+.is-creator-app .profile-flow-shell .profile-preview-top {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.is-creator-app .profile-flow-shell .profile-preview-copy {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+.is-creator-app .profile-flow-shell .profile-preview-copy h2 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: clamp(26px, 3.4vw, 42px);
+  line-height: .96;
+  letter-spacing: -.045em;
+}
+.is-creator-app .profile-flow-shell .profile-preview-copy p,
+.is-creator-app .profile-flow-shell .profile-preview-bio {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 15px;
+  line-height: 1.55;
+}
+.is-creator-app .profile-flow-shell .profile-preview-meta,
+.is-creator-app .profile-flow-shell .profile-preview-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px 14px;
+}
+.is-creator-app .profile-flow-shell .profile-preview-meta {
+  color: var(--text-tertiary);
+  font-size: 13px;
+}
+.is-creator-app .profile-flow-shell .profile-section {
+  padding: clamp(18px, 2.8vw, 24px);
+}
+.is-creator-app .profile-flow-shell .profile-section-head {
+  min-height: 0;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 14px;
+}
+.is-creator-app .profile-flow-shell .profile-section-head h2,
+.is-creator-app .settings-shell .settings-group h2 {
+  margin: 4px 0 0;
+  color: var(--text-primary);
+  font-size: 20px;
+  line-height: 1.08;
+  letter-spacing: -.035em;
+}
+.is-creator-app .profile-editor-panel {
+  padding: 0;
+  overflow: hidden;
+}
+.is-creator-app .profile-editor-panel > summary {
+  width: 100%;
+  min-height: 78px;
+  padding: 18px 20px;
+  justify-content: space-between;
+  gap: 16px;
+  cursor: pointer;
+  list-style: none;
+  border: 0;
+  border-radius: 24px;
+  background: transparent;
+}
+.is-creator-app .profile-editor-panel > summary::-webkit-details-marker { display: none; }
+.is-creator-app .profile-editor-summary strong {
+  display: block;
+  margin-top: 5px;
+  color: var(--text-primary);
+  font-size: 22px;
+  letter-spacing: -.04em;
+}
+.is-creator-app .profile-editor-summary small {
+  max-width: 18ch;
+  color: var(--text-tertiary);
+  text-align: right;
+}
+.is-creator-app .profile-editor-panel > summary::after {
+  content: "+";
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  border: 1px solid var(--border-default);
+  border-radius: 50%;
+  color: var(--accent-text);
+  font-size: 19px;
+}
+.is-creator-app .profile-editor-panel[open] > summary::after { content: "-"; }
+.is-creator-app .profile-editor-body {
+  display: grid;
+  gap: 18px;
+  padding: 0 20px 20px;
+  border-top: 1px solid var(--border-subtle);
+}
+.is-creator-app .profile-editor-block {
+  display: grid;
+  gap: 10px;
+  padding-top: 18px;
+}
+.is-creator-app .profile-editor-actions {
+  display: grid;
+  gap: 9px;
+}
+.is-creator-app .profile-editor-action {
+  width: 100%;
+  min-height: 58px;
+  padding: 12px 14px;
+  justify-content: space-between;
+  gap: 16px;
+  text-align: left;
+}
+.is-creator-app .profile-editor-action span {
+  color: var(--text-primary);
+  white-space: nowrap;
+}
+.is-creator-app .profile-editor-action small {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-tertiary);
+  font-size: 12px;
+  font-weight: 450;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.is-creator-app .profile-editor-action:hover,
+.is-creator-app .profile-flow-shell .profile-header-link:hover {
+  border-color: rgba(255,77,109,.32);
+  background: rgba(255,77,109,.06);
+}
+.is-creator-app .profile-flow-shell .profile-photo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+.is-creator-app .profile-flow-shell .profile-photo-form {
+  width: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+.is-creator-app .profile-flow-shell .profile-details-card {
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.is-creator-app .profile-flow-shell .profile-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.is-creator-app .profile-flow-shell .profile-detail-item {
+  min-height: 86px;
+  display: grid;
+  align-content: center;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  background: rgba(255,255,255,.025);
+}
+.is-creator-app .profile-flow-shell .profile-chip-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+}
+.is-creator-app .settings-shell {
+  width: min(100%, 1040px);
+  max-width: 1040px;
+  margin-inline: auto;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  padding: clamp(22px, 5vw, 52px) clamp(16px, 3vw, 28px) 44px;
+}
+.is-creator-app .settings-shell > .back-link,
+.is-creator-app .settings-shell > div:first-of-type,
+.is-creator-app .settings-shell > .mono {
+  grid-column: 1 / -1;
+}
+.is-creator-app .settings-shell .settings-group {
+  margin: 0;
+  padding: clamp(18px, 2.8vw, 24px);
+}
+.is-creator-app .settings-shell .settings-form input,
+.is-creator-app .settings-shell .settings-form select {
+  width: 100%;
+}
+.is-creator-app .settings-shell .settings-actions {
+  justify-content: flex-start;
+}
+.is-creator-app .settings-shell .profile-manage-list {
+  display: grid;
+  gap: 0;
+}
+.is-creator-app .settings-shell .profile-manage-row {
+  min-height: 54px;
+}
+@media (max-width: 900px) {
+  .is-creator-app .profile-flow-shell .profile-primary-grid,
+  .is-creator-app .settings-shell {
+    grid-template-columns: 1fr;
+  }
+  .is-creator-app .profile-flow-shell .profile-fidelity-preview {
+    min-height: 0;
+  }
+}
+@media (max-width: 640px) {
+  .is-creator-app .profile-flow-shell {
+    padding-inline: 14px;
+    padding-top: max(18px, env(safe-area-inset-top));
+  }
+  .is-creator-app .profile-flow-shell .profile-header {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .is-creator-app .profile-flow-shell .profile-header-link {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+  .is-creator-app .profile-flow-shell .profile-preview-top {
+    align-items: flex-start;
+  }
+  .is-creator-app .profile-flow-shell .profile-detail-grid {
+    grid-template-columns: 1fr;
+  }
+  .is-creator-app .profile-editor-panel > summary {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .is-creator-app .profile-editor-summary small {
+    max-width: none;
+    text-align: left;
+  }
+  .is-creator-app .profile-editor-panel > summary::after {
+    position: absolute;
+    right: 18px;
+    top: 18px;
+  }
+  .is-creator-app .profile-flow-shell .profile-photo-actions,
+  .is-creator-app .profile-flow-shell .profile-photo-form,
+  .is-creator-app .profile-flow-shell .profile-photo-actions .btn,
+  .is-creator-app .profile-flow-shell .profile-inline-form,
+  .is-creator-app .profile-flow-shell .profile-inline-form button {
+    width: 100%;
+  }
+  .is-creator-app .profile-editor-action {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .is-creator-app .profile-editor-action small {
+    width: 100%;
+  }
+}
+@media (max-width: 430px) {
+  .is-creator-app .creator-tabbar {
+    padding-inline: 6px;
+  }
+  .is-creator-app .creator-tabbar a {
+    min-height: 56px;
+    gap: 5px;
+    font-size: 9.5px;
+    letter-spacing: -.02em;
+  }
+  .is-creator-app .creator-tabbar a svg {
+    width: 23px;
+    height: 23px;
+  }
+  .is-creator-app .creator-tabbar-mark {
+    width: 48px;
+    height: 48px;
+  }
+  .is-creator-app .creator-tabbar .creator-tabbar-mark .nav-bg-icon {
+    width: 30px;
+    height: 30px;
+  }
 }

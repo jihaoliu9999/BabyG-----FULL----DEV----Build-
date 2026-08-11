@@ -61,7 +61,7 @@ def test_creator_profile_page_renders(monkeypatch, client: TestClient) -> None:
     assert "Los Angeles, California" in response.text
     assert "creator_tenure" not in response.text
     assert "tenure" not in response.text
-    assert "/auth/logout" in response.text
+    assert "/auth/logout" not in response.text
     assert "/creator/profile/settings" in response.text
 
 
@@ -97,8 +97,8 @@ def test_creator_profile_page_has_single_preview_and_section_budget(
     html = response.text
     assert 'class="profile-preview"' not in html
     assert html.count('class="profile-fidelity-preview"') == 1
-    assert 'action="/creator/profile/deals"' in html
-    assert 'id="deal-preferences"' in html
+    assert 'action="/creator/profile/deals"' not in html
+    assert 'id="deal-preferences"' not in html
 
     section_count = len(re.findall(r"<section\b", html))
     settings_group_count = len(re.findall(r'<form[^>]+class="[^"]*\bsettings-group\b', html))
@@ -521,7 +521,7 @@ def test_profile_deals_min_rate_text_capped_to_120_chars(
     assert len(saved["deal_min_rate_text"]) == 120
 
 
-def test_profile_page_renders_deals_section_with_existing_values(
+def test_settings_page_renders_deals_section_with_existing_values(
     monkeypatch, client: TestClient
 ) -> None:
     _signed_in(client, role="creator")
@@ -534,8 +534,12 @@ def test_profile_page_renders_deals_section_with_existing_values(
     monkeypatch.setattr(
         creator_routes.profiles, "get_creator_profile", lambda uid: pref_profile
     )
+    monkeypatch.setattr(
+        creator_routes.oauth_connections, "get_google_connection", lambda uid: None
+    )
+    monkeypatch.setattr(creator_routes.google_calendar, "is_configured", lambda: False)
 
-    response = client.get("/creator/profile")
+    response = client.get("/creator/profile/settings")
 
     assert response.status_code == 200
     assert "deal preferences" in response.text.lower()
@@ -863,6 +867,9 @@ def test_creator_profile_settings_page_renders(monkeypatch, client: TestClient) 
     assert response.status_code == 200
     assert "account" in response.text
     assert "not configured" in response.text
+    assert 'action="/creator/profile/deals"' in response.text
+    assert 'id="deal-preferences"' in response.text
+    assert "/auth/logout" in response.text
 
 
 def test_creator_profile_settings_google_states_are_scope_aware(

@@ -1,12 +1,12 @@
-{# Creator bottom tabbar — 5 tabs.
+{# Creator bottom tabbar — 6 tabs.
 
    Home is the daily command center: today's schedule, calendar preview,
    Hot Drops, follow-ups, urgent reminders. Calendar gets a /creator/calendar
    route still, but it lives under the Home tab visually.
 
-   Profile is the catch-all for identity / settings / stats / integrations.
+   Profile is public identity. Settings owns account, stats, receipts, and integrations.
 
-   data-tab values are preserved (feed / chat / inbox / network / profile)
+   data-tab values are preserved where possible and settings has its own accent
    so the per-tab accent color CSS in app.css keeps working unchanged. #}
 {% set path = request.url.path %}
 <nav class="app-tabbar creator-tabbar" id="tabbar" aria-label="creator navigation">
@@ -37,8 +37,14 @@
   </a>
   <a href="/creator/profile"
      data-tab="profile"
-     class="{{ 'active' if path.startswith('/creator/profile') or path.startswith('/creator/settings') or path.startswith('/creator/performance') or path.startswith('/creator/receipts') or path.startswith('/creator/views') }}">
+     class="{{ 'active' if path == '/creator/profile' }}">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.15" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7.4" r="3.2"/><path d="M5.4 21c0-4 2.7-6.5 6.6-6.5s6.6 2.5 6.6 6.5"/></svg>
     profile
+  </a>
+  <a href="/creator/profile/settings"
+     data-tab="settings"
+     class="{{ 'active' if path.startswith('/creator/profile/settings') or path.startswith('/creator/settings') or path.startswith('/creator/performance') or path.startswith('/creator/receipts') or path.startswith('/creator/views') }}">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.15" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3.2"/><path d="M19 12a7 7 0 0 0-.1-1.2l2-1.5-2-3.5-2.4 1a7 7 0 0 0-2.1-1.2L14 3h-4l-.4 2.6a7 7 0 0 0-2.1 1.2l-2.4-1-2 3.5 2 1.5A7 7 0 0 0 5 12c0 .4 0 .8.1 1.2l-2 1.5 2 3.5 2.4-1a7 7 0 0 0 2.1 1.2L10 21h4l.4-2.6a7 7 0 0 0 2.1-1.2l2.4 1 2-3.5-2-1.5c.1-.4.1-.8.1-1.2Z"/></svg>
+    settings
   </a>
 </nav>

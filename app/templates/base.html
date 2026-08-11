@@ -79,9 +79,13 @@
           dms
           {% if unread_dms is defined and unread_dms and unread_dms > 0 %}<span class="count">{{ unread_dms }}</span>{% endif %}
         </a>
-        <a href="/creator/profile" data-tab="profile" class="{{ 'active' if cp.startswith('/creator/profile') or cp.startswith('/creator/settings') or cp.startswith('/creator/performance') or cp.startswith('/creator/receipts') or cp.startswith('/creator/views') }}">
+        <a href="/creator/profile" data-tab="profile" class="{{ 'active' if cp == '/creator/profile' }}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>
           profile
+        </a>
+        <a href="/creator/profile/settings" data-tab="settings" class="{{ 'active' if cp.startswith('/creator/profile/settings') or cp.startswith('/creator/settings') or cp.startswith('/creator/performance') or cp.startswith('/creator/receipts') or cp.startswith('/creator/views') }}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z"/><path d="M19.4 15a1.8 1.8 0 0 0 .36 1.98l.05.05a2.15 2.15 0 1 1-3.04 3.04l-.05-.05a1.8 1.8 0 0 0-1.98-.36 1.8 1.8 0 0 0-1.1 1.65V21a2.15 2.15 0 1 1-4.3 0v-.07a1.8 1.8 0 0 0-1.1-1.65 1.8 1.8 0 0 0-1.98.36l-.05.05a2.15 2.15 0 1 1-3.04-3.04l.05-.05A1.8 1.8 0 0 0 4.6 15a1.8 1.8 0 0 0-1.65-1.1H2.9a2.15 2.15 0 1 1 0-4.3h.05A1.8 1.8 0 0 0 4.6 8a1.8 1.8 0 0 0-.36-1.98l-.05-.05a2.15 2.15 0 1 1 3.04-3.04l.05.05A1.8 1.8 0 0 0 9.26 3.3 1.8 1.8 0 0 0 10.36 1.65V1.6a2.15 2.15 0 1 1 4.3 0v.05a1.8 1.8 0 0 0 1.1 1.65 1.8 1.8 0 0 0 1.98-.36l.05-.05a2.15 2.15 0 1 1 3.04 3.04l-.05.05A1.8 1.8 0 0 0 19.4 8a1.8 1.8 0 0 0 1.65 1.1h.05a2.15 2.15 0 1 1 0 4.3h-.05A1.8 1.8 0 0 0 19.4 15Z"/></svg>
+          settings
         </a>
       </nav>
 

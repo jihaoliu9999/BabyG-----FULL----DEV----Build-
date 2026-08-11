@@ -3,7 +3,7 @@
 {% block title %}settings — babyg{% endblock %}
 
 {% block content %}
-<div class="wrap">
+<div class="wrap settings-shell">
   <a href="/creator/profile" class="back-link">← profile</a>
 
   <div style="margin-bottom:22px;">
@@ -13,6 +13,7 @@
   </div>
 
   {% set ig_flash = request.query_params.get('instagram') %}
+  {% set deals_flash = request.query_params.get('deals') %}
   {% if ig_flash %}
   <div class="mono" style="font-size:10.5px;letter-spacing:0.14em;text-transform:uppercase;margin:0 0 14px;padding:10px 14px;border-radius:10px;border:1px solid var(--hairline);
     {% if ig_flash == 'connected' %}color:var(--lime);border-color:var(--lime);background:var(--lime-soft,rgba(255,77,109,0.08));
@@ -43,6 +44,54 @@
     <div class="settings-row"><span>followers</span><strong>{{ profile.follower_range or 'not set' }}</strong></div>
     <div class="settings-row"><span>engagement</span><strong>{{ profile.engagement_range or 'not set' }}</strong></div>
   </div>
+
+  <form class="settings-group settings-form profile-deals" id="deal-preferences" method="post" action="/creator/profile/deals">
+    {% include "_partials/csrf.html" %}
+    <h2>private deal rules</h2>
+    <p class="settings-help">babyg uses these when drafting replies and screening brand outreach. brands never see them.</p>
+    {% if deals_flash == 'ok' %}<div class="settings-flash settings-flash-ok">deal preferences saved.</div>
+    {% elif deals_flash == 'save_failed' %}<div class="settings-flash">couldn't save deal preferences. try again.</div>
+    {% endif %}
+
+    <div class="settings-row settings-row-stack">
+      <label for="deal_min_rate_text"><span>rate floor</span></label>
+      <input
+        type="text"
+        id="deal_min_rate_text"
+        name="deal_min_rate_text"
+        maxlength="120"
+        placeholder='e.g. "$2k organic" or "DM for rates"'
+        value="{{ profile.deal_min_rate_text or '' }}"
+        autocomplete="off"
+      />
+    </div>
+
+    <div class="settings-row settings-row-stack">
+      <label for="deal_usage_rights_default"><span>usage rights default</span></label>
+      <select id="deal_usage_rights_default" name="deal_usage_rights_default">
+        <option value="" {% if not profile.deal_usage_rights_default %}selected{% endif %}>not set</option>
+        <option value="organic_only" {% if profile.deal_usage_rights_default == 'organic_only' %}selected{% endif %}>organic only, no paid amplification</option>
+        <option value="paid_organic" {% if profile.deal_usage_rights_default == 'paid_organic' %}selected{% endif %}>paid usage on my channels OK</option>
+        <option value="paid_with_usage" {% if profile.deal_usage_rights_default == 'paid_with_usage' %}selected{% endif %}>full usage rights negotiable for paid</option>
+        <option value="flexible" {% if profile.deal_usage_rights_default == 'flexible' %}selected{% endif %}>flexible, case-by-case</option>
+      </select>
+    </div>
+
+    <div class="settings-row settings-row-stack">
+      <label for="deal_travel_willingness"><span>travel willingness</span></label>
+      <select id="deal_travel_willingness" name="deal_travel_willingness">
+        <option value="" {% if not profile.deal_travel_willingness %}selected{% endif %}>not set</option>
+        <option value="no" {% if profile.deal_travel_willingness == 'no' %}selected{% endif %}>no travel</option>
+        <option value="local_only" {% if profile.deal_travel_willingness == 'local_only' %}selected{% endif %}>local only</option>
+        <option value="regional" {% if profile.deal_travel_willingness == 'regional' %}selected{% endif %}>regional</option>
+        <option value="open" {% if profile.deal_travel_willingness == 'open' %}selected{% endif %}>open to anywhere</option>
+      </select>
+    </div>
+
+    <div class="settings-actions">
+      <button class="btn btn-lime btn-sm" type="submit">save deal preferences</button>
+    </div>
+  </form>
 
   <div class="settings-group">
     <h2>integrations</h2>
@@ -137,6 +186,29 @@
     <div class="settings-row settings-row-stack">
       <span>voice samples</span>
       <strong>{% if profile.writing_samples %}{{ profile.writing_samples|length }} saved{% else %}none saved{% endif %}</strong>
+    </div>
+  </div>
+
+  <div class="settings-group">
+    <h2>account controls</h2>
+    <div class="profile-manage-list">
+      <a href="/creator/profile" class="profile-manage-row">
+        <span>public profile and discover preview</span>
+        <strong>open</strong>
+      </a>
+      <a href="/creator/performance" class="profile-manage-row">
+        <span>stats and performance</span>
+        <strong>open</strong>
+      </a>
+      <a href="/creator/receipts" class="profile-manage-row">
+        <span>post receipts</span>
+        <strong>open</strong>
+      </a>
+      <form method="post" action="/auth/logout" class="profile-manage-row profile-manage-form">
+        {% include "_partials/csrf.html" %}
+        <span>signed in as {{ profile.full_name or profile.instagram_handle or 'creator' }}</span>
+        <button type="submit">sign out</button>
+      </form>
     </div>
   </div>
 </div>
