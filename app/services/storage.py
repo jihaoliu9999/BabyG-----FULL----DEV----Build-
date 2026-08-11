@@ -1,9 +1,9 @@
 """Supabase Storage helpers for creator profile photos.
 
-One canonical variant per creator (512x512 JPEG, EXIF-stripped). Object
-name is the user_id, so a re-upload overwrites the previous photo and
-the URL stays stable. Cache-busting is the caller's job — append
-`?v={updated_at}` to the rendered <img src=...>.
+One canonical rendered variant per upload (512x512 JPEG, EXIF-stripped).
+Uploads get a fresh object path so the database stores a new URL on every
+photo change. That avoids stale CDN/browser cache issues where the user
+picks a new photo but old `{user_id}.jpg` bytes keep rendering.
 
 Writes always go through the service-role client because the bucket
 intentionally has no RLS write policy: the backend validates uploads
@@ -15,6 +15,8 @@ from __future__ import annotations
 import io
 import logging
 from typing import Final
+from urllib.parse import unquote, urlparse
+from uuid import uuid4
 
 from PIL import Image, ImageOps, UnidentifiedImageError
 
@@ -72,9 +74,8 @@ def upload_profile_photo(
 ) -> str:
     """Validate, resize, upload, and return the public URL.
 
-    Re-uploads overwrite the existing object at `{user_id}.jpg`. The
-    returned URL is stable across uploads; cache-busting via a query
-    string is the template's responsibility.
+    Each upload writes a fresh object under `{user_id}/...jpg` so the
+    rendered URL changes immediately after save.
     """
     if len(raw_bytes) > MAX_UPLOAD_BYTES:
         raise PhotoTooLargeError(
@@ -84,7 +85,7 @@ def upload_profile_photo(
         raise PhotoUnsupportedTypeError(content_type or "(none)")
 
     jpeg_bytes = _normalize_to_square_jpeg(raw_bytes)
-    object_name = f"{user_id}.jpg"
+    object_name = f"{user_id}/{uuid4().hex}.jpg"
 
     bucket = supabase_client.get_service_client().storage.from_(BUCKET)
     # upsert=true → re-upload overwrites silently. file_options must be
@@ -114,18 +115,38 @@ def upload_profile_photo(
         raise PhotoStorageError("supabase storage public-url failed") from exc
 
 
-def delete_profile_photo(user_id: str) -> None:
+def delete_profile_photo(user_id: str, public_url: str | None = None) -> None:
     """Best-effort remove of the storage object. Idempotent.
 
     Failures are logged but not raised — clearing `profile_photo_url`
-    in the database is the source of truth for "no photo"; a leftover
-    object will be overwritten on the next upload anyway.
+    in the database is the source of truth for "no photo".
     """
     bucket = supabase_client.get_service_client().storage.from_(BUCKET)
+    object_names = []
+    current = _object_name_from_public_url(public_url)
+    if current:
+        object_names.append(current)
+    # Backward-compatible cleanup for older stable-path uploads.
+    object_names.append(f"{user_id}.jpg")
     try:
-        bucket.remove([f"{user_id}.jpg"])
+        bucket.remove(list(dict.fromkeys(object_names)))
     except Exception:
         logger.exception("profile-photo remove failed for user_id=%s", user_id)
+
+
+def _object_name_from_public_url(public_url: str | None) -> str | None:
+    """Extract the Supabase object path from a stored public URL.
+
+    Public URLs look like:
+    /storage/v1/object/public/profile-photos/{object_name}
+    """
+    if not public_url:
+        return None
+    path = urlparse(public_url).path
+    marker = f"/object/public/{BUCKET}/"
+    if marker not in path:
+        return None
+    return unquote(path.split(marker, 1)[1]).strip("/") or None
 
 
 def _normalize_to_square_jpeg(raw: bytes) -> bytes:

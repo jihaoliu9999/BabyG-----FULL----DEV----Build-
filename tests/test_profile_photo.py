@@ -74,6 +74,9 @@ def test_upload_happy_path(monkeypatch, client: TestClient) -> None:
 
     monkeypatch.setattr(storage_module, "upload_profile_photo", _fake_upload)
     monkeypatch.setattr(creator_routes.profiles, "update_creator_profile", _fake_update)
+    monkeypatch.setattr(
+        creator_routes.profiles, "get_creator_profile", lambda user_id: {}
+    )
 
     r = client.post(
         "/creator/profile/photo",
@@ -86,6 +89,46 @@ def test_upload_happy_path(monkeypatch, client: TestClient) -> None:
     assert calls["upload"][2] == "image/png"
     assert saved["_user_id"] == "u-1"
     assert saved["profile_photo_url"] == "https://cdn.example/u-1.jpg"
+
+
+def test_upload_replaces_existing_photo_url_and_cleans_old_object(
+    monkeypatch, client: TestClient
+) -> None:
+    _signed_in(client)
+    removed = {}
+
+    monkeypatch.setattr(
+        creator_routes.profiles,
+        "get_creator_profile",
+        lambda user_id: {"profile_photo_url": "https://cdn.example/old.jpg"},
+    )
+    monkeypatch.setattr(
+        storage_module,
+        "upload_profile_photo",
+        lambda *a, **kw: "https://cdn.example/new.jpg",
+    )
+    monkeypatch.setattr(
+        creator_routes.profiles, "update_creator_profile", lambda *a, **kw: True
+    )
+
+    def _fake_delete(user_id: str, public_url: str | None = None) -> None:
+        removed["user_id"] = user_id
+        removed["public_url"] = public_url
+
+    monkeypatch.setattr(storage_module, "delete_profile_photo", _fake_delete)
+
+    r = client.post(
+        "/creator/profile/photo",
+        files={"photo": ("p.png", _png_bytes(), "image/png")},
+        follow_redirects=False,
+    )
+
+    assert r.status_code == 303
+    assert r.headers["location"] == "/creator/profile?photo=ok"
+    assert removed == {
+        "user_id": "u-1",
+        "public_url": "https://cdn.example/old.jpg",
+    }
 
 
 def test_upload_empty_file_redirects_missing(monkeypatch, client: TestClient) -> None:
@@ -145,6 +188,9 @@ def test_upload_db_save_failure_surfaces(monkeypatch, client: TestClient) -> Non
     monkeypatch.setattr(
         creator_routes.profiles, "update_creator_profile", lambda *a, **kw: False
     )
+    monkeypatch.setattr(
+        creator_routes.profiles, "get_creator_profile", lambda user_id: {}
+    )
 
     r = client.post(
         "/creator/profile/photo",
@@ -172,11 +218,18 @@ def test_delete_clears_column_and_removes_object(
         return True
 
     removed = {}
+    monkeypatch.setattr(
+        creator_routes.profiles,
+        "get_creator_profile",
+        lambda user_id: {"profile_photo_url": "https://cdn.example/u-1/old.jpg"},
+    )
     monkeypatch.setattr(creator_routes.profiles, "update_creator_profile", _fake_update)
     monkeypatch.setattr(
         storage_module,
         "delete_profile_photo",
-        lambda uid: removed.setdefault("user_id", uid),
+        lambda uid, public_url=None: removed.update(
+            {"user_id": uid, "public_url": public_url}
+        ),
     )
 
     r = client.post("/creator/profile/photo/delete", follow_redirects=False)
@@ -185,6 +238,7 @@ def test_delete_clears_column_and_removes_object(
     assert saved["profile_photo_url"] is None
     assert saved["_user_id"] == "u-1"
     assert removed["user_id"] == "u-1"
+    assert removed["public_url"] == "https://cdn.example/u-1/old.jpg"
 
 
 def test_delete_requires_creator_session(client: TestClient) -> None:
@@ -221,6 +275,15 @@ def test_storage_raw_upload_cap_matches_bucket_limit() -> None:
     If these drift apart, a borderline upload passes the app gate
     then 500s when the bucket rejects it."""
     assert storage_module.MAX_UPLOAD_BYTES == 6 * 1024 * 1024
+
+
+def test_storage_public_url_parser_handles_nested_profile_photo_path() -> None:
+    url = (
+        "https://project.supabase.co/storage/v1/object/public/"
+        "profile-photos/u-1/abc123.jpg"
+    )
+
+    assert storage_module._object_name_from_public_url(url) == "u-1/abc123.jpg"
 
 
 def test_storage_pillow_decompression_bomb_cap_is_pinned() -> None:

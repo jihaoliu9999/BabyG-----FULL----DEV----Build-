@@ -78,6 +78,26 @@
       {% if profile.instagram_handle %}
       <p>@{{ profile.instagram_handle }}{% if profile.primary_platform %} / {{ profile.primary_platform }}{% endif %}</p>
       {% endif %}
+      <div class="profile-photo-actions profile-header-photo-actions" aria-label="profile photo actions">
+        <form method="post" action="/creator/profile/photo" enctype="multipart/form-data"
+              class="profile-photo-form"
+              data-profile-photo-form>
+          {% include "_partials/csrf.html" %}
+          <label class="btn btn-ghost btn-sm profile-photo-picker">
+            <span data-profile-photo-label>{% if profile.profile_photo_url %}change photo{% else %}add a photo{% endif %}</span>
+            <input type="file" name="photo" accept="image/jpeg,image/png,image/webp"
+                   data-profile-photo-input />
+          </label>
+          <button type="submit" class="btn btn-lime btn-sm" hidden data-profile-photo-submit>save photo</button>
+          <span class="mono profile-photo-status" data-profile-photo-status hidden></span>
+        </form>
+        {% if profile.profile_photo_url %}
+        <form method="post" action="/creator/profile/photo/delete" class="profile-inline-form">
+          {% include "_partials/csrf.html" %}
+          <button type="submit" class="btn btn-ghost btn-sm">remove photo</button>
+        </form>
+        {% endif %}
+      </div>
     </div>
     <a href="/creator/profile/settings" class="profile-header-link">settings</a>
   </header>
@@ -143,30 +163,9 @@
       <section class="profile-section profile-quick-section" aria-labelledby="profile-quick-edits-title">
         <div class="profile-section-head">
           <div>
-            <span class="mono">quick edits</span>
-            <h2 id="profile-quick-edits-title">shape the public card</h2>
+            <span class="mono">public card</span>
+            <h2 id="profile-quick-edits-title">edit what people see</h2>
           </div>
-        </div>
-
-        <div class="profile-photo-actions" aria-label="profile photo actions">
-          <form method="post" action="/creator/profile/photo" enctype="multipart/form-data"
-                class="profile-photo-form"
-                data-profile-photo-form>
-            {% include "_partials/csrf.html" %}
-            <label class="btn btn-ghost btn-sm profile-photo-picker">
-              <span data-profile-photo-label>{% if profile.profile_photo_url %}change photo{% else %}add a photo{% endif %}</span>
-              <input type="file" name="photo" accept="image/jpeg,image/png,image/webp"
-                     data-profile-photo-input />
-            </label>
-            <button type="submit" class="btn btn-lime btn-sm" hidden data-profile-photo-submit>save photo</button>
-            <span class="mono profile-photo-status" data-profile-photo-status hidden></span>
-          </form>
-          {% if profile.profile_photo_url %}
-          <form method="post" action="/creator/profile/photo/delete" class="profile-inline-form">
-            {% include "_partials/csrf.html" %}
-            <button type="submit" class="btn btn-ghost btn-sm">remove photo</button>
-          </form>
-          {% endif %}
         </div>
 
         <div class="profile-chip-stack">
@@ -272,7 +271,7 @@
       <section class="profile-section" aria-labelledby="profile-details-title">
         <div class="profile-section-head">
           <div>
-            <span class="mono">details</span>
+            <span class="mono">matching</span>
             <h2 id="profile-details-title">basic matching signals</h2>
           </div>
           <button type="button" class="profile-chip-edit profile-details-edit"
@@ -341,7 +340,7 @@
     <div class="profile-section-head">
       <div>
         <span class="mono">deal preferences</span>
-        <h2 id="profile-deals-title">private working terms</h2>
+        <h2 id="profile-deals-title">private deal rules</h2>
       </div>
     </div>
     <form class="profile-deals-form" method="post" action="/creator/profile/deals">
@@ -393,7 +392,7 @@
     <div class="profile-section-head">
       <div>
         <span class="mono">manage account</span>
-        <h2 id="profile-manage-title">deeper controls</h2>
+        <h2 id="profile-manage-title">account controls</h2>
       </div>
     </div>
 
