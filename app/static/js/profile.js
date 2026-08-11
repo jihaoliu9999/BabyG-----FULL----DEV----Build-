@@ -80,11 +80,8 @@
 
   const submitPhotoChange = () => {
     setStatus("saving...");
-    if (typeof form.requestSubmit === "function") {
-      form.requestSubmit();
-    } else {
-      form.submit();
-    }
+    if (!input.files || !input.files.length) return;
+    HTMLFormElement.prototype.submit.call(form);
   };
 
   openers.forEach((opener) => {

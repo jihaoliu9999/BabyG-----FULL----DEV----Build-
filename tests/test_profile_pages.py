@@ -58,7 +58,10 @@ def test_creator_profile_page_renders(monkeypatch, client: TestClient) -> None:
     assert "edit bio" in response.text
     assert "what should babyg know about how you show up?" in response.text
     assert 'action="/creator/profile/location"' in response.text
+    assert 'name="primary_platform"' in response.text
+    assert "location and platform" in response.text
     assert "Los Angeles, California" in response.text
+    assert "profile signals" not in response.text
     assert "creator_tenure" not in response.text
     assert "tenure" not in response.text
     assert "/auth/logout" not in response.text
@@ -202,6 +205,7 @@ def test_creator_profile_location_update_saves_manual_location(
             "location_city": "  New   York  ",
             "location_region": "New York",
             "location_country": "United States",
+            "primary_platform": "TikTok",
         },
         follow_redirects=False,
     )
@@ -218,6 +222,7 @@ def test_creator_profile_location_update_saves_manual_location(
             "location_lng": None,
             "location_source": "manual",
             "location_updated_at": saved["payload"]["location_updated_at"],
+            "primary_platform": "TikTok",
         },
     }
 

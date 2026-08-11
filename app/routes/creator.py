@@ -94,6 +94,7 @@ PROFILE_CHIP_OPTIONS = {
         ],
     },
 }
+PROFILE_PLATFORM_OPTIONS = ["Instagram", "TikTok"]
 
 
 def _calendar_preview_days(today: date | None = None) -> list[dict[str, Any]]:
@@ -383,6 +384,24 @@ async def profile_location_update(
     payload, error = locations.profile_location_payload(form)
     if error:
         return RedirectResponse("/creator/profile?details=invalid_location", status_code=303)
+    if "primary_platform" in form:
+        platform = str(form.get("primary_platform") or "").strip()
+        if platform:
+            normalized_platform = next(
+                (
+                    option
+                    for option in PROFILE_PLATFORM_OPTIONS
+                    if option.lower() == platform.lower()
+                ),
+                None,
+            )
+            if normalized_platform is None:
+                return RedirectResponse(
+                    "/creator/profile?details=invalid_details", status_code=303
+                )
+            payload["primary_platform"] = normalized_platform
+        else:
+            payload["primary_platform"] = None
     if not profiles.update_creator_profile(session["user_id"], payload):
         return RedirectResponse("/creator/profile?details=save_failed", status_code=303)
     return RedirectResponse("/creator/profile?details=ok", status_code=303)

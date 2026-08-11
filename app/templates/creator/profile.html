@@ -14,6 +14,7 @@
   ('formats', 'formats', 'how your work usually shows up.'),
   ('limits', 'limits', 'things babyg should never pitch or agree to on your behalf.')
 ] %}
+{% set platform_options = ['Instagram', 'TikTok'] %}
 
 {% macro flash_block(name, value) %}
   {% if value %}
@@ -42,6 +43,7 @@
     {% elif name == 'details' %}
       {% if value == 'ok' %}details updated
       {% elif value == 'invalid_location' %}location could not be saved
+      {% elif value == 'invalid_details' %}details could not be saved
       {% elif value == 'save_failed' %}couldn't save details
       {% else %}{{ value }}
       {% endif %}
@@ -145,7 +147,7 @@
             <span class="mono">public card</span>
             <strong>edit profile</strong>
           </span>
-          <small>photo, bio, tags, signals</small>
+          <small>photo, bio, tags, details</small>
         </summary>
 
         <div class="profile-editor-body">
@@ -185,7 +187,7 @@
             </button>
             {% endfor %}
             <button type="button" class="profile-editor-action" data-profile-chip-open="details" aria-controls="profile-chip-details">
-              <span>profile signals</span>
+              <span>location and platform</span>
               <small>{{ profile.location_label or 'location not set' }}{% if profile.primary_platform %} · {{ profile.primary_platform }}{% endif %}</small>
             </button>
           </div>
@@ -243,46 +245,25 @@
         </form>
       </dialog>
 
-      <section class="profile-section" aria-labelledby="profile-details-title">
-        <div class="profile-section-head">
-          <div>
-            <h2 id="profile-details-title">profile signals</h2>
-          </div>
-        </div>
-
-        <div class="profile-details-card">
-          <div class="profile-detail-grid">
-            <div class="profile-detail-item">
-              <span class="l">location</span>
-              <strong>{{ profile.location_label or 'location not set' }}</strong>
-            </div>
-            <div class="profile-detail-item">
-              <span class="l">platform</span>
-              <strong>{{ profile.primary_platform or 'not set' }}</strong>
-            </div>
-            <div class="profile-detail-item">
-              <span class="l">followers</span>
-              <strong>{{ profile.follower_range or 'not set' }}</strong>
-            </div>
-            <div class="profile-detail-item">
-              <span class="l">engagement</span>
-              <strong>{{ profile.engagement_range or 'not set' }}</strong>
-            </div>
-          </div>
-        </div>
-      </section>
-
       <dialog class="profile-chip-dialog" id="profile-chip-details" data-profile-chip-dialog>
         <form method="post" action="/creator/profile/location" class="profile-chip-sheet">
           {% include "_partials/csrf.html" %}
           <div class="profile-chip-sheet-head">
             <div>
               <span class="mono profile-chip-label">details</span>
-              <h2>edit location</h2>
+              <h2>edit public details</h2>
             </div>
             <button type="button" class="profile-chip-close" data-profile-chip-close aria-label="close"></button>
           </div>
-          <p>city or region is enough. exact location stays private.</p>
+          <p>choose the location and main platform people see on your card.</p>
+          <label for="profile-platform-input" class="mono profile-chip-label">main platform</label>
+          <select id="profile-platform-input" name="primary_platform" class="profile-detail-input">
+            <option value="">select one</option>
+            {% for option in platform_options %}
+            <option value="{{ option }}" {% if profile.primary_platform and profile.primary_platform|lower == option|lower %}selected{% endif %}>{{ option }}</option>
+            {% endfor %}
+          </select>
+          <span class="mono profile-chip-label">location</span>
           <label for="profile-location-city-input" class="sr-only">city or region</label>
           <input id="profile-location-city-input" name="location_city" class="profile-detail-input"
                  value="{{ profile.location_city or '' }}" placeholder="los angeles" autocomplete="address-level2" />
