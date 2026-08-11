@@ -25,7 +25,7 @@
     </nav>
     <div class="nav-right">
       <a class="lp-btn lp-btn-outline" href="/auth/login?role=brand">for brands</a>
-      <a class="lp-btn lp-btn-lime" href="/auth/login?role=creator">for creators</a>
+      <a class="lp-btn lp-btn-lime" href="/auth/login?role=creator">log in</a>
     </div>
   </div>
 </header>
@@ -44,46 +44,105 @@
 
 <section class="lp-hero">
   <div class="wrap">
-    <div class="hero-eyebrow reveal">
-      <span class="pulse-dot"></span>
-      live · public beta
-    </div>
+    <p class="hero-kicker reveal">creator × brand network</p>
 
     <div class="hero-mark reveal" id="heroMark" aria-hidden="true">
       <img class="mark-img" src="/static/assets/logo-bg.png" alt="babyg" />
     </div>
 
     <h1 class="display reveal delay-1">
-      <span class="chrome">the network gets you in the room. the agent makes sure it's the right one.</span>
+      <span class="chrome">the creator network with an AI manager built in.</span>
     </h1>
 
     <p class="lede reveal delay-2">
-      babyg is where creators and brands meet, match, and connect. each one backed by an ai manager that runs the deal, so nobody signs the wrong fit.
+      discover creators and brands by niche, location, and budget. every account includes an AI manager for messages, scheduling, and deal terms.
     </p>
 
     <div class="cta-row reveal delay-3">
       <a class="lp-btn lp-btn-lime" href="/auth/login?role=creator">
-        for creators
+        join as a creator
         <svg width="13" height="13" viewBox="0 0 12 12" fill="none"><path d="M3 9L9 3M9 3H4M9 3V8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"></path></svg>
       </a>
       <a class="lp-btn lp-btn-ghost" href="/auth/login?role=brand">
-        for brands
+        join as a brand
       </a>
     </div>
   </div>
 </section>
 
-<section class="lp-features" id="features" aria-labelledby="features-title">
+<section class="lp-features lp-scenes" id="features" aria-labelledby="features-title">
   <div class="wrap-wide">
-    <div class="mod-head reveal">
-      <h2 id="features-title">what babyg does.</h2>
-      <p class="right">manage the deal. match the fit.</p>
-    </div>
+    <h2 class="sr-only" id="features-title">features</h2>
 
-    <div class="feature-proof-grid">
-      <article class="feature-proof feature-proof-chat reveal delay-1" id="for-creators" aria-label="creator agent proof">
-        <div class="proof-kicker">for creators</div>
-        <div class="chat-stage">
+    <article class="cinema-scene meet-scene reveal" id="network">
+      <div class="scene-copy">
+        <p class="scene-index">01</p>
+        <h3>meet.</h3>
+        <p>discover creators and brands by niche, location, and budget.</p>
+      </div>
+      <div class="scene-art meet-art" aria-label="network discovery preview">
+        <div class="scene-core" aria-hidden="true">
+          <img src="/static/assets/logo-bg.png" alt="" />
+        </div>
+        <article class="float-profile creator-card">
+          <span>creator</span>
+          <strong>@maya.fits</strong>
+          <p>fashion · nyc</p>
+        </article>
+        <article class="float-profile brand-card">
+          <span>brand</span>
+          <strong>skincare studio</strong>
+          <p>budget aligned</p>
+        </article>
+        <article class="float-profile signal-card">
+          <span>signal</span>
+          <strong>location fit</strong>
+          <p>ready to review</p>
+        </article>
+      </div>
+    </article>
+
+    <article class="cinema-scene match-scene reveal" id="for-brands">
+      <div class="scene-copy">
+        <p class="scene-index">02</p>
+        <h3>match.</h3>
+        <p>connect when the audience, brief, and budget line up.</p>
+      </div>
+      <div class="scene-art match-art" aria-label="brand creator match proof">
+        <div class="lp-match-panel">
+          <article class="lp-match-item">
+            <span>creator</span>
+            <strong>@maya.fits</strong>
+            <p>fashion · nyc</p>
+          </article>
+
+          <div class="lp-match-bridge" aria-hidden="true">
+            <span></span>
+          </div>
+
+          <article class="lp-match-item">
+            <span>brand</span>
+            <strong>skincare studio</strong>
+            <p>summer campaign</p>
+          </article>
+
+          <article class="lp-match-result">
+            <span>match</span>
+            <strong>strong fit</strong>
+            <p>ready to connect</p>
+          </article>
+        </div>
+      </div>
+    </article>
+
+    <article class="cinema-scene manage-scene reveal" id="for-creators">
+      <div class="scene-copy">
+        <p class="scene-index">03</p>
+        <h3>manage.</h3>
+        <p>your AI manager handles messages, scheduling, follow-ups, and deal terms.</p>
+      </div>
+      <div class="scene-art manage-art">
+        <div class="chat-stage" aria-label="creator AI manager chat preview">
           <div class="chat-day">today · 9:41 am</div>
 
           <div class="msg">
@@ -114,46 +173,21 @@
             </button>
           </form>
         </div>
-      </article>
-
-      <article class="feature-proof feature-proof-match reveal delay-2" id="network" aria-label="brand creator match proof">
-        <div class="proof-kicker" id="for-brands">for brands</div>
-        <div class="lp-match-panel">
-          <article class="lp-match-item">
-            <span>creator</span>
-            <strong>@maya.fits</strong>
-            <p>fashion · nyc</p>
-          </article>
-
-          <div class="lp-match-bridge" aria-hidden="true">
-            <span></span>
-          </div>
-
-          <article class="lp-match-item">
-            <span>brand</span>
-            <strong>skincare studio</strong>
-            <p>summer campaign</p>
-          </article>
-
-          <article class="lp-match-result">
-            <span>match</span>
-            <strong>strong fit</strong>
-            <p>ready to connect</p>
-          </article>
-        </div>
-      </article>
-    </div>
+      </div>
+    </article>
   </div>
 </section>
 
 <section class="lp-conversion" aria-labelledby="conversion-title">
   <div class="wrap">
     <div class="lp-conversion-shell reveal">
-      <h2 id="conversion-title">meet. match. manage.</h2>
-      <p>one network, backed by an agent for every deal.</p>
+      <div class="conversion-mark" aria-hidden="true">
+        <img src="/static/assets/logo-bg.png" alt="" />
+      </div>
+      <h2 id="conversion-title">the network gets you in the room. your AI manager handles the rest.</h2>
       <div class="cta-row">
-        <a class="lp-btn lp-btn-lime" href="/auth/login?role=creator">for creators</a>
-        <a class="lp-btn lp-btn-ghost" href="/auth/login?role=brand">for brands</a>
+        <a class="lp-btn lp-btn-lime" href="/auth/login?role=creator">join as a creator</a>
+        <a class="lp-btn lp-btn-ghost" href="/auth/login?role=brand">join as a brand</a>
       </div>
     </div>
   </div>
@@ -198,7 +232,7 @@
     <div class="lp-foot-bot">
       <span>© 2026 babyg · all rights reserved</span>
       <span>creator work · brand discovery</span>
-      <span>public beta · network led</span>
+      <span>AI manager network</span>
     </div>
   </div>
 </footer>

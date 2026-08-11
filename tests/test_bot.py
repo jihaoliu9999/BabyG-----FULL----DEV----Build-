@@ -88,7 +88,7 @@ def test_bot_page_renders_history(monkeypatch, client: TestClient) -> None:
     response = client.get("/creator/bot")
 
     assert response.status_code == 200
-    assert "your private manager" in response.text
+    assert "your private AI manager" in response.text
     assert "What are we working on today?" not in response.text
     assert 'class="app-topbar"' not in response.text
     assert 'class="mobile-header"' not in response.text
