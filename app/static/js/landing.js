@@ -6,72 +6,60 @@
 
   document.documentElement.classList.add("js-ready");
 
+  var reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   var header = document.getElementById("site-header");
+
   if (header) {
     var onScroll = function () {
-      if (window.scrollY > 8) header.classList.add("is-scrolled");
-      else header.classList.remove("is-scrolled");
+      header.classList.toggle("is-scrolled", window.scrollY > 8);
     };
     document.addEventListener("scroll", onScroll, { passive: true });
     onScroll();
   }
 
-  var reveals = Array.from(root.querySelectorAll(".reveal"));
-  function checkReveals() {
-    var vh = window.innerHeight;
-    reveals.forEach(function (el) {
-      if (el.classList.contains("in")) return;
-      var r = el.getBoundingClientRect();
-      if (r.top < vh * 0.92 && r.bottom > 0) {
-        el.classList.add("in");
-      }
-    });
+  var reveals = Array.prototype.slice.call(root.querySelectorAll(".reveal"));
+  if ("IntersectionObserver" in window) {
+    var observer = new IntersectionObserver(function (entries) {
+      entries.forEach(function (entry) {
+        if (entry.isIntersecting) {
+          entry.target.classList.add("in");
+          observer.unobserve(entry.target);
+        }
+      });
+    }, { threshold: 0.12, rootMargin: "0px 0px -8% 0px" });
+    reveals.forEach(function (el) { observer.observe(el); });
+  } else {
+    reveals.forEach(function (el) { el.classList.add("in"); });
   }
-  requestAnimationFrame(function () {
-    checkReveals();
-    requestAnimationFrame(checkReveals);
-  });
-  window.addEventListener("scroll", checkReveals, { passive: true });
-  window.addEventListener("resize", checkReveals);
 
   var heroMark = document.getElementById("heroMark");
-  if (heroMark && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+  if (heroMark && !reduceMotion) {
     var markImg = heroMark.querySelector(".mark-img");
-    var targetX = 0, targetY = 0, curX = 0, curY = 0;
-    document.addEventListener("mousemove", function (e) {
+    var targetX = 0;
+    var targetY = 0;
+    var currentX = 0;
+    var currentY = 0;
+
+    document.addEventListener("mousemove", function (event) {
       var cx = window.innerWidth / 2;
       var cy = window.innerHeight / 2;
-      targetX = ((e.clientX - cx) / cx) * 14;
-      targetY = ((e.clientY - cy) / cy) * 14;
-    });
-    (function loop() {
-      curX += (targetX - curX) * 0.06;
-      curY += (targetY - curY) * 0.06;
+      targetX = ((event.clientX - cx) / cx) * 12;
+      targetY = ((event.clientY - cy) / cy) * 12;
+    }, { passive: true });
+
+    (function drift() {
+      currentX += (targetX - currentX) * 0.055;
+      currentY += (targetY - currentY) * 0.055;
       if (markImg) {
-        markImg.style.translate = curX + "px " + curY + "px";
+        markImg.style.translate = currentX.toFixed(2) + "px " + currentY.toFixed(2) + "px";
       }
-      requestAnimationFrame(loop);
+      window.requestAnimationFrame(drift);
     })();
   }
 
-  // The IntersectionObserver-driven [data-count] counter animation
-  // for the homepage stats section was removed alongside the markup.
-  // No other surface used data-count, so the helper went with it.
-
-  var bgMarks = root.querySelectorAll(".bg-mark");
-  if (bgMarks.length && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    var speeds = [0.12, 0.18, 0.10, 0.20, 0.14, 0.16, 0.13];
-    var baseTops = Array.prototype.map.call(bgMarks, function (m) { return m.offsetTop; });
-    var ty = window.scrollY;
-    var cy = ty;
-    window.addEventListener("scroll", function () { ty = window.scrollY; }, { passive: true });
-    (function tick() {
-      cy += (ty - cy) * 0.12;
-      Array.prototype.forEach.call(bgMarks, function (mark, i) {
-        var offset = (cy - baseTops[i]) * speeds[i % speeds.length];
-        mark.style.transform = "translateY(" + offset.toFixed(2) + "px)";
-      });
-      requestAnimationFrame(tick);
-    })();
-  }
+  Array.prototype.forEach.call(root.querySelectorAll("[data-filter-button]"), function (button) {
+    button.addEventListener("click", function () {
+      button.classList.toggle("is-active");
+    });
+  });
 })();
