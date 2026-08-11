@@ -422,7 +422,8 @@
   font-size: clamp(56px, 8.4vw, 132px);
   line-height: 0.92;
   letter-spacing: var(--lp-display-track);
-  margin: 0 0 32px;
+  max-width: 1180px;
+  margin: 0 auto 32px;
   color: var(--lp-ink);
   position: relative;
   z-index: 2;
@@ -753,6 +754,54 @@
   flex-shrink: 0;
 }
 .lp .composer .send:hover { transform: scale(1.08); }
+
+/* --------------- combined feature proofs --------------- */
+.lp .lp-features {
+  padding: 112px 0 116px;
+  position: relative;
+  overflow: hidden;
+  background:
+    radial-gradient(100% 88% at 80% 0%, rgba(182,155,255,0.06), transparent 44%),
+    radial-gradient(90% 70% at 10% 18%, rgba(255,93,115,0.055), transparent 38%),
+    #0b0a0d;
+}
+.lp .lp-features > .wrap-wide {
+  position: relative;
+  z-index: 2;
+}
+.lp .feature-proof-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: clamp(18px, 2.6vw, 30px);
+  align-items: stretch;
+}
+.lp .feature-proof {
+  min-width: 0;
+  border-radius: 28px;
+  padding: clamp(16px, 2vw, 24px);
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.04), rgba(255,255,255,0.015)),
+    rgba(17,17,17,0.70);
+  border: 1px solid rgba(255,255,255,0.07);
+  box-shadow: 0 26px 80px rgba(0,0,0,0.28);
+}
+.lp .proof-kicker {
+  margin: 0 0 16px;
+  color: var(--lp-palette-coral-light);
+  font-family: var(--lp-mono);
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: lowercase;
+}
+.lp .feature-proof .chat-stage,
+.lp .feature-proof .lp-match-panel {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+}
+.lp .feature-proof .chat-stage {
+  min-height: 100%;
+}
 
 /* --------------- opportunity loop --------------- */
 .lp .lp-loop-section {
@@ -1594,7 +1643,7 @@
 }
 .lp .lp-foot-top {
   display: grid;
-  grid-template-columns: 1.4fr repeat(4, 1fr);
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 40px;
   padding-bottom: 72px;
   border-bottom: 1px solid var(--lp-hairline);
@@ -1687,6 +1736,9 @@
   .lp .marquee-bloom { filter: blur(72px); }
   .lp .mod-head { flex-direction: column; align-items: flex-start; }
   .lp .mod-head .right { text-align: left; }
+  .lp .feature-proof-grid {
+    grid-template-columns: 1fr;
+  }
   .lp .lp-match-panel {
     grid-template-columns: 1fr;
     max-width: 720px;
@@ -1761,18 +1813,36 @@
   .lp .loop-preview {
     min-height: 0;
   }
-  .lp .navlinks { display: none; }
   .lp .nav {
-    display: flex;
-    justify-content: center;
-    gap: clamp(10px, 3vw, 18px);
+    display: grid;
+    grid-template-columns: auto auto;
+    grid-template-areas:
+      "brand actions"
+      "links links";
+    justify-content: stretch;
+    gap: 12px clamp(10px, 3vw, 18px);
   }
   .lp .brand,
   .lp .nav-right {
     justify-self: auto;
   }
   .lp .brand {
+    grid-area: brand;
     flex: 0 0 auto;
+  }
+  .lp .navlinks {
+    grid-area: links;
+    justify-self: center;
+    max-width: min(100%, 620px);
+    overflow-x: auto;
+    gap: 20px;
+    padding: 9px 18px;
+    scrollbar-width: none;
+  }
+  .lp .navlinks::-webkit-scrollbar { display: none; }
+  .lp .nav-right {
+    grid-area: actions;
+    justify-self: end;
   }
   .lp .nav-right .lp-btn-ghost { display: none; }
   /* Two side-by-side buttons in nav-right need a tighter footprint at
@@ -1798,7 +1868,7 @@
     padding-inline: 12px;
   }
   .lp .lp-hero {
-    padding: 126px 0 92px;
+    padding: 160px 0 92px;
   }
   .lp .hero-eyebrow {
     margin-bottom: 76px;
@@ -1807,6 +1877,16 @@
     width: clamp(176px, 52vw, 202px);
     height: clamp(176px, 52vw, 202px);
     margin-bottom: 46px;
+  }
+  .lp .lp-hero .cta-row {
+    align-items: stretch;
+    flex-direction: column;
+    width: min(100%, 280px);
+    margin-inline: auto;
+  }
+  .lp .lp-hero .lp-btn {
+    justify-content: center;
+    width: 100%;
   }
   .lp .feature-chip {
     gap: 6px;
@@ -1862,11 +1942,8 @@
     width: 180px;
     height: 180px;
   }
-  .lp .lp-loop-section {
+  .lp .lp-features {
     padding: 88px 0;
-  }
-  .lp .lp-network {
-    padding: 82px 0 88px;
   }
   .lp .lp-match-panel {
     gap: 12px;
@@ -1897,6 +1974,13 @@
   .lp .lp-conversion .lp-btn {
     justify-content: center;
     width: 100%;
+  }
+  .lp .feature-proof {
+    border-radius: 22px;
+  }
+  .lp .feature-proof .chat-stage {
+    padding: 22px 16px;
+    border-radius: 20px;
   }
   .lp .loop-head {
     margin-bottom: 30px;
