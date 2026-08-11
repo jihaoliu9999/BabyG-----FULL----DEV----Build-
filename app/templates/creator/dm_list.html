@@ -22,7 +22,7 @@
     {% for t in threads %}
     {% set peer = peers.get(t.peer_id) %}
     {% set kind = peer_kinds.get(t.peer_id, "unknown") %}
-    {% set peer_name = peer.full_name if peer and peer.full_name else (peer.instagram_handle if peer and peer.instagram_handle else 'Creator') %}
+    {% set peer_name = (peer.full_name|title) if peer and peer.full_name else (peer.instagram_handle if peer and peer.instagram_handle else 'creator') %}
     {% set peer_initial = peer_name[0].upper() %}
     <a href="/creator/dm/{{ t.peer_id }}" class="thread-row{{ ' unread' if t.unread_count|default(0) }}">
       {% set creator = peer %}{% set palette = "1" %}{% set size = "" %}{% include "_partials/_avatar.html" %}

@@ -12,7 +12,7 @@
 {% set chip_sections = [
   ('niches', 'niches', 'what you make and where babyg should look first.'),
   ('formats', 'formats', 'how your work usually shows up.'),
-  ('limits', 'limits', 'categories and asks babyg should keep off the table.')
+  ('limits', 'limits', 'things babyg should never pitch or agree to on your behalf.')
 ] %}
 
 {% macro flash_block(name, value) %}
@@ -59,6 +59,18 @@
 <div class="ambient-page profile-page">
 <div class="wrap ambient-shell profile-shell">
   <header class="profile-header">
+    <div class="profile-header-avatar">
+      {% if profile.profile_photo_url %}
+      <span class="avatar avatar-photo av-g3 xl profile-identity-avatar" aria-hidden="true">
+        <img data-profile-photo-preview src="{{ profile.profile_photo_url }}{% if profile.updated_at %}?v={{ profile.updated_at | replace(':','') | replace('-','') | replace('.','') | replace(' ','') }}{% endif %}" alt="" />
+      </span>
+      {% else %}
+      <button type="button" class="avatar av-g3 xl profile-identity-avatar profile-photo-empty-cta" aria-label="add a photo" data-profile-photo-open>
+        <img data-profile-photo-preview hidden alt="" />
+        <span data-profile-photo-initials>{{ initials[0] }}</span>
+      </button>
+      {% endif %}
+    </div>
     <div class="profile-header-copy">
       <span class="mono eyebrow">your profile</span>
       <h1 class="detail-title">{{ profile.full_name or 'creator' }}</h1>
@@ -121,7 +133,7 @@
     </div>
   </section>
 
-  <section class="profile-section" aria-labelledby="profile-quick-edits-title">
+  <section class="profile-section profile-quick-section" aria-labelledby="profile-quick-edits-title">
     <div class="profile-section-head">
       <div>
         <span class="mono">quick edits</span>
@@ -135,11 +147,11 @@
             data-profile-photo-form>
         {% include "_partials/csrf.html" %}
         <label class="btn btn-ghost btn-sm profile-photo-picker">
-          <span data-profile-photo-label>{% if profile.profile_photo_url %}change photo{% else %}upload photo{% endif %}</span>
+          <span data-profile-photo-label>{% if profile.profile_photo_url %}change photo{% else %}add a photo{% endif %}</span>
           <input type="file" name="photo" accept="image/jpeg,image/png,image/webp"
                  data-profile-photo-input />
         </label>
-        <button type="submit" class="btn btn-lime btn-sm" hidden data-profile-photo-submit>save</button>
+        <button type="submit" class="btn btn-lime btn-sm" hidden data-profile-photo-submit>save photo</button>
         <span class="mono profile-photo-status" data-profile-photo-status hidden></span>
       </form>
       {% if profile.profile_photo_url %}
@@ -155,10 +167,13 @@
         <button type="button"
                 class="profile-chip-trigger"
                 data-profile-chip-open="bio"
-                aria-controls="profile-chip-bio">
+                aria-controls="profile-chip-bio"
+                title="one public sentence that explains your world.">
           <span>
             <span class="mono profile-chip-label">bio</span>
+            {% if not profile.bio %}
             <span class="profile-chip-hint">one public sentence that explains your world.</span>
+            {% endif %}
           </span>
           <span class="profile-chip-edit">edit</span>
         </button>
@@ -172,21 +187,24 @@
       {% for section, label, hint in chip_sections %}
       {% set values = profile_chip_values.get(section, []) %}
       {% set options = profile_chip_options.get(section, []) %}
-      <div class="profile-chip-section">
+      <div class="profile-chip-section {{ 'is-filled' if values else '' }}">
         <button type="button"
                 class="profile-chip-trigger"
                 data-profile-chip-open="{{ section }}"
-                aria-controls="profile-chip-{{ section }}">
+                aria-controls="profile-chip-{{ section }}"
+                title="{{ hint }}">
           <span>
             <span class="mono profile-chip-label">{{ label }}</span>
+            {% if not values %}
             <span class="profile-chip-hint">{{ hint }}</span>
+            {% endif %}
           </span>
           <span class="profile-chip-edit">edit</span>
         </button>
         {% if values %}
         <div class="chip-group profile-chip-display" aria-label="{{ label }}">
           {% for value in values %}
-          <span class="chip profile-chip-static">{{ value }}</span>
+          <span class="chip profile-chip-static profile-chip-static-{{ section }}">{{ value }}</span>
           {% endfor %}
         </div>
         {% else %}

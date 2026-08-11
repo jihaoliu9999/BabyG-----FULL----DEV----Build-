@@ -18,13 +18,14 @@
 (() => {
   const form = document.querySelector("[data-profile-photo-form]");
   const input = document.querySelector("[data-profile-photo-input]");
-  const preview = document.querySelector("[data-profile-photo-preview]");
-  const initials = document.querySelector("[data-profile-photo-initials]");
+  const previews = document.querySelectorAll("[data-profile-photo-preview]");
+  const initials = document.querySelectorAll("[data-profile-photo-initials]");
+  const openers = document.querySelectorAll("[data-profile-photo-open]");
   const submit = document.querySelector("[data-profile-photo-submit]");
   const label = document.querySelector("[data-profile-photo-label]");
   const status = document.querySelector("[data-profile-photo-status]");
 
-  if (!form || !input || !preview || !submit) {
+  if (!form || !input || !previews.length || !submit) {
     return;
   }
 
@@ -52,12 +53,21 @@
 
   const showPreview = (blobOrFile) => {
     const url = URL.createObjectURL(blobOrFile);
-    preview.src = url;
-    preview.hidden = false;
-    if (initials) initials.hidden = true;
+    previews.forEach((preview) => {
+      preview.src = url;
+      preview.hidden = false;
+      preview.closest(".avatar")?.classList.add("avatar-photo");
+    });
+    initials.forEach((initial) => {
+      initial.hidden = true;
+    });
     submit.hidden = false;
     if (label) label.textContent = "pick a different one";
   };
+
+  openers.forEach((opener) => {
+    opener.addEventListener("click", () => input.click());
+  });
 
   // Swap a compressed Blob into the file input so the form submits it
   // as a normal multipart upload. DataTransfer is the standard way to

@@ -8143,6 +8143,268 @@ hr.hairline {
   .is-operator-app .op-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 
+/* Frontend polish pass: profile/discover/home responsive behavior. */
+.creator-profile-avatar,
+.mobile-profile-avatar {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  font-size: 13px;
+  box-shadow: inset 0 1px rgba(255,255,255,.08);
+}
+.mobile-profile-avatar { font-size: 12px; }
+.profile-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+}
+.profile-header-avatar {
+  min-width: 0;
+}
+.profile-identity-avatar {
+  border-color: rgba(255,255,255,.16);
+  box-shadow: inset 0 1px rgba(255,255,255,.08), 0 18px 44px rgba(0,0,0,.28);
+}
+.profile-photo-empty-cta {
+  position: relative;
+  padding: 0;
+  border-style: dashed;
+  cursor: pointer;
+}
+.profile-photo-empty-cta::after {
+  content: "add a photo";
+  position: absolute;
+  left: 50%;
+  bottom: -29px;
+  transform: translateX(-50%);
+  min-height: 24px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 10px;
+  white-space: nowrap;
+  color: var(--ink);
+  border: 1px solid var(--hairline-strong);
+  border-radius: 999px;
+  background: rgba(20,18,20,.92);
+  font-size: 11px;
+  font-weight: 500;
+}
+.profile-shell {
+  width: min(100%, 1120px);
+  max-width: 1120px;
+}
+@media (min-width: 1000px) {
+  .profile-shell {
+    grid-template-columns: minmax(0, 1.05fr) minmax(320px, .85fr);
+    align-items: start;
+  }
+  .profile-header,
+  .profile-flash {
+    grid-column: 1 / -1;
+  }
+  .profile-fidelity-preview,
+  .profile-deals {
+    grid-column: 1;
+  }
+  .profile-quick-section,
+  .profile-section[aria-labelledby="profile-details-title"],
+  .profile-manage {
+    grid-column: 2;
+  }
+}
+.profile-chip-edit,
+.profile-details-edit {
+  min-width: 72px;
+  min-height: 40px;
+  padding-inline: 16px;
+  border-radius: 999px;
+  font-weight: 500;
+}
+.profile-chip-trigger {
+  align-items: center;
+}
+.profile-chip-static-limits {
+  color: #ffb6c1;
+  border-color: rgba(255,77,109,.36);
+  background: rgba(255,77,109,.08);
+}
+.profile-chip-static-limits:hover {
+  color: #ffd0d7;
+  border-color: rgba(255,77,109,.46);
+}
+.profile-chip-static-niches,
+.profile-chip-static-formats {
+  box-shadow: inset 0 1px rgba(255,255,255,.2);
+}
+@media (max-width: 999px) {
+  .profile-shell {
+    grid-template-columns: 1fr;
+  }
+  .profile-header { order: 1; }
+  .profile-flash { order: 1; }
+  .profile-quick-section { order: 2; }
+  .profile-fidelity-preview { order: 3; }
+  .profile-section[aria-labelledby="profile-details-title"] { order: 4; }
+  .profile-deals { order: 5; }
+  .profile-manage { order: 6; }
+}
+@media (max-width: 640px) {
+  .profile-header {
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+  }
+  .profile-header-link {
+    grid-column: 1 / -1;
+    width: 100%;
+    margin-top: 18px;
+  }
+  .profile-identity-avatar {
+    width: 72px;
+    height: 72px;
+    font-size: 24px;
+  }
+  .profile-photo-empty-cta::after {
+    bottom: -27px;
+  }
+  .profile-photo-actions,
+  .profile-photo-form {
+    width: 100%;
+  }
+  .profile-photo-actions .btn,
+  .profile-photo-form .btn,
+  .profile-inline-form {
+    width: 100%;
+  }
+  .profile-inline-form button {
+    width: 100%;
+  }
+}
+
+.discover-media-icon {
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,.14);
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(91,70,54,.96), rgba(31,42,53,.95));
+  color: var(--ink);
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -.04em;
+  box-shadow: inset 0 1px rgba(255,255,255,.12), 0 22px 48px rgba(0,0,0,.28);
+}
+.discover-media-icon img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.discover-media-icon span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+@media (max-width: 1023px) {
+  .discover-filter-toggle { display: inline-grid; }
+  .discover-layout {
+    display: block;
+  }
+  .discover-filters {
+    position: fixed;
+    z-index: 90;
+    left: max(14px, env(safe-area-inset-left));
+    right: max(14px, env(safe-area-inset-right));
+    bottom: max(14px, env(safe-area-inset-bottom));
+    max-height: min(72dvh, 560px);
+    margin: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-radius: 24px;
+    background: rgba(18,17,19,.98);
+    box-shadow: 0 28px 90px rgba(0,0,0,.72), 0 0 0 999px rgba(0,0,0,.55);
+  }
+  .discover-filters:not(.is-open) {
+    display: none;
+  }
+  .discover-filters.is-open {
+    display: block;
+  }
+  .discover-stage {
+    width: 100%;
+  }
+  .discover-actions {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin-inline: 16px;
+  }
+  .discover-actions button {
+    min-width: 0;
+    white-space: nowrap;
+  }
+}
+@media (min-width: 1024px) {
+  .discover-layout {
+    display: grid;
+    grid-template-columns: 220px minmax(0, 620px);
+    gap: 28px;
+    justify-content: center;
+  }
+  .discover-filter-toggle { display: none; }
+  .discover-filters {
+    display: block;
+    position: static;
+    max-height: none;
+  }
+}
+@media (max-width: 420px) {
+  .discover-actions {
+    gap: 8px;
+    margin-inline: 8px;
+  }
+  .discover-actions button {
+    min-height: 52px;
+    border-radius: 16px;
+    font-size: 12.5px;
+  }
+}
+
+.creator-screen-avatar {
+  overflow: hidden;
+  padding: 0;
+}
+.creator-screen-avatar.avatar {
+  font-size: 14px;
+  color: var(--ink);
+}
+.creator-screen-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+@media (max-width: 767px) {
+  .is-creator-app .creator-calendar-strip {
+    display: flex;
+    gap: 7px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .is-creator-app .creator-calendar-strip::-webkit-scrollbar { display: none; }
+  .is-creator-app .creator-calendar-strip span {
+    min-width: 56px;
+    flex: 0 0 56px;
+  }
+  .is-creator-app .creator-home-stats {
+    grid-template-columns: 1fr;
+  }
+  .is-creator-app .thread-row .top {
+    gap: 10px;
+  }
+  .thread-row .name,
+  .thread-row .preview {
+    overflow-wrap: anywhere;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   :where(.is-product-app, .is-auth-app, .is-onboarding-app, .is-legal-app, .is-get-started-app, .is-error-app) *,
   :where(.is-product-app, .is-auth-app, .is-onboarding-app, .is-legal-app, .is-get-started-app, .is-error-app) *::before,

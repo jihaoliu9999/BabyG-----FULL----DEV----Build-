@@ -7,9 +7,26 @@
   var toggle = root.querySelector("[data-filter-toggle]");
   var panel = root.querySelector("[data-filter-panel]");
   if (toggle && panel) {
-    toggle.addEventListener("click", function () {
-      var open = panel.classList.toggle("is-open");
+    function setFiltersOpen(open) {
+      panel.classList.toggle("is-open", open);
       toggle.setAttribute("aria-expanded", String(open));
+    }
+
+    toggle.addEventListener("click", function () {
+      setFiltersOpen(!panel.classList.contains("is-open"));
+    });
+
+    document.addEventListener("keydown", function (event) {
+      if (event.key === "Escape" && panel.classList.contains("is-open")) {
+        setFiltersOpen(false);
+        toggle.focus();
+      }
+    });
+
+    document.addEventListener("click", function (event) {
+      if (!panel.classList.contains("is-open")) return;
+      if (panel.contains(event.target) || toggle.contains(event.target)) return;
+      setFiltersOpen(false);
     });
   }
 

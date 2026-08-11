@@ -4,11 +4,16 @@
 
 {% block content %}
 {% set first_name = (profile.full_name or 'creator').split(' ')[0].lower() if profile is defined and profile is not none else 'creator' %}
+{% set home_initial = ((profile.full_name if profile is defined and profile is not none else '') or (profile.instagram_handle if profile is defined and profile is not none else '') or 'creator')[:1]|upper %}
 {% set needs_count = (unread_total or 0) + (unread_dms or 0) + (1 if upcoming_bookings else 0) %}
 <main class="creator-home wrap">
   <header class="creator-home-hero">
     <div class="creator-home-lockup">
-      <span class="creator-screen-mark" aria-hidden="true"><img src="/static/assets/logo-bg.png" alt="" /></span>
+      {% if profile is defined and profile is not none and profile.profile_photo_url %}
+      <span class="creator-screen-mark creator-screen-avatar avatar-photo" aria-hidden="true"><img src="{{ profile.profile_photo_url }}" alt="" /></span>
+      {% else %}
+      <span class="creator-screen-mark creator-screen-avatar avatar av-g3" aria-hidden="true">{{ home_initial }}</span>
+      {% endif %}
       <div>
         <h1>good to see you, {{ first_name }}.</h1>
         <p>{% if needs_count %}{{ needs_count }} {{ 'thing needs' if needs_count == 1 else 'things need' }} you today{% else %}nothing urgent needs you right now{% endif %}</p>
@@ -27,7 +32,7 @@
 
   <section class="creator-home-section" aria-labelledby="needs-you-title">
     <div class="creator-section-head">
-      <div><h2 id="needs-you-title">Needs you</h2><span>action required</span></div>
+      <div><h2 id="needs-you-title">needs you</h2><span>action required</span></div>
       {% if needs_count %}<span class="creator-count-chip">{{ needs_count }}</span>{% else %}<span class="trust-chip trust-chip-safe">all clear</span>{% endif %}
     </div>
     <div class="creator-action-card">
@@ -36,7 +41,7 @@
         <span class="creator-row-icon creator-row-icon-accent" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a4 4 0 01-4 4H8l-5 3V7a4 4 0 014-4h10a4 4 0 014 4z"/></svg>
         </span>
-        <span class="creator-row-copy"><strong>{{ unread_dms }} unread {{ 'message' if unread_dms == 1 else 'messages' }}</strong><small>Open your inbox and keep conversations moving.</small></span>
+        <span class="creator-row-copy"><strong>{{ unread_dms }} unread {{ 'message' if unread_dms == 1 else 'messages' }}</strong><small>open your dms and keep conversations moving.</small></span>
         <span class="trust-chip trust-chip-caution">reply</span>
         <span class="creator-row-chevron" aria-hidden="true">&#8250;</span>
       </a>
@@ -47,7 +52,7 @@
         <span class="creator-row-icon creator-row-icon-safe" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
         </span>
-        <span class="creator-row-copy"><strong>{{ next_booking.title }}</strong><small>{{ next_booking.starts_at[:16].replace('T', ' · ') if next_booking.starts_at else 'Time to be confirmed' }}{% if next_booking.venue_name %} · {{ next_booking.venue_name }}{% endif %}</small></span>
+        <span class="creator-row-copy"><strong>{{ next_booking.title }}</strong><small>{{ next_booking.starts_at[:16].replace('T', ' · ') if next_booking.starts_at else 'time to be confirmed' }}{% if next_booking.venue_name %} · {{ next_booking.venue_name }}{% endif %}</small></span>
         <span class="trust-chip trust-chip-safe">up next</span>
         <span class="creator-row-chevron" aria-hidden="true">&#8250;</span>
       </a>
@@ -57,7 +62,7 @@
         <span class="creator-row-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v2m0 14v2M3 12h2m14 0h2M5.6 5.6L7 7m10 10 1.4 1.4M18.4 5.6L17 7M7 17l-1.4 1.4"/><circle cx="12" cy="12" r="4"/></svg>
         </span>
-        <span class="creator-row-copy"><strong>{{ n.title }}</strong><small>{{ (n.body or 'Open the alert for the latest details.')[:110] }}</small></span>
+        <span class="creator-row-copy"><strong>{{ n.title }}</strong><small>{{ (n.body or 'open the alert for the latest details.')[:110] }}</small></span>
         <span class="trust-chip trust-chip-neutral">new</span>
         <span class="creator-row-chevron" aria-hidden="true">&#8250;</span>
       </a>
@@ -67,7 +72,7 @@
         <span class="creator-row-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 8a6 6 0 0112 0c0 6 3 9 3 9H3s3-2 3-9M10 21a2 2 0 004 0"/></svg>
         </span>
-        <span class="creator-row-copy"><strong>{{ unread_total }} unread {{ 'alert' if unread_total == 1 else 'alerts' }}</strong><small>Open notifications to review what changed.</small></span>
+        <span class="creator-row-copy"><strong>{{ unread_total }} unread {{ 'alert' if unread_total == 1 else 'alerts' }}</strong><small>open notifications to review what changed.</small></span>
         <span class="trust-chip trust-chip-neutral">new</span>
         <span class="creator-row-chevron" aria-hidden="true">&#8250;</span>
       </a>
@@ -77,7 +82,7 @@
         <span class="creator-row-icon creator-row-icon-safe" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 12l4 4L19 6"/></svg>
         </span>
-        <span class="creator-row-copy"><strong>You are caught up</strong><small>New replies, alerts, and deal activity will appear here.</small></span>
+        <span class="creator-row-copy"><strong>you are caught up</strong><small>new replies, alerts, and deal activity will appear here.</small></span>
       </div>
       {% endif %}
     </div>
@@ -85,8 +90,8 @@
 
   <section class="creator-home-section" aria-labelledby="calendar-preview-title">
     <div class="creator-section-head">
-      <div><h2 id="calendar-preview-title">Up next</h2><span>calendar</span></div>
-      <a href="/creator/calendar">Open calendar</a>
+      <div><h2 id="calendar-preview-title">up next</h2><span>calendar</span></div>
+      <a href="/creator/calendar">open calendar</a>
     </div>
     <div class="creator-calendar-preview">
       <div class="creator-calendar-strip" aria-label="next five days">
@@ -109,15 +114,15 @@
         <span class="creator-row-icon creator-row-icon-safe" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
         </span>
-        <span><strong>Connect calendar</strong><small>Connect calendar to see today's calls and deadlines.</small></span>
-        <a class="creator-calendar-connect" href="/creator/profile/settings">Connect</a>
+        <span><strong>connect calendar</strong><small>connect calendar to see today's calls and deadlines.</small></span>
+        <a class="creator-calendar-connect" href="/creator/profile/settings">connect</a>
       </div>
       {% else %}
       <a class="creator-calendar-empty" href="/creator/calendar">
         <span class="creator-row-icon creator-row-icon-safe" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M5 12l4 4L19 6"/></svg>
         </span>
-        <span><strong>Nothing on the books</strong><small>Your connected calendar has no events in the next few days.</small></span>
+        <span><strong>nothing on the books</strong><small>your connected calendar has no events in the next few days.</small></span>
         <span class="creator-row-chevron" aria-hidden="true">&#8250;</span>
       </a>
       {% endif %}
@@ -125,13 +130,13 @@
   </section>
 
   <div class="creator-home-stats" aria-label="daily activity">
-    <a href="/creator/dm"><span>Unread DMs</span><strong>{{ unread_dms or 0 }}</strong><small>{{ 'needs a reply' if unread_dms else 'inbox is clear' }}</small></a>
-    <a href="/creator/notifications"><span>Open alerts</span><strong>{{ unread_total or 0 }}</strong><small>{{ 'needs review' if unread_total else 'nothing urgent' }}</small></a>
+    <a href="/creator/dm"><span>unread dms</span><strong>{{ unread_dms or 0 }}</strong><small>{{ 'needs a reply' if unread_dms else 'dms are clear' }}</small></a>
+    <a href="/creator/notifications"><span>open alerts</span><strong>{{ unread_total or 0 }}</strong><small>{{ 'needs review' if unread_total else 'nothing urgent' }}</small></a>
   </div>
 
   <section class="creator-home-section creator-hot-drops" aria-labelledby="hot-drops-title">
     <div class="creator-section-head">
-      <div><h2 id="hot-drops-title">Hot Drops</h2></div>
+      <div><h2 id="hot-drops-title">hot drops</h2></div>
       <span>curated for your work</span>
     </div>
     <nav class="creator-hot-drop-filters" aria-label="Hot Drop categories">
@@ -150,7 +155,7 @@
         <h3>{{ post.title }}</h3>
         {% if post.body or post.description %}<p>{{ post.body or post.description }}</p>{% endif %}
         <div class="creator-hot-drop-foot">
-          {% if post.source_url %}<a href="{{ post.source_url|safe_url }}" target="_blank" rel="noopener">View source <span aria-hidden="true">&#8599;</span></a>{% else %}<span>Babyg intel</span>{% endif %}
+          {% if post.source_url %}<a href="{{ post.source_url|safe_url }}" target="_blank" rel="noopener">view source <span aria-hidden="true">&#8599;</span></a>{% else %}<span>babyg intel</span>{% endif %}
           {% if post.id %}
           <form method="post" action="/creator/intel/{{ post.id }}/feedback" class="creator-drop-feedback">
             {% include "_partials/csrf.html" %}
@@ -164,7 +169,7 @@
       {% endfor %}
     </div>
     {% else %}
-    <div class="creator-empty-card"><strong>nothing today.</strong><p>Your feed is clear. Operator-published updates will appear here.</p></div>
+    <div class="creator-empty-card"><strong>nothing today.</strong><p>your feed is clear. published updates will appear here.</p></div>
     {% endif %}
   </section>
 </main>

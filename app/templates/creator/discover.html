@@ -58,6 +58,7 @@
       <div class="discover-count" aria-live="polite"><strong data-card-count>{{ cards|length }}</strong> left</div>
       <div class="discover-stack" data-card-stack>
         {% for card in cards %}
+        {% set card_initial = (card.title or card.subtitle or card.card_kind or 'c')[:1]|upper %}
         <article class="discover-card discover-card-{{ card.card_kind }}" data-discover-card data-card-kind="{{ card.card_kind }}" {% if not loop.first %}hidden{% endif %}>
           <div class="discover-card-media">
             <div class="discover-card-topline">
@@ -67,12 +68,10 @@
               {% endif %}
             </div>
             <div class="discover-media-icon" aria-hidden="true">
-              {% if card.card_kind == 'brand' %}
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 20V7l8-4 8 4v13"/><path d="M8 20v-8h8v8"/><path d="M10 9h4"/></svg>
-              {% elif card.card_kind == 'opportunity' %}
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M6 7h12l2 13H4L6 7z"/><path d="M9 7a3 3 0 016 0"/></svg>
+              {% if card.profile_photo_url %}
+              <img src="{{ card.profile_photo_url|safe_url }}{% if card.updated_at %}?v={{ card.updated_at|short_dt|replace(' ', 'T')|replace(':', '-') }}{% endif %}" alt="" loading="lazy" decoding="async" />
               {% else %}
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>
+              <span>{{ card_initial }}</span>
               {% endif %}
             </div>
           </div>
