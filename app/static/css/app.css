@@ -2274,17 +2274,30 @@ h1, h2, h3, h4 {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 1px 0 0;          /* nudges the × glyph down to optical center */
+  position: relative;
+  padding: 0;
   border-radius: 999px;
   border: 1px solid var(--hairline-strong);
   background: var(--surface-3);
   color: var(--ink-mid);
   cursor: pointer;
-  font-size: 20px;
   line-height: 1;
-  text-align: center;
   box-sizing: border-box;
 }
+.profile-chip-close::before,
+.profile-chip-close::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 15px;
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+  transform-origin: center;
+}
+.profile-chip-close::before { transform: translate(-50%, -50%) rotate(45deg); }
+.profile-chip-close::after { transform: translate(-50%, -50%) rotate(-45deg); }
 .profile-chip-close:hover { color: var(--ink); border-color: #444; }
 .profile-chip-options {
   display: flex;

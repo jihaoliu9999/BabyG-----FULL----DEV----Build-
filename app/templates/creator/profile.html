@@ -62,7 +62,8 @@
     <div class="profile-header-avatar">
       {% if profile.profile_photo_url %}
       <span class="avatar avatar-photo av-g3 xl profile-identity-avatar" aria-hidden="true">
-        <img data-profile-photo-preview src="{{ profile.profile_photo_url }}{% if profile.updated_at %}?v={{ profile.updated_at | replace(':','') | replace('-','') | replace('.','') | replace(' ','') }}{% endif %}" alt="" />
+        <img data-profile-photo-preview src="{{ profile.profile_photo_url|safe_url }}{% if profile.updated_at %}?v={{ profile.updated_at | replace(':','') | replace('-','') | replace('.','') | replace(' ','') }}{% endif %}" alt="" />
+        <span data-profile-photo-initials hidden>{{ initials[0] }}</span>
       </span>
       {% else %}
       <button type="button" class="avatar av-g3 xl profile-identity-avatar profile-photo-empty-cta" aria-label="add a photo" data-profile-photo-open>
@@ -92,10 +93,12 @@
       {% if profile_preview.profile_photo_url %}
       <span class="avatar av-g3 xl profile-preview-avatar" aria-hidden="true">
         <img data-profile-photo-preview src="{{ profile_preview.profile_photo_url|safe_url }}{% if profile_preview.updated_at %}?v={{ profile_preview.updated_at|short_dt|replace(' ', 'T')|replace(':', '-') }}{% endif %}" alt="" />
+        <span data-profile-photo-initials hidden>{{ initials[0] }}</span>
       </span>
       {% elif profile.profile_photo_url %}
       <span class="avatar av-g3 xl profile-preview-avatar" aria-hidden="true">
-        <img data-profile-photo-preview src="{{ profile.profile_photo_url }}{% if profile.updated_at %}?v={{ profile.updated_at | replace(':','') | replace('-','') | replace('.','') | replace(' ','') }}{% endif %}" alt="" />
+        <img data-profile-photo-preview src="{{ profile.profile_photo_url|safe_url }}{% if profile.updated_at %}?v={{ profile.updated_at | replace(':','') | replace('-','') | replace('.','') | replace(' ','') }}{% endif %}" alt="" />
+        <span data-profile-photo-initials hidden>{{ initials[0] }}</span>
       </span>
       {% else %}
       <span class="avatar av-g3 xl profile-preview-avatar" data-profile-photo-fallback aria-hidden="true">
@@ -221,7 +224,7 @@
               <span class="mono profile-chip-label">{{ label }}</span>
               <h2>edit {{ label }}</h2>
             </div>
-            <button type="button" class="profile-chip-close" data-profile-chip-close aria-label="close">&times;</button>
+            <button type="button" class="profile-chip-close" data-profile-chip-close aria-label="close"></button>
           </div>
           <p>{{ hint }}</p>
           <div class="profile-chip-options">
@@ -249,7 +252,7 @@
             <span class="mono profile-chip-label">bio</span>
             <h2>edit bio</h2>
           </div>
-          <button type="button" class="profile-chip-close" data-profile-chip-close aria-label="close">&times;</button>
+          <button type="button" class="profile-chip-close" data-profile-chip-close aria-label="close"></button>
         </div>
         <p>what should babyg know about how you show up?</p>
         <label for="profile-bio-input" class="sr-only">bio</label>
@@ -303,7 +306,7 @@
           <span class="mono profile-chip-label">details</span>
           <h2>edit location</h2>
         </div>
-        <button type="button" class="profile-chip-close" data-profile-chip-close aria-label="close">&times;</button>
+        <button type="button" class="profile-chip-close" data-profile-chip-close aria-label="close"></button>
       </div>
       <p>city or region is enough. exact location stays private.</p>
       <label for="profile-location-city-input" class="sr-only">city or region</label>

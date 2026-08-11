@@ -65,6 +65,31 @@
     if (label) label.textContent = "pick a different one";
   };
 
+  const showInitialsFallback = (preview) => {
+    preview.hidden = true;
+    preview.removeAttribute("src");
+    const avatar = preview.closest(".avatar");
+    avatar?.classList.remove("avatar-photo");
+    const initial = avatar?.querySelector("[data-profile-photo-initials]");
+    if (initial) {
+      initial.hidden = false;
+    }
+  };
+
+  previews.forEach((preview) => {
+    preview.addEventListener("error", () => showInitialsFallback(preview));
+  });
+
+  const submitPhotoChange = () => {
+    setStatus("saving...");
+    submit.hidden = true;
+    if (typeof form.requestSubmit === "function") {
+      form.requestSubmit(submit);
+    } else {
+      form.submit();
+    }
+  };
+
   openers.forEach((opener) => {
     opener.addEventListener("click", () => input.click());
   });
@@ -158,6 +183,7 @@
     setStatus(null);
 
     showPreview(working);
+    window.setTimeout(submitPhotoChange, 0);
   });
 })();
 

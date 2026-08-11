@@ -65,6 +65,26 @@ def test_creator_profile_page_renders(monkeypatch, client: TestClient) -> None:
     assert "/creator/profile/settings" in response.text
 
 
+def test_creator_profile_photo_renders_with_initials_fallback(
+    monkeypatch, client: TestClient
+) -> None:
+    _signed_in(client, role="creator")
+    profile = {
+        **_profile(),
+        "profile_photo_url": "https://cdn.example/mia.jpg",
+        "updated_at": "2026-08-11T13:24:00Z",
+    }
+    monkeypatch.setattr(
+        creator_routes.profiles, "get_creator_profile", lambda uid: profile
+    )
+
+    response = client.get("/creator/profile")
+
+    assert response.status_code == 200
+    assert response.text.count("https://cdn.example/mia.jpg") >= 2
+    assert response.text.count("data-profile-photo-initials hidden") >= 2
+
+
 def test_creator_profile_page_has_single_preview_and_section_budget(
     monkeypatch, client: TestClient
 ) -> None:
