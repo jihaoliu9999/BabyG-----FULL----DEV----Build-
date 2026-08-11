@@ -7,3 +7,4 @@ This file exists so the trigger has a real diff (otherwise PRs can't be
 opened) and so we have a record of when forced redeploys were needed.
 
 - 2026-06-01 — main was ahead of the running Railway deploy; manual trigger.
+- 2026-08-11 — Railway image build failed after landing-only update; manual trigger.
