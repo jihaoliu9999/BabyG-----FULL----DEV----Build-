@@ -3,22 +3,19 @@
 {% block title %}settings — babyg{% endblock %}
 
 {% block content %}
-<div class="wrap settings-shell">
-  <a href="/creator/profile" class="back-link">← profile</a>
+<div class="wrap settings-shell settings-clean-shell">
+  <a href="/creator/profile" class="back-link settings-back">← profile</a>
 
-  <div style="margin-bottom:22px;">
+  <header class="settings-hero">
     <span class="mono eyebrow">settings</span>
-    <h1 class="detail-title">account</h1>
-    <p style="color:var(--ink-dim);font-size:13.5px;margin-top:4px;">keep the basics clean.</p>
-  </div>
+    <h1 class="detail-title">control room</h1>
+    <p>private rules, connected accounts, and account controls. your public profile lives on the profile page.</p>
+  </header>
 
   {% set ig_flash = request.query_params.get('instagram') %}
   {% set deals_flash = request.query_params.get('deals') %}
   {% if ig_flash %}
-  <div class="mono" style="font-size:10.5px;letter-spacing:0.14em;text-transform:uppercase;margin:0 0 14px;padding:10px 14px;border-radius:10px;border:1px solid var(--hairline);
-    {% if ig_flash == 'connected' %}color:var(--lime);border-color:var(--lime);background:var(--lime-soft,rgba(255,77,109,0.08));
-    {% elif ig_flash == 'disconnected' %}color:var(--ink-mid);
-    {% else %}color:var(--accent,var(--ink));border-color:var(--accent,var(--hairline));{% endif %}">
+  <div class="settings-status mono {% if ig_flash == 'connected' %}is-ok{% elif ig_flash == 'disconnected' %}is-muted{% else %}is-alert{% endif %}">
     {% if ig_flash == 'connected' %}instagram connected
     {% elif ig_flash == 'disconnected' %}instagram disconnected
     {% elif ig_flash == 'ineligible' %}instagram connection requires an Instagram Business or Creator account. switch your account type in the Instagram app, then try again.
@@ -31,184 +28,189 @@
   </div>
   {% endif %}
 
-  <div class="settings-group" id="integrations">
-    <h2>identity</h2>
-    <div class="settings-row"><span>name</span><strong>{{ profile.full_name or 'not set' }}</strong></div>
-    <div class="settings-row"><span>instagram</span><strong>{% if profile.instagram_handle %}@{{ profile.instagram_handle }}{% else %}not set{% endif %}</strong></div>
-    <div class="settings-row"><span>location</span><strong>{{ profile.location_label or 'location not set' }}</strong></div>
-  </div>
-
-  <div class="settings-group">
-    <h2>creator signal</h2>
-    <div class="settings-row"><span>tier</span><strong>{{ profile.tier or 'basic' }}</strong></div>
-    <div class="settings-row"><span>followers</span><strong>{{ profile.follower_range or 'not set' }}</strong></div>
-    <div class="settings-row"><span>engagement</span><strong>{{ profile.engagement_range or 'not set' }}</strong></div>
-  </div>
-
-  <form class="settings-group settings-form profile-deals" id="deal-preferences" method="post" action="/creator/profile/deals">
-    {% include "_partials/csrf.html" %}
-    <h2>private deal rules</h2>
-    <p class="settings-help">babyg uses these when drafting replies and screening brand outreach. brands never see them.</p>
-    {% if deals_flash == 'ok' %}<div class="settings-flash settings-flash-ok">deal preferences saved.</div>
-    {% elif deals_flash == 'save_failed' %}<div class="settings-flash">couldn't save deal preferences. try again.</div>
-    {% endif %}
-
-    <div class="settings-row settings-row-stack">
-      <label for="deal_min_rate_text"><span>rate floor</span></label>
-      <input
-        type="text"
-        id="deal_min_rate_text"
-        name="deal_min_rate_text"
-        maxlength="120"
-        placeholder='e.g. "$2k organic" or "DM for rates"'
-        value="{{ profile.deal_min_rate_text or '' }}"
-        autocomplete="off"
-      />
-    </div>
-
-    <div class="settings-row settings-row-stack">
-      <label for="deal_usage_rights_default"><span>usage rights default</span></label>
-      <select id="deal_usage_rights_default" name="deal_usage_rights_default">
-        <option value="" {% if not profile.deal_usage_rights_default %}selected{% endif %}>not set</option>
-        <option value="organic_only" {% if profile.deal_usage_rights_default == 'organic_only' %}selected{% endif %}>organic only, no paid amplification</option>
-        <option value="paid_organic" {% if profile.deal_usage_rights_default == 'paid_organic' %}selected{% endif %}>paid usage on my channels OK</option>
-        <option value="paid_with_usage" {% if profile.deal_usage_rights_default == 'paid_with_usage' %}selected{% endif %}>full usage rights negotiable for paid</option>
-        <option value="flexible" {% if profile.deal_usage_rights_default == 'flexible' %}selected{% endif %}>flexible, case-by-case</option>
-      </select>
-    </div>
-
-    <div class="settings-row settings-row-stack">
-      <label for="deal_travel_willingness"><span>travel willingness</span></label>
-      <select id="deal_travel_willingness" name="deal_travel_willingness">
-        <option value="" {% if not profile.deal_travel_willingness %}selected{% endif %}>not set</option>
-        <option value="no" {% if profile.deal_travel_willingness == 'no' %}selected{% endif %}>no travel</option>
-        <option value="local_only" {% if profile.deal_travel_willingness == 'local_only' %}selected{% endif %}>local only</option>
-        <option value="regional" {% if profile.deal_travel_willingness == 'regional' %}selected{% endif %}>regional</option>
-        <option value="open" {% if profile.deal_travel_willingness == 'open' %}selected{% endif %}>open to anywhere</option>
-      </select>
-    </div>
-
-    <div class="settings-actions">
-      <button class="btn btn-lime btn-sm" type="submit">save deal preferences</button>
-    </div>
-  </form>
-
-  <div class="settings-group">
-    <h2>integrations</h2>
-    {% include "_partials/integrations_grid.html" %}
-  </div>
-
-  {% set privacy_flash = request.query_params.get('privacy') %}
-  <form class="settings-group settings-form" id="privacy" method="post" action="/creator/profile/privacy">
-    {% include "_partials/csrf.html" %}
-    <h2>privacy</h2>
-    <p class="settings-help">control how much of your location is shown to peers and brands, and who can open a DM with you.</p>
-    {% if privacy_flash == 'ok' %}<div class="settings-flash settings-flash-ok">saved.</div>
-    {% elif privacy_flash == 'invalid' %}<div class="settings-flash">invalid selection — try again.</div>
-    {% elif privacy_flash == 'save_failed' %}<div class="settings-flash">couldn't save. try again.</div>
-    {% endif %}
-
-    <div class="settings-row settings-row-stack">
-      <label for="location_display_level"><span>location shown to others</span></label>
-      <select id="location_display_level" name="location_display_level">
-        <option value="city"  {% if (profile.location_display_level or 'city') == 'city'  %}selected{% endif %}>city + region (default)</option>
-        <option value="region"{% if profile.location_display_level == 'region' %}selected{% endif %}>region/country only</option>
-        <option value="hidden"{% if profile.location_display_level == 'hidden' %}selected{% endif %}>hide my location</option>
-      </select>
-    </div>
-
-    <div class="settings-row settings-row-stack">
-      <label for="dm_preference"><span>who can DM you</span></label>
-      <select id="dm_preference" name="dm_preference">
-        <option value="open"             {% if (profile.dm_preference or 'open') == 'open'  %}selected{% endif %}>anyone on babyg (default)</option>
-        <option value="connections_only" {% if profile.dm_preference == 'connections_only' %}selected{% endif %}>only accepted connections</option>
-      </select>
-    </div>
-
-    <div class="settings-actions">
-      <button class="btn btn-lime btn-sm" type="submit">save privacy</button>
-    </div>
-  </form>
-
-  {% set babyg_flash = request.query_params.get('babyg') %}
-  <form class="settings-group settings-form" id="babyg-behavior" method="post" action="/creator/profile/babyg">
-    {% include "_partials/csrf.html" %}
-    <h2>babyg behavior</h2>
-    <p class="settings-help">how babyg writes drafts, weighs risk in inbound messages, and which surfaces it's allowed to help on.</p>
-    {% if babyg_flash == 'ok' %}<div class="settings-flash settings-flash-ok">saved.</div>
-    {% elif babyg_flash == 'save_failed' %}<div class="settings-flash">couldn't save. try again.</div>
-    {% endif %}
-
-    <div class="settings-row settings-row-stack">
-      <label for="babyg_tone"><span>tone for drafts</span></label>
-      <select id="babyg_tone" name="babyg_tone">
-        <option value="casual"      {% if (profile.babyg_tone or 'casual') == 'casual' %}selected{% endif %}>casual (default)</option>
-        <option value="professional"{% if profile.babyg_tone == 'professional' %}selected{% endif %}>professional</option>
-        <option value="direct"      {% if profile.babyg_tone == 'direct' %}selected{% endif %}>direct</option>
-      </select>
-    </div>
-
-    <div class="settings-row settings-row-stack">
-      <label for="babyg_risk_tolerance"><span>risk tolerance</span></label>
-      <select id="babyg_risk_tolerance" name="babyg_risk_tolerance">
-        <option value="cautious"{% if profile.babyg_risk_tolerance == 'cautious' %}selected{% endif %}>cautious — flag more</option>
-        <option value="balanced"{% if (profile.babyg_risk_tolerance or 'balanced') == 'balanced' %}selected{% endif %}>balanced (default)</option>
-        <option value="latitude"{% if profile.babyg_risk_tolerance == 'latitude' %}selected{% endif %}>latitude — flag less</option>
-      </select>
-    </div>
-
-    <div class="settings-row settings-row-stack">
-      <label class="settings-toggle">
-        <input type="checkbox" name="babyg_auto_brief_dms" value="on"
-          {% if profile.babyg_auto_brief_dms is not defined or profile.babyg_auto_brief_dms %}checked{% endif %} />
-        <span>auto-brief incoming DMs</span>
-      </label>
-      <p class="settings-help">when on, every DM gets a private babyg summary, risk check, and suggested reply. you still send manually.</p>
-    </div>
-
-    <div class="settings-row settings-row-stack">
-      <label class="settings-toggle">
-        <input type="checkbox" name="babyg_email_assistance" value="on"
-          {% if profile.babyg_email_assistance %}checked{% endif %} />
-        <span>email assistance</span>
-      </label>
-      <p class="settings-help">when on, babyg may use your Gmail integration to draft replies (you confirm before any send).</p>
-    </div>
-
-    <div class="settings-actions">
-      <button class="btn btn-lime btn-sm" type="submit">save babyg</button>
-    </div>
-  </form>
-
-  <div class="settings-group">
-    <h2>babyg basics</h2>
-    <div class="settings-row"><span>assistant name</span><strong>{{ profile.sub_bot_persona or 'babyg' }}</strong></div>
-    <div class="settings-row settings-row-stack">
-      <span>voice samples</span>
-      <strong>{% if profile.writing_samples %}{{ profile.writing_samples|length }} saved{% else %}none saved{% endif %}</strong>
-    </div>
-  </div>
-
-  <div class="settings-group">
-    <h2>account controls</h2>
-    <div class="profile-manage-list">
-      <a href="/creator/profile" class="profile-manage-row">
-        <span>public profile and discover preview</span>
-        <strong>open</strong>
-      </a>
-      <a href="/creator/performance" class="profile-manage-row">
-        <span>stats and performance</span>
-        <strong>open</strong>
-      </a>
-      <a href="/creator/receipts" class="profile-manage-row">
-        <span>post receipts</span>
-        <strong>open</strong>
-      </a>
-      <form method="post" action="/auth/logout" class="profile-manage-row profile-manage-form">
+  <div class="settings-grid">
+    <div class="settings-column settings-column-main">
+      <form class="settings-group settings-card settings-form profile-deals" id="deal-preferences" method="post" action="/creator/profile/deals">
         {% include "_partials/csrf.html" %}
-        <span>signed in as {{ profile.full_name or profile.instagram_handle or 'creator' }}</span>
-        <button type="submit">sign out</button>
+        <div class="settings-card-head">
+          <span class="mono eyebrow">deals</span>
+          <h2>deal preferences</h2>
+          <p>rate floor, usage rights, and travel rules babyg should remember before drafting.</p>
+        </div>
+        {% if deals_flash == 'ok' %}<div class="settings-flash settings-flash-ok">deal preferences saved.</div>
+        {% elif deals_flash == 'save_failed' %}<div class="settings-flash">couldn't save deal preferences. try again.</div>
+        {% endif %}
+
+        <div class="settings-field">
+          <label for="deal_min_rate_text">rate floor</label>
+          <input
+            type="text"
+            id="deal_min_rate_text"
+            name="deal_min_rate_text"
+            maxlength="120"
+            placeholder='e.g. "$2k organic"'
+            value="{{ profile.deal_min_rate_text or '' }}"
+            autocomplete="off"
+          />
+        </div>
+
+        <div class="settings-field">
+          <label for="deal_usage_rights_default">usage rights</label>
+          <select id="deal_usage_rights_default" name="deal_usage_rights_default">
+            <option value="" {% if not profile.deal_usage_rights_default %}selected{% endif %}>not set</option>
+            <option value="organic_only" {% if profile.deal_usage_rights_default == 'organic_only' %}selected{% endif %}>organic only, no paid amplification</option>
+            <option value="paid_organic" {% if profile.deal_usage_rights_default == 'paid_organic' %}selected{% endif %}>paid usage on my channels OK</option>
+            <option value="paid_with_usage" {% if profile.deal_usage_rights_default == 'paid_with_usage' %}selected{% endif %}>full usage rights negotiable for paid</option>
+            <option value="flexible" {% if profile.deal_usage_rights_default == 'flexible' %}selected{% endif %}>flexible, case by case</option>
+          </select>
+        </div>
+
+        <div class="settings-field">
+          <label for="deal_travel_willingness">travel</label>
+          <select id="deal_travel_willingness" name="deal_travel_willingness">
+            <option value="" {% if not profile.deal_travel_willingness %}selected{% endif %}>not set</option>
+            <option value="no" {% if profile.deal_travel_willingness == 'no' %}selected{% endif %}>no travel</option>
+            <option value="local_only" {% if profile.deal_travel_willingness == 'local_only' %}selected{% endif %}>local only</option>
+            <option value="regional" {% if profile.deal_travel_willingness == 'regional' %}selected{% endif %}>regional</option>
+            <option value="open" {% if profile.deal_travel_willingness == 'open' %}selected{% endif %}>open to anywhere</option>
+          </select>
+        </div>
+
+        <div class="settings-actions">
+          <button class="btn btn-lime btn-sm" type="submit">save preferences</button>
+        </div>
       </form>
+
+      <div class="settings-group settings-card settings-integrations-card" id="integrations">
+        <div class="settings-card-head">
+          <span class="mono eyebrow">connections</span>
+          <h2>integrations</h2>
+          <p>connect the accounts babyg can use to read context and draft better moves.</p>
+        </div>
+        {% include "_partials/integrations_grid.html" %}
+      </div>
+    </div>
+
+    <div class="settings-column settings-column-side">
+      {% set privacy_flash = request.query_params.get('privacy') %}
+      <form class="settings-group settings-card settings-form" id="privacy" method="post" action="/creator/profile/privacy">
+        {% include "_partials/csrf.html" %}
+        <div class="settings-card-head">
+          <span class="mono eyebrow">privacy</span>
+          <h2>visibility</h2>
+          <p>choose what others can see and who can start a DM.</p>
+        </div>
+        {% if privacy_flash == 'ok' %}<div class="settings-flash settings-flash-ok">saved.</div>
+        {% elif privacy_flash == 'invalid' %}<div class="settings-flash">invalid selection. try again.</div>
+        {% elif privacy_flash == 'save_failed' %}<div class="settings-flash">couldn't save. try again.</div>
+        {% endif %}
+
+        <div class="settings-field">
+          <label for="location_display_level">location shown</label>
+          <select id="location_display_level" name="location_display_level">
+            <option value="city"  {% if (profile.location_display_level or 'city') == 'city'  %}selected{% endif %}>city + region</option>
+            <option value="region"{% if profile.location_display_level == 'region' %}selected{% endif %}>region/country only</option>
+            <option value="hidden"{% if profile.location_display_level == 'hidden' %}selected{% endif %}>hide my location</option>
+          </select>
+        </div>
+
+        <div class="settings-field">
+          <label for="dm_preference">DMs</label>
+          <select id="dm_preference" name="dm_preference">
+            <option value="open"             {% if (profile.dm_preference or 'open') == 'open'  %}selected{% endif %}>anyone on babyg</option>
+            <option value="connections_only" {% if profile.dm_preference == 'connections_only' %}selected{% endif %}>accepted connections only</option>
+          </select>
+        </div>
+
+        <div class="settings-actions">
+          <button class="btn btn-lime btn-sm" type="submit">save privacy</button>
+        </div>
+      </form>
+
+      {% set babyg_flash = request.query_params.get('babyg') %}
+      <form class="settings-group settings-card settings-form" id="babyg-behavior" method="post" action="/creator/profile/babyg">
+        {% include "_partials/csrf.html" %}
+        <div class="settings-card-head">
+          <span class="mono eyebrow">babyg</span>
+          <h2>behavior</h2>
+          <p>control tone, risk checks, and where babyg is allowed to help.</p>
+        </div>
+        {% if babyg_flash == 'ok' %}<div class="settings-flash settings-flash-ok">saved.</div>
+        {% elif babyg_flash == 'save_failed' %}<div class="settings-flash">couldn't save. try again.</div>
+        {% endif %}
+
+        <div class="settings-field">
+          <label for="babyg_tone">draft tone</label>
+          <select id="babyg_tone" name="babyg_tone">
+            <option value="casual"      {% if (profile.babyg_tone or 'casual') == 'casual' %}selected{% endif %}>casual</option>
+            <option value="professional"{% if profile.babyg_tone == 'professional' %}selected{% endif %}>professional</option>
+            <option value="direct"      {% if profile.babyg_tone == 'direct' %}selected{% endif %}>direct</option>
+          </select>
+        </div>
+
+        <div class="settings-field">
+          <label for="babyg_risk_tolerance">risk level</label>
+          <select id="babyg_risk_tolerance" name="babyg_risk_tolerance">
+            <option value="cautious"{% if profile.babyg_risk_tolerance == 'cautious' %}selected{% endif %}>cautious, flag more</option>
+            <option value="balanced"{% if (profile.babyg_risk_tolerance or 'balanced') == 'balanced' %}selected{% endif %}>balanced</option>
+            <option value="latitude"{% if profile.babyg_risk_tolerance == 'latitude' %}selected{% endif %}>latitude, flag less</option>
+          </select>
+        </div>
+
+        <div class="settings-check">
+          <label class="settings-toggle">
+            <input type="checkbox" name="babyg_auto_brief_dms" value="on"
+              {% if profile.babyg_auto_brief_dms is not defined or profile.babyg_auto_brief_dms %}checked{% endif %} />
+            <span>auto brief incoming DMs</span>
+          </label>
+          <p>private summaries, risk checks, and suggested replies. you still send manually.</p>
+        </div>
+
+        <div class="settings-check">
+          <label class="settings-toggle">
+            <input type="checkbox" name="babyg_email_assistance" value="on"
+              {% if profile.babyg_email_assistance %}checked{% endif %} />
+            <span>email assistance</span>
+          </label>
+          <p>use Gmail context for drafts. you confirm before anything sends.</p>
+        </div>
+
+        <div class="settings-meta-grid">
+          <div><span>assistant name</span><strong>{{ profile.sub_bot_persona or 'babyg' }}</strong></div>
+          <div><span>voice samples</span><strong>{% if profile.writing_samples %}{{ profile.writing_samples|length }} saved{% else %}none saved{% endif %}</strong></div>
+        </div>
+
+        <div class="settings-actions">
+          <button class="btn btn-lime btn-sm" type="submit">save babyg</button>
+        </div>
+      </form>
+
+      <div class="settings-group settings-card">
+        <div class="settings-card-head">
+          <span class="mono eyebrow">account</span>
+          <h2>controls</h2>
+          <p>open the places you may need after setup.</p>
+        </div>
+        <div class="profile-manage-list">
+          <a href="/creator/profile" class="profile-manage-row">
+            <span>public profile</span>
+            <strong>open</strong>
+          </a>
+          <a href="/creator/performance" class="profile-manage-row">
+            <span>stats and performance</span>
+            <strong>open</strong>
+          </a>
+          <a href="/creator/receipts" class="profile-manage-row">
+            <span>post receipts</span>
+            <strong>open</strong>
+          </a>
+          <form method="post" action="/auth/logout" class="profile-manage-row profile-manage-form">
+            {% include "_partials/csrf.html" %}
+            <span>signed in as {{ profile.full_name or profile.instagram_handle or 'creator' }}</span>
+            <button type="submit">sign out</button>
+          </form>
+        </div>
+      </div>
     </div>
   </div>
 </div>

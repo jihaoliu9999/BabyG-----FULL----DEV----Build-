@@ -9197,3 +9197,320 @@ hr.hairline {
     height: 30px;
   }
 }
+
+/* Creator settings: compact, private controls separated from the public profile */
+.is-creator-app .app-sidebar nav a[data-tab="settings"] svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 18px;
+  overflow: visible;
+}
+.is-creator-app .settings-clean-shell {
+  width: min(100%, 1180px);
+  max-width: 1180px;
+  display: block;
+  padding: clamp(22px, 4.6vw, 56px) clamp(16px, 4vw, 44px) 72px;
+}
+.is-creator-app .settings-clean-shell .settings-back {
+  width: 100%;
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-start;
+  padding-inline: 18px;
+  border-radius: 999px;
+}
+.is-creator-app .settings-hero {
+  max-width: 620px;
+  margin: clamp(34px, 5vw, 64px) 0 clamp(24px, 4vw, 40px);
+}
+.is-creator-app .settings-hero h1 {
+  margin: 8px 0 0;
+}
+.is-creator-app .settings-hero p,
+.is-creator-app .settings-card-head p {
+  margin: 8px 0 0;
+  color: var(--text-tertiary);
+  font-size: 15px;
+  line-height: 1.55;
+}
+.is-creator-app .settings-status {
+  width: 100%;
+  margin: 0 0 18px;
+  padding: 12px 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  font-size: 11px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+.is-creator-app .settings-status.is-ok {
+  color: var(--lime);
+  border-color: rgba(188,255,77,.32);
+  background: rgba(188,255,77,.06);
+}
+.is-creator-app .settings-status.is-muted {
+  color: var(--text-tertiary);
+}
+.is-creator-app .settings-status.is-alert {
+  color: var(--accent);
+  border-color: rgba(255,77,109,.34);
+  background: rgba(255,77,109,.06);
+}
+.is-creator-app .settings-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.06fr) minmax(340px, .74fr);
+  gap: clamp(16px, 2.6vw, 28px);
+  align-items: start;
+}
+.is-creator-app .settings-column {
+  display: grid;
+  gap: clamp(16px, 2.2vw, 22px);
+  min-width: 0;
+}
+.is-creator-app .settings-clean-shell .settings-card {
+  margin: 0;
+  padding: clamp(22px, 3vw, 32px);
+  border: 1px solid rgba(245,241,232,.14);
+  border-radius: 24px;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(255,77,109,.07), transparent 32%),
+    rgba(17,17,17,.82);
+  box-shadow: 0 24px 58px rgba(0,0,0,.28);
+}
+.is-creator-app .settings-clean-shell .settings-card-head {
+  margin-bottom: 22px;
+}
+.is-creator-app .settings-clean-shell .settings-card h2 {
+  margin: 6px 0 0;
+  color: var(--text-primary);
+  font-family: var(--sans);
+  font-size: clamp(25px, 3vw, 34px);
+  font-weight: 600;
+  letter-spacing: -.04em;
+  line-height: 1;
+}
+.is-creator-app .settings-clean-shell .settings-field,
+.is-creator-app .settings-clean-shell .settings-check {
+  display: grid;
+  gap: 10px;
+  padding: 18px 0;
+  border-top: 1px solid rgba(245,241,232,.09);
+}
+.is-creator-app .settings-clean-shell .settings-card-head + .settings-field,
+.is-creator-app .settings-clean-shell .settings-card-head + .settings-check,
+.is-creator-app .settings-clean-shell .settings-flash + .settings-field {
+  border-top: 0;
+  padding-top: 0;
+}
+.is-creator-app .settings-clean-shell .settings-field label,
+.is-creator-app .settings-clean-shell .settings-toggle span,
+.is-creator-app .settings-meta-grid span {
+  color: var(--text-tertiary);
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: .22em;
+  text-transform: lowercase;
+}
+.is-creator-app .settings-clean-shell .settings-field input,
+.is-creator-app .settings-clean-shell .settings-field select,
+.is-creator-app .settings-clean-shell .settings-form input,
+.is-creator-app .settings-clean-shell .settings-form select {
+  min-height: 54px;
+  width: 100%;
+  padding: 0 48px 0 18px;
+  border: 1px solid rgba(245,241,232,.15);
+  border-radius: 15px;
+  background: rgba(255,255,255,.045);
+  color: var(--text-primary);
+  font-size: 15px;
+  line-height: 1;
+}
+.is-creator-app .settings-clean-shell .settings-field select,
+.is-creator-app .settings-clean-shell .settings-form select {
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--text-primary) 50%),
+    linear-gradient(135deg, var(--text-primary) 50%, transparent 50%);
+  background-position:
+    calc(100% - 25px) calc(50% - 3px),
+    calc(100% - 18px) calc(50% - 3px);
+  background-size: 8px 8px, 8px 8px;
+  background-repeat: no-repeat;
+}
+.is-creator-app .settings-clean-shell .settings-check p {
+  max-width: 44ch;
+  margin: 0;
+  color: var(--text-tertiary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.is-creator-app .settings-clean-shell .settings-toggle {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+}
+.is-creator-app .settings-clean-shell .settings-toggle input {
+  width: 26px;
+  height: 26px;
+  min-height: 0;
+  padding: 0;
+  accent-color: var(--accent);
+}
+.is-creator-app .settings-clean-shell .settings-meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 8px;
+}
+.is-creator-app .settings-clean-shell .settings-meta-grid div {
+  display: grid;
+  gap: 8px;
+  min-height: 78px;
+  align-content: center;
+  padding: 14px;
+  border: 1px solid rgba(245,241,232,.1);
+  border-radius: 15px;
+  background: rgba(255,255,255,.025);
+}
+.is-creator-app .settings-clean-shell .settings-meta-grid strong {
+  color: var(--text-primary);
+  font-size: 15px;
+}
+.is-creator-app .settings-clean-shell .settings-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 18px;
+}
+.is-creator-app .settings-clean-shell .settings-actions .btn,
+.is-creator-app .settings-clean-shell .settings-actions button {
+  min-height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding-inline: 22px;
+  line-height: 1;
+}
+.is-creator-app .settings-clean-shell .integrations-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+.is-creator-app .settings-clean-shell .integration-card {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px;
+  border-radius: 18px;
+  border-color: rgba(245,241,232,.11);
+  background: rgba(255,255,255,.025);
+}
+.is-creator-app .settings-clean-shell .integration-card-connected {
+  border-color: rgba(255,77,109,.44);
+  background: rgba(255,77,109,.045);
+}
+.is-creator-app .settings-clean-shell .integration-head {
+  align-items: flex-start;
+  gap: 10px;
+}
+.is-creator-app .settings-clean-shell .integration-title,
+.is-creator-app .settings-clean-shell .integration-tag {
+  font-size: 11px;
+  letter-spacing: .2em;
+}
+.is-creator-app .settings-clean-shell .integration-body {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.45;
+}
+.is-creator-app .settings-clean-shell .integration-card-actions {
+  display: grid;
+  gap: 10px;
+  margin-top: auto;
+}
+.is-creator-app .settings-clean-shell .integration-card-actions .btn,
+.is-creator-app .settings-clean-shell .integration-card-actions button {
+  min-height: 42px;
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+.is-creator-app .settings-clean-shell .profile-manage-list {
+  display: grid;
+  gap: 0;
+}
+.is-creator-app .settings-clean-shell .profile-manage-row {
+  min-height: 58px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 0;
+  border-bottom: 1px solid rgba(245,241,232,.09);
+}
+.is-creator-app .settings-clean-shell .profile-manage-row:last-child {
+  border-bottom: 0;
+}
+.is-creator-app .settings-clean-shell .profile-manage-row span {
+  color: var(--text-secondary);
+}
+.is-creator-app .settings-clean-shell .profile-manage-row strong,
+.is-creator-app .settings-clean-shell .profile-manage-row button {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.is-creator-app .settings-clean-shell .profile-manage-form button {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 16px;
+  border: 1px solid rgba(245,241,232,.16);
+  border-radius: 999px;
+  background: rgba(255,255,255,.035);
+  line-height: 1;
+}
+@media (max-width: 980px) {
+  .is-creator-app .settings-grid {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 720px) {
+  .is-creator-app .settings-clean-shell {
+    padding-inline: 14px;
+    padding-bottom: 110px;
+  }
+  .is-creator-app .settings-hero {
+    margin-top: 28px;
+  }
+  .is-creator-app .settings-clean-shell .settings-card {
+    padding: 20px;
+    border-radius: 20px;
+  }
+  .is-creator-app .settings-clean-shell .integrations-grid,
+  .is-creator-app .settings-clean-shell .settings-meta-grid {
+    grid-template-columns: 1fr;
+  }
+  .is-creator-app .settings-clean-shell .settings-actions,
+  .is-creator-app .settings-clean-shell .settings-actions .btn,
+  .is-creator-app .settings-clean-shell .settings-actions button {
+    width: 100%;
+  }
+}
+@media (max-width: 430px) {
+  .is-creator-app .settings-clean-shell .profile-manage-row,
+  .is-creator-app .settings-clean-shell .profile-manage-form {
+    grid-template-columns: 1fr;
+    align-items: start;
+    gap: 8px;
+    padding-block: 16px;
+  }
+  .is-creator-app .settings-clean-shell .profile-manage-form button {
+    width: 100%;
+  }
+}
