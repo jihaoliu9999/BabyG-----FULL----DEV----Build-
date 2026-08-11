@@ -870,7 +870,7 @@ def test_creator_profile_settings_page_renders(monkeypatch, client: TestClient) 
     response = client.get("/creator/profile/settings")
 
     assert response.status_code == 200
-    assert "control room" in response.text
+    assert "<h1 class=\"detail-title\">settings</h1>" in response.text
     assert "not configured" in response.text
     assert 'action="/creator/profile/deals"' in response.text
     assert 'id="deal-preferences"' in response.text
