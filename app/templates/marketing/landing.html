@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}babyg · creator business network{% endblock %}
+{% block title %}babyg · meet, match, manage{% endblock %}
 
 {% block head_extra %}
 <link rel="stylesheet" href="{{ asset_url('css/landing.css') }}" />
@@ -10,135 +10,87 @@
 <div class="lp">
 
 <header id="site-header" class="site-header">
-  <div class="wrap-wide nav">
-    <a class="brand" href="#top" aria-label="babyg home">
-      <span class="brand-mark">
-        <img src="/static/assets/logo-bg.png" alt="" />
-      </span>
-      <span class="logo-text">babyg</span>
-    </a>
+  <div class="wrap nav">
+    <a class="brand" href="#top" aria-label="babyg home"><span class="logo-text">babyg</span></a>
     <nav class="navlinks" aria-label="landing sections">
-      <a href="#features">features</a>
       <a href="#network">the network</a>
       <a href="#manager">the ai manager</a>
     </nav>
-    <div class="nav-right">
-      <a class="lp-btn lp-btn-outline" href="/auth/login?role=brand">for brands</a>
-      <a class="lp-btn lp-btn-lime" href="/auth/login?role=creator">for creators</a>
-    </div>
+    <a class="lp-btn lp-btn-accent" href="/auth/login?role=creator">sign in</a>
   </div>
 </header>
 
 <main id="top">
-  <div class="bg-watermarks" aria-hidden="true">
-    <img class="bg-mark m1" src="/static/assets/logo-bg.png" alt="" />
-    <img class="bg-mark m2" src="/static/assets/logo-bg.png" alt="" />
-    <img class="bg-mark m3" src="/static/assets/logo-bg.png" alt="" />
-    <img class="bg-mark m4" src="/static/assets/logo-bg.png" alt="" />
-  </div>
-
-  <section class="lp-hero" aria-labelledby="hero-title">
+  <section class="lp-hero">
+    <span class="glow glow-hero" aria-hidden="true"></span>
     <div class="wrap hero-grid">
       <div class="hero-copy">
-        <p class="hero-kicker reveal">built for creators and brands</p>
-        <h1 id="hero-title" class="display reveal delay-1">
-          Meet.<br />Match.<br /><span>Manage.</span>
-        </h1>
-        <p class="lede reveal delay-2">
-          creators, brands, and opportunities in one place, powered by an ai manager that keeps everything moving.
-        </p>
+        <p class="kicker reveal">built for creators and brands</p>
+        <h1 class="display reveal delay-1">Meet.<br />Match.<br /><span>Manage.</span></h1>
+        <p class="lede reveal delay-2">creators, brands, and opportunities in one place, powered by an ai manager that keeps everything moving.</p>
         <div class="cta-row reveal delay-3">
-          <a class="lp-btn lp-btn-lime" href="/auth/login?role=creator">
-            sign up
-            <svg width="13" height="13" viewBox="0 0 12 12" fill="none" aria-hidden="true"><path d="M3 9L9 3M9 3H4M9 3V8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"></path></svg>
-          </a>
+          <a class="lp-btn lp-btn-accent" href="/auth/login?role=creator">sign up</a>
           <a class="lp-btn lp-btn-ghost" href="#features">see how it works</a>
         </div>
       </div>
-
       <div class="hero-visual reveal delay-2">
-        <div class="hero-mark" id="heroMark" aria-hidden="true">
-          <img class="mark-img" src="/static/assets/logo-bg.png" alt="" />
+        <img class="hero-mark" src="/static/assets/logo-bg.png" alt="babyg" />
+      </div>
+    </div>
+  </section>
+
+  <section class="lp-steps" id="features">
+    <span class="glow glow-steps" aria-hidden="true"></span>
+    <div class="wrap step-grid">
+      <article class="step-card reveal">
+        <div class="step-visual">
+          <span class="pill">creator</span><i class="link"></i><span class="pill">brand</span>
         </div>
-      </div>
+        <h3>Meet</h3>
+        <p>both sides in one place.</p>
+      </article>
+      <article class="step-card reveal delay-1">
+        <div class="step-visual">
+          <div class="joined"><span class="pill pill-left">creator</span><span class="pill pill-right">brand</span></div>
+        </div>
+        <h3>Match</h3>
+        <p>niche, city, and budget line up.</p>
+      </article>
+      <article class="step-card reveal delay-2">
+        <div class="step-visual">
+          <span class="agent-ring"><span class="agent-core"><img src="/static/assets/logo-bg.png" alt="" /></span></span>
+        </div>
+        <h3>Manage</h3>
+        <p>an ai manager on every account.</p>
+      </article>
     </div>
   </section>
 
-  <section class="lp-feature-cards" id="features" aria-labelledby="features-title">
-    <div class="wrap">
-      <h2 class="sr-only" id="features-title">features</h2>
-      <div class="feature-card-grid">
-        <article class="feature-card reveal">
-          <div class="mini-network" aria-hidden="true">
-            <span>creator</span>
-            <i></i>
-            <span>brand</span>
-          </div>
-          <h3>Meet</h3>
-          <p>both sides in one place.</p>
-        </article>
-        <article class="feature-card reveal delay-1">
-          <div class="mini-match" aria-hidden="true">
-            <span>creator</span>
-            <strong>brand</strong>
-          </div>
-          <h3>Match</h3>
-          <p>niche, city, and budget line up.</p>
-        </article>
-        <article class="feature-card reveal delay-2">
-          <div class="mini-manager" aria-hidden="true">
-            <img src="/static/assets/logo-bg.png" alt="" />
-          </div>
-          <h3>Manage</h3>
-          <p>an ai manager on every account.</p>
-        </article>
-      </div>
-    </div>
-  </section>
-
-  <section class="lp-network" id="network" aria-labelledby="network-title">
+  <section class="lp-network" id="network">
+    <span class="glow glow-network" aria-hidden="true"></span>
     <div class="wrap">
       <div class="section-head reveal">
-        <p>the network</p>
-        <h2 id="network-title">meet and match on niche, category, location, budget.</h2>
-        <span>both sides browse, post work, and connect. one profile at a time, a reason on every match.</span>
+        <div>
+          <p class="kicker">the network</p>
+          <h2>meet and match on<br />niche, category, location, budget.</h2>
+        </div>
+        <span class="section-note">both sides browse, post work, and connect. one profile at a time, a reason on every match.</span>
       </div>
-
       <div class="network-console reveal delay-1">
         <aside class="filter-panel" aria-label="example filters">
-          <label>
-            <span>category</span>
-            <button type="button" data-filter-button>fashion, travel, fitness</button>
-          </label>
-          <label>
-            <span>location</span>
-            <button type="button" data-filter-button>nyc or miami</button>
-          </label>
-          <label>
-            <span>budget</span>
-            <button type="button" data-filter-button>$750+</button>
-          </label>
-          <a class="lp-btn lp-btn-lime filter-cta" href="/auth/login?role=brand">apply filters</a>
+          <label><span>category</span><button type="button" data-filter-button>fashion, food, fitness</button></label>
+          <label><span>location</span><button type="button" data-filter-button>city or region</button></label>
+          <label><span>budget</span><button type="button" data-filter-button>any</button></label>
+          <a class="lp-btn lp-btn-accent filter-cta" href="/auth/login?role=brand">apply filters</a>
         </aside>
-
-        <article class="discovery-card" aria-label="creator match preview">
-          <div class="discovery-hero">
-            <span class="role-chip">creator</span>
-            <div class="discovery-avatar">u</div>
-          </div>
+        <article class="discovery-card">
+          <div class="discovery-hero"><span class="role-chip">creator</span><div class="discovery-avatar">u</div></div>
           <div class="discovery-body">
             <h3>a creator in your category</h3>
-            <div class="tag-row">
-              <span>nyc</span>
-              <span>fashion</span>
-              <span>short video</span>
-            </div>
-            <div class="relevance">
-              <strong>why this is relevant</strong>
-              <p>same city, same audience, budget lines up.</p>
-            </div>
+            <div class="tag-row"><span>food</span><span>reels</span><span>miami</span></div>
+            <div class="relevance"><strong>why this is relevant</strong><p>same city, same audience, budget lines up.</p></div>
             <div class="discovery-actions">
-              <button type="button" aria-label="pass example">&times;</button>
+              <button type="button" aria-label="pass">&times;</button>
               <button type="button">save</button>
               <a href="/auth/login?role=brand">connect</a>
             </div>
@@ -148,113 +100,87 @@
     </div>
   </section>
 
-  <section class="lp-manager" id="manager" aria-labelledby="manager-title">
+  <section class="lp-manager" id="manager">
+    <span class="glow glow-manager" aria-hidden="true"></span>
     <div class="wrap">
-      <div class="manager-grid">
-        <div class="manager-copy reveal">
-          <p>the ai manager</p>
-          <h2 id="manager-title">behind every account, an agent that runs like a manager.</h2>
-          <span>your email, your calendar, your questions, and every deal on the table. so no one signs the wrong fit.</span>
+      <div class="section-head reveal">
+        <div>
+          <p class="kicker">the ai manager</p>
+          <h2>behind every account,<br />an agent that runs like a manager.</h2>
         </div>
-
-        <div class="manager-proof reveal delay-1">
-          <div class="manager-tabs" aria-hidden="true">
-            <span>email</span>
-            <span>dm</span>
-            <span>calendar</span>
-            <span>deals</span>
-          </div>
-          <div class="manager-bot">
-            <img src="/static/assets/logo-bg.png" alt="" />
-            <strong>your ai manager</strong>
-          </div>
-          <div class="approval-box">
-            <p>brand countered at $4.2k for 3 videos. holding at $5.8k with a 6 month cap.</p>
-            <a class="lp-btn lp-btn-lime" href="/auth/login?role=creator">approve</a>
-          </div>
-        </div>
+        <span class="section-note">your email, your calendar, your questions, and every deal on the table. so no one signs the wrong fit.</span>
       </div>
-
-      <div class="manager-lists">
-        <article class="manager-list reveal">
-          <p>for creators</p>
-          <h3>find the right brand to work with.</h3>
-          <ul>
-            <li>brands that match your niche and your city</li>
-            <li>budgets that already clear your rate</li>
-            <li>nothing that crosses your limits</li>
-          </ul>
-        </article>
-        <article class="manager-list reveal delay-1">
-          <p>for brands</p>
-          <h3>find the right creator to work with.</h3>
-          <ul>
-            <li>creators who actually make your category</li>
-            <li>audiences and cities that match the campaign</li>
-            <li>fit before the first message</li>
-          </ul>
-        </article>
+      <div class="manager-grid reveal delay-1">
+        <div class="manager-proof">
+          <div class="manager-tabs"><span>email</span><span>dms</span><span>calendar</span><span>deals</span></div>
+          <div class="funnel"><i></i><div class="manager-bot"><img src="/static/assets/logo-bg.png" alt="" /><strong>your ai manager</strong></div><i></i></div>
+          <div class="approval-box"><a class="lp-btn lp-btn-accent approve" href="/auth/login?role=creator">approve</a></div>
+        </div>
+        <div class="manager-points">
+          <article><p class="kicker">email</p><span>answers what does not need you.</span></article>
+          <article><p class="kicker">calendar</p><span>checks the week before it books.</span></article>
+          <article><p class="kicker">deals</p><span>flags anything outside your limits.</span></article>
+        </div>
       </div>
     </div>
   </section>
 
-  <section class="lp-conversion" aria-labelledby="conversion-title">
+  <section class="lp-sides">
+    <span class="glow glow-sides" aria-hidden="true"></span>
+    <div class="wrap side-grid">
+      <article class="side-card reveal">
+        <p class="kicker">for creators</p>
+        <h3>find the right brand to work with.</h3>
+        <ul>
+          <li>brands that match your niche and your city</li>
+          <li>budgets that already clear your rate</li>
+          <li>nothing that crosses your limits</li>
+        </ul>
+      </article>
+      <article class="side-card reveal delay-1">
+        <p class="kicker">for brands</p>
+        <h3>find the right creator to work with.</h3>
+        <ul>
+          <li>creators who actually make your category</li>
+          <li>audience and city that match the campaign</li>
+          <li>the full fit before the first message</li>
+        </ul>
+      </article>
+    </div>
+  </section>
+
+  <section class="lp-conversion">
+    <span class="glow glow-conversion" aria-hidden="true"></span>
     <div class="wrap">
       <div class="conversion-head reveal">
-        <p>the old way vs babyg</p>
-        <h2 id="conversion-title">everything an ai manager does.<br />none of what they take.</h2>
+        <p class="kicker">the old way vs babyg</p>
+        <h2>everything a manager does.<br />none of what they take.</h2>
       </div>
-
-      <div class="comparison-grid">
-        <article class="compare-card compare-muted reveal">
+      <div class="comparison-grid reveal delay-1">
+        <article class="compare-card">
           <h3>the old way</h3>
-          <ul>
-            <li>takes a percent of the deal</li>
-            <li>you have to be big enough to matter</li>
-            <li>works business hours, on their time</li>
-            <li>you are one name on a long roster</li>
-          </ul>
+          <ul data-compare="old"></ul>
         </article>
-
-        <article class="compare-card compare-babyg reveal delay-1">
-          <div class="compare-brand">
-            <img src="/static/assets/logo-bg.png" alt="" />
-            <h3>babyg</h3>
-          </div>
-          <ul>
-            <li>takes nothing off your rate</li>
-            <li>works with you at any size</li>
-            <li>on all day, all night</li>
-            <li>one account to look after, yours</li>
-          </ul>
+        <article class="compare-card compare-babyg">
+          <div class="compare-brand"><img src="/static/assets/logo-bg.png" alt="" /><h3>babyg</h3></div>
+          <ul data-compare="babyg"></ul>
         </article>
-      </div>
-
-      <div class="final-cta reveal delay-2">
-        <h2>get access.</h2>
-        <div class="cta-row">
-          <a class="lp-btn lp-btn-lime" href="/auth/login?role=creator">for creators</a>
-          <a class="lp-btn lp-btn-ghost" href="/auth/login?role=brand">for brands</a>
-        </div>
       </div>
     </div>
   </section>
 </main>
 
 <footer class="lp-footer">
-  <div class="wrap-wide">
-    <a class="foot-brand" href="#top">
-      <img src="/static/assets/logo-bg.png" alt="" />
-      <span>babyg</span>
-    </a>
+  <div class="wrap foot">
+    <a class="foot-brand" href="#top"><img src="/static/assets/logo-bg.png" alt="" /><span>babyg</span><em>built in miami</em></a>
     <nav class="foot-links" aria-label="footer">
       <a href="#network">about</a>
       <a href="/privacy">privacy</a>
       <a href="/terms">terms</a>
       <a href="/accessibility">accessibility</a>
       <a href="/data-deletion">data deletion</a>
+      <span>&copy; 2026</span>
     </nav>
-    <span>&copy; 2026</span>
   </div>
 </footer>
 

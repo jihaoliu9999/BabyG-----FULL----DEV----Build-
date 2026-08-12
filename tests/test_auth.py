@@ -198,7 +198,7 @@ def client() -> TestClient:
 def test_landing_renders(client: TestClient) -> None:
     r = client.get("/")
     assert r.status_code == 200
-    assert "get access" in r.text
+    assert "meet, match, manage" in r.text.lower()
 
 
 def test_get_started_renders_role_cards(client: TestClient) -> None:
