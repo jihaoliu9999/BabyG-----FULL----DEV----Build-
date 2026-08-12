@@ -29,17 +29,17 @@
 /* buttons */
 .lp-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:54px;border-radius:999px;font-size:15px;font-weight:700;line-height:1;text-align:center;white-space:nowrap;padding:16px 32px;transition:transform .2s ease,filter .2s ease}
 .lp-btn:hover{transform:translateY(-1px)}
-.lp-btn-accent{background:var(--accent);color:#fff}
-.lp-btn-accent:hover{color:#fff;filter:brightness(1.06)}
-.lp-btn-ghost{border:1px solid rgba(255,255,255,.18);color:rgba(244,244,246,.85)}
-.lp-btn-ghost:hover{color:var(--ink);border-color:rgba(255,255,255,.34)}
+.lp .lp-btn-accent{background:var(--accent);color:#0B0B0D}
+.lp .lp-btn-accent:hover{color:#0B0B0D;filter:brightness(1.06)}
+.lp .lp-btn-ghost{border:1px solid rgba(255,255,255,.18);color:rgba(244,244,246,.85)}
+.lp .lp-btn-ghost:hover{color:var(--ink);border-color:rgba(255,255,255,.34)}
 
 /* header */
 .site-header{position:sticky;top:0;z-index:30;background:rgba(8,8,10,.82);backdrop-filter:blur(14px);border-bottom:1px solid rgba(255,255,255,.07)}
 .site-header.is-scrolled{background:rgba(8,8,10,.95)}
 .nav{display:flex;align-items:center;gap:24px;padding-top:16px;padding-bottom:16px}
 .brand{color:var(--ink);display:flex;align-items:center;gap:10px}
-.lp .brand,.lp .brand:hover,.lp .brand .logo-text{color:var(--ink)}
+.lp .brand,.lp .brand:hover,.lp .brand .logo-text{color:var(--accent)}
 .logo-text{font-size:22px;font-weight:700;letter-spacing:-.03em}
 .navlinks{margin-left:auto;display:flex;gap:32px;font-size:14px}
 .navlinks a{color:var(--muted)}
@@ -69,7 +69,7 @@
 .link{width:34px;height:2px;background:rgba(255,62,99,.7);box-shadow:0 0 20px rgba(255,62,99,.6);flex:none}
 .joined{display:flex}
 .pill-left{border-radius:14px 0 0 14px;border-right:none}
-.pill-right{border-radius:0 14px 14px 0;background:var(--accent);color:#fff;border-color:transparent;box-shadow:0 0 40px rgba(255,62,99,.4)}
+.pill-right{border-radius:0 14px 14px 0;background:var(--accent);color:#0B0B0D;border-color:transparent;box-shadow:0 0 40px rgba(255,62,99,.4)}
 .agent-ring{width:88px;height:88px;border-radius:50%;border:1px solid var(--accent-soft);display:flex;align-items:center;justify-content:center;animation:glowPulse 4.5s ease-in-out infinite}
 .agent-core{width:62px;height:62px;border-radius:50%;background:#0A0A0C;border:1px solid rgba(255,62,99,.5);display:flex;align-items:center;justify-content:center;box-shadow:0 0 40px rgba(255,62,99,.3)}
 .agent-core img{width:30px;height:30px}
@@ -103,7 +103,7 @@
 .discovery-actions{display:flex;gap:10px;padding-top:4px}
 .discovery-actions button{width:56px;height:46px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);color:rgba(244,244,246,.5);font:inherit;font-size:15px;cursor:pointer}
 .discovery-actions button:nth-of-type(2){width:auto;padding:0 18px}
-.discovery-actions a{flex:1;height:46px;border-radius:12px;background:var(--accent);color:#fff;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.lp .discovery-actions a{flex:1;height:46px;border-radius:12px;background:var(--accent);color:#0B0B0D;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center}
 
 /* manager */
 .lp-manager{position:relative;padding:clamp(56px,8vw,96px) 0}
