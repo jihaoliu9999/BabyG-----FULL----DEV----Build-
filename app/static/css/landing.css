@@ -27,10 +27,10 @@
 @keyframes glowPulse{0%,100%{opacity:.5}50%{opacity:.9}}
 
 /* buttons */
-.lp-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border-radius:999px;font-size:15px;font-weight:700;padding:16px 32px;transition:transform .2s ease,filter .2s ease}
+.lp-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:54px;border-radius:999px;font-size:15px;font-weight:700;line-height:1;text-align:center;white-space:nowrap;padding:16px 32px;transition:transform .2s ease,filter .2s ease}
 .lp-btn:hover{transform:translateY(-1px)}
-.lp-btn-accent{background:var(--accent);color:#0B0B0D}
-.lp-btn-accent:hover{color:#0B0B0D;filter:brightness(1.06)}
+.lp-btn-accent{background:var(--accent);color:#fff}
+.lp-btn-accent:hover{color:#fff;filter:brightness(1.06)}
 .lp-btn-ghost{border:1px solid rgba(255,255,255,.18);color:rgba(244,244,246,.85)}
 .lp-btn-ghost:hover{color:var(--ink);border-color:rgba(255,255,255,.34)}
 
@@ -39,6 +39,7 @@
 .site-header.is-scrolled{background:rgba(8,8,10,.95)}
 .nav{display:flex;align-items:center;gap:24px;padding-top:16px;padding-bottom:16px}
 .brand{color:var(--ink);display:flex;align-items:center;gap:10px}
+.lp .brand,.lp .brand:hover,.lp .brand .logo-text{color:var(--ink)}
 .logo-text{font-size:22px;font-weight:700;letter-spacing:-.03em}
 .navlinks{margin-left:auto;display:flex;gap:32px;font-size:14px}
 .navlinks a{color:var(--muted)}
@@ -53,8 +54,8 @@
 .display span{color:var(--accent)}
 .lede{max-width:440px;font-size:clamp(17px,2vw,19px);line-height:1.5;color:rgba(244,244,246,.65)}
 .cta-row{display:flex;flex-wrap:wrap;gap:12px;padding-top:6px}
-.hero-visual{display:flex;justify-content:center}
-.hero-mark{width:100%;max-width:460px;display:block;animation:float 11s ease-in-out infinite;filter:drop-shadow(0 30px 90px rgba(255,62,99,.22))}
+.hero-visual{display:flex;align-items:center;justify-content:center;min-width:0}
+.hero-mark{width:clamp(280px,32vw,460px);height:clamp(280px,32vw,460px);display:block;flex:none;object-fit:contain;object-position:center;animation:float 11s ease-in-out infinite;filter:drop-shadow(0 30px 90px rgba(255,62,99,.22))}
 @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}
 
 /* steps */
@@ -68,7 +69,7 @@
 .link{width:34px;height:2px;background:rgba(255,62,99,.7);box-shadow:0 0 20px rgba(255,62,99,.6);flex:none}
 .joined{display:flex}
 .pill-left{border-radius:14px 0 0 14px;border-right:none}
-.pill-right{border-radius:0 14px 14px 0;background:var(--accent);color:#0B0B0D;border-color:transparent;box-shadow:0 0 40px rgba(255,62,99,.4)}
+.pill-right{border-radius:0 14px 14px 0;background:var(--accent);color:#fff;border-color:transparent;box-shadow:0 0 40px rgba(255,62,99,.4)}
 .agent-ring{width:88px;height:88px;border-radius:50%;border:1px solid var(--accent-soft);display:flex;align-items:center;justify-content:center;animation:glowPulse 4.5s ease-in-out infinite}
 .agent-core{width:62px;height:62px;border-radius:50%;background:#0A0A0C;border:1px solid rgba(255,62,99,.5);display:flex;align-items:center;justify-content:center;box-shadow:0 0 40px rgba(255,62,99,.3)}
 .agent-core img{width:30px;height:30px}
@@ -102,7 +103,7 @@
 .discovery-actions{display:flex;gap:10px;padding-top:4px}
 .discovery-actions button{width:56px;height:46px;border-radius:12px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);color:rgba(244,244,246,.5);font:inherit;font-size:15px;cursor:pointer}
 .discovery-actions button:nth-of-type(2){width:auto;padding:0 18px}
-.discovery-actions a{flex:1;height:46px;border-radius:12px;background:var(--accent);color:#0B0B0D;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.discovery-actions a{flex:1;height:46px;border-radius:12px;background:var(--accent);color:#fff;font-size:15px;font-weight:700;display:flex;align-items:center;justify-content:center}
 
 /* manager */
 .lp-manager{position:relative;padding:clamp(56px,8vw,96px) 0}
@@ -140,7 +141,7 @@
 .compare-card{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:30px;display:flex;flex-direction:column;gap:16px}
 .compare-card h3{font-size:20px;font-weight:700;letter-spacing:-.02em}
 .compare-brand{display:flex;align-items:center;gap:10px}
-.compare-brand img{width:22px;height:22px}
+.compare-brand img{width:22px;height:22px;object-fit:contain}
 .compare-babyg{background:linear-gradient(160deg,#16161B,#0C0C0F);border-color:var(--accent-soft);animation:pulseEdge 6s ease-in-out infinite}
 @keyframes pulseEdge{0%,100%{border-color:rgba(255,62,99,.35);box-shadow:0 0 50px rgba(255,62,99,.1)}50%{border-color:rgba(255,62,99,.75);box-shadow:0 0 90px rgba(255,62,99,.22)}}
 .compare-card ul{display:flex;flex-direction:column;animation:swapIn 7.5s cubic-bezier(.33,0,.2,1) both}
@@ -156,7 +157,8 @@
 .lp-footer{background:var(--bg);border-top:1px solid rgba(255,255,255,.07);padding:30px 0}
 .foot{display:flex;align-items:center;justify-content:space-between;gap:24px;flex-wrap:wrap}
 .foot-brand{display:flex;align-items:center;gap:9px;color:var(--ink)}
-.foot-brand img{width:20px;height:20px}
+.lp .foot-brand,.lp .foot-brand:hover,.lp .foot-brand span{color:var(--ink)}
+.foot-brand img{width:20px;height:20px;object-fit:contain}
 .foot-brand span{font-size:15px;font-weight:700;letter-spacing:-.03em}
 .foot-brand em{font-style:normal;font-size:13px;color:rgba(244,244,246,.32);padding-left:6px}
 .foot-links{display:flex;align-items:center;gap:24px;flex-wrap:wrap;font-size:13px}
@@ -170,7 +172,7 @@
   .section-head{flex-direction:column;align-items:flex-start}
   .section-note{max-width:none}
   .hero-visual{order:-1}
-  .hero-mark{max-width:300px}
+  .hero-mark{width:clamp(240px,46vw,320px);height:clamp(240px,46vw,320px)}
   .manager-points{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
 }
 @media (max-width:860px){
@@ -183,8 +185,10 @@
   .navlinks{display:none}
   .nav{gap:12px}
   .brand{margin-right:auto}
-  .lp-btn{padding:14px 24px;font-size:14px}
+  .lp-btn{min-height:50px;padding:14px 24px;font-size:14px}
+  .site-header .lp-btn{min-height:44px;padding:12px 20px}
   .cta-row .lp-btn{flex:1 1 auto;justify-content:center}
+  .hero-mark{width:min(74vw,280px);height:min(74vw,280px)}
   .manager-proof,.approval-box,.side-card,.compare-card,.discovery-body,.filter-panel{padding:22px}
   .approve{padding:18px;font-size:17px}
   .discovery-actions{flex-wrap:wrap}
