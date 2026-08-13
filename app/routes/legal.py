@@ -16,7 +16,7 @@ router = APIRouter(tags=["legal"])
 
 # Update this when any legal page's wording changes meaningfully. All four
 # pages render the same date so visitors can tell the policy set is current.
-LAST_UPDATED = "June 2026"
+LAST_UPDATED = "August 2026"
 
 # Single contact address for every legal page. Centralized so a future
 # rename only touches one line.
