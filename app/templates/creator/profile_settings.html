@@ -121,6 +121,25 @@
         {% include "_partials/integrations_grid.html" %}
       </div>
 
+      <section class="settings-group settings-card" id="insights">
+        <div class="settings-card-head">
+          <h2>your work</h2>
+          <p>performance snapshots and content receipts stay off the public profile. open them here when you need them.</p>
+        </div>
+        <div class="profile-fidelity-settings-card" role="list">
+          <a href="/creator/performance" role="listitem">
+            <span class="mono eyebrow">insights</span>
+            <strong>performance <span>weekly numbers you log for babyg.</span></strong>
+            <span aria-hidden="true">&rsaquo;</span>
+          </a>
+          <a href="/creator/receipts" role="listitem">
+            <span class="mono eyebrow">library</span>
+            <strong>content receipts <span>posts babyg can quote in briefs.</span></strong>
+            <span aria-hidden="true">&rsaquo;</span>
+          </a>
+        </div>
+      </section>
+
       {% set babyg_flash = request.query_params.get('babyg') %}
       <form class="settings-group settings-card settings-form" id="babyg-behavior" method="post" action="/creator/profile/babyg">
         {% include "_partials/csrf.html" %}
