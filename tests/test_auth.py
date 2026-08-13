@@ -245,21 +245,28 @@ def test_landing_redirects_signed_in_users(client: TestClient) -> None:
 
 
 def test_login_form_renders(client: TestClient) -> None:
+    """One sign-in page for everyone — copy no longer role-branded."""
     r = client.get("/auth/login?role=creator")
     assert r.status_code == 200
-    assert "creator sign in" in r.text
+    assert "sign in." in r.text
+    assert "we'll email you a sign-in link" in r.text
 
 
-def test_login_form_renders_brand(client: TestClient) -> None:
+def test_login_form_still_carries_role_from_query(client: TestClient) -> None:
+    """The role query still threads through to the hidden POST field so
+    /get-started brand entries and operator invite URLs keep working, even
+    though the visible copy is identical."""
     r = client.get("/auth/login?role=brand")
     assert r.status_code == 200
-    assert "brand sign in" in r.text
+    assert 'name="role" value="brand"' in r.text
 
 
 def test_login_form_falls_back_to_creator_for_unknown_role(client: TestClient) -> None:
+    """Unknown role in the URL still lands on a valid page (hidden role
+    defaults to creator so the POST is always well-formed)."""
     r = client.get("/auth/login?role=ufo")
     assert r.status_code == 200
-    assert "creator sign in" in r.text
+    assert 'name="role" value="creator"' in r.text
 
 
 # -----------------------------------------------------------------------------
@@ -937,7 +944,7 @@ def test_magic_link_sent_page_links_to_code_fallback(
 def test_magic_link_sent_page_normalizes_unknown_role(client: TestClient) -> None:
     r = client.get("/auth/magic-link/sent?role=unknown")
     assert r.status_code == 200
-    assert "creator sign in" in r.text.lower()
+    assert "check your email" in r.text.lower()
 
 
 # -----------------------------------------------------------------------------

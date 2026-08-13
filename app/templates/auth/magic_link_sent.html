@@ -19,7 +19,6 @@
     <div class="auth-logo-row">
       {{ brand.wordmark("brand-lockup-small") }}
     </div>
-    <div class="auth-tag">{{ role }} sign in</div>
     <h1 class="auth-title">check your email.</h1>
     <p class="auth-sub">
       {% if email %}
@@ -36,7 +35,7 @@
       <span>link expires in 15 minutes</span>
       <span>nothing yet? check spam</span>
       <span><a href="/auth/code?role={{ role }}{% if email %}&email={{ email }}{% endif %}" style="color:inherit;text-decoration:underline;">got a code instead?</a></span>
-      <span><a href="/auth/login?role={{ role }}" style="color:inherit;text-decoration:underline;">resend</a> · <a href="/get-started" style="color:inherit;text-decoration:underline;">wrong role</a></span>
+      <span><a href="/auth/login" style="color:inherit;text-decoration:underline;">resend</a></span>
     </div>
 
     <nav class="legal-meta-strip" aria-label="legal">
