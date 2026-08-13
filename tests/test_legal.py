@@ -63,7 +63,6 @@ def test_privacy_page_covers_required_topics(client: TestClient) -> None:
         "cookies",
         "supabase",
         "railway",
-        "resend",
         "anthropic",
         "google",
         "data retention",
@@ -80,7 +79,7 @@ def test_terms_page_covers_required_topics(client: TestClient) -> None:
     for topic in [
         "who can use babyg",
         "acceptable use",
-        "ai chatbot and ai agent",
+        "ai assistant and ai agent",
         "not professional advice",
         "brand deals",
         "service availability",

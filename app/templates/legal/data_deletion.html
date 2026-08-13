@@ -28,65 +28,50 @@
 <ul>
   <li>"data deletion request" in the subject line</li>
   <li>what you want deleted, such as your full account or specific data</li>
-  <li>any helpful account details, such as your name, creator name, instagram handle, tiktok handle, or phone number connected to babyg</li>
+  <li>any helpful account details, such as your name, creator name, or instagram handle</li>
 </ul>
 <p>if you send the request from an email address that is not tied to your babyg account, we may ask for extra verification before completing the request.</p>
-<p>you may also request deletion of data collected from connected accounts, including instagram, tiktok, gmail, and google calendar.</p>
+<p>you may also request deletion of data collected from connected accounts, currently instagram, gmail, and google calendar.</p>
 
 <h2>what we delete for a full account deletion</h2>
 <p>when you request full account deletion, we take reasonable steps to delete or disable the following from active systems:</p>
 <ul>
-  <li>your account record, including email address, phone number if provided, account type, account status, sign-in method, sms consent status, connected account status, and sign-in metadata</li>
+  <li>your account record, including email address, account type, account status, sign-in method, connected account status, and sign-in metadata</li>
   <li>your creator profile, including creator name, social handles, niche, bio, location, content formats, public profile fields, and creator preferences</li>
   <li>your onboarding answers, including creator goals, tone preferences, writing samples, task preferences, and instructions given to babyg</li>
-  <li>your location information, including approximate location, precise location, current location, or live location records where stored</li>
-  <li>your phone number and sms message history where deletion is not restricted by legal, security, fraud prevention, messaging compliance, or opt-out recordkeeping requirements</li>
+  <li>your location information (city / region / country) as you set it</li>
   <li>your babyg platform messages and message threads where you are the sender or recipient, subject to the limits described below</li>
-  <li>your chatbot conversations with babyg</li>
-  <li>your ai agent task history, prompts, drafts, summaries, recommendations, and task outputs stored in babyg</li>
+  <li>your ai assistant / agent conversations, prompts, drafts, summaries, recommendations, and task outputs stored in babyg</li>
   <li>your bookings, calendar items, notes, reminders, and scheduling records created inside babyg</li>
   <li>your content receipts, performance snapshots, post notes, captions, drafts, links, and manually entered content data</li>
-  <li>your uploaded media and files, including profile photos, images, videos, documents, audio, screenshots, and other files you uploaded</li>
+  <li>your uploaded profile photo</li>
   <li>your public creator profile and directory listing</li>
-  <li>your listings, opportunities, creator marketplace entries, and related profile visibility</li>
+  <li>your listings, opportunities, and related profile visibility</li>
   <li>your notifications and user-specific activity records</li>
-  <li>your connected account tokens and stored connection records for instagram, tiktok, gmail, and google calendar</li>
-  <li>your google calendar and gmail data stored in babyg, where applicable</li>
-  <li>your instagram and tiktok data stored in babyg, where applicable</li>
-  <li>your sms agent records stored in babyg, subject to limited retention needs described below</li>
+  <li>your connected account tokens and stored connection records for instagram, gmail, and google calendar</li>
+  <li>your google calendar and gmail context stored in babyg, where applicable</li>
+  <li>your instagram context stored in babyg, where applicable</li>
 </ul>
 
 <h2>connected accounts</h2>
-<p>if you connected instagram, tiktok, gmail, or google calendar, we will take reasonable steps to disconnect those accounts from babyg and delete or disable stored access tokens.</p>
+<p>if you connected instagram, gmail, or google calendar, we will take reasonable steps to disconnect those accounts from babyg and delete or disable stored access tokens.</p>
+<p>for google (gmail and google calendar), babyg actively revokes the grant at <code>oauth2.googleapis.com/revoke</code> on disconnect or account deletion — you do not need to remove the app separately at google, though you can verify at your google account permissions.</p>
+<p>for instagram, babyg drops the local tokens on disconnect; you should also remove babyg at <a href="https://accounts.meta.com/apps/" target="_blank" rel="noopener noreferrer">accounts.meta.com/apps</a> to complete revocation on meta's side.</p>
 <p>after deletion, babyg will stop collecting new data from those connected accounts unless you reconnect them.</p>
-<p>you should also revoke babyg's access directly through the connected platform's own settings.</p>
-<p>for google services, including gmail and google calendar, you can revoke app access through your google account permissions.</p>
-<p>for instagram, you can revoke access through your meta or instagram connected app settings.</p>
-<p>for tiktok, you can revoke access through your tiktok app or connected app settings.</p>
-<p>disconnecting a connected account does not always delete historical data already stored in babyg. to delete historical data stored in babyg, request data deletion using the instructions on this page.</p>
-
-<h2>sms opt-out</h2>
-<p>you can opt out of sms messages at any time by replying stop.</p>
-<p>you may reply help for help.</p>
-<p>after you opt out, babyg will stop sending sms messages unless you opt back in or unless a limited confirmation, security, transactional, or legally required message is permitted.</p>
-<p>sms opt-out does not automatically delete your babyg account. to delete your account or sms history stored in babyg, submit a deletion request by emailing <a href="mailto:{{ contact_email }}">{{ contact_email }}</a>.</p>
+<p>disconnecting a connected account does not always delete historical context already stored in babyg. to delete historical stored context, request data deletion using the instructions on this page.</p>
 
 <h2>partial deletion</h2>
 <p>you may request deletion of only certain data instead of your full account.</p>
 <p>examples include:</p>
 <ul>
-  <li>your chatbot history</li>
-  <li>your ai agent task history</li>
-  <li>a specific uploaded file</li>
+  <li>your ai assistant / agent history</li>
   <li>your profile photo</li>
   <li>your public profile</li>
   <li>a specific message thread</li>
-  <li>your location history</li>
-  <li>your sms history</li>
+  <li>your location information</li>
   <li>your connected instagram data</li>
-  <li>your connected tiktok data</li>
-  <li>your connected gmail data</li>
-  <li>your connected google calendar data</li>
+  <li>your connected gmail context</li>
+  <li>your connected google calendar context</li>
   <li>your content receipts or performance snapshots</li>
   <li>your listings or opportunities</li>
   <li>your booking or calendar records created inside babyg</li>
@@ -104,8 +89,6 @@
 <ul>
   <li>records needed for security, fraud prevention, abuse investigation, or platform protection</li>
   <li>records needed to comply with legal obligations</li>
-  <li>records related to disputes, claims, chargebacks, payments, taxes, accounting, or financial reporting</li>
-  <li>sms opt-in and opt-out records needed to prove consent, honor opt-out requests, prevent abuse, or comply with messaging rules</li>
   <li>limited technical logs that may contain user identifiers for debugging, abuse prevention, or security</li>
   <li>aggregated or non-identifying analytics that cannot reasonably be linked back to your account</li>
   <li>backup copies that are deleted through normal backup cycles</li>
@@ -115,13 +98,9 @@
 <p>retained records are not used for advertising.</p>
 <p>retained records are not used to train ai models.</p>
 
-<h2>ai and chatbot data</h2>
-<p>when you request full account deletion, we take reasonable steps to delete chatbot conversations, ai agent task history, prompts, drafts, summaries, recommendations, and stored ai outputs connected to your account.</p>
-<p>babyg does not use your chatbot conversations, ai agent data, connected account data, sms messages, gmail data, google calendar data, instagram data, tiktok data, or location data to train ai models.</p>
-
-<h2>payment and billing records</h2>
-<p>if you used a paid feature, subscription, invoice, or payment-related service, some billing records may be retained where required for tax, accounting, fraud prevention, dispute resolution, chargebacks, or legal compliance.</p>
-<p>babyg does not intend to store full payment card numbers on its own servers.</p>
+<h2>ai assistant data</h2>
+<p>when you request full account deletion, we take reasonable steps to delete your ai assistant / agent conversations, prompts, drafts, summaries, recommendations, and stored ai outputs connected to your account.</p>
+<p>babyg does not use your ai assistant conversations, connected account data (gmail, google calendar, instagram), or location data to train ai models.</p>
 
 <h2>deletion timeframe</h2>
 <p>we aim to acknowledge verified deletion requests within two business days.</p>
@@ -130,7 +109,7 @@
 <p>once your deletion request is complete, we will send a confirmation email to the address that submitted the request.</p>
 
 <h2>third-party platform deletion</h2>
-<p>deleting your babyg account does not automatically delete your account or data directly held by third-party platforms such as instagram, tiktok, google, gmail, google calendar, meta, or your mobile carrier.</p>
+<p>deleting your babyg account does not automatically delete your account or data directly held by third-party platforms such as instagram, meta, google, gmail, or google calendar.</p>
 <p>to delete data held by those platforms, you must follow that platform's own deletion process.</p>
 <p>babyg can only delete data stored in babyg systems or data that babyg is able to delete through approved provider tools.</p>
 
