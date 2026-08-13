@@ -8086,6 +8086,11 @@ hr.hairline {
    .is-auth-app scope. All internal margins zeroed. Font sizes trimmed
    so nothing dominates. */
 .is-auth-app .auth-pane {
+  /* 100vw (not 100%) so the width is anchored to the viewport, not to
+     the parent grid track — the parent uses display:grid;place-items:center
+     which produces an intrinsic-sized track that lets calc(100% - 32px)
+     resolve to something wider than the viewport on narrow screens. */
+  width: min(calc(100vw - 32px), 460px);
   max-width: 460px;
   padding: 40px 36px;
   display: flex;
@@ -8102,7 +8107,20 @@ hr.hairline {
 .is-auth-app .auth-title { font-size: 34px; font-weight: 600; letter-spacing: -.04em; line-height: 1; text-align: center; }
 .is-auth-app .auth-sub { font-size: 14.5px; line-height: 1.5; max-width: 320px; text-align: center; margin-left: auto; margin-right: auto; margin-top: -16px; color: var(--ink-mid); }
 .is-auth-app .auth-form { width: 100%; gap: 10px; }
-.is-auth-app .legal-meta-strip { padding: 0; font-size: 10px; letter-spacing: 0.15em; gap: 4px 12px; }
+.is-auth-app .legal-meta-strip { padding: 0; font-size: 10px; letter-spacing: 0.15em; gap: 4px 12px; max-width: 100%; }
+
+/* Narrow mobile — dial the pane in so it doesn't feel cramped when the
+   viewport is <= 420px CSS wide. Reduces side padding, trims the logo +
+   heading, and lets the legal strip wrap gracefully. */
+@media (max-width: 420px) {
+  .is-auth-app .auth-pane { padding: 32px 22px; gap: 22px; }
+  .is-auth-app .auth-logo-row .brand-mark { width: 56px; height: 56px; flex-basis: 56px; border-radius: 14px; }
+  .is-auth-app .auth-title { font-size: 30px; }
+  .is-auth-app .auth-sub { font-size: 14px; margin-top: -14px; }
+  .is-auth-app .auth-form input,
+  .is-auth-app .auth-form .btn { min-height: 50px; font-size: 15px; }
+  .is-auth-app .legal-meta-strip { letter-spacing: 0.12em; gap: 4px 10px; }
+}
 .is-get-started-app .role-grid { grid-template-columns: 1fr; gap: 12px; }
 .is-get-started-app .role-card { min-height: 168px; padding: 22px; border-radius: var(--radius-xl); background: var(--surface-2); border-color: var(--hairline); }
 .is-get-started-app .role-card:hover { border-color: rgba(255,77,109,.4); background: var(--surface-3); }
