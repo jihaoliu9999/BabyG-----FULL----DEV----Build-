@@ -8097,7 +8097,7 @@ hr.hairline {
 .is-auth-app .auth-pane .brand-lockup { margin: 0; }
 .is-auth-app .auth-logo-row { justify-content: center; }
 .is-auth-app .auth-logo-row .brand-lockup { gap: 12px; }
-.is-auth-app .auth-logo-row .brand-mark { width: 52px; height: 52px; flex-basis: 52px; border-radius: 14px; }
+.is-auth-app .auth-logo-row .brand-mark { width: 64px; height: 64px; flex-basis: 64px; border-radius: 16px; margin: 0 auto; }
 .is-auth-app .auth-logo-row .logo-text { font-size: 26px; letter-spacing: -.02em; }
 .is-auth-app .auth-title { font-size: 34px; font-weight: 600; letter-spacing: -.04em; line-height: 1; text-align: center; }
 .is-auth-app .auth-sub { font-size: 14.5px; line-height: 1.5; max-width: 320px; text-align: center; margin-left: auto; margin-right: auto; margin-top: -16px; color: var(--ink-mid); }
