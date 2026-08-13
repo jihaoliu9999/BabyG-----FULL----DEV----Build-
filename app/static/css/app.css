@@ -9571,3 +9571,54 @@ hr.hairline {
     width: 100%;
   }
 }
+
+/* ---------- Danger card (delete account) ---------- */
+.settings-danger {
+  margin-top: 32px;
+  border: 1px solid rgba(255, 77, 109, 0.28);
+  background: rgba(255, 77, 109, 0.04);
+}
+.settings-danger .settings-header h2 {
+  color: var(--lime, #ff4d6d);
+}
+.settings-danger .settings-header p {
+  color: var(--text-secondary, #8a8a8a);
+  font-size: 13px;
+  line-height: 1.55;
+  margin: 6px 0 0;
+}
+.settings-danger .settings-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 14px;
+}
+.settings-danger .settings-field > span {
+  font-size: 12px;
+  color: var(--text-secondary, #8a8a8a);
+  letter-spacing: 0.02em;
+}
+.settings-danger .settings-field input[type="text"] {
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 77, 109, 0.28);
+  background: rgba(255, 77, 109, 0.04);
+  color: var(--text-primary, #f5f1e8);
+  font: inherit;
+  font-size: 14px;
+}
+.settings-danger .settings-field input[type="text"]:focus {
+  outline: none;
+  border-color: rgba(255, 77, 109, 0.55);
+  background: rgba(255, 77, 109, 0.08);
+}
+.settings-inline-notice {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255, 77, 109, 0.10);
+  border: 1px solid rgba(255, 77, 109, 0.32);
+  color: var(--lime, #ff4d6d);
+  font-size: 13px;
+}

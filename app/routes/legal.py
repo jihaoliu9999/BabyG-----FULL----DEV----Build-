@@ -49,3 +49,13 @@ async def data_deletion(request: Request):
     return templates.TemplateResponse(
         request, "legal/data_deletion.html", _ctx()
     )
+
+
+@router.get("/about", response_class=HTMLResponse)
+async def about(request: Request):
+    return templates.TemplateResponse(request, "legal/about.html", _ctx())
+
+
+@router.get("/contact", response_class=HTMLResponse)
+async def contact(request: Request):
+    return templates.TemplateResponse(request, "legal/contact.html", _ctx())

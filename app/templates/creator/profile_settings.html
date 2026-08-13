@@ -178,6 +178,40 @@
           <button class="btn btn-lime btn-sm" type="submit">save babyg</button>
         </div>
       </form>
+
+      <section class="settings-group settings-card settings-danger" id="delete-account">
+        <div class="settings-header">
+          <h2>delete account</h2>
+          <p>removes your profile, connections, DMs, and every piece of
+             data tied to your account. revokes Gmail and Google Calendar
+             at Google. disconnects Instagram from babyg's side (also
+             remove babyg from
+             <a href="https://accounts.meta.com/apps/" target="_blank" rel="noopener noreferrer">accounts.meta.com/apps</a>
+             to complete revocation there).</p>
+          <p><strong>this cannot be undone.</strong></p>
+        </div>
+
+        {% if request.query_params.get('delete') == 'confirm' %}
+        <div class="settings-inline-notice" role="alert">
+          type <strong>delete</strong> in the box below to confirm.
+        </div>
+        {% endif %}
+
+        <form class="settings-form" method="post" action="/creator/profile/delete">
+          {% include "_partials/csrf.html" %}
+          <label class="settings-field">
+            <span>type <strong>delete</strong> to confirm</span>
+            <input type="text" name="confirm" autocomplete="off" required
+                   pattern="[Dd][Ee][Ll][Ee][Tt][Ee]"
+                   placeholder="delete" />
+          </label>
+          <div class="settings-actions">
+            <button class="btn btn-danger btn-sm" type="submit">
+              delete my account
+            </button>
+          </div>
+        </form>
+      </section>
   </div>
 </div>
 {% endblock %}

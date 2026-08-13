@@ -195,6 +195,24 @@ def remove_google_service(user_id: str, service: str) -> bool:
 
 
 def disconnect_google(user_id: str) -> bool:
+    """Revoke the user's Google grant AND delete the local row.
+
+    Google's Limited Use policy requires active revocation at
+    `oauth2.googleapis.com/revoke` when the user disconnects — deleting
+    the local row without revoking leaves a live grant on Google's side
+    that our app could still use. Revocation is best-effort (never
+    blocks the local delete) so a Google outage can't leave a user
+    stuck-connected in babyg.
+    """
+    connection = get_google_connection(user_id)
+    if connection is not None:
+        # Refresh token grants revoke the whole grant tree; try it first.
+        refresh_token = str(connection.get("refresh_token") or "")
+        access_token = str(connection.get("access_token") or "")
+        if refresh_token:
+            google_calendar.revoke_token(refresh_token)
+        elif access_token:
+            google_calendar.revoke_token(access_token)
     try:
         supabase_client.get_service_client().table("oauth_connections").delete().eq(
             "user_id", user_id

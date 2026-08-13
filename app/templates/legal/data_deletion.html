@@ -12,8 +12,18 @@
 
 <p>this page explains how to request deletion, what gets removed, what may be retained for limited reasons, how connected accounts are disconnected, and how long deletion usually takes.</p>
 
-<h2>how to request deletion</h2>
-<p>to request deletion, email <a href="mailto:{{ contact_email }}">{{ contact_email }}</a> from the email address tied to your babyg account.</p>
+<h2>delete your account inside babyg</h2>
+<p>the fastest way to delete your account is from inside babyg. sign in, open <a href="/creator/profile/settings#delete-account">profile settings</a>, scroll to the <strong>delete account</strong> section at the bottom, type <em>delete</em> to confirm, and submit.</p>
+<p>this immediately:</p>
+<ul>
+  <li>revokes your gmail and google calendar grants at google, so babyg can no longer access either even before the row leaves the database</li>
+  <li>disconnects instagram from babyg (also remove babyg from <a href="https://accounts.meta.com/apps/" target="_blank" rel="noopener noreferrer">accounts.meta.com/apps</a> to complete revocation on meta's side)</li>
+  <li>deletes your account record and every downstream row tied to it — profile, connections, DMs, notifications, bookings, receipts, performance snapshots, discovery actions, action proposals, and audit trail</li>
+  <li>signs you out</li>
+</ul>
+
+<h2>delete by email</h2>
+<p>if you cannot sign in, email <a href="mailto:{{ contact_email }}">{{ contact_email }}</a> from the email address tied to your babyg account.</p>
 <p>include:</p>
 <ul>
   <li>"data deletion request" in the subject line</li>

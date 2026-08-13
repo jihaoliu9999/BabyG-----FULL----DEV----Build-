@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 TOKEN_URL = "https://oauth2.googleapis.com/token"
+REVOKE_URL = "https://oauth2.googleapis.com/revoke"
 EVENTS_URL = "https://www.googleapis.com/calendar/v3/calendars/primary/events"
 DEFAULT_CALLBACK_PATH = "/creator/google/calendar/callback"
 CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar.events"
@@ -170,6 +171,41 @@ def refresh_access_token(refresh_token: str) -> dict[str, Any]:
         "grant_type": "refresh_token",
     }
     return _post_token(payload)
+
+
+def revoke_token(token: str) -> bool:
+    """Best-effort revocation at Google's `/revoke` endpoint.
+
+    Google's Limited Use policy requires the app to actively revoke the
+    grant when a user disconnects — deleting the token from our own DB
+    is not enough. Passing either the access token or the refresh token
+    revokes the entire user grant (all scopes) at Google.
+
+    Never raises: revocation is fire-and-forget. If Google's endpoint is
+    down or the token is already invalid we still want the local
+    disconnect to complete. Returns True on 200, False otherwise.
+    """
+    if not token:
+        return False
+    try:
+        response = httpx.post(
+            REVOKE_URL,
+            data={"token": token},
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            timeout=6.0,
+        )
+    except httpx.HTTPError:
+        logger.info("google token revocation network error", exc_info=True)
+        return False
+    if response.status_code == 200:
+        return True
+    # 400 with "invalid_token" is fine — token was already revoked/expired.
+    logger.info(
+        "google token revocation returned %s: %s",
+        response.status_code,
+        response.text[:200],
+    )
+    return False
 
 
 def list_primary_events(

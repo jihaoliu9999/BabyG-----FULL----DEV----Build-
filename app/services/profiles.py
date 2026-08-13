@@ -290,6 +290,48 @@ def _update_profile(table: str, user_id: str, payload: dict[str, Any]) -> bool:
     return bool(getattr(result, "data", None))
 
 
+def delete_account(user_id: str) -> bool:
+    """Fully delete a user's account and all connected-account tokens.
+
+    Google's Limited Use policy and Meta's platform policy both require
+    an in-app path to delete Google/Instagram user data — an email-only
+    delete flow is a common OAuth verification blocker. This helper:
+
+      1. Revokes and disconnects Google (revokes grant at Google via
+         `oauth_connections.disconnect_google`).
+      2. Disconnects Instagram (drops local tokens; Meta doesn't
+         expose a self-service revoke endpoint the way Google does,
+         so users must also remove babyg from
+         https://accounts.meta.com/apps/ to complete revocation).
+      3. Deletes the `public.users` row. Every downstream table
+         references `users(id) ON DELETE CASCADE`, so profile,
+         connections, DMs, notifications, bookings, receipts,
+         performance, discovery actions, action proposals, and
+         audit_log rows for this user go with it.
+
+    Best-effort per-provider — a Google revoke failure does not block
+    Instagram disconnect or the users-row delete. Returns True iff the
+    users-row delete succeeded.
+    """
+    from app.services import oauth_connections  # avoid a service-layer import cycle
+    try:
+        oauth_connections.disconnect_google(user_id)
+    except Exception:
+        logger.exception("delete_account: google disconnect failed for %s", user_id)
+    try:
+        oauth_connections.disconnect_instagram(user_id)
+    except Exception:
+        logger.exception("delete_account: instagram disconnect failed for %s", user_id)
+    try:
+        supabase_client.get_service_client().table("users").delete().eq(
+            "id", user_id
+        ).execute()
+    except PostgrestAPIError:
+        logger.exception("delete_account: users delete failed for %s", user_id)
+        return False
+    return True
+
+
 def _now_iso() -> str:
     return datetime.now(UTC).isoformat()
 

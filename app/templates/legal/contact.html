@@ -1,0 +1,32 @@
+{% extends "legal/_base.html" %}
+
+{% block title %}contact · babyg{% endblock %}
+{% block legal_eyebrow %}contact{% endblock %}
+{% block legal_title %}contact babyg.{% endblock %}
+
+{% block legal_status_pill %}<span class="legal-pill">private beta · v1</span>{% endblock %}
+{% block legal_callout %}the fastest way to reach us is email. all support, privacy, deletion, and press requests go to the same address and are read by a human.{% endblock %}
+
+{% block legal_body %}
+<h2>email</h2>
+<p><a href="mailto:{{ contact_email }}">{{ contact_email }}</a></p>
+
+<h2>what to send</h2>
+<ul>
+  <li><strong>support</strong> — problems using babyg, connection or login issues, feature questions.</li>
+  <li><strong>privacy</strong> — questions about what babyg collects or how connected-account data is handled.</li>
+  <li><strong>data deletion</strong> — see the <a href="/data-deletion">data deletion page</a> for the full request format.</li>
+  <li><strong>security</strong> — suspected vulnerabilities in babyg's site or in our google/instagram integration.</li>
+  <li><strong>abuse</strong> — reports about another user or a connected account.</li>
+  <li><strong>press or partnerships</strong> — same address, put the topic in the subject line.</li>
+</ul>
+
+<h2>response time</h2>
+<p>we read the inbox every business day and typically reply within a few days. urgent security reports get priority.</p>
+
+<h2>where babyg is</h2>
+<p>babyg is built in miami. we don't publish a physical address in v1 because babyg operates as a remote team. deletion, privacy, and legal requests are handled by email above.</p>
+
+<h2>read next</h2>
+<p><a href="/about">about babyg</a> · <a href="/privacy">privacy</a> · <a href="/terms">terms</a> · <a href="/data-deletion">data deletion</a></p>
+{% endblock %}

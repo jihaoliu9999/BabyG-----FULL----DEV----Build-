@@ -1,0 +1,27 @@
+{% extends "legal/_base.html" %}
+
+{% block title %}about · babyg{% endblock %}
+{% block legal_eyebrow %}about{% endblock %}
+{% block legal_title %}about babyg.{% endblock %}
+
+{% block legal_status_pill %}<span class="legal-pill">private beta · v1</span>{% endblock %}
+{% block legal_callout %}babyg is an ai manager for lifestyle creators. this page explains what babyg is, who runs it, and how it works with connected accounts.{% endblock %}
+
+{% block legal_body %}
+<h2>what babyg is</h2>
+<p>babyg is a private beta ai manager for lifestyle creators. it helps a creator manage their day-to-day: intel and hot drops, calendar and bookings, direct messages, content receipts, weekly performance, and a private network of connected creators. the same account can connect to google (gmail and calendar) and instagram so babyg's ai agent can draft replies, prepare calendar items, and surface context — always with the user's explicit approval before anything is sent or created outside babyg.</p>
+
+<h2>who runs it</h2>
+<p>babyg is built in miami by an independent team focused on creator tools. contact information is on the <a href="/contact">contact page</a>.</p>
+
+<h2>how connected accounts work</h2>
+<p>babyg only reads or writes to a connected account when the user has explicitly connected that account inside babyg and approved the specific action. every gmail send, gmail draft, and calendar event goes through the approval flow before it leaves babyg. connected accounts can be disconnected at any time from the profile settings page — disconnection revokes the grant at the provider and clears the tokens from babyg.</p>
+
+<h2>how babyg uses google user data</h2>
+<p>babyg's use and transfer of information received from google apis will adhere to the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener noreferrer">google api services user data policy</a>, including the limited use requirements. babyg does not sell google user data, use it for advertising, use it to train ai models, or allow humans to read it except when necessary to provide user-requested support, investigate abuse or security issues, comply with the law, or protect the service.</p>
+
+<h2>where to learn more</h2>
+<p>read the <a href="/privacy">privacy policy</a> for a detailed breakdown of what babyg collects and why, the <a href="/terms">terms of service</a> for the rules of the road, the <a href="/data-deletion">data deletion page</a> for how to remove your account, and the <a href="/accessibility">accessibility page</a> for what babyg supports and where it is still improving.</p>
+
+<p>questions can go to <a href="mailto:{{ contact_email }}">{{ contact_email }}</a>.</p>
+{% endblock %}
