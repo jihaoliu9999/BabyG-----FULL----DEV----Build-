@@ -8078,20 +8078,31 @@ hr.hairline {
 .is-auth-app .auth-page { min-height: 100dvh; padding: max(24px, env(safe-area-inset-top)) 0 max(24px, env(safe-area-inset-bottom)); }
 .is-auth-app .auth-title,
 .is-get-started-app .display { font-size: clamp(38px, 10vw, 56px); font-weight: 600; letter-spacing: -.05em; }
-.is-auth-app .auth-form input { min-height: 56px; padding: 0 16px; border-radius: var(--radius-md); background: var(--surface-2); border-color: var(--hairline-strong); font-size: 16px; }
-.is-auth-app .auth-form .btn { min-height: 56px; font-size: 15px; letter-spacing: -.005em; }
-/* Sign-in pane proportions: bigger brand mark + wordmark, tighter vertical
-   rhythm, pane behaves like a proper card instead of drifting inside a
-   viewport-tall grid. Without these the redesigned single-role page reads
-   as sparse — big title floating alone in dead space. */
-.is-auth-app .auth-pane { max-width: 500px; padding: 40px 32px 28px; }
-.is-auth-app .auth-logo-row { margin-bottom: 40px; }
+.is-auth-app .auth-form input { min-height: 52px; padding: 0 16px; border-radius: var(--radius-md); background: var(--surface-2); border-color: var(--hairline-strong); font-size: 15px; }
+.is-auth-app .auth-form .btn { min-height: 52px; font-size: 15px; letter-spacing: -.005em; }
+/* Sign-in pane rhythm. Flex column with a single gap enforces even
+   spacing between every element — no CSS-margin cascade fighting
+   between .auth-pane h1 defaults, .auth-title overrides, and the
+   .is-auth-app scope. All internal margins zeroed. Font sizes trimmed
+   so nothing dominates. */
+.is-auth-app .auth-pane {
+  max-width: 460px;
+  padding: 40px 36px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 24px;
+}
+.is-auth-app .auth-pane > *,
+.is-auth-app .auth-pane .brand-lockup { margin: 0; }
+.is-auth-app .auth-logo-row { justify-content: center; }
 .is-auth-app .auth-logo-row .brand-lockup { gap: 12px; }
-.is-auth-app .auth-logo-row .brand-mark { width: 44px; height: 44px; flex-basis: 44px; border-radius: 12px; }
-.is-auth-app .auth-logo-row .logo-text { font-size: 30px; letter-spacing: -.02em; }
-.is-auth-app .auth-sub { font-size: 16px; margin-bottom: 32px; max-width: 380px; }
-.is-auth-app .auth-form { width: 100%; gap: 12px; }
-.is-auth-app .legal-meta-strip { margin-top: 32px; padding: 12px 4px 0; font-size: 10.5px; letter-spacing: 0.14em; gap: 4px 10px; }
+.is-auth-app .auth-logo-row .brand-mark { width: 40px; height: 40px; flex-basis: 40px; border-radius: 11px; }
+.is-auth-app .auth-logo-row .logo-text { font-size: 26px; letter-spacing: -.02em; }
+.is-auth-app .auth-title { font-size: 34px; font-weight: 600; letter-spacing: -.04em; line-height: 1; text-align: center; }
+.is-auth-app .auth-sub { font-size: 14.5px; line-height: 1.5; max-width: 320px; text-align: center; margin-left: auto; margin-right: auto; margin-top: -16px; color: var(--ink-mid); }
+.is-auth-app .auth-form { width: 100%; gap: 10px; }
+.is-auth-app .legal-meta-strip { padding: 0; font-size: 10px; letter-spacing: 0.15em; gap: 4px 12px; }
 .is-get-started-app .role-grid { grid-template-columns: 1fr; gap: 12px; }
 .is-get-started-app .role-card { min-height: 168px; padding: 22px; border-radius: var(--radius-xl); background: var(--surface-2); border-color: var(--hairline); }
 .is-get-started-app .role-card:hover { border-color: rgba(255,77,109,.4); background: var(--surface-3); }
