@@ -41,6 +41,7 @@ from app.services import (
     discovery,
     dm_briefs,
     dms,
+    greetings,
     intel,
     jobs,
     locations,
@@ -151,6 +152,9 @@ async def dashboard(
     except Exception:
         calendar_connected = False
 
+    first_name = (profile.get("full_name") or "creator").split(" ")[0].lower()
+    daily_greeting = greetings.pick_daily(session["user_id"], first_name)
+
     return templates.TemplateResponse(
         request,
         "creator/dashboard.html",
@@ -166,6 +170,7 @@ async def dashboard(
             "upcoming_bookings": upcoming_bookings,
             "calendar_connected": calendar_connected,
             "calendar_days": _calendar_preview_days(),
+            "daily_greeting": daily_greeting,
         },
     )
 

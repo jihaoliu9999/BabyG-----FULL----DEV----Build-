@@ -3,19 +3,16 @@
 {% block title %}home - babyg{% endblock %}
 
 {% block content %}
-{% set first_name = (profile.full_name or 'creator').split(' ')[0].lower() if profile is defined and profile is not none else 'creator' %}
-{% set home_initial = ((profile.full_name if profile is defined and profile is not none else '') or (profile.instagram_handle if profile is defined and profile is not none else '') or 'creator')[:1]|upper %}
 {% set needs_count = (unread_total or 0) + (unread_dms or 0) + (1 if upcoming_bookings else 0) %}
 <main class="creator-home wrap">
   <header class="creator-home-hero">
     <div class="creator-home-lockup">
-      {% if profile is defined and profile is not none and profile.profile_photo_url %}
-      <span class="creator-screen-mark creator-screen-avatar avatar-photo" aria-hidden="true"><img src="{{ profile.profile_photo_url }}" alt="" /></span>
-      {% else %}
-      <span class="creator-screen-mark creator-screen-avatar avatar av-g3" aria-hidden="true">{{ home_initial }}</span>
-      {% endif %}
       <div>
-        <h1>good to see you, {{ first_name }}.</h1>
+        <h1 data-greeting-slots
+            data-greet-morning="{{ daily_greeting.morning }}"
+            data-greet-afternoon="{{ daily_greeting.afternoon }}"
+            data-greet-evening="{{ daily_greeting.evening }}"
+            data-greet-night="{{ daily_greeting.night }}">{{ daily_greeting.afternoon }}</h1>
         <p>{% if needs_count %}{{ needs_count }} {{ 'thing needs' if needs_count == 1 else 'things need' }} you today{% else %}nothing urgent needs you right now{% endif %}</p>
       </div>
     </div>
@@ -173,4 +170,8 @@
     {% endif %}
   </section>
 </main>
+{% endblock %}
+
+{% block foot_scripts %}
+<script src="/static/js/creator_home_greeting.js" defer></script>
 {% endblock %}
