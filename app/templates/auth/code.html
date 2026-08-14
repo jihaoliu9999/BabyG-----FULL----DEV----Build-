@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% import "_partials/brand_mark.html" as brand %}
 
 {% block title %}enter your code — babyg{% endblock %}
 {% block head_extra %}<link rel="stylesheet" href="/static/css/legal.css" />{% endblock %}
@@ -17,9 +16,10 @@
 
   <div class="auth-pane">
     <div class="auth-logo-row">
-      {{ brand.wordmark("brand-lockup-small") }}
+      <a href="/" class="brand-lockup auth-brand-icon-only" aria-label="babyg">
+        <span class="brand-mark"><img src="/static/assets/logo-bg.png" alt="babyg" /></span>
+      </a>
     </div>
-    <div class="auth-tag">{{ role }} sign in</div>
     <h1 class="auth-title">enter the code.</h1>
     <p class="auth-sub">
       we emailed a 6-digit code along with the link. paste it here if the link won't open.
@@ -60,7 +60,7 @@
     </form>
 
     <div class="auth-foot-meta">
-      <span><a href="/auth/login?role={{ role }}" style="color:inherit;text-decoration:underline;">send a new link</a> · <a href="/get-started" style="color:inherit;text-decoration:underline;">wrong role</a></span>
+      <span><a href="/auth/login" style="color:inherit;text-decoration:underline;">send a new link</a></span>
     </div>
 
     <nav class="legal-meta-strip" aria-label="legal">
