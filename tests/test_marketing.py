@@ -31,12 +31,15 @@ def test_landing_renders_for_anon(client: TestClient) -> None:
 def test_landing_exposes_both_creator_and_brand_entry_points(
     client: TestClient,
 ) -> None:
-    """The landing page must surface both role paths."""
+    """The landing page must surface a returning-user sign-in path AND a
+    new-user sign-up path, plus visible copy for both audiences."""
     r = client.get("/")
     assert r.status_code == 200
-    assert "/auth/login?role=creator" in r.text
-    assert "/auth/login?role=brand" in r.text
-    # Both labels render so users can distinguish the paths.
+    # Nav "sign in" is for returning users — routes to the unified login.
+    assert "/auth/login" in r.text
+    # "Sign up" / in-mock CTAs route to the role picker so new brands
+    # don't get pigeonholed as creator by a hardcoded ?role=creator link.
+    assert "/get-started" in r.text
     text_lower = r.text.lower()
     assert "for creators" in text_lower
     assert "for brands" in text_lower
