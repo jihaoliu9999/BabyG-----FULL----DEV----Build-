@@ -1,7 +1,6 @@
-# babyg Phase 1 runtime dependencies — only what app/ actually imports.
-# Phase 2 deps (anthropic, celery, redis, twilio, resend, posthog, sentry,
-# structlog, humanize, tavily) live in requirements-phase2.txt and only
-# ship when the corresponding code arrives.
+# babyg runtime dependencies — only what app/ actually imports.
+# Optional deps (celery, redis, tavily, humanize) live in
+# requirements-phase2.txt and only ship when the corresponding code arrives.
 
 # --- Web framework ---
 fastapi==0.115.4
@@ -25,5 +24,5 @@ supabase==2.10.0
 # --- Image processing (profile photos) ---
 pillow==11.0.0
 
-# --- Phase 2 AI assistant ---
+# --- AI assistant / agent ---
 anthropic==0.39.0

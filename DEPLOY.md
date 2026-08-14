@@ -17,7 +17,6 @@ You need accounts on:
 
 - [ ] **Supabase** — project provisioned with `<your-project-ref>` and a friendly name
 - [ ] **Railway** — sign up at railway.app, link your GitHub
-- [ ] **Resend** — sign up at resend.com (10 minutes; needs a domain to verify)
 - [ ] **Your domain registrar** (Namecheap, Cloudflare, Squarespace, etc.) for DNS records
 
 Phase 1 checked-in artifacts already include `Procfile`, `railway.json`,
@@ -71,50 +70,17 @@ the user clicks the link in their email.
 
 ---
 
-## 3 · Wire Resend as Supabase Auth's SMTP provider (10 minutes)
+## 3 · Configure Supabase Auth email templates (5 minutes)
 
-Default Supabase Auth email is rate-limited to 4 emails/hour with babyg
-unbranded "from" — fine for dev, blocking for real signups. Resend handles
-SMTP, branded from-address, and gives you 100 free emails/day forever.
+Supabase Auth ships a default sender that's rate-limited to 4 emails/hour
+and uses an unbranded "from" — fine for dev, tight for real usage. When
+you're ready for higher throughput, plug in any SMTP provider under
+**Authentication → Emails → SMTP Settings** (Resend, Postmark, SES, etc.
+— babyg doesn't lock you to one).
 
-### 3a. Set up Resend
-
-1. Sign up at https://resend.com
-2. **Domains → Add Domain** → enter the domain you'll use for the from-
-   address (e.g. `mail.your-prod-domain.com` if your main domain is
-   `your-prod-domain.com`; using a subdomain is a good practice).
-3. Resend shows you 4 DNS records (MX, 2× TXT, CNAME). Add them in your
-   registrar's DNS tab. Verification typically takes 5-30 minutes.
-4. Once verified (status: green), go to **API Keys → Create API Key**.
-   Name it `supabase-smtp`. **Sending Access** = Full access. Copy the
-   `re_xxxxx` value into your password manager.
-
-### 3b. Tell Supabase to use Resend
-
-1. Go to **Authentication → Emails → SMTP Settings**
-   `https://supabase.com/dashboard/project/<your-project-ref>/auth/emails`
-
-2. Enable **Custom SMTP**. Fields:
-   ```
-   Sender email:    babyg@mail.your-prod-domain.com
-   Sender name:     babyg
-   Host:            smtp.resend.com
-   Port:            465
-   Username:        resend
-   Password:        re_xxxxx  (the API key from 3a)
-   Minimum interval: 60 seconds
-   ```
-
-3. **Save**.
-
-4. Test: from the same page, **Send test email** to your own address.
-   It should arrive within seconds, from `babyg@mail.your-domain.com`.
-
-### 3c. Configure signup and magic-link emails
-
-Same page → **Email Templates**. Configure both templates because Supabase
-uses **Confirm signup** for a new email address and **Magic Link** for a
-returning user:
+Regardless of SMTP: **Email Templates** must be configured because
+Supabase uses **Confirm signup** for a new email address and **Magic
+Link** for a returning user.
 
 - **Confirm signup**: use `docs/supabase-confirm-signup-template.html`.
 - **Magic Link**: use `docs/supabase-magic-link-template.html`.
@@ -152,37 +118,17 @@ SUPABASE_URL=https://<your-project-ref>.supabase.co
 SUPABASE_ANON_KEY=<the anon key you noted in step 1>
 SUPABASE_SERVICE_ROLE_KEY=<the rotated service_role key from step 1>
 
-# Phase 2 (bot) — leave blank for now; the app boots fine without them
+# AI assistant / agent — leave blank to boot without AI features
 ANTHROPIC_API_KEY=
 ANTHROPIC_MODEL=claude-sonnet-4-6
 
-# Optional now, required later (worker step):
-REDIS_URL=
-CELERY_BROKER_URL=
-
-# Optional Phase 2 integrations — leave blank for now:
+# Integrations — blank keys keep features off, app boots fine
 TAVILY_API_KEY=
 GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
+GOOGLE_REDIRECT_URI=
 INSTAGRAM_APP_ID=
 INSTAGRAM_APP_SECRET=
-OPENTABLE_CLIENT_ID=
-OPENTABLE_CLIENT_SECRET=
-TWILIO_ACCOUNT_SID=
-TWILIO_AUTH_TOKEN=
-TWILIO_PHONE_NUMBER=
-
-# Email transport (used directly by app for non-magic-link transactional sends later)
-RESEND_API_KEY=<the Resend API key from step 3a>
-
-# Observability — set later
-POSTHOG_API_KEY=
-POSTHOG_PUBLIC_KEY=
-SENTRY_DSN=
-
-# Feature flags
-SCOPE_PRECHECK_ENABLED=true
-TOOL_USE_ENABLED=true
 ```
 
 Railway will redeploy automatically when you save variables.
@@ -338,21 +284,12 @@ invite-only beta.
 
 ## 8 · What's NOT live (so you know what to tell early users)
 
-When you invite the first 5-10 people, set expectations:
-
-- **No AI cofounder yet.** The chat surface and Anthropic integration
-  arrive in Phase 2. Today the platform is a manual "directory + intel
-  feed + DM + operator moderation" — useful, but not the differentiator.
-- **No Google Calendar sync yet.** Bookings live in babyg only;
-  two-way Google sync ships with the bot's tool use in Phase 2.
 - **No scheduled / automated jobs.** Daily intel push, posting reminders,
-  weekly digest — none of these run on a timer yet (we have the schema
-  for `content_reminders` but no Celery worker). Manual operator
-  publishing only.
+  weekly digest — none run on a timer yet. Manual operator publishing only.
 - **No automated heuristic moderation.** All abuse is user-reported and
-  operator-reviewed. Auto-flagging arrives with the agent layer.
+  operator-reviewed.
 - **No mobile app.** Mobile-web works (the CSS is mobile-first); native
-  iOS/Android is post-Phase-3.
+  iOS/Android is not planned near-term.
 
 ---
 
@@ -434,18 +371,15 @@ the database stays up.
 
 ## 10 · What to build next
 
-In rough priority for a real launch:
+Rough priority for hardening after launch:
 
-1. **Phase 2: the bot.** Anthropic SDK + Claude Sonnet 4.6 + tool use
-   (intel lookup, calendar, brief drafting, scope precheck). This is
-   the actual product.
-2. **Phase 3: Celery workers.** Daily intel push (configured local send time),
-   scheduled-intel auto-publish, posting reminders, weekly digest,
-   flagged-message scan. Needs Redis (Upstash on Railway is easy).
-3. **Phase 4: analytics + dashboards.** PostHog for product analytics,
-   Sentry for error tracking, an operator analytics dashboard for
-   bot_analytics + performance_logs aggregates.
-4. **Polish:** real landing page, pricing page (when tiers go live),
-   marketing site, mobile native if it ever matters.
+1. **Background workers.** Scheduled intel auto-publish, posting reminders,
+   weekly digest, flagged-message scan. Needs Redis (Upstash on Railway is easy).
+2. **Automated moderation heuristics.** Complement user-reported abuse
+   with agent-driven flagging.
+3. **Operator analytics dashboard.** Aggregates over bot_analytics +
+   performance_logs.
+4. **Real marketing pages** (pricing when tiers land, feature deep-dives).
 
-When you're ready, say the word and we'll start Phase 2.
+See `PHASE2.md` for the standing hardening backlog (Redis-backed rate
+limiter, RLS at the anon client, CSP tightening, etc.).

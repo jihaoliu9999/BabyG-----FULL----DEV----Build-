@@ -3,11 +3,8 @@
 All values are server-side. Never import this module from templates or pass any
 field to the client. The Settings instance is a singleton via `get_settings()`.
 
-Phase 1 declares only the fields it actually reads. Phase 2 (Anthropic,
-Celery, Google, Twilio, Resend, PostHog, Sentry, Tavily, Instagram) keeps
-its env vars in Railway/.env for future use; pydantic's `extra="ignore"`
-accepts them silently. Add typed fields here when the corresponding code
-lands and starts reading them.
+Declares only the fields the app actually reads. Anything else in the
+environment is accepted silently via pydantic's `extra="ignore"`.
 """
 
 from functools import lru_cache
@@ -43,7 +40,7 @@ class Settings(BaseSettings):
     supabase_anon_key: str = ""
     supabase_service_role_key: str = ""
 
-    # Phase 2 assistant
+    # AI assistant / agent (Anthropic Claude)
     anthropic_api_key: str = ""
     anthropic_model: str = "claude-sonnet-4-20250514"
 

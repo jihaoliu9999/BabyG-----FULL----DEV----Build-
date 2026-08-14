@@ -1,206 +1,96 @@
-# Phase 1 → Phase 2 — what's deferred and why
+# Hardening backlog
 
-This is the "do not forget" list as we move into Phase 2. Everything
-here was reviewed during the Phase 1 final pass; each item is either
-genuinely Phase-2-shaped (depends on infrastructure that isn't online
-yet) or low enough risk to defer past the closed beta.
+Deferred items from prior audits. Each is genuinely non-urgent (depends
+on infra that isn't online, or product decisions), but should get picked
+up as its dependencies land.
 
-If you're picking up Phase 2, start by reading [`AUDIT.md`](./AUDIT.md)
-(the fresh-eyes review on the audit branch) — every entry below
-references its AUDIT.md / commit origin so you can dig in.
-
-## v1.5 — brand-side revival
-
-**v1 ships creator-only.** Brand-side (discovery, verification,
-outreach, brand console, brand DMs) was hardened on the audit branch
-and then removed via migration `0007_remove_brand_side.sql`. The full
-pre-removal state is preserved on the `brand-side-v1.5` branch (commit
-`ed3117b`). Do not delete that branch.
-
-When v1.5 starts:
-1. Cherry-pick (or rebase) `brand-side-v1.5` onto current `main`,
-   resolving the deletions in 0007 by reintroducing the
-   `brand_profiles` table + RLS + trigger and re-adding
-   `collab_match` to the `notifications.kind` CHECK.
-2. Re-add `brand` to `VALID_ROLES` / `SELF_SIGNUP_ROLES` in
-   `app/routes/marketing.py` and `app/routes/auth.py`.
-3. Re-include the brand router in `app/main.py` (`app.routes.brand`).
-4. Re-add the `/brand` branch in `_role_hint_from_path`.
-5. Restore the `brand` card in `app/templates/marketing/get_started.html`.
-
-Everything else (the brand routes, services, templates, tests) is on
-the safety branch ready to bring back.
-
-## SMS wiring (last step of v1)
-
-Twilio columns + phone fields are already in the schema (un-wired).
-The integrations stub at `app/integrations/__init__.py` is the
-intended home. Don't wire it up until 10DLC approval lands.
-
-## Carry-overs from the pre-launch audit
-
-### Rate limiter goes Redis (AUDIT M7)
+## Rate limiter goes Redis
 
 **File:** `app/core/rate_limit.py`.
 The token bucket is in-process. Railway's gunicorn boots with
-`--workers 2`, so per-IP capacity effectively doubles. The shape of
-`magic_link_limiter.allow(...)` was kept compatible with
-`slowapi`/`fastapi-limiter` on purpose. Swap when `REDIS_URL` is live.
-**When:** as soon as Phase 2 needs Redis for anything (Celery broker,
-agent state cache, etc.) — there's no reason to leave this in-process
-once we have a shared store.
+`--workers 2`, so per-IP capacity effectively doubles across workers.
+The shape of `magic_link_limiter.allow(...)` was kept compatible with
+`slowapi` / `fastapi-limiter` on purpose. Swap when `REDIS_URL` is live
+(agent state cache, background jobs, etc.).
 
-### Service-role-everywhere → real RLS at the anon client (AUDIT I1)
+## Service-role-everywhere → real RLS at the anon client
 
 **Files:** every `app/services/*.py` and `app/core/supabase_client.py`.
-Phase 1 talks to Postgres exclusively via the `service_role` key, so
-the RLS policies in `migrations/0004_*.sql` and `0005_*.sql` and
-`0006_*.sql` are *audited* but never *enforced* on the live path.
-Phase 2's per-user agent paths must use a per-user JWT against the
+Every server-side read/write goes through the `service_role` key today,
+so RLS policies in `migrations/` are *audited* but not *enforced* on the
+live path. Per-user agent paths should use a per-user JWT against the
 anon client so RLS becomes a second line of defense behind the
-route-layer checks. This is a big move — start with one read path
-(probably `dms.list_messages`) and measure before going wide.
+route-layer checks. Big move — start with one read path (e.g.
+`dms.list_messages`) and measure before going wide.
 
-### CSP `'unsafe-inline'` for styles (AUDIT I3)
+## CSP `'unsafe-inline'` for styles
 
 **File:** `app/main.py` (CSP header builder). Templates use inline
 `style=` attributes in a handful of places (`dm_thread.html`,
 `calendar_form.html`, a few partials). Tightening the policy means
 moving those into `app/static/css/app.css`. Worth doing before public
-launch; not before invite-only beta.
+launch.
 
-### 30-day session, no idle timeout (AUDIT I2)
+## 30-day session, no idle timeout
 
 `SESSION_MAX_AGE` is 30 days with no inactivity refresh. Standard for
-magic-link sites. If product wants stricter (banking-style 30-min
-idle), introduce a `last_seen_at` claim on the cookie and refresh on
-every authenticated request. Product call, not a security bug.
+magic-link sites. If product wants stricter (banking-style 30-min idle),
+introduce a `last_seen_at` claim on the cookie and refresh on every
+authenticated request. Product call, not a security bug.
 
-### Tighten `safe_uuid` to reject the nil UUID
+## Tighten `safe_uuid` to reject the nil UUID
 
 **File:** `app/core/uuid_guard.py`. Currently accepts the all-zero UUID
-because no FK in the schema matches it. Phase 2 may introduce nullable
-relations defaulting to `00000000-...`; reject it explicitly to remove
-the ambiguity.
+because no FK in the schema matches it. Reject explicitly to remove the
+ambiguity before any nullable relation defaults to `00000000-...`.
 
-### Backslash-in-redirect hardening
+## Backslash-in-redirect hardening
 
 **File:** `app/core/redirects.py`. `safe_same_origin("/\\evil.com")`
-currently returns the string verbatim. Modern browsers don't
-normalize `\` to `/`, so it's a dead link — but old clients might.
-Add a `\` reject in the first 3 characters.
+currently returns the string verbatim. Modern browsers don't normalize
+`\` to `/`, so it's a dead link — but old clients might. Add a `\`
+reject in the first 3 characters.
 
-### Multipart CSRF parser unexercised (AUDIT I5)
-
-**File:** `app/core/csrf.py:_extract_token_from_body`. Phase 1 has no
-file-upload forms, so the multipart branch is reachable only by a
-fuzzer. When Phase 2 adds uploads (brand-brief PDF, intel-post image,
-voice-note ingest), add `tests/test_csrf_multipart.py` and lock the
-parser behavior.
-
-### Operator-email timing-oracle jitter is heuristic (M8 final state)
+## Operator-email timing-oracle jitter is heuristic
 
 **File:** `app/routes/auth.py:magic_link`. We sleep
-`random.uniform(0.15, 0.30)` to equalize with the Supabase OTP RTT.
-The actual RTT varies by region and Supabase load; if we ever observe
-real timing patterns we should switch to a measured baseline or call
-Supabase with a deterministic sentinel email. Not exploitable today.
+`random.uniform(0.15, 0.30)` to equalize with the Supabase OTP RTT. The
+actual RTT varies by region and Supabase load; if we ever observe real
+timing patterns we should switch to a measured baseline or call Supabase
+with a deterministic sentinel email. Not exploitable today.
 
-### N+1 lookup pattern remains in `creator/dm_list` (AUDIT L8)
+## N+1 in `creator/dm_list`
 
-**File:** `app/routes/creator.py:dm_list`. The peer-lookup loop iterates
-threads and falls back from `brands.get_by_user_id` to
-`profiles.get_creator_profile` per peer. The single-table
-`get_creators_by_ids` helper we just added handles the creator case
-once; the brand-side equivalent is a quick `brands.get_by_user_ids`
-helper. Defer until Phase 2 introduces denser DM lists.
+**File:** `app/routes/creator.py:dm_list`. The peer-lookup loop falls
+back from `brands.get_by_user_id` to `profiles.get_creator_profile` per
+peer. The single-table `get_creators_by_ids` helper handles the creator
+case once; add a `brands.get_by_user_ids` equivalent when DM lists get
+denser.
 
-### `notifications.create` doesn't dedupe (AUDIT L9)
+## Notifications: dedupe + truncation logging
 
 **File:** `app/services/notifications.py`. Two brand-outreach attempts
-on the same creator produce two `collab_match` rows. UX-level, easy to
-add a `(user_id, kind, link_path)` dedupe later.
-
-### `notifications.create` truncates silently (prior audit)
-
-**File:** `app/services/notifications.py`. Body >2000 chars gets
-silently truncated with no log or signal to the caller. Acceptable
-for closed beta; add a log line if Phase 2 callers depend on the body
+on the same creator produce two `collab_match` rows — add a
+`(user_id, kind, link_path)` dedupe. Separately, `body > 2000` chars
+silently truncates; add a log line if callers ever depend on the body
 being preserved.
 
-### `views.list_recent_viewers` over-fetches ×4 (AUDIT L4)
+## `views.list_recent_viewers` over-fetches ×4
 
 **File:** `app/services/views.py`. Pre-`0006_audit_fixes.sql` it had to
-dedupe per-day in Python; now the per-day unique index makes the ×4
-buffer unnecessary. Quick win, low priority.
+dedupe per-day in Python; the per-day unique index makes the ×4 buffer
+unnecessary now.
 
-## Phase-2 friction points (things to design around now)
+## Design invariants worth keeping
 
-### Empty stub packages
-
-`app/agent/`, `app/agent/tools/`, `app/integrations/`, `app/models/`,
-`app/tasks/`, `app/services/prompts.py`. Each carries a docstring
-explaining the intended shape. When Phase 2 starts:
-
-1. **`app/tasks/`** — create `celery_app.py` exporting a Celery
-   instance bound to `settings.celery_broker_url`. Uncomment the
-   `worker:` / `beat:` lines in `Procfile`.
-2. **`app/integrations/`** — one file per external API. Mirror the
-   `app/services/` structure (narrow public interface, errors return
-   `None`/`False` rather than raising upstream).
-3. **`app/agent/`** — the Claude agent runtime. Pull prompts from
-   `app/services/prompts.py` (currently empty, scaffolded with the
-   intended phasing of prompts).
-4. **`app/models/`** — Pydantic shapes for any agent tool inputs /
-   outputs. Phase 1 passes raw dicts; that's fine for HTML routes but
-   the agent surface should be typed.
-
-### Config will sprout typed fields
-
-`app/config.py` is intentionally trimmed to just what Phase 1 reads.
-When Phase 2 starts reading `ANTHROPIC_API_KEY`, `TAVILY_API_KEY`,
-`GOOGLE_*`, etc., add them as typed `BaseSettings` fields. Don't rely
-on `extra="ignore"` to keep the unused env vars around — that's just a
-transitional accommodation.
-
-### `_assert_session_secret` envelope
-
-**File:** `app/main.py`. Currently enforces secret length for `staging`
-and `production`. If we add an `env=preview` for PR-deploys, decide
-explicitly: enforce or skip. Don't extend the `dev` short-circuit.
-
-### `dms.list_messages_for_operator` is the privileged door
-
-**File:** `app/services/dms.py`. The participant check on
-`list_messages` is now hard-required. Any Phase 2 caller that needs to
-read a thread without participant standing (audit log, abuse review,
-moderation tooling) MUST go through `list_messages_for_operator` —
-which is explicit, greppable, and easy to audit.
-
-### `creators.get_for_view` / `brands.get_for_view` are the public doors
-
-The H2 projection (this branch) routes every cross-user read through
-`public_creator` / `public_brand`. Phase 2's JSON endpoints for the
-agent MUST use these helpers, not `get_creator_profile` /
-`get_by_user_id`. Reviewing a PR? If you see a service call returning
-a row directly to a route or agent tool, ask whether the projection
-ran.
-
-### `safe_url` Jinja filter
-
-**File:** `app/core/templating.py:_safe_url`. Every `href` that
-interpolates a stored URL must be filtered through `|safe_url`. Phase
-2 PRs that add new templates should default to this. We can add a
-template-time lint pass later (`make lint-templates`).
-
-## Quick-status checklist (current state of the branch)
-
-- ✅ Tests: 302 passing
-- ✅ Ruff: clean
-- ✅ mypy: clean (44 source files)
-- ✅ All HIGH from AUDIT.md closed (H1, H2, H3)
-- ✅ MED from AUDIT.md closed (M1, M2, M3, M4, M5, M6, M8, M9) — only M7 deferred (Redis)
-- ✅ LOW closed where applicable (L1, L2, L5)
-- ✅ CSRF / rate-limit / UUID guard / URL guard / projection — all have regression suites
-- ✅ Migration 0006 covers brand_profiles NOT NULL, profile_views per-day index, dm_messages policy
-- ⏳ Phase 2 ground prep: above
+- **`dms.list_messages_for_operator` is the privileged door.** Any
+  caller that needs to read a thread without participant standing
+  (audit log, abuse review, moderation tooling) MUST go through this
+  explicit function — greppable, easy to audit.
+- **`get_for_view` is the public projection door.** Cross-user reads go
+  through `public_creator` / `public_brand`, not raw
+  `get_creator_profile` / `get_by_user_id`.
+- **`safe_url` Jinja filter.** Every `href` that interpolates a stored
+  URL must be filtered through `|safe_url`.
+- **`app/services/prompts.py`** is the single home for LLM prompts. No
+  prompts elsewhere.
