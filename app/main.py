@@ -11,7 +11,7 @@ import logging
 from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse, RedirectResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.datastructures import Headers
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -92,6 +92,16 @@ def create_app() -> FastAPI:
     async def robots() -> Response:
         # Invite-only. Don't index anything.
         return Response("User-agent: *\nDisallow: /\n", media_type="text/plain")
+
+    @app.get("/favicon.ico", include_in_schema=False)
+    async def favicon_ico() -> FileResponse:
+        # Browsers auto-request /favicon.ico even when the HTML links to
+        # a static path. Serve the same file so those hits don't 404.
+        return FileResponse(
+            STATIC_DIR / "assets" / "favicon.ico",
+            media_type="image/x-icon",
+            headers={"Cache-Control": "public, max-age=3600"},
+        )
 
     # ----- HTML error pages -----
     # Routes that explicitly raise HTTPException(401/403/404/etc.) keep
