@@ -20,7 +20,6 @@ from fastapi.testclient import TestClient
 from app.core.security import SESSION_COOKIE, write_session
 from app.main import app
 from app.services import abuse as abuse_module
-from app.services import creators as creators_module
 from app.services import dms as dms_module
 from app.services import intel as intel_module
 from app.services import jobs as jobs_module
@@ -84,9 +83,6 @@ def world(monkeypatch) -> FakeWorld:
         profiles_module,
         "get_creators_by_ids",
         lambda ids: {uid: w.creators[uid] for uid in ids if uid in w.creators},
-    )
-    monkeypatch.setattr(
-        creators_module, "get_for_view", lambda uid: w.creators.get(uid)
     )
 
     # ----- jobs service -----

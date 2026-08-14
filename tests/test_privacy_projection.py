@@ -10,7 +10,6 @@ What we lock in here:
     fields (`baseline_followers`, `tier`, `writing_samples`,
     `notification_settings`, `sub_bot_persona`, `brand_preferences`).
   * `public_creator` strips those fields.
-  * `creators.get_for_view` returns projected rows.
 
 `public_brand` and `PUBLIC_BRAND_FIELDS` gate brand rows the same way
 creator rows are gated.
@@ -242,42 +241,3 @@ def test_public_brand_strips_operator_notes():
     assert "verification_notes" not in out
 
 
-# ---------- end-to-end through creators.get_for_view ----------
-
-
-def test_creators_get_for_view_returns_projected_row(monkeypatch):
-    from types import SimpleNamespace
-
-    from app.core import supabase_client
-    from app.services import creators
-
-    full_row = {
-        "user_id": "u1",
-        "full_name": "Anna",
-        "tier": "pro",
-        "writing_samples": "secret draft",
-        "baseline_followers": 12345,
-    }
-
-    monkeypatch.setattr(
-        supabase_client,
-        "get_service_client",
-        lambda: SimpleNamespace(
-            table=lambda *_: SimpleNamespace(
-                select=lambda *_a, **_k: SimpleNamespace(
-                    eq=lambda *_a, **_k: SimpleNamespace(
-                        limit=lambda *_a, **_k: SimpleNamespace(
-                            execute=lambda: SimpleNamespace(data=[full_row])
-                        )
-                    )
-                )
-            )
-        ),
-    )
-
-    out = creators.get_for_view("u1")
-    assert out is not None
-    assert out["full_name"] == "Anna"
-    assert "tier" not in out
-    assert "writing_samples" not in out
-    assert "baseline_followers" not in out

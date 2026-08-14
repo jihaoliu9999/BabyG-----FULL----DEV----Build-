@@ -1,18 +1,14 @@
 """DM thread + message tests.
 
-v1 is creator-only. Brand-side DM tests (brand outreach, brand DM
-list/thread/send, cross-role threading) shipped on the brand-side-v1.5
-branch.
-
-Stubs the dms service plus the surrounding services (creators,
-profiles, notifications) so the routes render without hitting Supabase.
+Stubs the dms service plus the surrounding services (profiles,
+notifications) so the routes render without hitting Supabase.
 
 Covers:
   * Creator side: thread list, thread render, send message, mark-read
     on open, send fans out a `new_dm` notification, peer must be a
     connected creator
   * Role guards (anonymous, wrong role)
-  * Phase 3 dm_preference gate helper — recipient_accepts_cold_thread
+  * dm_preference gate helper — recipient_accepts_cold_thread
 """
 
 from __future__ import annotations
@@ -26,7 +22,6 @@ from fastapi.testclient import TestClient
 
 from app.core.security import SESSION_COOKIE, write_session
 from app.main import app
-from app.services import creators as creators_module
 from app.services import dm_briefs as dm_briefs_module
 from app.services import dms as dms_module
 from app.services import notifications as notifications_module
@@ -68,11 +63,6 @@ def _canonical(a, b):
 @pytest.fixture()
 def world(monkeypatch) -> FakeWorld:
     w = FakeWorld()
-
-    # ----- creators service -----
-    monkeypatch.setattr(
-        creators_module, "get_for_view", lambda uid: w.creators.get(uid)
-    )
 
     # ----- profiles (creator dashboard reads it) -----
     monkeypatch.setattr(
