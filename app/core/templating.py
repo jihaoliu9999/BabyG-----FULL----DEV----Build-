@@ -136,11 +136,30 @@ def _bot_markdown(value):
     return Markup("".join(blocks_html))
 
 
+def _current_role(request) -> str | None:
+    """Return the signed-in role (``creator``/``brand``/``operator``) or
+    ``None`` for anonymous. Used by base.html to render the role pill in
+    the sidebar/topbar without every route having to thread ``session``
+    into its template context.
+
+    Lazy import breaks the templating <-> security circular that would
+    happen at module-load time.
+    """
+    from app.core.security import read_session
+
+    try:
+        session = read_session(request)
+    except Exception:
+        return None
+    return session["role"] if session else None
+
+
 templates.env.filters["short_dt"] = _short_dt
 templates.env.filters["short_date"] = _short_date
 templates.env.filters["safe_url"] = _safe_url
 templates.env.filters["bot_markdown"] = _bot_markdown
 templates.env.globals["asset_url"] = asset_url
+templates.env.globals["current_role"] = _current_role
 
 # Lazy-import to avoid a circular: csrf.py imports from app.config which is
 # safe, but app.core.security imports app.config too and we don't want any

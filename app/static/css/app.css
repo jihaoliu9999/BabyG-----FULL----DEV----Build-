@@ -9773,6 +9773,197 @@ hr.hairline {
 }
 
 /* ============================================================
+ * Role pill — small coral badge under the sidebar lockup + in
+ * the mobile / brand topbars. Same coral treatment for creator
+ * and brand; the ICON is the differentiator (camera vs
+ * magnifying glass) so brands + creators feel first-class.
+ * No pulsing dot — user asked for a static icon.
+ * ============================================================ */
+.role-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  background: rgba(255, 82, 108, 0.10);
+  border: 1px solid rgba(255, 82, 108, 0.32);
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--lime, #ff4d6d);
+  line-height: 1;
+  height: 20px;
+  width: fit-content;
+  white-space: nowrap;
+  user-select: none;
+}
+.role-pill-icon {
+  width: 11px;
+  height: 11px;
+  flex: 0 0 11px;
+}
+/* Sidebar-specific placement: sits under the brand lockup with
+   the same horizontal padding as nav rows below. */
+.app-sidebar > .role-pill {
+  margin: 4px 12px 12px 12px;
+}
+/* Brand shell topbar: pill sits between the lockup and the
+   right-side actions. */
+.is-brand-shell .app-topbar > .role-pill {
+  margin-left: 12px;
+}
+/* Mobile header: pill sits opposite the profile avatar. Header
+   uses justify-content:space-between so nothing else needs to
+   move. */
+.mobile-header > .role-pill {
+  margin-right: auto;
+  margin-left: 4px;
+}
+
+/* ============================================================
+ * Get-started page redesign. Two role cards side-by-side on
+ * desktop, stacked on mobile. Whole card is the button — no
+ * inner CTA rectangle. Big hover glow + subtle lift.
+ * ============================================================ */
+.get-started-pane {
+  width: min(calc(100vw - 32px), 780px);
+  margin: 40px auto;
+  padding: clamp(28px, 5vw, 44px) clamp(22px, 4vw, 40px);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(20px, 3vw, 32px);
+  background: linear-gradient(145deg, rgba(255,255,255,.035), transparent 44%), var(--surface-1);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-raised);
+}
+.get-started-brand-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  text-decoration: none;
+  color: inherit;
+}
+.get-started-brand-row .mark {
+  width: 40px; height: 40px;
+  border-radius: 11px;
+  background: var(--surface-2);
+  overflow: hidden;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.get-started-brand-row .mark img { width: 100%; height: 100%; object-fit: contain; }
+.get-started-brand-row .word {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -.02em;
+}
+.get-started-headline {
+  text-align: center;
+  font-size: clamp(32px, 4vw, 40px);
+  font-weight: 600;
+  letter-spacing: -.04em;
+  line-height: 1;
+  margin: 0;
+}
+.get-started-sub {
+  text-align: center;
+  color: var(--ink-mid);
+  font-size: 15px;
+  margin: 0;
+  margin-top: -14px;
+}
+.get-started-role-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+.get-started-role-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 24px 22px;
+  min-height: 200px;
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  border-radius: 18px;
+  color: inherit;
+  text-decoration: none;
+  transition: border-color .18s ease, transform .12s ease, background .18s ease, box-shadow .18s ease;
+  cursor: pointer;
+}
+@media (hover: hover) and (pointer: fine) {
+  .get-started-role-card:hover {
+    border-color: rgba(255, 77, 109, .42);
+    background: var(--surface-3, rgba(255, 255, 255, .045));
+    transform: translateY(-2px);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, .28);
+  }
+}
+.get-started-role-card:focus-visible {
+  outline: 2px solid rgba(255, 77, 109, .58);
+  outline-offset: 2px;
+}
+.get-started-role-icon {
+  position: absolute;
+  top: 18px;
+  right: 18px;
+  width: 22px;
+  height: 22px;
+  color: var(--ink-mid);
+  opacity: .55;
+  transition: opacity .18s ease, color .18s ease;
+}
+.get-started-role-card:hover .get-started-role-icon {
+  opacity: 1;
+  color: var(--lime, #ff4d6d);
+}
+.get-started-role-tag {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--lime, #ff4d6d);
+}
+.get-started-role-card h3 {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 600;
+  letter-spacing: -.02em;
+  line-height: 1.1;
+}
+.get-started-role-card p {
+  margin: 0;
+  color: var(--ink-mid);
+  font-size: 14.5px;
+  line-height: 1.55;
+}
+.get-started-role-cta {
+  margin-top: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  text-transform: lowercase;
+  color: var(--ink-mid);
+  transition: color .18s ease;
+}
+.get-started-role-card:hover .get-started-role-cta { color: var(--lime, #ff4d6d); }
+@media (max-width: 720px) {
+  .get-started-role-grid { grid-template-columns: 1fr; gap: 12px; }
+  .get-started-role-card { min-height: auto; padding: 20px 18px; }
+  .get-started-headline { font-size: clamp(28px, 8vw, 36px); }
+}
+@media (max-width: 420px) {
+  .get-started-pane { padding: 28px 18px; gap: 20px; }
+  .get-started-brand-row .word { font-size: 20px; }
+}
+
+/* ============================================================
  * Bot-chat slim header + suggested-prompt chips.
  * Header collapses to a ~52px strip (was ~100px with a full
  * lockup + subtitle) — the app sidebar already brands the page,

@@ -4,26 +4,36 @@
 {% block head_extra %}<link rel="stylesheet" href="/static/css/legal.css" />{% endblock %}
 
 {% block content %}
-<section class="auth-pane">
-  <div class="brand-lockup" style="justify-content:center;margin-bottom:32px;">
-    <span class="brand-mark"><img src="/static/assets/logo-bg.png" alt="" /></span>
-    <span class="logo-text">babyg</span>
-  </div>
-  <h1 class="display"><span class="chrome">get started.</span></h1>
-  <p class="sub">choose how you use babyg.</p>
+<section class="get-started-pane">
+  <a href="/" class="get-started-brand-row" aria-label="babyg">
+    <span class="mark"><img src="/static/assets/logo-bg.png" alt="" /></span>
+    <span class="word">babyg</span>
+  </a>
 
-  <div class="role-grid">
-    <a href="/auth/login?role=creator" class="role-card">
-      <span class="mono role-tag" style="color:var(--lime);">creator</span>
+  <h1 class="get-started-headline">get started.</h1>
+  <p class="get-started-sub">who are you?</p>
+
+  <div class="get-started-role-grid">
+    <a href="/auth/login?role=creator" class="get-started-role-card" data-role="creator">
+      <svg class="get-started-role-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/>
+        <circle cx="12" cy="13" r="4"/>
+      </svg>
+      <span class="get-started-role-tag">creator</span>
       <h3>i'm a creator.</h3>
-      <p>see what needs attention and keep work moving.</p>
-      <span class="cta">continue →</span>
+      <p>you post, you get brands. babyg handles the rest.</p>
+      <span class="get-started-role-cta">continue &rarr;</span>
     </a>
-    <a href="/auth/login?role=brand" class="role-card">
-      <span class="mono role-tag" style="color:var(--lime);">brand</span>
+
+    <a href="/auth/login?role=brand" class="get-started-role-card" data-role="brand">
+      <svg class="get-started-role-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="11" cy="11" r="7"/>
+        <path d="M21 21l-4.35-4.35"/>
+      </svg>
+      <span class="get-started-role-tag">brand</span>
       <h3>i'm a brand.</h3>
-      <p>set up your profile and prepare for creator discovery.</p>
-      <span class="cta">continue →</span>
+      <p>you find creators, you run deals. babyg keeps the fit clean.</p>
+      <span class="get-started-role-cta">continue &rarr;</span>
     </a>
   </div>
 
