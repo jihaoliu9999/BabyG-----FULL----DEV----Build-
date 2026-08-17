@@ -3142,13 +3142,77 @@ select.profile-detail-input {
   font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.18em;
   text-transform: lowercase; color: var(--ink-dim);
 }
+/* Bot bubbles: more generous padding + asymmetric radius so each turn
+   reads as its own unit against the dark canvas. Assistant carries a
+   soft outer shadow so long replies feel like a lifted card, not a
+   text-on-page paragraph. */
 .bot-message .bubble {
-  max-width: 86%;
-  white-space: pre-wrap;
+  /* Cap the bubble at a comfortable reading width on wide desktops so
+     assistant paragraphs don't stretch to 1200px of run-on line. */
+  max-width: min(86%, 780px);
   overflow-wrap: anywhere;
+  font-size: 14.5px;
+  line-height: 1.6;
 }
-.bot-message.user .bubble { background: var(--surface-2); border-bottom-right-radius: 4px; }
-.bot-message.assistant .bubble { background: var(--surface-1); border: 1px solid var(--hairline); border-bottom-left-radius: 4px; }
+.bot-message.user .bubble {
+  padding: 14px 18px;
+  border-radius: 20px 20px 6px 20px;
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  white-space: pre-wrap;
+}
+.bot-message.assistant .bubble {
+  padding: 16px 20px;
+  border-radius: 20px 20px 20px 6px;
+  background: var(--surface-1);
+  border: 1px solid var(--hairline);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025),
+              0 6px 22px rgba(0, 0, 0, 0.22);
+  /* Assistant text is server-rendered as <p>/<ul>/<strong> via the
+     bot_markdown filter; pre-wrap would preserve the between-tag
+     whitespace as visible gaps. */
+  white-space: normal;
+}
+
+/* Bot-markdown internals inside the assistant bubble. */
+.bot-message.assistant .bubble p { margin: 0; }
+.bot-message.assistant .bubble p + p,
+.bot-message.assistant .bubble p + ul,
+.bot-message.assistant .bubble ul + p { margin-top: 10px; }
+.bot-message.assistant .bubble ul {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.bot-message.assistant .bubble li { padding-left: 4px; }
+.bot-message.assistant .bubble strong { color: var(--ink); font-weight: 600; }
+
+/* Typing indicator: sit inside a proper thinking-bubble so it reads as
+   "babyg is composing", not floating dots. */
+[data-bot-typing] .bubble {
+  min-width: 60px;
+  padding: 14px 20px;
+  display: inline-flex;
+  align-items: center;
+}
+[data-bot-typing] .bot-typing-dots > span {
+  width: 6px; height: 6px; background: var(--ink-mid);
+}
+
+/* Tablet + narrow desktop: bubbles keep proportions but pad tightens
+   slightly so long replies don't feel jammed against the composer. */
+@media (max-width: 768px) {
+  .bot-message .bubble { max-width: 92%; font-size: 14px; }
+  .bot-message.user .bubble { padding: 12px 16px; }
+  .bot-message.assistant .bubble { padding: 14px 18px; }
+  .bot-message.assistant .bubble ul { padding-left: 18px; }
+}
+@media (max-width: 420px) {
+  .bot-message .bubble { max-width: 94%; }
+  .bot-message.assistant .bubble { padding: 13px 16px; }
+}
 
 .bot-prompts {
   display: flex; gap: 8px; overflow-x: auto;

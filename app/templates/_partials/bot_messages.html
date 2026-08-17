@@ -15,7 +15,7 @@
     {% if m.role != "system" %}
     <li class="bot-message {{ m.role }}" data-bot-message-id="{{ m.id }}">
       <span class="meta">{{ "you" if m.role == "user" else "babyg" }}</span>
-      <div class="bubble">{{ m.content }}</div>
+      <div class="bubble">{% if m.role == "assistant" %}{{ m.content|bot_markdown }}{% else %}{{ m.content }}{% endif %}</div>
       {% if m.tool_calls and m.tool_calls.kind == "proposed_action" %}
       <div class="card bot-action-card {% if m.tool_calls.status == 'pending' %}bot-action-pending{% elif m.tool_calls.status == 'confirmed' %}bot-action-confirmed{% else %}bot-action-cancelled{% endif %}" style="margin-top:10px;max-width:86%;{{ 'align-self:flex-start;' if m.role == 'assistant' else '' }}">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;">

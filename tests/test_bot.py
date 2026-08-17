@@ -40,10 +40,10 @@ def test_bot_page_redirects_until_onboarded(monkeypatch, client: TestClient) -> 
 def test_bot_page_preserves_paragraph_breaks_in_assistant_content(
     monkeypatch, client: TestClient
 ) -> None:
-    """Multi-paragraph assistant responses must round-trip through the template
-    without losing the blank line. This protects the chat readability contract:
-    Claude returns \\n\\n between paragraphs; the template + CSS render them as
-    real paragraph gaps. If any layer collapses newlines, this test fails."""
+    """Multi-paragraph assistant responses must render as real paragraph
+    breaks in the HTML. Claude returns \\n\\n between paragraphs; the
+    bot_markdown filter converts each block into a <p> element so the CSS
+    gap between paragraphs is visible rather than a run-on wall of text."""
     _signed_in(client, role="creator")
     monkeypatch.setattr(
         creator_routes.profiles,
@@ -65,8 +65,8 @@ def test_bot_page_preserves_paragraph_breaks_in_assistant_content(
     response = client.get("/creator/bot")
 
     assert response.status_code == 200
-    # The literal blank line between sentences must survive into the HTML.
-    assert "verdict: counter at six.\n\npush back on usage." in response.text
+    # Each paragraph should render inside its own <p>, not run together.
+    assert "<p>verdict: counter at six.</p><p>push back on usage.</p>" in response.text
 
 
 def test_bot_page_renders_history(monkeypatch, client: TestClient) -> None:
