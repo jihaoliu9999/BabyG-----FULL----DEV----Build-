@@ -9729,6 +9729,50 @@ hr.hairline {
 }
 
 /* ============================================================
+ * Unified nav icon color — every sidebar + mobile-tab item uses
+ * the same coral accent (previously each tab had its own hue).
+ * Keeps the animation + hover + active behavior intact; only the
+ * color variables change. Appearing after the per-tab blocks in
+ * this file lets these win by "later rule + equal specificity".
+ * ============================================================ */
+.app-sidebar nav a[data-tab="feed"],
+.app-sidebar nav a[data-tab="chat"],
+.app-sidebar nav a[data-tab="calendar"],
+.app-sidebar nav a[data-tab="inbox"],
+.app-sidebar nav a[data-tab="network"],
+.app-sidebar nav a[data-tab="listings"],
+.app-sidebar nav a[data-tab="stats"],
+.app-sidebar nav a[data-tab="profile"],
+.app-sidebar nav a[data-tab="settings"],
+.app-tabbar a[data-tab="feed"],
+.app-tabbar a[data-tab="chat"],
+.app-tabbar a[data-tab="calendar"],
+.app-tabbar a[data-tab="inbox"],
+.app-tabbar a[data-tab="network"],
+.app-tabbar a[data-tab="stats"],
+.app-tabbar a[data-tab="profile"],
+.app-tabbar a[data-tab="settings"] {
+  --nav-accent: #ff526c;
+  --nav-accent-soft: rgba(255, 82, 108, .14);
+  --nav-glow: rgba(255, 82, 108, .34);
+}
+/* Force the coral through in the creator-app scope. A rule further up
+   (`.is-creator-app .app-sidebar nav a svg { color: currentColor }`)
+   otherwise strips the accent color and lets every non-settings icon
+   fall back to the grey link color — that's why the original design
+   only settings looked coral. Higher specificity + coming later wins. */
+.is-creator-app .app-sidebar nav a svg {
+  color: var(--nav-accent);
+  filter: drop-shadow(0 0 5px var(--nav-glow));
+}
+.is-creator-app .app-sidebar nav a:hover svg,
+.is-creator-app .app-sidebar nav a.active svg {
+  color: var(--nav-accent);
+  filter: drop-shadow(0 0 10px var(--nav-glow));
+  opacity: 1;
+}
+
+/* ============================================================
  * Bot-chat slim header + suggested-prompt chips.
  * Header collapses to a ~52px strip (was ~100px with a full
  * lockup + subtitle) — the app sidebar already brands the page,

@@ -931,14 +931,21 @@ def test_code_submit_refuses_first_time_operator(
     assert fake_service.inserts == []
 
 
-def test_magic_link_sent_page_links_to_code_fallback(
+def test_magic_link_sent_page_offers_recovery_actions(
     client: TestClient, fake_auth: FakeAuth, fake_service: FakeService
 ) -> None:
+    """The check-your-email page must show the two things a user needs
+    when their link doesn't arrive: a resend action and a hint to check
+    spam. The old "got a code instead?" link was dropped from this
+    surface — /auth/code still works via direct URL if we need it, but
+    it's not something we advertise here."""
     r = client.get("/auth/magic-link/sent?role=creator")
     assert r.status_code == 200
-    assert "check your email" in r.text.lower()
-    assert "got a code instead?" in r.text.lower()
-    assert "/auth/code?role=creator" in r.text
+    text = r.text.lower()
+    assert "check your email" in text
+    assert "check spam" in text
+    assert "resend" in text
+    assert "got a code instead?" not in text
 
 
 def test_magic_link_sent_page_normalizes_unknown_role(client: TestClient) -> None:
