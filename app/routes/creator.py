@@ -37,6 +37,7 @@ from app.services import (
     audit,
     bookings,
     bot,
+    bot_prompts,
     calendar_sync,
     discovery,
     dm_briefs,
@@ -185,6 +186,29 @@ async def bot_chat(
         return RedirectResponse("/onboarding/creator", status_code=302)
 
     messages = bot.list_messages(session["user_id"])
+
+    # First-turn chip prompts only render when the thread is empty. We
+    # skip the DB lookups otherwise so the loaded-chat path stays cheap.
+    prompts: list[bot_prompts.BotPrompt] = []
+    if not messages:
+        try:
+            unread_dms_count = dms.unread_count_for_user(session["user_id"])
+        except Exception:
+            unread_dms_count = 0
+        recent_peer_name: str | None = None
+        try:
+            threads = dms.list_threads_for_user(session["user_id"])
+            if threads:
+                peer = profiles.get_creator_profile(threads[0]["peer_id"])
+                if peer:
+                    recent_peer_name = peer.get("full_name")
+        except Exception:
+            recent_peer_name = None
+        prompts = bot_prompts.compute_prompts(
+            unread_dms_count=unread_dms_count,
+            recent_dm_peer_name=recent_peer_name,
+        )
+
     return templates.TemplateResponse(
         request,
         "creator/bot.html",
@@ -192,6 +216,7 @@ async def bot_chat(
             "profile": profile,
             "messages": messages,
             "error": None,
+            "bot_prompts": prompts,
         },
     )
 

@@ -1,0 +1,24 @@
+{# Empty-state chip row above the bot composer. Only rendered when
+   the message history is empty. Clicking a chip populates the
+   textarea (bot.js handles the click via [data-bot-prompt]) — never
+   auto-sends. #}
+{% if bot_prompts %}
+<div class="bot-prompt-chips" role="list" aria-label="suggested prompts">
+  {% for p in bot_prompts %}
+  <button type="button" class="bot-prompt-chip" role="listitem" data-bot-prompt="{{ p.text }}">
+    <span class="bot-prompt-chip-icon" aria-hidden="true">
+    {% if p.icon == "message" %}
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+    {% elif p.icon == "pencil" %}
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+    {% elif p.icon == "clock" %}
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+    {% elif p.icon == "calendar" %}
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    {% endif %}
+    </span>
+    <span>{{ p.text }}</span>
+  </button>
+  {% endfor %}
+</div>
+{% endif %}

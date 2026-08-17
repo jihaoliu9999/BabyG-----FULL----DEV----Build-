@@ -9727,3 +9727,126 @@ hr.hairline {
   color: var(--lime, #ff4d6d);
   font-size: 13px;
 }
+
+/* ============================================================
+ * Bot-chat slim header + suggested-prompt chips.
+ * Header collapses to a ~52px strip (was ~100px with a full
+ * lockup + subtitle) — the app sidebar already brands the page,
+ * so this bar just marks "you are in the ai manager". Chip row
+ * sits directly above the composer and only renders when the
+ * thread is empty (see the {% if bot_prompts %} guard in the
+ * partial).
+ * ============================================================ */
+.is-creator-app.is-chat .creator-babyg-topbar {
+  min-height: 52px;
+  padding: 10px 20px;
+  margin: 0;
+  border-bottom: 1px solid var(--hairline);
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.is-creator-app.is-chat .creator-babyg-topbar .creator-screen-title {
+  gap: 10px;
+  min-width: 0;
+}
+/* Shrink the icon in the slim bar — the 44px bot-hero mark from
+   line 2959 was for the full-height layout. */
+.is-creator-app.is-chat .creator-babyg-topbar .creator-screen-mark {
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  border-radius: 7px;
+  box-shadow: none;
+}
+.is-creator-app.is-chat .creator-babyg-topbar .creator-screen-mark img {
+  padding: 3px;
+  filter: none;
+}
+.creator-screen-lockup-label {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.2em;
+  text-transform: lowercase;
+  color: var(--ink-mid);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* Chip row. Sits between the message list and the composer. */
+.bot-prompt-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 0 24px 12px;
+  justify-content: flex-start;
+}
+.bot-prompt-chip {
+  appearance: none;
+  background: var(--surface-1);
+  border: 1px solid var(--hairline);
+  color: var(--ink-mid);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1;
+  padding: 10px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color .15s ease, border-color .15s ease, background .15s ease, transform .12s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  white-space: nowrap;
+}
+.bot-prompt-chip:focus-visible {
+  outline: 2px solid rgba(255, 77, 109, 0.55);
+  outline-offset: 2px;
+  color: var(--ink);
+}
+@media (hover: hover) and (pointer: fine) {
+  .bot-prompt-chip:hover {
+    color: var(--ink);
+    border-color: rgba(255, 77, 109, 0.35);
+    background: rgba(255, 77, 109, 0.06);
+  }
+}
+.bot-prompt-chip:active { transform: scale(0.98); }
+.bot-prompt-chip-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.7;
+}
+.bot-prompt-chip-icon svg { display: block; }
+
+/* Tablet + mobile: chips scroll horizontally in a single row so a
+   thumb swipe reveals more, and long strings never wrap awkwardly. */
+@media (max-width: 768px) {
+  .is-creator-app.is-chat .creator-babyg-topbar {
+    padding: 10px 16px;
+    min-height: 48px;
+  }
+  .bot-prompt-chips {
+    padding: 0 18px 10px;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
+  }
+  .bot-prompt-chips::-webkit-scrollbar { display: none; }
+  .bot-prompt-chip {
+    flex-shrink: 0;
+    scroll-snap-align: start;
+    min-height: 38px;   /* iOS tap target */
+    font-size: 13.5px;
+  }
+}
+@media (max-width: 420px) {
+  .bot-prompt-chips { padding: 0 14px 10px; gap: 6px; }
+  .bot-prompt-chip { padding: 9px 12px; font-size: 13px; }
+}
+

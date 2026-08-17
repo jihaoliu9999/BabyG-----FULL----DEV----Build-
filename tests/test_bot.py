@@ -88,19 +88,83 @@ def test_bot_page_renders_history(monkeypatch, client: TestClient) -> None:
     response = client.get("/creator/bot")
 
     assert response.status_code == 200
-    assert "your private AI manager" in response.text
+    # Slim header carries a compact "ai manager" mono label — the old
+    # "your private AI manager" subtitle block is gone.
+    assert "ai manager" in response.text
+    assert "your private AI manager" not in response.text
     assert "What are we working on today?" not in response.text
     assert 'class="app-topbar"' not in response.text
     assert 'class="mobile-header"' not in response.text
     assert '/static/js/bot.js' in response.text
     assert "Need a caption" in response.text
     assert "Drafting it." in response.text
+    # Chip row must NOT render when there are messages already.
+    assert 'class="bot-prompt-chips"' not in response.text
     # The chat header no longer carries the "babyg guide" shortcut or the
     # "private" pill — it's just the logo/name lockup now. The composer
     # form still posts to /creator/bot.
     assert 'action="/creator/bot"' in response.text
     assert 'class="babyg-guide-form"' not in response.text
     assert 'class="creator-private-chip"' not in response.text
+
+
+def test_bot_page_renders_prompt_chips_on_empty_thread(
+    monkeypatch, client: TestClient
+) -> None:
+    """Empty message history triggers the suggested-prompt chip row above
+    the composer. Evergreen chips always render; context chips wait for
+    data (see tests/test_bot_prompts.py for the pool logic)."""
+    _signed_in(client, role="creator")
+    monkeypatch.setattr(
+        creator_routes.profiles,
+        "get_creator_profile",
+        lambda uid: {"onboarding_completed_at": "2026-05-01T00:00:00Z"},
+    )
+    monkeypatch.setattr(creator_routes.bot, "list_messages", lambda uid: [])
+    monkeypatch.setattr(
+        creator_routes.dms, "unread_count_for_user", lambda uid: 0
+    )
+    monkeypatch.setattr(creator_routes.dms, "list_threads_for_user", lambda uid: [])
+
+    response = client.get("/creator/bot")
+
+    assert response.status_code == 200
+    assert 'class="bot-prompt-chips"' in response.text
+    # Evergreens always present.
+    assert "what needs me today?" in response.text
+    assert "check my week" in response.text
+    # data-bot-prompt attribute carries the click-to-fill payload.
+    assert 'data-bot-prompt="what needs me today?"' in response.text
+
+
+def test_bot_page_prompt_chips_pull_real_user_context(
+    monkeypatch, client: TestClient
+) -> None:
+    """Chips are data-driven — count of unread DMs, name of the most
+    recent DM peer. Nothing rendered from stubs."""
+    _signed_in(client, role="creator", user_id="u-1")
+
+    def _profile_lookup(uid: str) -> dict[str, object]:
+        if uid == "u-1":
+            return {"onboarding_completed_at": "2026-05-01T00:00:00Z"}
+        if uid == "peer-42":
+            return {"full_name": "Jihao Liu"}
+        return {}
+
+    monkeypatch.setattr(creator_routes.profiles, "get_creator_profile", _profile_lookup)
+    monkeypatch.setattr(creator_routes.bot, "list_messages", lambda uid: [])
+    monkeypatch.setattr(creator_routes.dms, "unread_count_for_user", lambda uid: 3)
+    monkeypatch.setattr(
+        creator_routes.dms,
+        "list_threads_for_user",
+        lambda uid: [{"peer_id": "peer-42", "id": "t-1"}],
+    )
+
+    response = client.get("/creator/bot")
+
+    assert response.status_code == 200
+    assert "summarize my 3 unread dms" in response.text
+    assert "draft a follow-up to jihao" in response.text
 
 
 def test_bot_page_renders_pending_action_controls(monkeypatch, client: TestClient) -> None:

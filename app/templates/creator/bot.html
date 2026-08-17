@@ -8,10 +8,10 @@
 
 {% block content %}
 <section class="bot-screen" id="botScreen">
-  <header class="creator-screen-topbar creator-babyg-topbar">
+  <header class="creator-screen-topbar creator-babyg-topbar" aria-label="babyg">
     <div class="creator-screen-title">
       <span class="creator-screen-mark" aria-hidden="true"><img src="/static/assets/logo-bg.png" alt="" /></span>
-      <div><h1>babyg</h1><p>your private AI manager</p></div>
+      <span class="creator-screen-lockup-label">ai manager</span>
     </div>
   </header>
   {% if not messages %}<div class="bot-hero">
@@ -37,6 +37,8 @@
   <ol class="bot-messages" id="botMessages" aria-label="babyg conversation">
     {% include "_partials/bot_messages.html" with context %}
   </ol>
+
+  {% include "_partials/bot_prompt_chips.html" with context %}
 
   <form class="bot-composer" method="post" action="/creator/bot" data-bot-composer>
     {% include "_partials/csrf.html" %}
