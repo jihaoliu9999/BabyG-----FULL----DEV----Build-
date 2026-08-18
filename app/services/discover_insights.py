@@ -197,7 +197,7 @@ def signal_badges(
     # "responds fast" — hits when the view (later) exposes a DM-response
     # aggregate. Threshold: median response under 24h.
     responds = card.get("dm_median_response_hours")
-    if isinstance(responds, (int, float)) and 0 < responds <= 24:
+    if isinstance(responds, int | float) and 0 < responds <= 24:
         badges.append({"kind": _SIGNAL_RESPONSIVE, "label": "responds fast"})
 
     return badges[:_MAX_BADGES]

@@ -121,7 +121,7 @@ READ_ONLY_TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "answer: today's events, recent brand news, venue openings, "
             "platform rules, current pricing, news mentioning a specific "
             "person or brand. Do NOT use for: the creator's own analytics, "
-            "personal stats, internal hot drops, anything in their profile, "
+            "personal stats, internal signals, anything in their profile, "
             "calendar, dms, receipts, or performance — those have dedicated "
             "tools. Returns a list of {title, url, snippet, published}. "
             "Cite the source url and title in the reply; never paste content "
@@ -725,7 +725,7 @@ tool policy:
 - use tools when private babyg context would materially improve the answer.
 - do not call tools for "thanks", acknowledgements, or general advice that doesn't need data.
 - call read_my_profile before voice-matched captions, brand replies, negotiations, and personal plans.
-- call read_intel_feed for hot drops, local venues, trends, alerts, or "what should i act on?"
+- call read_intel_feed for creator signals, local venues, trends, alerts, or "what should i act on?"
 - call read_my_calendar for schedule-aware plans, deadlines, reminders, and local calendar questions.
 - call read_my_receipts and read_my_performance for stats, recap, rate guidance, or what to repeat.
 - call read_my_instagram_stats ONLY for instagram-specific stats on real posts (per-post engagement, reach, impressions, saves, likes, comments). this is the only live platform tool today. if it returns {{"available": false, ...}}, the creator hasn't connected instagram or hit the daily cap — say so and fall back to read_my_performance / read_my_receipts. never call it for tiktok, youtube, or general questions.

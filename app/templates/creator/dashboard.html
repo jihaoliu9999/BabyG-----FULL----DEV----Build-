@@ -133,10 +133,10 @@
 
   <section class="creator-home-section creator-hot-drops" aria-labelledby="hot-drops-title">
     <div class="creator-section-head">
-      <div><h2 id="hot-drops-title">hot drops</h2></div>
-      <span>curated for your work</span>
+      <div><h2 id="hot-drops-title">signals</h2></div>
+      <span>picked for your work</span>
     </div>
-    <nav class="creator-hot-drop-filters" aria-label="Hot Drop categories">
+    <nav class="creator-hot-drop-filters" aria-label="signal categories">
       <a href="/creator" class="{{ 'is-active' if not active_category }}">All</a>
       {% for slug, label in categories %}{% if slug != 'alert' %}<a href="/creator?category={{ slug }}" class="{{ 'is-active' if active_category == slug }}">{{ label }}</a>{% endif %}{% endfor %}
     </nav>

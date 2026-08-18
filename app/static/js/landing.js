@@ -38,7 +38,7 @@
     button.addEventListener("click", function () { button.classList.toggle("is-active"); });
   });
 
-  /* old way vs babyg — cycling reasons */
+  /* comparison reasons */
   var SETS = [
     { old: ["takes a percent of the deal", "you have to be big enough to matter", "works business hours, on their time", "you are one name on a long roster"],
       babyg: ["takes nothing off your rate", "works with you at any size", "on all day, all night", "one account to look after, yours"] },
