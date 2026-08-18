@@ -323,6 +323,44 @@ def unread_count_for_user(user_id: str) -> int:
     return int(getattr(result, "count", 0) or 0)
 
 
+def unread_counts_by_thread(
+    user_id: str, thread_ids: list[str]
+) -> dict[str, int]:
+    """Return {thread_id: count of unread messages for user} in one query.
+
+    The DM list renders a row per thread; needing an unread count per row
+    without an N+1 query. Postgrest can't natively do "group by thread_id
+    with count filter" over multiple ids, so we fetch just the unread
+    message ids + thread_id (no bodies) and bucket in Python. Bounded
+    by the number of unread messages, which is small for any real user.
+    """
+    uid = safe_uuid(user_id)
+    if not uid or not thread_ids:
+        return {}
+    safe_ids = [tid for tid in (safe_uuid(t) for t in thread_ids) if tid]
+    if not safe_ids:
+        return {}
+    try:
+        result = (
+            supabase_client.get_service_client()
+            .table("dm_messages")
+            .select("thread_id")
+            .in_("thread_id", safe_ids)
+            .neq("sender_id", uid)
+            .is_("read_at", "null")
+            .execute()
+        )
+    except PostgrestAPIError:
+        logger.exception("unread_counts_by_thread failed: %s", user_id)
+        return {}
+    counts: dict[str, int] = {}
+    for row in getattr(result, "data", None) or []:
+        tid = str(row.get("thread_id") or "")
+        if tid:
+            counts[tid] = counts.get(tid, 0) + 1
+    return counts
+
+
 # -----------------------------------------------------------------------------
 # Helpers
 # -----------------------------------------------------------------------------

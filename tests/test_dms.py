@@ -292,9 +292,10 @@ def test_creator_dm_thread_marks_messages_read(client, world, monkeypatch):
     r = client.get("/creator/dm/c-2")
     assert r.status_code == 200
     assert all(m["read_at"] is not None for m in world.messages)
-    assert 'class="dm-thread-tools"' in r.text
+    # The slim thread header carries the "ask babyg" refresh action inside
+    # its ⋯ menu now; the form still POSTs to the same brief endpoint.
     assert 'action="/creator/dm/c-2/brief"' in r.text
-    assert "babyg guide" in r.text
+    assert "ask babyg" in r.text
     assert "ask babyg about this message" not in r.text
     assert "ask babyg to re-check" not in r.text
 

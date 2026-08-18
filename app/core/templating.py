@@ -136,6 +136,53 @@ def _bot_markdown(value):
     return Markup("".join(blocks_html))
 
 
+def _human_ago(value):
+    """Render an ISO timestamp as a compact relative label.
+
+    Examples:
+      < 1 min  -> "now"
+      < 1 hour -> "12m"
+      < 24 h   -> "3h"
+      < 7 days -> "2d"
+      same year -> "may 24"
+      else     -> "may 24, 2025"
+
+    Falls back to the raw string on parse failure so a bad row never
+    500s the page. Absent value renders as empty string.
+    """
+    if not value:
+        return ""
+    from datetime import UTC, datetime
+
+    text = str(value).strip()
+    if not text:
+        return ""
+    try:
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return text[:10]
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    now = datetime.now(UTC)
+    delta = now - parsed
+    seconds = int(delta.total_seconds())
+    if seconds < 60:
+        return "now"
+    minutes = seconds // 60
+    if minutes < 60:
+        return f"{minutes}m"
+    hours = minutes // 60
+    if hours < 24:
+        return f"{hours}h"
+    days = hours // 24
+    if days < 7:
+        return f"{days}d"
+    month = parsed.strftime("%b").lower()
+    if parsed.year == now.year:
+        return f"{month} {parsed.day}"
+    return f"{month} {parsed.day}, {parsed.year}"
+
+
 def _current_role(request) -> str | None:
     """Return the signed-in role (``creator``/``brand``/``operator``) or
     ``None`` for anonymous. Used by base.html to render the role pill in
@@ -158,6 +205,7 @@ templates.env.filters["short_dt"] = _short_dt
 templates.env.filters["short_date"] = _short_date
 templates.env.filters["safe_url"] = _safe_url
 templates.env.filters["bot_markdown"] = _bot_markdown
+templates.env.filters["human_ago"] = _human_ago
 templates.env.globals["asset_url"] = asset_url
 templates.env.globals["current_role"] = _current_role
 

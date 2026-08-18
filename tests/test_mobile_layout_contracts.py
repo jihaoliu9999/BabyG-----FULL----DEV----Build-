@@ -97,8 +97,12 @@ def test_chat_keyboard_composer_drops_safe_area_padding() -> None:
 
 
 def test_dm_composer_polish_keeps_controls_scoped_and_stable() -> None:
+    """The composer status row keeps a stable height (no layout jump when
+    babyg starts reading a message) and stays visibility-hidden until
+    JS toggles the is-visible class. The send button disables on empty
+    input. All of these must survive the DM thread redesign."""
     status_rule = APP_CSS.split(
-        ".is-creator-app .dm-composer-status {", 1
+        ".dm-thread-composer-status {", 1
     )[1].split("}", 1)[0]
     assert "min-height: 18px" in status_rule
     assert "visibility: hidden" in status_rule
@@ -108,20 +112,26 @@ def test_dm_composer_polish_keeps_controls_scoped_and_stable() -> None:
 
     assert "composerSend.disabled = !composerInput.value.trim()" in DM_BRIEFS_JS
     assert "data-dm-send" in DM_THREAD_TEMPLATE
-    assert ".is-creator-app.is-dm-thread #view" in APP_CSS
-    assert "var(--tabbar-h) - 12px" in APP_CSS
 
+    # The report form still renders BEFORE the composer in source order
+    # so keyboard-open on mobile pushes the composer above the fold
+    # without the report block getting in the way.
     report_position = DM_THREAD_TEMPLATE.index('class="dm-thread-report"')
-    body_end = DM_THREAD_TEMPLATE.index("  </div>\n\n  {% set high_risk")
-    composer_position = DM_THREAD_TEMPLATE.index('class="dm-composer"')
-    assert report_position < body_end < composer_position
+    composer_position = DM_THREAD_TEMPLATE.index('class="dm-thread-composer"')
+    assert report_position < composer_position
 
 
 def test_babyg_guide_is_tap_friendly_and_replaces_old_dm_prompts() -> None:
-    guide_rule = APP_CSS.split(".babyg-guide-button {", 1)[1].split("}", 1)[0]
-    assert "min-height: 44px" in guide_rule
+    """The "ask babyg" refresh action lives inside the slim header's
+    ⋯ menu (tap-friendly via the menu button, not a full-width button
+    stealing space in the message list). Old inline prompt strings must
+    stay gone so the redesign doesn't regress toward the busy layout."""
+    menu_summary_rule = APP_CSS.split(
+        ".dm-thread-menu > summary {", 1
+    )[1].split("}", 1)[0]
+    assert "34px" in menu_summary_rule  # tap target
     assert "data-brief-refresh" in DM_THREAD_TEMPLATE
-    assert "babyg guide" in DM_THREAD_TEMPLATE
+    assert "ask babyg" in DM_THREAD_TEMPLATE
     assert "dm-brief-prompt" not in DM_THREAD_TEMPLATE
     assert "ask babyg about this message" not in DM_THREAD_TEMPLATE
     assert "ask babyg to re-check" not in DM_THREAD_TEMPLATE

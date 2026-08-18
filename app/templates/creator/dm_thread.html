@@ -3,200 +3,191 @@
 {% block title %}{{ peer.full_name or "creator" }} — babyg{% endblock %}
 
 {% block content %}
-<section class="dm-screen">
-  <header class="dm-head">
-    <a href="/creator/dm" class="back-link" style="margin:0;">← inbox</a>
-    {% set creator = peer %}{% set palette = "2" %}{% set size = "" %}{% include "_partials/_avatar.html" %}
-    <div class="meta">
-      <h2>{{ peer.full_name or "Creator" }}</h2>
-      {% if peer.instagram_handle %}
-      <p class="sub">
-        @{{ peer.instagram_handle }} ·
-        <a href="/creator/network/{{ peer_id }}" style="color:var(--ink-mid);">view profile</a>
-      </p>
-      {% endif %}
-    </div>
+{% set high_risk = ["suspicious_identity", "unsafe_meetup", "adult_minor_risk", "scam_phishing", "payment_risk", "legal_contract_review", "inappropriate"] %}
+{% set brief_is_alert = brief and brief.risk_level in high_risk %}
+
+<section class="dm-thread" data-dm-thread>
+
+  <header class="dm-thread-head">
+    <a href="/creator/dm" class="dm-thread-back" aria-label="back to inbox">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+    </a>
+    <a href="/creator/network/{{ peer_id }}" class="dm-thread-peer">
+      <span class="dm-thread-avatar" aria-hidden="true">
+        {% if peer and peer.profile_photo_url %}
+        <img src="{{ peer.profile_photo_url|safe_url }}" alt="" />
+        {% else %}
+        {{ (peer.full_name or peer.instagram_handle or 'C')[0]|upper }}
+        {% endif %}
+      </span>
+      <span class="dm-thread-peer-text">
+        <span class="dm-thread-name">{{ peer.full_name or "Creator" }}</span>
+        {% if peer.instagram_handle %}
+        <span class="dm-thread-handle">@{{ peer.instagram_handle }} · {{ peer_kind or 'creator' }}</span>
+        {% else %}
+        <span class="dm-thread-handle">{{ peer_kind or 'creator' }}</span>
+        {% endif %}
+      </span>
+    </a>
+    <details class="dm-thread-menu" aria-label="thread options">
+      <summary aria-label="more">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+      </summary>
+      <div class="dm-thread-menu-panel">
+        <form method="post" action="/creator/dm/{{ peer_id }}/brief" data-brief-refresh>
+          {% include "_partials/csrf.html" %}
+          <button type="submit" class="dm-thread-menu-item" data-ask-babyg{% if not brief and not brief_message_id %} disabled aria-disabled="true"{% endif %}>ask babyg</button>
+        </form>
+        <a href="/creator/network/{{ peer_id }}" class="dm-thread-menu-item">view profile</a>
+      </div>
+    </details>
   </header>
 
-  <div class="dm-body">
-    {% if request.query_params.get("reported") == "1" %}
-    <div style="padding:10px 14px;background:rgba(255,77,109,0.08);border:1px solid var(--lime);border-radius:12px;color:var(--lime);font-size:13px;text-align:center;">thanks — an operator will review.</div>
-    {% elif request.query_params.get("reported") == "fail" %}
-    <div style="padding:10px 14px;background:rgba(255,77,109,0.08);border:1px solid var(--lime);border-radius:12px;color:var(--lime);font-size:13px;text-align:center;">couldn't submit your report. try again.</div>
-    {% elif request.query_params.get("brief_rate_limited") == "1" %}
-    <div class="dm-brief-notice">babyg has reviewed several messages recently. try again in a moment.</div>
-    {% endif %}
+  {% if brief %}
+  <div class="dm-thread-brief{% if brief_is_alert %} dm-thread-brief-alert{% endif %}" data-dm-brief-strip>
+    <span class="dm-thread-brief-pill dm-thread-brief-pill-{{ brief.risk_level }}">babyg · {{ brief.risk_level|replace('_', ' ') }}</span>
+    {% if brief.summary %}<span class="dm-thread-brief-text">{{ brief.summary }}</span>{% endif %}
+  </div>
+  {% endif %}
 
-    <div class="dm-thread-tools" aria-label="conversation tools">
-      <form method="post" action="/creator/dm/{{ peer_id }}/brief" data-brief-refresh>
-        {% include "_partials/csrf.html" %}
-        <button type="submit" class="babyg-guide-button" data-ask-babyg{% if not brief and not brief_message_id %} disabled aria-disabled="true" title="available after babyg receives a message"{% endif %}>
-          <span class="babyg-guide-dot" aria-hidden="true"></span>
-          babyg guide
-        </button>
-      </form>
-    </div>
+  {% if request.query_params.get("reported") == "1" %}
+  <div class="dm-thread-notice">thanks — an operator will review.</div>
+  {% elif request.query_params.get("reported") == "fail" %}
+  <div class="dm-thread-notice dm-thread-notice-error">couldn't submit your report. try again.</div>
+  {% elif request.query_params.get("brief_rate_limited") == "1" %}
+  <div class="dm-thread-notice">babyg has reviewed several messages recently. try again in a moment.</div>
+  {% endif %}
 
+  <div class="dm-thread-messages-wrap">
     {% if messages %}
       {% include "_partials/dm_thread_messages.html" %}
     {% else %}
-      <div class="dm-empty">
-        <p class="mono" style="font-size:11px;">start of your conversation.</p>
+      <div class="dm-thread-empty">
+        <p class="mono">start of your conversation.</p>
       </div>
     {% endif %}
-
-    <div class="dm-thread-report">
-      {% set target_type = "dm_thread" %}
-      {% set target_id = thread.id %}
-      {% set return_to = "/creator/dm/" ~ peer_id %}
-      {% set label = "this conversation" %}
-      {% include "_partials/report_form.html" %}
-    </div>
   </div>
 
-  {% set high_risk = ["suspicious_identity", "unsafe_meetup", "adult_minor_risk", "scam_phishing", "payment_risk", "legal_contract_review", "inappropriate"] %}
   {% if brief %}
-  <section class="dm-brief{% if brief.risk_level in high_risk %} dm-brief-alert{% endif %}" data-dm-brief aria-label="private babyg brief">
-    <details {% if brief.risk_level in high_risk %}open{% endif %}>
-      <summary class="dm-brief-summary-row">
-        <span class="dm-brief-pill dm-brief-pill-{{ brief.risk_level }}">{{ brief.risk_level|replace('_', ' ') }}</span>
-        <span class="dm-brief-heading">
-          <span class="dm-brief-title">private manager brief</span>
-          <span class="dm-brief-kicker">reviewed by babyg</span>
-        </span>
-        <span class="dm-brief-chevron" aria-hidden="true">+</span>
-      </summary>
-      <div class="dm-brief-content">
-        <div class="dm-brief-quick">
-          <span class="dm-brief-label">quick read</span>
-          {% if brief.summary %}<p class="dm-brief-text">{{ brief.summary }}</p>{% endif %}
-          <div class="dm-brief-meta-chips">
-            {% if brief.intent_type %}<span>{{ brief.intent_type|replace('_', ' ') }}</span>{% endif %}
-            {% if brief.confidence_level %}<span class="dm-confidence-{{ brief.confidence_level }}">{{ brief.confidence_level }} confidence</span>{% endif %}
-            {% if brief.deal_stage %}<span>{{ brief.deal_stage|replace('_', ' ') }}</span>{% endif %}
-          </div>
-          {% if brief.confidence_level == "low" %}<p class="dm-brief-low-confidence">babyg needs more context.</p>{% endif %}
-        </div>
-
-        {% if brief.sender_ask or brief.why_it_matters %}
-        <div class="dm-brief-grid">
-          {% if brief.sender_ask %}<div class="dm-brief-block"><span class="dm-brief-label">sender ask</span><p>{{ brief.sender_ask }}</p></div>{% endif %}
-          {% if brief.why_it_matters %}<div class="dm-brief-block"><span class="dm-brief-label">why it matters</span><p>{{ brief.why_it_matters }}</p></div>{% endif %}
-        </div>
-        {% endif %}
-
-        {% if brief.risk_reasons %}
-        <div class="dm-brief-block dm-risk-radar">
-          <span class="dm-brief-label">risk radar</span>
-          <ul class="dm-brief-notes">
-            {% for reason in brief.risk_reasons %}<li>{{ reason }}</li>{% endfor %}
-          </ul>
-        </div>
-        {% endif %}
-
-        {% if brief.missing_terms %}
-        <div class="dm-brief-block">
-          <span class="dm-brief-label">missing terms</span>
-          <ul class="dm-brief-checklist">
-            {% for term in brief.missing_terms %}<li><span aria-hidden="true"></span>{{ term|replace('_', ' ') }}</li>{% endfor %}
-          </ul>
-        </div>
-        {% endif %}
-
-        {% if brief.deal_terms %}
-        <div class="dm-brief-block">
-          <span class="dm-brief-label">deal read</span>
-          <dl class="dm-deal-read">
-            {% for key, value in brief.deal_terms.items() %}
-            <div><dt>{{ key|replace('_', ' ') }}</dt><dd>{% if value is string %}{{ value }}{% else %}{{ value|join(', ') }}{% endif %}</dd></div>
-            {% endfor %}
-          </dl>
-        </div>
-        {% endif %}
-
-        {% if brief.recommended_next_action %}
-        <div class="dm-brief-block dm-negotiation-coach">
-          <span class="dm-brief-label">negotiation coach</span>
-          <span class="dm-brief-action">{{ brief.recommended_next_action|replace('_', ' ') }}</span>
-        </div>
-        {% endif %}
-
-        {% if brief.message_annotations %}
-        <div class="dm-brief-block">
-          <span class="dm-brief-label">message signals</span>
-          <div class="dm-annotation-list">
-            {% for annotation in brief.message_annotations %}<span><strong>{{ annotation.label }}</strong>{{ annotation.note }}</span>{% endfor %}
-          </div>
-        </div>
-        {% endif %}
-
-        {% if brief.reply_options or brief.suggested_reply %}
-        <details class="dm-brief-reply">
-          <summary>reply studio <span>3 private drafts</span></summary>
-          {% if brief.reply_options %}
-            {% for reply in brief.reply_options %}
-            <article class="dm-reply-option">
-              <span class="dm-brief-label">{{ reply.style|replace('_', ' / ') }}</span>
-              <p class="dm-brief-reply-text">{{ reply.body }}</p>
-              <button type="button" class="btn btn-ghost btn-sm" data-use-draft data-draft="{{ reply.body|e }}">use draft</button>
-            </article>
-            {% endfor %}
-          {% elif brief.suggested_reply %}
-            <article class="dm-reply-option">
-              <p class="dm-brief-reply-text">{{ brief.suggested_reply }}</p>
-              <button type="button" class="btn btn-ghost btn-sm" data-use-draft data-draft="{{ brief.suggested_reply|e }}">use draft</button>
-            </article>
-          {% endif %}
-        </details>
-        {% endif %}
-
-        <div class="dm-brief-block">
-          <span class="dm-brief-label">ask a follow-up</span>
-          <form method="post" action="/creator/dm/{{ peer_id }}/brief/follow-up" class="dm-follow-ups" data-brief-follow-up>
-            {% include "_partials/csrf.html" %}
-            <button type="submit" name="focus" value="safety_check">is this safe?</button>
-            <button type="submit" name="focus" value="write_counter">write a counter</button>
-            <button type="submit" name="focus" value="extract_terms">extract terms</button>
-            <button type="submit" name="focus" value="check_rights">check rights</button>
-            <button type="submit" name="focus" value="help_decline">help me decline</button>
-            <button type="submit" name="focus" value="summarize_thread">summarize thread</button>
-          </form>
-          <div class="dm-follow-up-result" data-follow-up-result hidden aria-live="polite"></div>
-        </div>
-
-        {% if brief.trust_notes %}
-        <aside class="dm-protection-note">
-          <span class="dm-brief-label">protection note</span>
-          <ul class="dm-brief-notes">
-            {% for note in brief.trust_notes %}<li>{{ note }}</li>{% endfor %}
-          </ul>
-        </aside>
-        {% endif %}
-
-        <p class="dm-brief-foot mono">private to you · drafts only · babyg never sends without you</p>
+  <details class="dm-thread-brief-full" data-dm-brief-full{% if brief_is_alert %} open{% endif %}>
+    <summary>babyg brief — full read <span aria-hidden="true">+</span></summary>
+    <div class="dm-thread-brief-body">
+      {% if brief.summary %}
+      <div class="dm-thread-brief-block">
+        <span class="dm-thread-brief-label">summary</span>
+        <p>{{ brief.summary }}</p>
       </div>
-    </details>
-  </section>
+      {% endif %}
+
+      {% if brief.sender_ask or brief.why_it_matters %}
+      <div class="dm-thread-brief-grid">
+        {% if brief.sender_ask %}
+        <div class="dm-thread-brief-block">
+          <span class="dm-thread-brief-label">sender ask</span>
+          <p>{{ brief.sender_ask }}</p>
+        </div>
+        {% endif %}
+        {% if brief.why_it_matters %}
+        <div class="dm-thread-brief-block">
+          <span class="dm-thread-brief-label">why it matters</span>
+          <p>{{ brief.why_it_matters }}</p>
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      {% if brief.risk_reasons %}
+      <div class="dm-thread-brief-block">
+        <span class="dm-thread-brief-label">risk radar</span>
+        <ul>{% for reason in brief.risk_reasons %}<li>{{ reason }}</li>{% endfor %}</ul>
+      </div>
+      {% endif %}
+
+      {% if brief.missing_terms %}
+      <div class="dm-thread-brief-block">
+        <span class="dm-thread-brief-label">missing terms</span>
+        <ul>{% for term in brief.missing_terms %}<li>{{ term|replace('_', ' ') }}</li>{% endfor %}</ul>
+      </div>
+      {% endif %}
+
+      {% if brief.deal_terms %}
+      <div class="dm-thread-brief-block">
+        <span class="dm-thread-brief-label">deal read</span>
+        <dl class="dm-thread-brief-deal">
+          {% for key, value in brief.deal_terms.items() %}
+          <div><dt>{{ key|replace('_', ' ') }}</dt><dd>{% if value is string %}{{ value }}{% else %}{{ value|join(', ') }}{% endif %}</dd></div>
+          {% endfor %}
+        </dl>
+      </div>
+      {% endif %}
+
+      {% if brief.recommended_next_action %}
+      <div class="dm-thread-brief-block">
+        <span class="dm-thread-brief-label">recommended next action</span>
+        <p>{{ brief.recommended_next_action|replace('_', ' ') }}</p>
+      </div>
+      {% endif %}
+
+      <form method="post" action="/creator/dm/{{ peer_id }}/brief/follow-up" class="dm-thread-brief-follow" data-brief-follow-up>
+        {% include "_partials/csrf.html" %}
+        <span class="dm-thread-brief-label">ask a follow-up</span>
+        <div class="dm-thread-brief-follow-row">
+          <button type="submit" name="focus" value="safety_check">is this safe?</button>
+          <button type="submit" name="focus" value="write_counter">write a counter</button>
+          <button type="submit" name="focus" value="extract_terms">extract terms</button>
+          <button type="submit" name="focus" value="check_rights">check rights</button>
+          <button type="submit" name="focus" value="help_decline">help me decline</button>
+        </div>
+        <div class="dm-thread-brief-follow-result" data-follow-up-result hidden aria-live="polite"></div>
+      </form>
+
+      <p class="dm-thread-brief-foot mono">private to you · drafts only · babyg never sends without you</p>
+    </div>
+  </details>
   {% endif %}
 
-  <div class="dm-composer">
+  <div class="dm-thread-report">
+    {% set target_type = "dm_thread" %}
+    {% set target_id = thread.id %}
+    {% set return_to = "/creator/dm/" ~ peer_id %}
+    {% set label = "this conversation" %}
+    {% include "_partials/report_form.html" %}
+  </div>
+
+  {% if brief and brief.reply_options %}
+  <div class="dm-thread-chips" aria-label="babyg suggested replies">
+    <p class="dm-thread-chips-label">babyg suggests →</p>
+    <div class="dm-thread-chips-row">
+      {% for reply in brief.reply_options[:3] %}
+      <button type="button" class="dm-thread-chip" data-dm-chip data-dm-draft="{{ reply.body|e }}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+        <span>{{ reply.body }}</span>
+      </button>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="dm-thread-composer">
     <form method="post" action="/creator/dm/{{ peer_id }}/send">
       {% include "_partials/csrf.html" %}
-      <div class="dm-composer-status" data-dm-brief-status aria-live="polite" aria-atomic="true">
-        <span class="dm-composer-status-dot" aria-hidden="true"></span>
+      <div class="dm-thread-composer-status" data-dm-brief-status aria-live="polite" aria-atomic="true">
+        <span class="dm-thread-composer-status-dot" aria-hidden="true"></span>
         <span data-dm-brief-status-copy></span>
       </div>
-      <div class="box">
-        <input name="body" data-dm-composer-input required maxlength="4000" placeholder="reply…" />
-        <button type="submit" class="send" aria-label="send" data-dm-send>
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg>
+      <div class="dm-thread-composer-box">
+        <input name="body" data-dm-composer-input required maxlength="4000" placeholder="reply to {{ (peer.full_name or 'creator').split(' ')[0]|lower }}…" />
+        <button type="submit" class="dm-thread-composer-send" aria-label="send" data-dm-send>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg>
         </button>
       </div>
     </form>
   </div>
+
 </section>
 {% endblock %}
 
 {% block foot_scripts %}
 <script src="/static/js/dm_briefs.js" defer></script>
+<script src="{{ asset_url('js/dm_thread.js') }}" defer></script>
 {% endblock %}

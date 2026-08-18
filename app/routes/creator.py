@@ -799,10 +799,15 @@ async def dm_list(
     peer_ids = sorted({str(t["peer_id"]) for t in threads})
     peers = profiles.get_creators_by_ids(peer_ids)
     peer_kinds = {pid: ("creator" if pid in peers else "unknown") for pid in peer_ids}
+    thread_ids = [str(t["id"]) for t in threads]
     # Private babyg risk chips: latest brief per thread, recipient-scoped.
     briefs = dm_briefs.latest_briefs_for_threads(
-        [str(t["id"]) for t in threads], recipient_id=session["user_id"]
+        thread_ids, recipient_id=session["user_id"]
     )
+    # Per-thread unread count powers the coral bar + bold-name state and
+    # the "unread N" filter chip in the header. Single batched query.
+    unread_by_thread = dms.unread_counts_by_thread(session["user_id"], thread_ids)
+    unread_total = sum(unread_by_thread.values())
     return templates.TemplateResponse(
         request,
         "creator/dm_list.html",
@@ -811,6 +816,8 @@ async def dm_list(
             "peers": peers,
             "peer_kinds": peer_kinds,
             "briefs": briefs,
+            "unread_by_thread": unread_by_thread,
+            "unread_total": unread_total,
         },
     )
 

@@ -1,62 +1,98 @@
 {% extends "base.html" %}
 
-{% block title %}inbox — babyg{% endblock %}
+{% block title %}dms — babyg{% endblock %}
 
 {% block content %}
-<div class="wrap creator-inbox-page">
-  <header class="creator-screen-topbar">
-    <div class="creator-screen-title">
-      <span class="creator-screen-mark" aria-hidden="true"><img src="/static/assets/logo-bg.png" alt="" /></span>
+<section class="dm-inbox" data-dm-inbox>
+  <header class="dm-inbox-head">
+    <div class="dm-inbox-lockup">
+      <span class="dm-inbox-mark" aria-hidden="true"><img src="/static/assets/logo-bg.png" alt="" /></span>
       <div>
-        <h1>DMs</h1>
-        <p>babyg briefs every new conversation</p>
+        <h1>dms.</h1>
+        <p>babyg briefs every conversation.</p>
       </div>
     </div>
-    <a class="creator-screen-action" href="/creator/network" aria-label="Start a new conversation">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4Z"/></svg>
+    <a class="dm-inbox-compose" href="/creator/network" aria-label="start a new conversation">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
     </a>
   </header>
 
+  <label class="dm-inbox-search">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
+    <input type="search" name="q" placeholder="search a person or thread…" autocomplete="off" data-dm-search />
+  </label>
+
+  <div class="dm-inbox-filters" role="tablist" aria-label="filter dms">
+    <button type="button" class="dm-inbox-filter active" role="tab" aria-selected="true" data-dm-filter="all">all</button>
+    <button type="button" class="dm-inbox-filter" role="tab" aria-selected="false" data-dm-filter="unread">
+      unread{% if unread_total %} <span class="dm-inbox-filter-count">{{ unread_total }}</span>{% endif %}
+    </button>
+  </div>
+
   {% if threads %}
-  <div class="stack">
+  <ul class="dm-inbox-list" data-dm-list>
     {% for t in threads %}
     {% set peer = peers.get(t.peer_id) %}
-    {% set kind = peer_kinds.get(t.peer_id, "unknown") %}
     {% set peer_name = (peer.full_name|title) if peer and peer.full_name else (peer.instagram_handle if peer and peer.instagram_handle else 'creator') %}
+    {% set peer_handle = ("@" ~ peer.instagram_handle) if peer and peer.instagram_handle else "" %}
     {% set peer_initial = peer_name[0].upper() %}
-    <a href="/creator/dm/{{ t.peer_id }}" class="thread-row{{ ' unread' if t.unread_count|default(0) }}">
-      {% set creator = peer %}{% set palette = "1" %}{% set size = "" %}{% include "_partials/_avatar.html" %}
-      <div class="body">
-        <div class="top">
-          <span class="name">{{ peer_name }}</span>
-          {% if t.last_message_at %}
-          <span class="when">{{ t.last_message_at|short_date }}</span>
+    {% set unread = unread_by_thread.get(t.id, 0) if unread_by_thread else 0 %}
+    {% set b = briefs.get(t.id) if briefs else none %}
+    <li class="dm-inbox-row{{ ' unread' if unread }}{{ ' waiting' if unread }}"
+        data-dm-row
+        data-dm-name="{{ peer_name|lower }} {{ peer_handle|lower }}"
+        data-dm-unread="{{ '1' if unread else '0' }}">
+      <a href="/creator/dm/{{ t.peer_id }}" class="dm-inbox-link">
+        <span class="dm-inbox-avatar" aria-hidden="true">
+          {% if peer and peer.profile_photo_url %}
+          <img src="{{ peer.profile_photo_url|safe_url }}" alt="" loading="lazy" />
+          {% else %}
+          <span>{{ peer_initial }}</span>
+          {% endif %}
+        </span>
+        <div class="dm-inbox-body">
+          <span class="dm-inbox-name">{{ peer_name }}</span>
+          {% if b and b.summary %}
+          <p class="dm-inbox-sub brief">{{ b.summary }}</p>
+          {% elif peer_handle %}
+          <p class="dm-inbox-sub">{{ peer_handle }}</p>
+          {% else %}
+          <p class="dm-inbox-sub">connected creator</p>
           {% endif %}
         </div>
-        {% if peer and peer.instagram_handle %}
-        <div class="preview">@{{ peer.instagram_handle }}</div>
-        {% else %}
-        <div class="preview">connected creator</div>
-        {% endif %}
-        {% set b = briefs.get(t.id) if briefs else none %}
-        {% if b %}
-        <div class="dm-risk-row">
-          <span class="dm-risk-chip dm-risk-chip-{{ b.risk_level }}">{{ b.risk_level|replace('_', ' ') }}</span>
-          {% if b.recommended_next_action %}
-          <span class="dm-risk-next">{{ b.recommended_next_action|replace('_', ' ') }}</span>
-          {% endif %}
-        </div>
-        {% endif %}
+        <span class="dm-inbox-time">
+          {% if t.last_message_at %}{{ t.last_message_at|human_ago }}{% endif %}
+        </span>
+      </a>
+      {% if b and b.reply_options %}
+      <div class="dm-inbox-chips" aria-label="babyg suggested replies">
+        {% for reply in b.reply_options[:2] %}
+        <a href="/creator/dm/{{ t.peer_id }}?draft={{ reply.body|urlencode }}"
+           class="dm-inbox-chip"
+           data-dm-chip>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+          <span>{{ reply.body }}</span>
+        </a>
+        {% endfor %}
       </div>
-    </a>
+      {% endif %}
+    </li>
     {% endfor %}
-  </div>
+  </ul>
+
+  <p class="dm-inbox-empty-hint" data-dm-empty-hint hidden>
+    no threads match this filter.
+  </p>
   {% else %}
-  <div style="text-align:center;padding:60px 0;color:var(--ink-dim);">
-    <span class="mono">no conversations.</span>
-    <p style="margin:12px 0 0;font-size:13.5px;">connect with creators in your network first.</p>
-    <a href="/creator/network" class="btn btn-ghost btn-sm" style="margin-top:16px;">browse network</a>
+  <div class="dm-inbox-empty">
+    <p class="mono">no conversations.</p>
+    <p>connect with creators in your network first.</p>
+    <a href="/creator/network" class="btn btn-ghost btn-sm">browse network</a>
   </div>
   {% endif %}
-</div>
+</section>
+{% endblock %}
+
+{% block foot_scripts %}
+<script src="{{ asset_url('js/dm_inbox.js') }}" defer></script>
 {% endblock %}

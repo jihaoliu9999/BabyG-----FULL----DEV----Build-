@@ -10354,3 +10354,574 @@ hr.hairline {
   .signal-badge { font-size: 9.5px; padding: 3px 8px; height: 20px; }
   .discover-relevance ul li { font-size: 13.5px; }
 }
+
+/* ============================================================
+ * DM inbox (list) v3 — no boxes per row, hairline separators,
+ * coral bar for waiting-on-you, babyg subtitle inline, reply
+ * chips shown on rows with brief context. Search + 2 filters.
+ * ============================================================ */
+.dm-inbox {
+  width: min(100%, 780px);
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+  display: flex; flex-direction: column; gap: 20px;
+}
+.dm-inbox-head {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+}
+.dm-inbox-lockup { display: flex; align-items: center; gap: 14px; }
+.dm-inbox-mark {
+  width: 44px; height: 44px; border-radius: 12px;
+  background: var(--surface-2);
+  display: inline-flex; align-items: center; justify-content: center;
+  overflow: hidden;
+}
+.dm-inbox-mark img { width: 100%; height: 100%; object-fit: contain; }
+.dm-inbox-head h1 { margin: 0; font-size: 26px; font-weight: 600; letter-spacing: -.02em; line-height: 1; }
+.dm-inbox-head p { margin: 4px 0 0; color: var(--ink-mid); font-size: 13px; }
+.dm-inbox-compose {
+  width: 40px; height: 40px;
+  display: grid; place-items: center;
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  color: var(--ink-mid);
+  flex: 0 0 40px;
+}
+.dm-inbox-compose:hover { color: var(--ink); border-color: rgba(255,77,109,.32); }
+.dm-inbox-compose svg { width: 16px; height: 16px; }
+.dm-inbox-search {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+}
+.dm-inbox-search svg { width: 15px; height: 15px; color: var(--ink-dim); flex: 0 0 15px; }
+.dm-inbox-search input {
+  flex: 1; background: transparent; border: none; outline: none;
+  color: var(--ink); font: inherit; font-size: 14px;
+}
+.dm-inbox-search input::placeholder { color: var(--ink-dim); }
+.dm-inbox-filters { display: flex; gap: 6px; }
+.dm-inbox-filter {
+  padding: 6px 12px; border-radius: 999px;
+  background: transparent;
+  border: 1px solid var(--hairline);
+  color: var(--ink-mid);
+  font-family: inherit;
+  font-size: 12.5px;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px;
+  transition: background .15s ease, border-color .15s ease, color .15s ease;
+}
+.dm-inbox-filter:hover { color: var(--ink); border-color: rgba(255,77,109,.32); }
+.dm-inbox-filter.active {
+  background: var(--lime, #ff4d6d); color: white;
+  border-color: var(--lime, #ff4d6d);
+}
+.dm-inbox-filter-count {
+  font-family: var(--mono);
+  font-size: 10px;
+  opacity: 0.75;
+}
+.dm-inbox-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+.dm-inbox-row {
+  border-bottom: 1px solid var(--hairline);
+  position: relative;
+}
+.dm-inbox-row:last-child { border-bottom: none; }
+.dm-inbox-row:hover { background: rgba(255,255,255,.015); }
+.dm-inbox-row.waiting::before {
+  content: "";
+  position: absolute;
+  left: -8px; top: 20px;
+  width: 3px; height: 26px;
+  border-radius: 2px;
+  background: var(--lime, #ff4d6d);
+  box-shadow: 0 0 8px rgba(255,77,109,.5);
+}
+.dm-inbox-link {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) auto;
+  gap: 14px;
+  padding: 16px 4px;
+  color: inherit;
+  text-decoration: none;
+  align-items: start;
+}
+.dm-inbox-avatar {
+  width: 44px; height: 44px; border-radius: 50%;
+  background: linear-gradient(160deg, #2a2226, #16121a);
+  border: 1px solid var(--hairline);
+  display: grid; place-items: center;
+  color: var(--ink-mid);
+  font-size: 15px; font-weight: 600;
+  overflow: hidden;
+}
+.dm-inbox-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.dm-inbox-body { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.dm-inbox-name {
+  font-size: 15px; font-weight: 500; color: var(--ink-mid);
+  letter-spacing: -.005em; line-height: 1.2;
+}
+.dm-inbox-row.unread .dm-inbox-name { color: var(--ink); font-weight: 600; }
+.dm-inbox-sub {
+  margin: 0;
+  color: var(--ink-dim);
+  font-size: 13.5px;
+  line-height: 1.35;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dm-inbox-sub.brief { color: var(--ink-mid); font-style: italic; }
+.dm-inbox-time {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: lowercase;
+  color: var(--ink-dim);
+  white-space: nowrap;
+  padding-top: 3px;
+}
+.dm-inbox-row.unread .dm-inbox-time { color: var(--ink-mid); }
+
+/* Reply chips row inside the DM row — small pills, tap to open thread
+   with the draft prefilled. */
+.dm-inbox-chips {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  padding: 0 4px 14px calc(44px + 14px + 4px);
+  margin-top: -4px;
+}
+.dm-inbox-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 11px;
+  background: rgba(255, 77, 109, 0.06);
+  border: 1px solid rgba(255, 77, 109, 0.28);
+  border-radius: 999px;
+  color: var(--ink);
+  font-size: 12.5px;
+  line-height: 1.2;
+  text-decoration: none;
+  max-width: 100%;
+  transition: background .15s ease, border-color .15s ease;
+}
+.dm-inbox-chip:hover {
+  background: rgba(255, 77, 109, 0.12);
+  border-color: rgba(255, 77, 109, 0.5);
+}
+.dm-inbox-chip svg { width: 12px; height: 12px; color: var(--lime, #ff4d6d); flex: 0 0 12px; }
+.dm-inbox-chip span {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  max-width: 260px;
+}
+
+.dm-inbox-empty-hint {
+  text-align: center; color: var(--ink-dim);
+  font-size: 13px; padding: 32px 0;
+}
+.dm-inbox-empty {
+  text-align: center; padding: 60px 0; color: var(--ink-dim);
+  display: flex; flex-direction: column; gap: 12px; align-items: center;
+}
+.dm-inbox-empty p { margin: 0; font-size: 13.5px; }
+
+@media (max-width: 640px) {
+  .dm-inbox { padding: 18px 14px 40px; gap: 16px; }
+  .dm-inbox-head h1 { font-size: 24px; }
+  .dm-inbox-mark { width: 40px; height: 40px; }
+  .dm-inbox-chips {
+    flex-wrap: nowrap; overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    padding-left: calc(44px + 14px + 4px);
+    padding-bottom: 12px;
+  }
+  .dm-inbox-chips::-webkit-scrollbar { display: none; }
+  .dm-inbox-chip { flex: 0 0 auto; font-size: 12px; padding: 6px 10px; }
+  .dm-inbox-chip span { max-width: 60vw; }
+}
+
+/* ============================================================
+ * DM thread (single conversation) — slim header, brief strip,
+ * cleaner bubbles, chip row above pill composer. The full brief
+ * accordion still exists (below messages, collapsed) so safety +
+ * negotiation-coach features remain reachable.
+ * ============================================================ */
+.dm-thread {
+  width: min(100%, 780px);
+  margin: 0 auto;
+  min-height: 100vh;
+  display: flex; flex-direction: column;
+  border-left: 1px solid var(--hairline);
+  border-right: 1px solid var(--hairline);
+}
+.dm-thread-head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--hairline);
+  min-height: 56px;
+  position: sticky; top: 0;
+  background: rgba(10,10,10,0.92);
+  backdrop-filter: blur(20px);
+  z-index: 4;
+}
+.dm-thread-back,
+.dm-thread-menu > summary {
+  width: 34px; height: 34px;
+  display: grid; place-items: center;
+  color: var(--ink-mid);
+  background: transparent;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  list-style: none;
+}
+.dm-thread-back:hover,
+.dm-thread-menu > summary:hover { background: var(--surface-2); color: var(--ink); }
+.dm-thread-back svg,
+.dm-thread-menu svg { width: 18px; height: 18px; }
+.dm-thread-menu > summary::-webkit-details-marker { display: none; }
+.dm-thread-menu { position: relative; }
+.dm-thread-menu-panel {
+  position: absolute; top: 100%; right: 0;
+  margin-top: 6px;
+  min-width: 160px;
+  background: var(--surface-1);
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  box-shadow: var(--shadow-raised);
+  padding: 6px;
+  display: flex; flex-direction: column; gap: 2px;
+  z-index: 5;
+}
+.dm-thread-menu-item {
+  display: block;
+  padding: 8px 10px;
+  border-radius: 8px;
+  color: var(--ink-mid);
+  font: inherit;
+  font-size: 13px;
+  background: transparent;
+  border: none;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  width: 100%;
+}
+.dm-thread-menu-item:hover { background: var(--surface-2); color: var(--ink); }
+.dm-thread-menu-item[disabled] { opacity: 0.45; cursor: not-allowed; }
+
+.dm-thread-peer {
+  flex: 1;
+  display: flex; align-items: center; gap: 10px;
+  min-width: 0;
+  text-decoration: none;
+  color: inherit;
+}
+.dm-thread-avatar {
+  width: 34px; height: 34px; border-radius: 50%;
+  background: linear-gradient(160deg, #2a2226, #16121a);
+  border: 1px solid var(--hairline);
+  display: grid; place-items: center;
+  color: var(--ink-mid);
+  font-size: 13px; font-weight: 600;
+  overflow: hidden;
+  flex: 0 0 34px;
+}
+.dm-thread-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.dm-thread-peer-text { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.dm-thread-name {
+  color: var(--ink); font-weight: 600; font-size: 14.5px;
+  line-height: 1.1;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.dm-thread-handle {
+  color: var(--ink-dim); font-size: 11.5px;
+  line-height: 1.1;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* Babyg brief strip — coral pill + summary, one line, subtle */
+.dm-thread-brief {
+  padding: 10px 20px;
+  display: flex; align-items: center; gap: 8px;
+  border-bottom: 1px solid var(--hairline);
+  background: linear-gradient(180deg, rgba(255,77,109,.045), transparent);
+  font-size: 12.5px;
+  color: var(--ink-mid);
+  font-style: italic;
+}
+.dm-thread-brief-alert {
+  background: linear-gradient(180deg, rgba(255,77,109,.12), transparent);
+}
+.dm-thread-brief-pill {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  text-transform: lowercase;
+  color: var(--lime,#ff4d6d);
+  font-style: normal;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,77,109,.32);
+  background: rgba(255,77,109,.06);
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+.dm-thread-brief-text {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.dm-thread-notice {
+  margin: 10px 20px 0;
+  padding: 10px 14px;
+  background: rgba(255,77,109,0.08);
+  border: 1px solid rgba(255,77,109,0.32);
+  border-radius: 10px;
+  color: var(--lime,#ff4d6d);
+  font-size: 13px;
+  text-align: center;
+}
+.dm-thread-notice-error { color: var(--lime,#ff4d6d); }
+
+.dm-thread-messages-wrap {
+  flex: 1;
+  padding: 16px 16px 8px;
+  overflow-y: auto;
+}
+.dm-thread-empty {
+  text-align: center;
+  color: var(--ink-dim);
+  padding: 40px 0;
+}
+
+/* Message bubbles — bot-page-style, peer left, you right */
+.dm-messages {
+  list-style: none;
+  margin: 0; padding: 0;
+  display: flex; flex-direction: column;
+  gap: 10px;
+}
+.dm-message {
+  display: flex; flex-direction: column; gap: 3px;
+  max-width: 84%;
+}
+.dm-message-mine { align-self: flex-end; align-items: flex-end; }
+.dm-message-theirs { align-self: flex-start; align-items: flex-start; }
+.dm-message-body {
+  padding: 11px 15px;
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: var(--ink);
+  border-radius: 18px;
+}
+.dm-message-theirs .dm-message-body {
+  background: var(--surface-1);
+  border: 1px solid var(--hairline);
+  border-bottom-left-radius: 4px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.02), 0 4px 14px rgba(0,0,0,.18);
+}
+.dm-message-mine .dm-message-body {
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  border-bottom-right-radius: 4px;
+}
+.dm-message-meta {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
+  text-transform: lowercase;
+  color: var(--ink-dim);
+}
+.dm-message-tick { color: var(--lime,#ff4d6d); }
+
+/* Full brief accordion — moved below messages, muted styling */
+.dm-thread-brief-full {
+  margin: 12px 16px 0;
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  background: var(--surface-1);
+  padding: 4px 0;
+}
+.dm-thread-brief-full > summary {
+  cursor: pointer;
+  padding: 12px 16px;
+  font-size: 13px;
+  color: var(--ink-mid);
+  display: flex; justify-content: space-between; align-items: center;
+  list-style: none;
+}
+.dm-thread-brief-full > summary::-webkit-details-marker { display: none; }
+.dm-thread-brief-full[open] > summary { color: var(--ink); }
+.dm-thread-brief-body {
+  padding: 4px 16px 16px;
+  display: flex; flex-direction: column; gap: 14px;
+}
+.dm-thread-brief-block { display: flex; flex-direction: column; gap: 6px; }
+.dm-thread-brief-block p, .dm-thread-brief-block ul, .dm-thread-brief-block dl {
+  margin: 0; color: var(--ink); font-size: 13.5px; line-height: 1.5;
+}
+.dm-thread-brief-block ul { padding-left: 18px; }
+.dm-thread-brief-label {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
+  text-transform: lowercase;
+  color: var(--ink-dim);
+}
+.dm-thread-brief-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+.dm-thread-brief-deal { display: grid; gap: 6px; }
+.dm-thread-brief-deal div { display: flex; gap: 8px; font-size: 13px; }
+.dm-thread-brief-deal dt { color: var(--ink-mid); text-transform: lowercase; min-width: 90px; }
+.dm-thread-brief-deal dd { margin: 0; color: var(--ink); }
+.dm-thread-brief-follow-row { display: flex; flex-wrap: wrap; gap: 6px; }
+.dm-thread-brief-follow-row button {
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  color: var(--ink-mid);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.dm-thread-brief-follow-row button:hover {
+  border-color: rgba(255,77,109,.32);
+  color: var(--ink);
+}
+.dm-thread-brief-follow-result {
+  padding: 10px 12px; border: 1px solid var(--hairline);
+  border-radius: 10px; color: var(--ink); font-size: 13px;
+  background: var(--surface-2);
+}
+.dm-thread-brief-foot { color: var(--ink-dim); font-size: 10.5px; margin: 6px 0 0; }
+
+.dm-thread-report { padding: 10px 16px 0; }
+
+/* Chip row above composer */
+.dm-thread-chips {
+  padding: 10px 16px 6px;
+  border-top: 1px solid var(--hairline);
+  background: rgba(8,8,8,0.7);
+  backdrop-filter: blur(12px);
+}
+.dm-thread-chips-label {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
+  text-transform: lowercase;
+  color: var(--ink-dim);
+  margin: 0 0 8px 4px;
+}
+.dm-thread-chips-row {
+  display: flex; gap: 6px; flex-wrap: wrap;
+}
+.dm-thread-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(255,77,109,.06);
+  border: 1px solid rgba(255,77,109,.28);
+  color: var(--ink);
+  font-size: 13px;
+  line-height: 1.2;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background .15s ease, border-color .15s ease;
+  max-width: 100%;
+}
+.dm-thread-chip:hover {
+  background: rgba(255,77,109,.12);
+  border-color: rgba(255,77,109,.5);
+}
+.dm-thread-chip svg { width: 12px; height: 12px; color: var(--lime,#ff4d6d); flex: 0 0 12px; }
+.dm-thread-chip span {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  max-width: 320px;
+}
+@media (max-width: 640px) {
+  .dm-thread-chips { padding: 8px 14px 4px; }
+  .dm-thread-chips-row {
+    flex-wrap: nowrap; overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none; -ms-overflow-style: none;
+    scroll-snap-type: x proximity;
+    padding-bottom: 2px;
+  }
+  .dm-thread-chips-row::-webkit-scrollbar { display: none; }
+  .dm-thread-chip {
+    flex: 0 0 auto;
+    scroll-snap-align: start;
+    font-size: 12.5px;
+    padding: 7px 11px;
+  }
+  .dm-thread-chip span { max-width: 74vw; }
+}
+
+/* Composer — pill shape, matches bot page */
+.dm-thread-composer {
+  padding: 10px 16px 14px;
+  background: rgba(8,8,8,0.92);
+  border-top: 1px solid var(--hairline);
+  backdrop-filter: blur(20px);
+}
+.dm-thread-composer-status {
+  display: flex; align-items: center; gap: 6px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: lowercase;
+  color: var(--ink-dim);
+  min-height: 18px;
+  margin: 0 0 6px 4px;
+  visibility: hidden;
+}
+.dm-thread-composer-status.is-visible { visibility: visible; }
+.dm-thread-composer-status-dot {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: transparent;
+}
+.dm-thread-composer-box {
+  display: flex; gap: 8px; align-items: center;
+  background: linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.02));
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 26px;
+  padding: 6px 6px 6px 18px;
+}
+.dm-thread-composer-box input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: 15px;
+  padding: 8px 0;
+  min-height: 32px;
+}
+.dm-thread-composer-box input::placeholder { color: var(--ink-dim); }
+.dm-thread-composer-send {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  background: var(--lime,#ff4d6d);
+  border: none;
+  display: grid; place-items: center;
+  color: white;
+  cursor: pointer;
+  flex: 0 0 40px;
+}
+.dm-thread-composer-send svg { width: 16px; height: 16px; }
+
+/* Risk-level pill colors — keep the semantic palette for the strip
+   pill so alerts stay visually distinct without shouting on every
+   thread. */
+.dm-thread-brief-pill-safe { color: rgb(126,223,196); border-color: rgba(126,223,196,.32); background: rgba(126,223,196,.08); }
+.dm-thread-brief-pill-mild { color: rgb(156,202,255); border-color: rgba(156,202,255,.32); background: rgba(156,202,255,.08); }
+.dm-thread-brief-pill-caution { color: rgb(234,215,181); border-color: rgba(234,215,181,.32); background: rgba(234,215,181,.08); }
