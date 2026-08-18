@@ -8721,6 +8721,161 @@ hr.hairline {
   border-color: rgba(242,85,77,.28);
   background: var(--risk-subtle);
 }
+[data-babyg-redesign="true"] .connections-page {
+  max-width: 980px;
+  padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 72px);
+}
+[data-babyg-redesign="true"] .connections-head {
+  margin-bottom: 14px;
+}
+[data-babyg-redesign="true"] .connections-panel {
+  position: relative;
+  padding: clamp(18px, 3vw, 28px);
+  border: 1px solid rgba(245, 241, 232, 0.09);
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(255, 74, 112, 0.08), transparent 34%),
+    linear-gradient(145deg, rgba(31, 29, 32, 0.92), rgba(14, 13, 15, 0.95));
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.34);
+}
+[data-babyg-redesign="true"] .connections-panel-primary {
+  margin-top: 8px;
+}
+[data-babyg-redesign="true"] .connections-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+[data-babyg-redesign="true"] .connections-section-head.compact {
+  margin-bottom: 12px;
+}
+[data-babyg-redesign="true"] .connections-section-head h2 {
+  margin: 4px 0 0;
+  color: var(--text-primary);
+  font-size: clamp(28px, 4vw, 42px);
+  line-height: 0.98;
+  letter-spacing: -0.05em;
+}
+[data-babyg-redesign="true"] .connections-section-head strong {
+  color: var(--accent-text);
+  font-size: 22px;
+}
+[data-babyg-redesign="true"] .connections-list {
+  display: grid;
+  gap: 10px;
+}
+[data-babyg-redesign="true"] .connection-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid rgba(245, 241, 232, 0.08);
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--text-primary);
+  text-decoration: none;
+  transition: transform 180ms ease, border-color 180ms ease, background 180ms ease;
+}
+[data-babyg-redesign="true"] .connection-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(255, 77, 109, 0.28);
+  background: rgba(255, 255, 255, 0.04);
+}
+[data-babyg-redesign="true"] .connection-card-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+[data-babyg-redesign="true"] .connection-card-copy {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+[data-babyg-redesign="true"] .connection-name {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+[data-babyg-redesign="true"] .connection-handle,
+[data-babyg-redesign="true"] .connection-date,
+[data-babyg-redesign="true"] .connection-status {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+[data-babyg-redesign="true"] .connection-card-meta,
+[data-babyg-redesign="true"] .connection-action-pair {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+[data-babyg-redesign="true"] .connection-card-meta {
+  flex-wrap: wrap;
+}
+[data-babyg-redesign="true"] .connection-status {
+  padding: 8px 12px;
+  border: 1px solid rgba(245, 241, 232, 0.08);
+  border-radius: 999px;
+}
+[data-babyg-redesign="true"] .connections-empty {
+  display: grid;
+  min-height: 220px;
+  place-items: center;
+  gap: 8px;
+  border: 1px solid rgba(245, 241, 232, 0.06);
+  border-radius: 22px;
+  background: rgba(0, 0, 0, 0.14);
+  color: var(--text-secondary);
+  text-align: center;
+}
+[data-babyg-redesign="true"] .connections-empty span {
+  color: var(--text-primary);
+  letter-spacing: 0.16em;
+}
+[data-babyg-redesign="true"] .connections-empty p {
+  margin: 0;
+}
+[data-babyg-redesign="true"] .connections-pending-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 14px;
+}
+[data-babyg-redesign="true"] .connections-list.compact .connection-card {
+  padding: 12px;
+}
+[data-babyg-redesign="true"] .connection-card.pending {
+  align-items: flex-start;
+}
+@media (max-width: 760px) {
+  [data-babyg-redesign="true"] .connections-section-head,
+  [data-babyg-redesign="true"] .connection-card,
+  [data-babyg-redesign="true"] .connection-card-meta {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  [data-babyg-redesign="true"] .connections-pending-grid {
+    grid-template-columns: 1fr;
+  }
+  [data-babyg-redesign="true"] .connection-action-pair {
+    justify-content: stretch;
+  }
+  [data-babyg-redesign="true"] .connection-action-pair form,
+  [data-babyg-redesign="true"] .connection-card-meta .btn,
+  [data-babyg-redesign="true"] .connections-section-head .btn {
+    width: 100%;
+  }
+}
 [data-babyg-redesign="true"] .intel-card-head,
 [data-babyg-redesign="true"] .intel-card-tags,
 [data-babyg-redesign="true"] .intel-card-foot,

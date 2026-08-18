@@ -1,99 +1,125 @@
 {% extends "base.html" %}
 
-{% block title %}connections — babyg{% endblock %}
+{% block title %}my connections - babyg{% endblock %}
 
 {% block content %}
-<div class="wrap">
-  <div class="page-header">
-    <div class="title-block">
-      <span class="mono eyebrow">connections</span>
-      <p class="sub">your network, accepted and pending.</p>
+<section class="discover connections-page">
+  <header class="discover-head connections-head">
+    <div class="discover-title-lockup">
+      <span class="brand-mark sm"><img src="/static/assets/logo-bg.png" alt="" /></span>
+      <h1>my connections</h1>
+      <p>profiles you connected with and when.</p>
     </div>
-    <div class="actions">
-      <a class="btn btn-ghost btn-sm" href="/creator/network">browse</a>
-    </div>
-  </div>
+  </header>
 
-  {% if incoming %}
-  <span class="mono" style="display:block;margin-bottom:10px;color:var(--lime);">incoming · {{ incoming|length }}</span>
-  <div class="stack" style="margin-bottom:24px;">
-    {% for c in incoming %}
-    {% set peer = peers.get(c.peer_id) %}
-    <div class="card" style="margin-bottom:10px;">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-        <a href="/creator/network/{{ c.peer_id }}" style="display:flex;align-items:center;gap:12px;flex:1;min-width:0;text-decoration:none;">
-          {% set creator = peer %}{% set palette = "2" %}{% set size = "" %}{% include "_partials/_avatar.html" %}
-          <div style="min-width:0;">
-            <div style="font-size:14px;color:var(--ink);font-weight:500;">{{ peer.full_name if peer else 'Creator' }}{% if peer and peer.instagram_handle %}<span style="font-size:12px;color:var(--ink-dim);font-weight:400;margin-left:6px;">@{{ peer.instagram_handle }}</span>{% endif %}</div>
-            <div style="font-size:12px;color:var(--ink-dim);margin-top:2px;">requested {{ c.requested_at|short_date or '' }}</div>
-          </div>
+  <nav class="discover-kind-tabs" aria-label="discover card type">
+    <a href="/creator/discover?kind=all">all</a>
+    <a href="/creator/discover?kind=creator">creators</a>
+    <a href="/creator/discover?kind=brand">brands</a>
+    <a href="/creator/discover?kind=opportunity">opportunities</a>
+    <a href="/creator/connections" class="active" aria-current="page">my connections</a>
+  </nav>
+
+  <div class="connections-panel connections-panel-primary">
+    <div class="connections-section-head">
+      <div>
+        <span class="mono eyebrow">connected</span>
+        <h2>{{ accepted|length }} {{ 'profile' if accepted|length == 1 else 'profiles' }}</h2>
+      </div>
+      <a class="btn btn-ghost btn-sm" href="/creator/discover">keep discovering</a>
+    </div>
+
+    {% if accepted %}
+    <div class="connections-list">
+      {% for c in accepted %}
+      {% set peer = peers.get(c.peer_id) %}
+      <article class="connection-card" data-connection-row data-connection-id="{{ c.id }}" data-peer-name="{{ (peer.full_name if peer else 'this profile')|e }}">
+        <a href="/creator/network/{{ c.peer_id }}" class="connection-card-main">
+          {% set creator = peer %}{% set palette = "1" %}{% set size = "" %}{% include "_partials/_avatar.html" %}
+          <span class="connection-card-copy">
+            <span class="connection-name">{{ peer.full_name if peer else 'profile' }}</span>
+            {% if peer and peer.instagram_handle %}<span class="connection-handle">@{{ peer.instagram_handle }}</span>{% endif %}
+          </span>
         </a>
-        <div style="display:flex;gap:8px;flex-shrink:0;">
-          <form method="post" action="/creator/connections/{{ c.id }}/accept">
+        <div class="connection-card-meta">
+          <span class="connection-date">connected {{ (c.responded_at or c.requested_at)|short_date or 'date pending' }}</span>
+          <form method="post" action="/creator/connections/{{ c.id }}/disconnect" class="connection-disconnect-form" data-disconnect-form>
             {% include "_partials/csrf.html" %}
-            <button type="submit" class="btn btn-lime btn-sm">Accept</button>
-          </form>
-          <form method="post" action="/creator/connections/{{ c.id }}/decline">
-            {% include "_partials/csrf.html" %}
-            <button type="submit" class="btn btn-ghost btn-sm">Decline</button>
+            <button type="submit" class="btn btn-ghost btn-sm" data-disconnect-btn aria-label="disconnect from {{ (peer.full_name if peer else 'this profile')|e }}">disconnect</button>
           </form>
         </div>
-      </div>
+      </article>
+      {% endfor %}
     </div>
-    {% endfor %}
+    {% else %}
+    <div class="connections-empty">
+      <span class="mono">no connections yet.</span>
+      <p>save the profiles that feel like the right fit.</p>
+    </div>
+    {% endif %}
   </div>
-  {% endif %}
 
-  <span class="mono" style="display:block;margin-bottom:10px;">connected · {{ accepted|length }}</span>
-  {% if accepted %}
-  <div class="stack" style="margin-bottom:24px;">
-    {% for c in accepted %}
-    {% set peer = peers.get(c.peer_id) %}
-    <div class="connection-row" data-connection-row data-connection-id="{{ c.id }}"
-         data-peer-name="{{ (peer.full_name if peer else 'this creator')|e }}"
-         style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-      <a href="/creator/network/{{ c.peer_id }}" class="thread-row" style="flex:1;min-width:0;margin:0;">
-        {% set creator = peer %}{% set palette = "1" %}{% set size = "" %}{% include "_partials/_avatar.html" %}
-        <div class="body">
-          <div class="top">
-            <span class="name">{{ peer.full_name if peer else 'Creator' }}{% if peer and peer.instagram_handle %}<span style="font-size:12px;color:var(--ink-dim);font-weight:400;margin-left:6px;">@{{ peer.instagram_handle }}</span>{% endif %}</span>
-            <span class="when">{{ c.responded_at|short_date or '' }}</span>
+  {% if incoming or outgoing %}
+  <div class="connections-pending-grid">
+    {% if incoming %}
+    <section class="connections-panel">
+      <div class="connections-section-head compact">
+        <span class="mono eyebrow">incoming</span>
+        <strong>{{ incoming|length }}</strong>
+      </div>
+      <div class="connections-list compact">
+        {% for c in incoming %}
+        {% set peer = peers.get(c.peer_id) %}
+        <article class="connection-card pending">
+          <a href="/creator/network/{{ c.peer_id }}" class="connection-card-main">
+            {% set creator = peer %}{% set palette = "2" %}{% set size = "" %}{% include "_partials/_avatar.html" %}
+            <span class="connection-card-copy">
+              <span class="connection-name">{{ peer.full_name if peer else 'profile' }}</span>
+              <span class="connection-date">requested {{ c.requested_at|short_date or '' }}</span>
+            </span>
+          </a>
+          <div class="connection-action-pair">
+            <form method="post" action="/creator/connections/{{ c.id }}/accept">
+              {% include "_partials/csrf.html" %}
+              <button type="submit" class="btn btn-primary btn-sm">accept</button>
+            </form>
+            <form method="post" action="/creator/connections/{{ c.id }}/decline">
+              {% include "_partials/csrf.html" %}
+              <button type="submit" class="btn btn-ghost btn-sm">decline</button>
+            </form>
           </div>
-          <div class="preview" data-connection-status>connected</div>
-        </div>
-      </a>
-      <form method="post" action="/creator/connections/{{ c.id }}/disconnect"
-            class="connection-disconnect-form" data-disconnect-form style="flex-shrink:0;margin:0;">
-        {% include "_partials/csrf.html" %}
-        <button type="submit" class="btn btn-ghost btn-sm" data-disconnect-btn
-                aria-label="disconnect from {{ (peer.full_name if peer else 'this creator')|e }}">disconnect</button>
-      </form>
-    </div>
-    {% endfor %}
-  </div>
-  {% else %}
-  <div style="padding:24px 0;color:var(--ink-dim);font-size:13.5px;">no accepted connections yet.</div>
-  {% endif %}
-
-  {% if outgoing %}
-  <span class="mono" style="display:block;margin-bottom:10px;">sent · {{ outgoing|length }}</span>
-  <div class="stack">
-    {% for c in outgoing %}
-    {% set peer = peers.get(c.peer_id) %}
-    <a href="/creator/network/{{ c.peer_id }}" class="thread-row">
-      {% set creator = peer %}{% set palette = "3" %}{% set size = "" %}{% include "_partials/_avatar.html" %}
-      <div class="body">
-        <div class="top">
-          <span class="name">{{ peer.full_name if peer else 'Creator' }}</span>
-          <span class="when">{{ c.requested_at|short_date or '' }}</span>
-        </div>
-        <div class="preview">awaiting response</div>
+        </article>
+        {% endfor %}
       </div>
-    </a>
-    {% endfor %}
+    </section>
+    {% endif %}
+
+    {% if outgoing %}
+    <section class="connections-panel">
+      <div class="connections-section-head compact">
+        <span class="mono eyebrow">sent</span>
+        <strong>{{ outgoing|length }}</strong>
+      </div>
+      <div class="connections-list compact">
+        {% for c in outgoing %}
+        {% set peer = peers.get(c.peer_id) %}
+        <a href="/creator/network/{{ c.peer_id }}" class="connection-card pending">
+          <span class="connection-card-main">
+            {% set creator = peer %}{% set palette = "3" %}{% set size = "" %}{% include "_partials/_avatar.html" %}
+            <span class="connection-card-copy">
+              <span class="connection-name">{{ peer.full_name if peer else 'profile' }}</span>
+              <span class="connection-date">sent {{ c.requested_at|short_date or '' }}</span>
+            </span>
+          </span>
+          <span class="connection-status">awaiting response</span>
+        </a>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
   </div>
   {% endif %}
-</div>
+</section>
 {% endblock %}
 
 {% block foot_scripts %}

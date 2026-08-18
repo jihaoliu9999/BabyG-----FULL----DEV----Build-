@@ -20,6 +20,7 @@
     {% for value, label in discover_tabs|default([('all', 'all'), ('creator', 'creators'), ('brand', 'brands'), ('opportunity', 'opportunities')]) %}
     <a href="{{ discover_base_path }}?kind={{ value }}" class="{{ 'active' if active_kind == value }}" {% if active_kind == value %}aria-current="page"{% endif %}>{{ label }}</a>
     {% endfor %}
+    <a href="/creator/connections">my connections</a>
   </nav>
 
   <div class="discover-layout">

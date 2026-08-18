@@ -559,12 +559,14 @@ def test_connections_page_groups_correctly(client, world):
     r = client.get("/creator/connections")
     assert r.status_code == 200
     text = r.text
+    assert "my connections" in text
     assert "Accepted Friend" in text
     assert "Incoming Request" in text
     assert "Outgoing Request" in text
-    # Accept / decline buttons appear in the incoming row
-    assert "Accept" in text
-    assert "Decline" in text
+    assert "connected" in text
+    # accept / decline buttons appear in the incoming row
+    assert "accept" in text
+    assert "decline" in text
 
 
 def test_respond_accept_only_by_addressee(client, world):
