@@ -131,44 +131,6 @@
     <a href="/creator/notifications"><span>open alerts</span><strong>{{ unread_total or 0 }}</strong><small>{{ 'needs review' if unread_total else 'nothing urgent' }}</small></a>
   </div>
 
-  <section class="creator-home-section creator-hot-drops" aria-labelledby="hot-drops-title">
-    <div class="creator-section-head">
-      <div><h2 id="hot-drops-title">signals</h2></div>
-      <span>picked for your work</span>
-    </div>
-    <nav class="creator-hot-drop-filters" aria-label="signal categories">
-      <a href="/creator" class="{{ 'is-active' if not active_category }}">All</a>
-      {% for slug, label in categories %}{% if slug != 'alert' %}<a href="/creator?category={{ slug }}" class="{{ 'is-active' if active_category == slug }}">{{ label }}</a>{% endif %}{% endfor %}
-    </nav>
-    {% if posts %}
-    <div class="creator-hot-drop-list">
-      {% for post in posts %}
-      <article class="creator-hot-drop-card">
-        <div class="creator-hot-drop-meta">
-          <span class="creator-drop-kind">{{ post.kind or post.category or 'intel' }}</span>
-          {% if post.confidence == 'high' or post.is_high_confidence %}<span class="trust-chip trust-chip-safe">high confidence</span>{% else %}<span class="trust-chip trust-chip-neutral">reviewed</span>{% endif %}
-          {% if post.valid_until %}<time>{{ post.valid_until }}</time>{% endif %}
-        </div>
-        <h3>{{ post.title }}</h3>
-        {% if post.body or post.description %}<p>{{ post.body or post.description }}</p>{% endif %}
-        <div class="creator-hot-drop-foot">
-          {% if post.source_url %}<a href="{{ post.source_url|safe_url }}" target="_blank" rel="noopener">view source <span aria-hidden="true">&#8599;</span></a>{% else %}<span>babyg intel</span>{% endif %}
-          {% if post.id %}
-          <form method="post" action="/creator/intel/{{ post.id }}/feedback" class="creator-drop-feedback">
-            {% include "_partials/csrf.html" %}
-            {% set my_fb = feedback_map.get(post.id|string) if feedback_map is defined else None %}
-            <button name="signal" value="useful" class="{{ 'is-active feedback-btn-active' if my_fb == 'useful' }}" aria-pressed="{{ 'true' if my_fb == 'useful' else 'false' }}">useful</button>
-            <button name="signal" value="acted_on" class="{{ 'is-active feedback-btn-active' if my_fb == 'acted_on' }}" aria-pressed="{{ 'true' if my_fb == 'acted_on' else 'false' }}">acted on</button>
-          </form>
-          {% endif %}
-        </div>
-      </article>
-      {% endfor %}
-    </div>
-    {% else %}
-    <div class="creator-empty-card"><strong>nothing today.</strong><p>your feed is clear. published updates will appear here.</p></div>
-    {% endif %}
-  </section>
 </main>
 {% endblock %}
 

@@ -225,7 +225,7 @@ def _signed_in(client: TestClient, *, role: str, user_id: str = "u-1") -> None:
 # -----------------------------------------------------------------------------
 
 
-def test_feed_returns_targeted_active_posts(client, store, fake_creator):
+def test_creator_home_hides_targeted_active_posts(client, store, fake_creator):
     _signed_in(client, role="creator")
     store.add_post(title="Gallery opening", target_niches=["food"])
     store.add_post(title="Beauty trend",  target_niches=["beauty"])
@@ -233,8 +233,8 @@ def test_feed_returns_targeted_active_posts(client, store, fake_creator):
 
     r = client.get("/creator")
     assert r.status_code == 200
-    assert "Gallery opening" in r.text
-    assert "Anywhere drop" in r.text
+    assert "Gallery opening" not in r.text
+    assert "Anywhere drop" not in r.text
     assert "Beauty trend" not in r.text
 
 
@@ -261,27 +261,29 @@ def test_creator_mobile_nav_keeps_required_tab_order(client, store, fake_creator
     )
 
 
-def test_feed_excludes_expired_posts(client, store, fake_creator):
+def test_creator_home_hides_expired_posts(client, store, fake_creator):
     _signed_in(client, role="creator")
     store.add_post(title="Still good", valid_until="2099-01-01T00:00:00Z")
     store.add_post(title="Stale", valid_until="2020-01-01T00:00:00Z")
     r = client.get("/creator")
-    assert "Still good" in r.text
+    assert r.status_code == 200
+    assert "Still good" not in r.text
     assert "Stale" not in r.text
 
 
-def test_feed_excludes_non_active_posts(client, store, fake_creator):
+def test_creator_home_hides_non_active_posts(client, store, fake_creator):
     _signed_in(client, role="creator")
     store.add_post(title="Live one")
     store.add_post(title="Drafty", status="draft")
     store.add_post(title="Gone", status="archived")
     r = client.get("/creator")
-    assert "Live one" in r.text
+    assert r.status_code == 200
+    assert "Live one" not in r.text
     assert "Drafty" not in r.text
     assert "Gone" not in r.text
 
 
-def test_operator_published_hot_drop_appears_in_creator_feed(client, store, fake_creator):
+def test_operator_published_hot_drop_stays_off_creator_home(client, store, fake_creator):
     _signed_in(client, role="operator", user_id="op-1")
     r = client.post(
         "/operator/intel",
@@ -301,10 +303,10 @@ def test_operator_published_hot_drop_appears_in_creator_feed(client, store, fake
     _signed_in(client, role="creator")
     feed = client.get("/creator")
     assert feed.status_code == 200
-    assert "New spa opening" in feed.text
+    assert "New spa opening" not in feed.text
 
 
-def test_operator_draft_hot_drop_stays_out_of_creator_feed(client, store, fake_creator):
+def test_operator_draft_hot_drop_stays_off_creator_home(client, store, fake_creator):
     _signed_in(client, role="operator", user_id="op-1")
     r = client.post(
         "/operator/intel",
@@ -324,7 +326,9 @@ def test_operator_draft_hot_drop_stays_out_of_creator_feed(client, store, fake_c
     assert "Draft spa opening" not in feed.text
 
 
-def test_global_hot_drop_without_city_reaches_creator_feed(client, store, fake_creator):
+def test_global_hot_drop_without_city_stays_off_creator_home(
+    client, store, fake_creator
+):
     _signed_in(client, role="operator", user_id="op-1")
     r = client.post(
         "/operator/intel",
@@ -343,10 +347,10 @@ def test_global_hot_drop_without_city_reaches_creator_feed(client, store, fake_c
 
     _signed_in(client, role="creator")
     feed = client.get("/creator")
-    assert "Global rate reminder" in feed.text
+    assert "Global rate reminder" not in feed.text
 
 
-def test_city_hot_drop_follows_current_tier_and_niche_rules(client, store, fake_creator):
+def test_city_hot_drop_stays_off_creator_home(client, store, fake_creator):
     _signed_in(client, role="creator")
     store.add_post(
         title="Miami creator dinner",
@@ -361,11 +365,14 @@ def test_city_hot_drop_follows_current_tier_and_niche_rules(client, store, fake_
         target_tiers=["vip"],
     )
     r = client.get("/creator")
-    assert "Miami creator dinner" in r.text
+    assert r.status_code == 200
+    assert "Miami creator dinner" not in r.text
     assert "Miami VIP-only dinner" not in r.text
 
 
-def test_creator_feed_does_not_render_operator_private_fields(client, store, fake_creator):
+def test_creator_home_does_not_render_operator_private_fields(
+    client, store, fake_creator
+):
     _signed_in(client, role="creator")
     store.add_post(
         title="Public title",
@@ -373,42 +380,49 @@ def test_creator_feed_does_not_render_operator_private_fields(client, store, fak
         created_by="operator-secret-id",
     )
     r = client.get("/creator")
-    assert "Public title" in r.text
+    assert r.status_code == 200
+    assert "Public title" not in r.text
     assert "operator-secret-id" not in r.text
 
 
-def test_feed_filters_by_tier(client, store, fake_creator):
+def test_creator_home_hides_tier_filtered_posts(client, store, fake_creator):
     _signed_in(client, role="creator")
     store.add_post(title="VIP only", target_tiers=["vip"])
     store.add_post(title="For all", target_tiers=["basic", "pro", "vip"])
     r = client.get("/creator")
+    assert r.status_code == 200
     assert "VIP only" not in r.text       # creator is "pro"
-    assert "For all" in r.text
+    assert "For all" not in r.text
 
 
-def test_feed_category_filter(client, store, fake_creator):
+def test_creator_home_hides_category_filtered_posts(client, store, fake_creator):
     _signed_in(client, role="creator")
     store.add_post(title="Venue drop", category="venue")
     store.add_post(title="Trend drop", category="trend")
     r = client.get("/creator?category=venue")
-    assert "Venue drop" in r.text
+    assert r.status_code == 200
+    assert "Venue drop" not in r.text
     assert "Trend drop" not in r.text
 
 
-def test_feed_unknown_category_falls_back_to_all(client, store, fake_creator):
+def test_creator_home_unknown_category_keeps_signals_hidden(
+    client, store, fake_creator
+):
     _signed_in(client, role="creator")
     store.add_post(title="One", category="venue")
     store.add_post(title="Two", category="trend")
     r = client.get("/creator?category=garbage")
-    assert "One" in r.text
-    assert "Two" in r.text
+    assert r.status_code == 200
+    assert "One" not in r.text
+    assert "Two" not in r.text
 
 
-def test_feed_empty_state_renders(client, store, fake_creator):
+def test_creator_home_signals_section_removed(client, store, fake_creator):
     _signed_in(client, role="creator")
     r = client.get("/creator")
     assert r.status_code == 200
-    assert "nothing today" in r.text
+    assert "signals" not in r.text
+    assert "picked for your work" not in r.text
 
 
 def test_feed_redirects_to_onboarding_when_creator_not_onboarded(
@@ -426,7 +440,7 @@ def test_feed_redirects_to_onboarding_when_creator_not_onboarded(
 # -----------------------------------------------------------------------------
 
 
-def test_feedback_records_and_renders_active(client, store, fake_creator):
+def test_feedback_records_and_redirects(client, store, fake_creator):
     _signed_in(client, role="creator")
     p = store.add_post(title="Try this venue")
     r = client.post(
@@ -437,8 +451,8 @@ def test_feedback_records_and_renders_active(client, store, fake_creator):
     assert store.feedback[("u-1", p["id"])] == "useful"
 
     r2 = client.get("/creator")
-    assert "feedback-btn-active" in r2.text
-    assert 'aria-pressed="true"' in r2.text
+    assert r2.status_code == 200
+    assert "feedback-btn-active" not in r2.text
 
 
 def test_feedback_rejects_unknown_signal(client, store, fake_creator):
