@@ -14,7 +14,7 @@ from typing import Any, Final, Literal
 
 from app.core import supabase_client
 from app.core.uuid_guard import safe_uuid
-from app.services import brand_trust
+from app.services import brand_trust, discover_insights
 
 logger = logging.getLogger(__name__)
 
@@ -57,6 +57,8 @@ def list_cards(
     budget_min: int | None = None,
     budget_max: int | None = None,
     viewer_tags: list[str] | None = None,
+    viewer_location_label: str | None = None,
+    viewer_platform: str | None = None,
     limit: int = DEFAULT_LIMIT,
     prioritize: tuple[str, str] | None = None,
 ) -> list[dict[str, Any]]:
@@ -98,7 +100,12 @@ def list_cards(
     excluded = _excluded_card_keys(uid)
     normalized: list[dict[str, Any]] = []
     for raw in getattr(result, "data", None) or []:
-        card = _normalize_card(raw, viewer_tags=viewer_tags or [])
+        card = _normalize_card(
+            raw,
+            viewer_tags=viewer_tags or [],
+            viewer_location_label=viewer_location_label,
+            viewer_platform=viewer_platform,
+        )
         if card is None:
             continue
         key = (card["card_kind"], card["card_id"])
@@ -116,7 +123,14 @@ def list_cards(
     return normalized[:bounded]
 
 
-def get_card(*, card_kind: str, card_id: str) -> dict[str, Any] | None:
+def get_card(
+    *,
+    card_kind: str,
+    card_id: str,
+    viewer_tags: list[str] | None = None,
+    viewer_location_label: str | None = None,
+    viewer_platform: str | None = None,
+) -> dict[str, Any] | None:
     kind = clean_kind(card_kind)
     cid = safe_uuid(card_id)
     if kind == "all" or not cid:
@@ -135,7 +149,14 @@ def get_card(*, card_kind: str, card_id: str) -> dict[str, Any] | None:
         logger.exception("unified discovery card lookup failed: %s %s", kind, cid)
         return None
     rows = getattr(result, "data", None) or []
-    return _normalize_card(rows[0], viewer_tags=[]) if rows else None
+    if not rows:
+        return None
+    return _normalize_card(
+        rows[0],
+        viewer_tags=viewer_tags or [],
+        viewer_location_label=viewer_location_label,
+        viewer_platform=viewer_platform,
+    )
 
 
 def record_action(
@@ -252,7 +273,11 @@ def _excluded_card_keys(user_id: str) -> set[tuple[str, str]]:
 
 
 def _normalize_card(
-    row: dict[str, Any], *, viewer_tags: list[str]
+    row: dict[str, Any],
+    *,
+    viewer_tags: list[str],
+    viewer_location_label: str | None = None,
+    viewer_platform: str | None = None,
 ) -> dict[str, Any] | None:
     kind = clean_kind(str(row.get("card_kind") or ""))
     card_id = safe_uuid(str(row.get("card_id") or ""))
@@ -264,7 +289,19 @@ def _normalize_card(
     card["card_id"] = card_id
     card["owner_user_id"] = owner_id
     card["tags"] = [str(tag) for tag in (card.get("tags") or []) if str(tag).strip()]
+    # Legacy single-string relevance — kept for the detail templates
+    # (creator/discover_brand.html, brand/discover_detail.html) that
+    # haven't been migrated to the reasons list yet.
     card["why_relevant"] = _why_relevant(card["tags"], viewer_tags, kind)
+    # New coral "why babyg picked this" reasons + top-of-card signal
+    # badges. Both are lists — empty list = render nothing.
+    card["relevance_reasons"] = discover_insights.relevance_reasons(
+        card,
+        viewer_tags=viewer_tags,
+        viewer_location_label=viewer_location_label,
+        viewer_platform=viewer_platform,
+    )
+    card["signal_badges"] = discover_insights.signal_badges(card)
     if kind in {"brand", "opportunity"}:
         card["verification_status"] = brand_trust.clean_status(
             card.get("verification_status")

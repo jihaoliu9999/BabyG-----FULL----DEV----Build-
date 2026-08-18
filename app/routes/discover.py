@@ -32,6 +32,12 @@ async def discover_page(
     prioritize = None
     if bring_back_kind and bring_back_id:
         prioritize = (discover.clean_kind(bring_back_kind), bring_back_id)
+    # Build a comma-separated viewer location label the insights helper
+    # can match against card location_label ("city, region"). If neither
+    # is set on the viewer, pass None — the pin reason simply won't fire.
+    viewer_location_label = ", ".join(
+        p for p in (profile.get("location_city"), profile.get("location_region")) if p
+    ) or None
     cards = discover.list_cards(
         viewer_id=session["user_id"],
         viewer_role="creator",
@@ -41,6 +47,8 @@ async def discover_page(
         budget_min=budget_min,
         budget_max=budget_max,
         viewer_tags=list(profile.get("niches") or []),
+        viewer_location_label=viewer_location_label,
+        viewer_platform=profile.get("primary_platform"),
         prioritize=prioritize,
     )
     if cards:

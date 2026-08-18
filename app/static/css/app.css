@@ -10085,3 +10085,97 @@ hr.hairline {
   .bot-prompt-chip { padding: 9px 12px; font-size: 13px; }
 }
 
+
+/* ============================================================
+ * Discover card — signal badges + "why babyg picked this" reasons.
+ * Badges sit under the card title as a small horizontal row.
+ * Relevance block flips from a one-line stub to a bullet list when
+ * the server attaches real reasons; falls back to the old string
+ * when no reasons could be derived. Palette stays coral-first,
+ * with two supporting colors (mint + sky) reserved for the two
+ * non-coral signals so scan-reading tells you which is which.
+ * ============================================================ */
+.discover-signals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: -4px 0 0;
+}
+.signal-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: lowercase;
+  line-height: 1;
+  height: 22px;
+  white-space: nowrap;
+}
+.signal-badge svg { width: 10px; height: 10px; flex: 0 0 10px; }
+.signal-badge-active {
+  background: rgba(126, 223, 196, 0.10);
+  border: 1px solid rgba(126, 223, 196, 0.32);
+  color: rgb(126, 223, 196);
+}
+.signal-badge-new {
+  background: rgba(156, 202, 255, 0.10);
+  border: 1px solid rgba(156, 202, 255, 0.32);
+  color: rgb(156, 202, 255);
+}
+.signal-badge-responsive {
+  background: rgba(255, 77, 109, 0.10);
+  border: 1px solid rgba(255, 77, 109, 0.32);
+  color: var(--lime, #ff4d6d);
+}
+
+/* Relevance block — reason list variant. When card.relevance_reasons
+   is empty, the template falls back to the old single-line stub and
+   these list styles just don't apply. */
+.discover-relevance ul {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.discover-relevance ul li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--ink);
+  font-size: 14px;
+  line-height: 1.4;
+}
+.discover-relevance ul li svg {
+  flex: 0 0 12px;
+  width: 12px;
+  height: 12px;
+  margin-top: 3px;
+  color: var(--lime, #ff4d6d);
+}
+.discover-relevance-label {
+  display: block;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: lowercase;
+  color: var(--lime, #ff4d6d);
+  line-height: 1;
+}
+.discover-relevance-attribution {
+  margin: 6px 0 0;
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.15em;
+  text-transform: lowercase;
+  color: var(--ink-dim);
+}
+@media (max-width: 640px) {
+  .signal-badge { font-size: 9.5px; padding: 3px 8px; height: 20px; }
+  .discover-relevance ul li { font-size: 13.5px; }
+}
