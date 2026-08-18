@@ -6238,14 +6238,34 @@ hr.hairline {
 }
 .discover-action-meta form { margin: 0; }
 .discover-undo {
-  border: 0;
-  background: transparent;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 999px;
+  background: rgba(28,26,29,.82);
   color: var(--ink-mid);
-  font-size: 13px;
-  text-decoration: underline;
+  text-decoration: none;
+  transition: border-color .18s ease, color .18s ease, background .18s ease, transform .18s ease;
+}
+.discover-undo:hover:not(:disabled),
+.discover-undo:focus-visible {
+  border-color: rgba(255, 77, 109, .58);
+  background: rgba(255, 77, 109, .08);
+  color: var(--ink);
+  transform: translateY(-1px);
+}
+.discover-undo svg {
+  width: 19px;
+  height: 19px;
+  flex: 0 0 19px;
 }
 .discover-undo:disabled {
   color: var(--ink-faint);
+  opacity: .45;
   cursor: default;
 }
 .discover-actions {
@@ -6597,8 +6617,8 @@ hr.hairline {
   margin: 16px 0 0;
 }
 .discover-undo {
-  min-height: 36px;
-  padding: 0 16px;
+  min-height: 44px;
+  min-width: 44px;
   border: 1px solid var(--hairline-strong);
   border-radius: 999px;
   background: rgba(28,26,29,.82);
