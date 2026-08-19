@@ -14,17 +14,19 @@
       <span class="status-pill status-pill-muted">not configured</span>
       {% endif %}
     </div>
-    <p class="integration-body">pulls your real schedule so babyg can plan around it.</p>
-    {% if google_calendar_connected %}
-    <form method="post" action="/creator/google/calendar/disconnect" style="display:inline;">
-      {% include "_partials/csrf.html" %}
-      <button type="submit" class="btn btn-ghost btn-sm">disconnect Calendar</button>
-    </form>
-    {% elif google_configured %}
-    <a class="btn btn-lime btn-sm" href="/creator/google/connect?service=calendar&next=/creator/profile/settings">connect Google Calendar</a>
-    {% else %}
-    <button type="button" class="btn btn-ghost btn-sm" disabled>not configured</button>
-    {% endif %}
+    <p class="integration-body">connect your calendar so babyg can plan around your schedule.</p>
+    <div class="integration-card-actions">
+      {% if google_calendar_connected %}
+      <form method="post" action="/creator/google/calendar/disconnect">
+        {% include "_partials/csrf.html" %}
+        <button type="submit" class="btn btn-ghost btn-sm">disconnect calendar</button>
+      </form>
+      {% elif google_configured %}
+      <a class="btn btn-lime btn-sm" href="/creator/google/connect?service=calendar&next=/creator/profile/settings">connect calendar</a>
+      {% else %}
+      <button type="button" class="btn btn-ghost btn-sm" disabled>not configured</button>
+      {% endif %}
+    </div>
   </article>
 
   <article class="integration-card{% if google_gmail_connected %} integration-card-connected{% endif %}">
@@ -38,26 +40,22 @@
       <span class="status-pill status-pill-muted">not configured</span>
       {% endif %}
     </div>
-    <p class="integration-body">Connecting Gmail lets babyg read recent threads and prepare draft replies for your approval. babyg never sends.</p>
+    <p class="integration-body">connect gmail so babyg can read threads and draft replies for approval.</p>
     {% if google_gmail_connected %}
     <div class="integration-card-actions">
-      <form method="post" action="/creator/bot" class="babyg-guide-form">
-        {% include "_partials/csrf.html" %}
-        <input type="hidden" name="message" value="read my recent email threads and guide me on what needs attention, follow-up timing, and the next best reply." />
-        <button type="submit" class="babyg-guide-button">
-          <span class="babyg-guide-dot" aria-hidden="true"></span>
-          babyg guide
-        </button>
-      </form>
       <form method="post" action="/creator/google/gmail/disconnect">
         {% include "_partials/csrf.html" %}
-        <button type="submit" class="btn btn-ghost btn-sm">disconnect Gmail</button>
+        <button type="submit" class="btn btn-ghost btn-sm">disconnect gmail</button>
       </form>
     </div>
     {% elif google_configured %}
-    <a class="btn btn-lime btn-sm" href="/creator/google/connect?service=gmail&next=/creator/profile/settings">connect Gmail</a>
+    <div class="integration-card-actions">
+      <a class="btn btn-lime btn-sm" href="/creator/google/connect?service=gmail&next=/creator/profile/settings">connect gmail</a>
+    </div>
     {% else %}
-    <button type="button" class="btn btn-ghost btn-sm" disabled>not configured</button>
+    <div class="integration-card-actions">
+      <button type="button" class="btn btn-ghost btn-sm" disabled>not configured</button>
+    </div>
     {% endif %}
   </article>
 
@@ -72,17 +70,19 @@
       <span class="status-pill status-pill-muted">coming soon</span>
       {% endif %}
     </div>
-    <p class="integration-body">live post insights - likes, comments, reach - without manual logging. requires an Instagram Business or Creator account.</p>
-    {% if instagram_connected %}
-    <form method="post" action="/creator/instagram/disconnect" style="display:inline;">
-      {% include "_partials/csrf.html" %}
-      <button type="submit" class="btn btn-ghost btn-sm">disconnect Instagram</button>
-    </form>
-    {% elif instagram_configured %}
-    <a class="btn btn-lime btn-sm" href="/creator/instagram/connect?next=/creator/profile/settings">connect Instagram</a>
-    {% else %}
-    <button type="button" class="btn btn-ghost btn-sm" disabled aria-disabled="true">connect later</button>
-    {% endif %}
+    <p class="integration-body">connect instagram so babyg can keep your social context current.</p>
+    <div class="integration-card-actions">
+      {% if instagram_connected %}
+      <form method="post" action="/creator/instagram/disconnect">
+        {% include "_partials/csrf.html" %}
+        <button type="submit" class="btn btn-ghost btn-sm">disconnect instagram</button>
+      </form>
+      {% elif instagram_configured %}
+      <a class="btn btn-lime btn-sm" href="/creator/instagram/connect?next=/creator/profile/settings">connect instagram</a>
+      {% else %}
+      <button type="button" class="btn btn-ghost btn-sm" disabled aria-disabled="true">connect later</button>
+      {% endif %}
+    </div>
   </article>
 
   <article class="integration-card integration-card-soon">
@@ -90,8 +90,10 @@
       <span class="mono integration-tag">TikTok</span>
       <span class="status-pill status-pill-muted">coming soon</span>
     </div>
-    <p class="integration-body">video performance - views, shares, watch time - auto-pulled.</p>
-    <button type="button" class="btn btn-ghost btn-sm" disabled aria-disabled="true">connect later</button>
+    <p class="integration-body">connect tiktok when creator context and discovery support are ready.</p>
+    <div class="integration-card-actions">
+      <button type="button" class="btn btn-ghost btn-sm" disabled aria-disabled="true">connect later</button>
+    </div>
   </article>
 
 </div>

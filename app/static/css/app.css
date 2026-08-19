@@ -9694,7 +9694,7 @@ hr.hairline {
 }
 .is-creator-app .settings-clean-shell .integration-card {
   min-width: 0;
-  min-height: 0;
+  min-height: 212px;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -9723,6 +9723,7 @@ hr.hairline {
 .is-creator-app .settings-clean-shell .integration-body {
   margin: 0;
   color: var(--text-secondary);
+  flex: 1;
   line-height: 1.45;
 }
 .is-creator-app .settings-clean-shell .status-pill {
@@ -9759,6 +9760,9 @@ hr.hairline {
   display: grid;
   gap: 10px;
   margin-top: auto;
+}
+.is-creator-app .settings-clean-shell .integration-card-actions form {
+  width: 100%;
 }
 .is-creator-app .settings-clean-shell .integration-card-actions .btn,
 .is-creator-app .settings-clean-shell .integration-card-actions button {

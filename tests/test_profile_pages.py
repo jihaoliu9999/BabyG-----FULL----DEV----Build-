@@ -893,13 +893,13 @@ def test_creator_profile_settings_google_states_are_scope_aware(
     response = client.get("/creator/profile/settings")
 
     assert response.status_code == 200
-    assert "disconnect Calendar" in response.text
-    assert "connect Gmail" in response.text
+    assert "disconnect calendar" in response.text
+    assert "connect gmail" in response.text
     assert "href=\"/creator/google/connect?service=gmail&next=/creator/profile/settings\"" in response.text
     assert "/creator/gmail/connect" not in response.text
 
 
-def test_connected_gmail_renders_babyg_guide_action(
+def test_connected_gmail_renders_single_disconnect_action(
     monkeypatch, client: TestClient
 ) -> None:
     _signed_in(client, role="creator")
@@ -915,10 +915,10 @@ def test_connected_gmail_renders_babyg_guide_action(
 
     assert response.status_code == 200
     assert 'class="integration-card-actions"' in response.text
-    assert 'action="/creator/bot"' in response.text
-    assert "babyg guide" in response.text
-    assert "read my recent email threads" in response.text
     assert 'action="/creator/google/gmail/disconnect"' in response.text
+    assert "disconnect gmail" in response.text
+    assert 'action="/creator/bot"' not in response.text
+    assert "babyg guide" not in response.text
 
 
 # ---------------------------------------------------------------------------
