@@ -327,7 +327,7 @@ def test_settings_renders_real_connect_when_configured_and_not_connected(
     assert r.status_code == 200
     # Real connect link present, no "coming soon" copy on the IG card.
     assert "/creator/instagram/connect?next=/creator/profile/settings" in r.text
-    assert "connect instagram" in r.text
+    assert "connect Instagram" in r.text
 
 
 def test_settings_renders_coming_soon_when_not_configured(
@@ -377,7 +377,7 @@ def test_settings_renders_disconnect_when_connected(
     r = client.get("/creator/profile/settings")
     assert r.status_code == 200
     assert 'action="/creator/instagram/disconnect"' in r.text
-    assert "disconnect instagram" in r.text
+    assert "disconnect Instagram" in r.text
 
 
 def test_settings_flashes_ineligible_message(

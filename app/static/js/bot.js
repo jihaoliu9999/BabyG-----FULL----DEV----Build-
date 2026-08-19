@@ -346,31 +346,4 @@
       chipsRow.remove();
     });
   }
-
-  // Inline chips under any bot message (nudges + assistant turns).
-  // Kinds handled here:
-  //   * data-chip-fill — drops the text into the composer. When the
-  //     button also carries data-chip-submit="1" (the primary chip
-  //     of a two-chip row) we auto-submit so a single tap does the
-  //     manager-style action. Ghost/escape chips don't auto-submit,
-  //     giving the user a beat to edit before sending.
-  // confirm/cancel chips render as native <form data-bot-action> and
-  // are already handled by the delegated submit listener above.
-  // nav chips render as <a> tags — the browser handles them.
-  messageList.addEventListener("click", (e) => {
-    const chip = e.target.closest("button[data-bot-chip][data-chip-fill]");
-    if (!chip) return;
-    if (inFlight) {
-      e.preventDefault();
-      return;
-    }
-    const text = chip.getAttribute("data-chip-fill") || "";
-    if (!text) return;
-    textarea.value = text;
-    textarea.focus();
-    textarea.dispatchEvent(new Event("input", { bubbles: true }));
-    if (chip.getAttribute("data-chip-submit") === "1") {
-      composer.requestSubmit();
-    }
-  });
 })();

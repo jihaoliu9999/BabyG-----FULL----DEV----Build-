@@ -9,12 +9,9 @@ in the full design but were removed when brand was deferred to v1.5
 
 from __future__ import annotations
 
-import logging
 import re
 from datetime import date, datetime, timedelta
 from typing import Any
-
-logger = logging.getLogger(__name__)
 
 from fastapi import (
     APIRouter,
@@ -40,7 +37,6 @@ from app.services import (
     audit,
     bookings,
     bot,
-    bot_nudges,
     bot_prompts,
     calendar_sync,
     discover,
@@ -235,16 +231,6 @@ async def bot_chat(
     profile = profiles.get_creator_profile(session["user_id"]) or {}
     if not profile.get("onboarding_completed_at"):
         return RedirectResponse("/onboarding/creator", status_code=302)
-
-    # Proactive nudges land into the thread the instant a user opens
-    # this surface — babyg acts like a manager who's been watching, not
-    # a chatbot who wakes on prompt. Deduped by nudge_key so the same
-    # match / booking never fires twice. Wrapped in try/except so a
-    # broken source never blanks the chat.
-    try:
-        bot_nudges.generate_pending(session["user_id"])
-    except Exception:
-        logger.exception("bot_nudges.generate_pending failed")
 
     messages = bot.list_messages(session["user_id"])
 
