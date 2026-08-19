@@ -4,19 +4,17 @@
 
 {% block content %}
 <section class="dm-inbox" data-dm-inbox>
-  <header class="dm-inbox-head">
-    <h1>dms.</h1>
-    <p class="dm-inbox-sub">
-      {% if unread_total %}<span class="dm-inbox-sub-count">{{ unread_total }} unread</span>{% else %}<span class="dm-inbox-sub-count dm-inbox-sub-count-zero">no unread</span>{% endif %}
-      <span class="dm-inbox-sub-sep">·</span>
-      <span>{{ thread_count }} conversation{% if thread_count != 1 %}s{% endif %}</span>
-    </p>
-  </header>
-
-  <label class="dm-inbox-search">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
-    <input type="search" name="q" placeholder="search a name, handle, or message" autocomplete="off" data-dm-search />
-  </label>
+  {# No page heading. The unread count lives inside the search
+     placeholder (e.g. "search 3 unread messages"), so we don't
+     dedicate a whole title block to it. Cleaner + more room for
+     the actual list. #}
+  <div class="dm-inbox-search-bar">
+    <label class="dm-inbox-search">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
+      <input type="search" name="q" autocomplete="off" data-dm-search
+             placeholder="{% if unread_total %}search {{ unread_total }} unread{% if unread_total == 1 %} message{% else %} messages{% endif %}{% else %}search dms{% endif %}" />
+    </label>
+  </div>
 
   {% if threads %}
   <ul class="dm-inbox-list" data-dm-list>
@@ -28,10 +26,9 @@
     {% set unread = unread_by_thread.get(t.id, 0) if unread_by_thread else 0 %}
     {% set b = briefs.get(t.id) if briefs else none %}
     {% set last = last_messages.get(t.id) if last_messages else none %}
-    {% set preview = (b.summary if b and b.summary else (last.body if last and last.body else peer_handle)) %}
     <li class="dm-inbox-row{{ ' unread' if unread }}"
         data-dm-row
-        data-dm-name="{{ peer_name|lower }} {{ peer_handle|lower }} {{ (preview or '')|lower }}"
+        data-dm-name="{{ peer_name|lower }} {{ peer_handle|lower }} {{ (b.summary if b else '')|lower }} {{ (last.body if last else '')|lower }}"
         data-dm-unread="{{ '1' if unread else '0' }}">
       <a href="/creator/dm/{{ t.peer_id }}" class="dm-inbox-link">
         <span class="dm-inbox-avatar" aria-hidden="true">
@@ -62,6 +59,22 @@
           {% if unread %}<span class="dm-inbox-count-dot">{{ unread }}</span>{% endif %}
         </span>
       </a>
+      {# babyg-suggested reply chips. Live inside the row (not the
+         anchor — nested anchors are invalid HTML). Tap opens the
+         thread with the draft pre-filled via ?draft= param, handled
+         in dm_thread.js. Up to 3 on desktop, 2 on mobile via CSS. #}
+      {% if b and b.reply_options %}
+      <div class="dm-inbox-chips" aria-label="babyg suggested replies">
+        {% for reply in b.reply_options[:3] %}
+        <a href="/creator/dm/{{ t.peer_id }}?draft={{ reply.body|urlencode }}"
+           class="dm-inbox-chip"
+           data-dm-chip>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
+          <span>{{ reply.body }}</span>
+        </a>
+        {% endfor %}
+      </div>
+      {% endif %}
     </li>
     {% endfor %}
   </ul>
