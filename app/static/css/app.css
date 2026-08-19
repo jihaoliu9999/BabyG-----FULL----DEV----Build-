@@ -5034,22 +5034,29 @@ hr.hairline {
 }
 .kv-prose p { color: var(--ink-mid); font-size: 14.5px; line-height: 1.55; margin: 0; }
 
-/* ───── DM message bubbles ───── */
+/* ───── DM message bubbles ─────
+   Grouping rules (see _partials/dm_thread_messages.html):
+     * Sender changes → new group (tight top corner on the FIRST bubble
+       of the group, all bubbles inside stay round-topped via
+       dm-message-group-mid).
+     * Day changes → dm-day-sep inserted above; the day above is a
+       full-day label so tail timestamps only need HH:MM.
+     * Only the LAST bubble in a group is followed by a dm-message-tail
+       showing that group's final time. */
 .dm-messages {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 3px;
   list-style: none;
   margin: 0;
   padding: 0;
 }
 .dm-message {
   display: flex;
-  flex-direction: column;
   max-width: 78%;
 }
-.dm-message-mine { align-self: flex-end; align-items: flex-end; }
-.dm-message-theirs { align-self: flex-start; align-items: flex-start; }
+.dm-message-mine { align-self: flex-end; justify-content: flex-end; }
+.dm-message-theirs { align-self: flex-start; justify-content: flex-start; }
 .dm-message-body {
   padding: 10px 14px;
   border-radius: 18px;
@@ -5058,23 +5065,44 @@ hr.hairline {
   word-break: break-word;
 }
 .dm-message-mine .dm-message-body {
-  background: var(--lime);
+  background: var(--accent);
   color: #fff;
-  border-bottom-right-radius: 4px;
+  border-top-right-radius: 6px;
 }
 .dm-message-theirs .dm-message-body {
   background: var(--surface-2);
   color: var(--ink);
-  border-bottom-left-radius: 4px;
+  border-top-left-radius: 6px;
 }
-.dm-message-meta {
+/* Interior bubbles in a run share full-radius tops so the group reads
+   as one thread of thought, not a set of separate messages. */
+.dm-message.dm-message-group-mid.dm-message-mine .dm-message-body {
+  border-top-right-radius: 18px;
+}
+.dm-message.dm-message-group-mid.dm-message-theirs .dm-message-body {
+  border-top-left-radius: 18px;
+}
+.dm-message-tail {
+  margin: 4px 4px 10px;
   font-family: var(--mono);
-  font-size: 10px;
-  color: var(--ink-faint);
-  margin-top: 4px;
-  padding: 0 4px;
+  font-size: 9.5px;
+  letter-spacing: .06em;
+  color: var(--ink-dim);
+  list-style: none;
 }
-.dm-message-tick { margin-left: 6px; opacity: 0.6; }
+.dm-message-tail.in { align-self: flex-start; }
+.dm-message-tail.out { align-self: flex-end; }
+.dm-day-sep {
+  align-self: center;
+  margin: 14px 0 6px;
+  padding: 3px 10px;
+  color: var(--ink-dim);
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: .18em;
+  text-transform: uppercase;
+  list-style: none;
+}
 
 /* ───── connections page ───── */
 .connection-card {
@@ -10695,36 +10723,34 @@ hr.hairline {
   padding: 24px 16px 48px;
   display: flex; flex-direction: column; gap: 20px;
 }
-.dm-inbox-head {
-  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
-}
-.dm-inbox-lockup { display: flex; align-items: center; gap: 14px; }
-.dm-inbox-mark {
-  width: 44px; height: 44px; border-radius: 12px;
-  background: var(--surface-2);
-  display: inline-flex; align-items: center; justify-content: center;
-  overflow: hidden;
-}
-.dm-inbox-mark img { width: 100%; height: 100%; object-fit: contain; }
-.dm-inbox-head h1 { margin: 0; font-size: 26px; font-weight: 600; letter-spacing: -.02em; line-height: 1; }
-.dm-inbox-head p { margin: 4px 0 0; color: var(--ink-mid); font-size: 13px; }
-.dm-inbox-compose {
-  width: 40px; height: 40px;
-  display: grid; place-items: center;
-  background: var(--surface-2);
-  border: 1px solid var(--hairline);
-  border-radius: 12px;
+.dm-inbox-head { display: grid; gap: 4px; }
+.dm-inbox-head h1 { margin: 0; font-size: 30px; font-weight: 600; letter-spacing: -.03em; line-height: 1; }
+.dm-inbox-sub {
+  margin: 0;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   color: var(--ink-mid);
-  flex: 0 0 40px;
+  font-size: 13px;
 }
-.dm-inbox-compose:hover { color: var(--ink); border-color: rgba(255,77,109,.32); }
-.dm-inbox-compose svg { width: 16px; height: 16px; }
+.dm-inbox-sub-count {
+  color: var(--accent-text);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: .04em;
+  font-weight: 600;
+}
+.dm-inbox-sub-count-zero { color: var(--ink-dim); }
+.dm-inbox-sub-sep { color: var(--ink-dim); }
 .dm-inbox-search {
   display: flex; align-items: center; gap: 10px;
-  padding: 10px 14px;
-  background: var(--surface-2);
+  padding: 10px 16px;
+  background: var(--surface-1);
   border: 1px solid var(--hairline);
-  border-radius: 12px;
+  border-radius: 999px;
+  transition: border-color .15s ease, background .15s ease;
+}
+.dm-inbox-search:focus-within {
+  border-color: rgba(255,77,109,.32);
+  background: var(--surface-2);
 }
 .dm-inbox-search svg { width: 15px; height: 15px; color: var(--ink-dim); flex: 0 0 15px; }
 .dm-inbox-search input {
@@ -10732,29 +10758,6 @@ hr.hairline {
   color: var(--ink); font: inherit; font-size: 14px;
 }
 .dm-inbox-search input::placeholder { color: var(--ink-dim); }
-.dm-inbox-filters { display: flex; gap: 6px; }
-.dm-inbox-filter {
-  padding: 6px 12px; border-radius: 999px;
-  background: transparent;
-  border: 1px solid var(--hairline);
-  color: var(--ink-mid);
-  font-family: inherit;
-  font-size: 12.5px;
-  line-height: 1;
-  cursor: pointer;
-  display: inline-flex; align-items: center; gap: 6px;
-  transition: background .15s ease, border-color .15s ease, color .15s ease;
-}
-.dm-inbox-filter:hover { color: var(--ink); border-color: rgba(255,77,109,.32); }
-.dm-inbox-filter.active {
-  background: var(--lime, #ff4d6d); color: white;
-  border-color: var(--lime, #ff4d6d);
-}
-.dm-inbox-filter-count {
-  font-family: var(--mono);
-  font-size: 10px;
-  opacity: 0.75;
-}
 .dm-inbox-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .dm-inbox-row {
   border-bottom: 1px solid var(--hairline);
@@ -10762,60 +10765,70 @@ hr.hairline {
 }
 .dm-inbox-row:last-child { border-bottom: none; }
 .dm-inbox-row:hover { background: rgba(255,255,255,.015); }
-.dm-inbox-row.waiting::before {
+.dm-inbox-row.unread::before {
   content: "";
   position: absolute;
-  left: -8px; top: 20px;
-  width: 3px; height: 26px;
-  border-radius: 2px;
-  background: var(--lime, #ff4d6d);
-  box-shadow: 0 0 8px rgba(255,77,109,.5);
+  left: 0; top: 12px; bottom: 12px;
+  width: 2px; border-radius: 2px;
+  background: var(--accent);
 }
 .dm-inbox-link {
   display: grid;
   grid-template-columns: 44px minmax(0, 1fr) auto;
   gap: 14px;
-  padding: 16px 4px;
+  padding: 14px 4px;
   color: inherit;
   text-decoration: none;
-  align-items: start;
+  align-items: center;
 }
 .dm-inbox-avatar {
   width: 44px; height: 44px; border-radius: 50%;
-  background: linear-gradient(160deg, #2a2226, #16121a);
+  background: var(--surface-2);
   border: 1px solid var(--hairline);
   display: grid; place-items: center;
   color: var(--ink-mid);
-  font-size: 15px; font-weight: 600;
+  font-family: var(--mono);
+  font-size: 14px; font-weight: 600;
   overflow: hidden;
 }
 .dm-inbox-avatar img { width: 100%; height: 100%; object-fit: cover; }
-.dm-inbox-body { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.dm-inbox-body { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 .dm-inbox-name {
-  font-size: 15px; font-weight: 500; color: var(--ink-mid);
-  letter-spacing: -.005em; line-height: 1.2;
+  font-size: 15px; font-weight: 600; color: var(--ink);
+  letter-spacing: -.01em; line-height: 1.2;
 }
-.dm-inbox-row.unread .dm-inbox-name { color: var(--ink); font-weight: 600; }
-.dm-inbox-sub {
-  margin: 0;
-  color: var(--ink-dim);
-  font-size: 13.5px;
-  line-height: 1.35;
+.dm-inbox-preview {
+  color: var(--ink-mid);
+  font-size: 12.5px;
+  line-height: 1.4;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.dm-inbox-sub.brief { color: var(--ink-mid); font-style: italic; }
+.dm-inbox-preview-brief { color: var(--accent-text); font-style: italic; }
+.dm-inbox-row.unread .dm-inbox-preview { color: var(--ink); }
+.dm-inbox-meta {
+  display: grid; gap: 4px; justify-items: end; align-self: center;
+}
 .dm-inbox-time {
   font-family: var(--mono);
-  font-size: 10.5px;
-  letter-spacing: 0.14em;
-  text-transform: lowercase;
+  font-size: 10px;
+  letter-spacing: .04em;
   color: var(--ink-dim);
   white-space: nowrap;
-  padding-top: 3px;
 }
-.dm-inbox-row.unread .dm-inbox-time { color: var(--ink-mid); }
+.dm-inbox-row.unread .dm-inbox-time { color: var(--accent-text); }
+.dm-inbox-count-dot {
+  min-width: 18px; height: 18px; padding: 0 6px;
+  display: inline-grid; place-items: center;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-family: var(--sans);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+}
 
 /* Reply chips row inside the DM row — small pills, tap to open thread
    with the draft prefilled. */
@@ -10859,19 +10872,7 @@ hr.hairline {
 
 @media (max-width: 640px) {
   .dm-inbox { padding: 18px 14px 40px; gap: 16px; }
-  .dm-inbox-head h1 { font-size: 24px; }
-  .dm-inbox-mark { width: 40px; height: 40px; }
-  .dm-inbox-chips {
-    flex-wrap: nowrap; overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-    padding-left: calc(44px + 14px + 4px);
-    padding-bottom: 12px;
-  }
-  .dm-inbox-chips::-webkit-scrollbar { display: none; }
-  .dm-inbox-chip { flex: 0 0 auto; font-size: 12px; padding: 6px 10px; }
-  .dm-inbox-chip span { max-width: 60vw; }
+  .dm-inbox-head h1 { font-size: 26px; }
 }
 
 /* ============================================================

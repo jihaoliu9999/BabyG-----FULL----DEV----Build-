@@ -871,10 +871,13 @@ async def dm_list(
     briefs = dm_briefs.latest_briefs_for_threads(
         thread_ids, recipient_id=session["user_id"]
     )
-    # Per-thread unread count powers the coral bar + bold-name state and
-    # the "unread N" filter chip in the header. Single batched query.
+    # Per-thread unread count powers the coral bar + bold-name state
+    # and the "N unread" line in the header. Single batched query.
     unread_by_thread = dms.unread_counts_by_thread(session["user_id"], thread_ids)
     unread_total = sum(unread_by_thread.values())
+    # Preview text under every row — the actual last message, batched.
+    # Falls back to babyg brief in the template when a thread has a brief.
+    last_messages = dms.last_messages_by_thread(thread_ids)
     return templates.TemplateResponse(
         request,
         "creator/dm_list.html",
@@ -885,6 +888,8 @@ async def dm_list(
             "briefs": briefs,
             "unread_by_thread": unread_by_thread,
             "unread_total": unread_total,
+            "last_messages": last_messages,
+            "thread_count": len(threads),
         },
     )
 

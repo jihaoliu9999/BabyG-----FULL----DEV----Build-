@@ -203,6 +203,34 @@ def world(monkeypatch) -> FakeWorld:
     monkeypatch.setattr(dms_module, "mark_thread_read_for", _mark_thread_read_for)
     monkeypatch.setattr(dms_module, "unread_count_for_user", _unread_count_for_user)
 
+    def _unread_counts_by_thread(uid, thread_ids):
+        counts: dict[str, int] = {}
+        for tid in thread_ids:
+            counts[tid] = sum(
+                1 for m in w.messages
+                if str(m["thread_id"]) == str(tid)
+                and m["sender_id"] != uid
+                and m["read_at"] is None
+            )
+        return {k: v for k, v in counts.items() if v}
+
+    def _last_messages_by_thread(thread_ids):
+        latest: dict[str, dict] = {}
+        for tid in thread_ids:
+            same = [m for m in w.messages if str(m["thread_id"]) == str(tid)]
+            same.sort(key=lambda m: m.get("created_at", ""), reverse=True)
+            if same:
+                m = same[0]
+                latest[str(tid)] = {
+                    "body": m.get("body") or "",
+                    "sender_id": str(m.get("sender_id") or ""),
+                    "created_at": m.get("created_at"),
+                }
+        return latest
+
+    monkeypatch.setattr(dms_module, "unread_counts_by_thread", _unread_counts_by_thread)
+    monkeypatch.setattr(dms_module, "last_messages_by_thread", _last_messages_by_thread)
+
     # ----- intel (creator dashboard) -----
     from app.services import intel as intel_module
     monkeypatch.setattr(intel_module, "feed_for_creator", lambda **kw: [])

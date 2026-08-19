@@ -201,11 +201,75 @@ def _current_role(request) -> str | None:
     return session["role"] if session else None
 
 
+def _dm_time(value):
+    """Render an ISO timestamp as a compact tail time — '3:31pm'.
+
+    Used under grouped DM bubbles where we already show a day header
+    above the group, so the reader only needs the hour:minute. Falls
+    back to empty on a bad value so a stray row can never 500 the render.
+    """
+    if not value:
+        return ""
+    from datetime import UTC, datetime
+
+    text = str(value).strip()
+    if not text:
+        return ""
+    try:
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return ""
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.strftime("%-I:%M%p").lower()
+
+
+def _dm_day_sep(value):
+    """Day separator label above a group of DM bubbles.
+
+    Examples:
+      today            -> "today"
+      yesterday        -> "yesterday"
+      within 7 days    -> "monday"
+      same year        -> "jun 5"
+      else             -> "jun 5, 2024"
+
+    Fallback: empty. Not for anything smaller than a day.
+    """
+    if not value:
+        return ""
+    from datetime import UTC, datetime, timedelta
+
+    text = str(value).strip()
+    if not text:
+        return ""
+    try:
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except (ValueError, TypeError):
+        return ""
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    now = datetime.now(UTC)
+    parsed_day = parsed.date()
+    today = now.date()
+    if parsed_day == today:
+        return "today"
+    if parsed_day == today - timedelta(days=1):
+        return "yesterday"
+    if (today - parsed_day).days < 7:
+        return parsed.strftime("%A").lower()
+    if parsed.year == now.year:
+        return parsed.strftime("%b %-d").lower()
+    return parsed.strftime("%b %-d, %Y").lower()
+
+
 templates.env.filters["short_dt"] = _short_dt
 templates.env.filters["short_date"] = _short_date
 templates.env.filters["safe_url"] = _safe_url
 templates.env.filters["bot_markdown"] = _bot_markdown
 templates.env.filters["human_ago"] = _human_ago
+templates.env.filters["dm_time"] = _dm_time
+templates.env.filters["dm_day_sep"] = _dm_day_sep
 templates.env.globals["asset_url"] = asset_url
 templates.env.globals["current_role"] = _current_role
 

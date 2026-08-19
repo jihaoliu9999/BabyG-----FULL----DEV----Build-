@@ -361,6 +361,47 @@ def unread_counts_by_thread(
     return counts
 
 
+def last_messages_by_thread(thread_ids: list[str]) -> dict[str, dict[str, Any]]:
+    """Return {thread_id: {body, sender_id, created_at}} for the newest
+    message of each thread — one query.
+
+    The inbox row wants a preview line under each name. Rather than an
+    N+1 (one query per thread), we fetch a bounded slice of the newest
+    messages across all requested threads, sorted DESC, and keep the
+    first one seen per thread. Bounded by ``limit`` — safe for the ~20
+    threads a real user has open at once.
+    """
+    if not thread_ids:
+        return {}
+    safe_ids = [tid for tid in (safe_uuid(t) for t in thread_ids) if tid]
+    if not safe_ids:
+        return {}
+    limit = max(len(safe_ids) * 6, 60)
+    try:
+        result = (
+            supabase_client.get_service_client()
+            .table("dm_messages")
+            .select("thread_id, body, sender_id, created_at")
+            .in_("thread_id", safe_ids)
+            .order("created_at", desc=True)
+            .limit(limit)
+            .execute()
+        )
+    except PostgrestAPIError:
+        logger.exception("last_messages_by_thread failed")
+        return {}
+    latest: dict[str, dict[str, Any]] = {}
+    for row in getattr(result, "data", None) or []:
+        tid = str(row.get("thread_id") or "")
+        if tid and tid not in latest:
+            latest[tid] = {
+                "body": row.get("body") or "",
+                "sender_id": str(row.get("sender_id") or ""),
+                "created_at": row.get("created_at"),
+            }
+    return latest
+
+
 # -----------------------------------------------------------------------------
 # Helpers
 # -----------------------------------------------------------------------------

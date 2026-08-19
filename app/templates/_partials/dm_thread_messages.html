@@ -1,12 +1,40 @@
-{# DM thread message list. Expects: messages, me_id. #}
+{# DM thread message list. Expects: messages, me_id.
+
+   Renders three visual devices to make the thread breathe:
+     * Day separator between messages that fall on different local
+       days ("today", "yesterday", "monday", "jun 5").
+     * Consecutive messages from the same sender group together —
+       the middle bubbles keep both top corners rounded so a run
+       reads as one unit, and only the group's LAST message shows
+       its timestamp.
+     * Tail timestamps use dm_time ("3:31pm") rather than a raw
+       ISO. Full day + time is on the separator above; the tail is
+       just where inside the day.
+
+   Grouping is line-of-sight only — a message from a different sender
+   OR crossing a day boundary always ends the current group. #}
 <ol class="dm-messages">
+  {% set ns = namespace(prev_sender=None, prev_day=None) %}
   {% for m in messages %}
-  <li class="dm-message {% if m.sender_id == me_id %}dm-message-mine{% else %}dm-message-theirs{% endif %}">
-    <div class="dm-message-body">{{ m.body }}</div>
-    <div class="dm-message-meta">
-      {% if m.created_at %}{{ m.created_at|short_dt }}{% endif %}
-      {% if m.sender_id == me_id and not m.read_at %}<span class="dm-message-tick">·</span>{% endif %}
-    </div>
-  </li>
+    {% set mine = m.sender_id == me_id %}
+    {% set day = (m.created_at or '')[:10] %}
+    {% set new_day = day and day != ns.prev_day %}
+    {% set new_group = new_day or m.sender_id != ns.prev_sender %}
+    {# Close-and-timestamp the previous group before opening a new one. #}
+    {% if new_group and not loop.first %}
+    <li class="dm-message-tail{% if not (messages[loop.index0 - 1].sender_id == me_id) %} in{% else %} out{% endif %}">{{ messages[loop.index0 - 1].created_at|dm_time }}</li>
+    {% endif %}
+    {% if new_day %}
+    <li class="dm-day-sep">{{ m.created_at|dm_day_sep }}</li>
+    {% endif %}
+    <li class="dm-message {% if mine %}dm-message-mine{% else %}dm-message-theirs{% endif %}{% if not new_group %} dm-message-group-mid{% endif %}">
+      <div class="dm-message-body">{{ m.body }}</div>
+    </li>
+    {% set ns.prev_sender = m.sender_id %}
+    {% set ns.prev_day = day %}
+    {# Close-and-timestamp the FINAL group when we run out of messages. #}
+    {% if loop.last %}
+    <li class="dm-message-tail{% if not mine %} in{% else %} out{% endif %}">{{ m.created_at|dm_time }}</li>
+    {% endif %}
   {% endfor %}
 </ol>

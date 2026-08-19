@@ -5,29 +5,18 @@
 {% block content %}
 <section class="dm-inbox" data-dm-inbox>
   <header class="dm-inbox-head">
-    <div class="dm-inbox-lockup">
-      <span class="dm-inbox-mark" aria-hidden="true"><img src="/static/assets/logo-bg.png" alt="" /></span>
-      <div>
-        <h1>dms.</h1>
-        <p>babyg briefs every conversation.</p>
-      </div>
-    </div>
-    <a class="dm-inbox-compose" href="/creator/network" aria-label="start a new conversation">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-    </a>
+    <h1>dms.</h1>
+    <p class="dm-inbox-sub">
+      {% if unread_total %}<span class="dm-inbox-sub-count">{{ unread_total }} unread</span>{% else %}<span class="dm-inbox-sub-count dm-inbox-sub-count-zero">no unread</span>{% endif %}
+      <span class="dm-inbox-sub-sep">·</span>
+      <span>{{ thread_count }} conversation{% if thread_count != 1 %}s{% endif %}</span>
+    </p>
   </header>
 
   <label class="dm-inbox-search">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
-    <input type="search" name="q" placeholder="search a person or thread…" autocomplete="off" data-dm-search />
+    <input type="search" name="q" placeholder="search a name, handle, or message" autocomplete="off" data-dm-search />
   </label>
-
-  <div class="dm-inbox-filters" role="tablist" aria-label="filter dms">
-    <button type="button" class="dm-inbox-filter active" role="tab" aria-selected="true" data-dm-filter="all">all</button>
-    <button type="button" class="dm-inbox-filter" role="tab" aria-selected="false" data-dm-filter="unread">
-      unread{% if unread_total %} <span class="dm-inbox-filter-count">{{ unread_total }}</span>{% endif %}
-    </button>
-  </div>
 
   {% if threads %}
   <ul class="dm-inbox-list" data-dm-list>
@@ -38,9 +27,11 @@
     {% set peer_initial = peer_name[0].upper() %}
     {% set unread = unread_by_thread.get(t.id, 0) if unread_by_thread else 0 %}
     {% set b = briefs.get(t.id) if briefs else none %}
-    <li class="dm-inbox-row{{ ' unread' if unread }}{{ ' waiting' if unread }}"
+    {% set last = last_messages.get(t.id) if last_messages else none %}
+    {% set preview = (b.summary if b and b.summary else (last.body if last and last.body else peer_handle)) %}
+    <li class="dm-inbox-row{{ ' unread' if unread }}"
         data-dm-row
-        data-dm-name="{{ peer_name|lower }} {{ peer_handle|lower }}"
+        data-dm-name="{{ peer_name|lower }} {{ peer_handle|lower }} {{ (preview or '')|lower }}"
         data-dm-unread="{{ '1' if unread else '0' }}">
       <a href="/creator/dm/{{ t.peer_id }}" class="dm-inbox-link">
         <span class="dm-inbox-avatar" aria-hidden="true">
@@ -52,36 +43,31 @@
         </span>
         <div class="dm-inbox-body">
           <span class="dm-inbox-name">{{ peer_name }}</span>
-          {% if b and b.summary %}
-          <p class="dm-inbox-sub brief">{{ b.summary }}</p>
-          {% elif peer_handle %}
-          <p class="dm-inbox-sub">{{ peer_handle }}</p>
-          {% else %}
-          <p class="dm-inbox-sub">connected creator</p>
-          {% endif %}
+          <span class="dm-inbox-preview{% if b and b.summary %} dm-inbox-preview-brief{% endif %}">
+            {%- if b and b.summary -%}
+              babyg: {{ b.summary }}
+            {%- elif last and last.body -%}
+              {{ last.body }}
+            {%- elif peer_handle -%}
+              {{ peer_handle }}
+            {%- else -%}
+              connected creator
+            {%- endif -%}
+          </span>
         </div>
-        <span class="dm-inbox-time">
-          {% if t.last_message_at %}{{ t.last_message_at|human_ago }}{% endif %}
+        <span class="dm-inbox-meta">
+          <span class="dm-inbox-time">
+            {% if t.last_message_at %}{{ t.last_message_at|human_ago }}{% endif %}
+          </span>
+          {% if unread %}<span class="dm-inbox-count-dot">{{ unread }}</span>{% endif %}
         </span>
       </a>
-      {% if b and b.reply_options %}
-      <div class="dm-inbox-chips" aria-label="babyg suggested replies">
-        {% for reply in b.reply_options[:2] %}
-        <a href="/creator/dm/{{ t.peer_id }}?draft={{ reply.body|urlencode }}"
-           class="dm-inbox-chip"
-           data-dm-chip>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 5l7 7-7 7"/></svg>
-          <span>{{ reply.body }}</span>
-        </a>
-        {% endfor %}
-      </div>
-      {% endif %}
     </li>
     {% endfor %}
   </ul>
 
   <p class="dm-inbox-empty-hint" data-dm-empty-hint hidden>
-    no threads match this filter.
+    no threads match this search.
   </p>
   {% else %}
   <div class="dm-inbox-empty">
