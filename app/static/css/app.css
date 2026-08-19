@@ -9633,6 +9633,121 @@ hr.hairline {
   gap: clamp(16px, 2.6vw, 28px);
   align-items: stretch;
 }
+.is-creator-app .settings-grid.settings-progressive {
+  grid-template-columns: minmax(0, 820px);
+  justify-content: center;
+  align-items: start;
+  gap: 16px;
+}
+.is-creator-app .settings-progressive > .settings-card {
+  min-height: 0;
+}
+.is-creator-app .settings-clean-shell .settings-disclosure {
+  min-height: 0;
+  padding: 0;
+  overflow: clip;
+}
+.is-creator-app .settings-disclosure > summary,
+.is-creator-app .settings-inline-disclosure > summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  list-style: none;
+  cursor: pointer;
+}
+.is-creator-app .settings-disclosure > summary::-webkit-details-marker,
+.is-creator-app .settings-inline-disclosure > summary::-webkit-details-marker {
+  display: none;
+}
+.is-creator-app .settings-disclosure > summary {
+  padding: 24px 28px;
+}
+.is-creator-app .settings-disclosure-copy {
+  min-width: 0;
+  display: grid;
+  gap: 6px;
+}
+.is-creator-app .settings-disclosure-title {
+  color: var(--text-primary);
+  font-family: var(--sans);
+  font-size: clamp(21px, 2.5vw, 28px);
+  font-weight: 600;
+  letter-spacing: -.04em;
+  line-height: 1.05;
+}
+.is-creator-app .settings-disclosure-copy > span:last-child {
+  color: var(--text-tertiary);
+  font-size: 14px;
+  line-height: 1.5;
+}
+.is-creator-app .settings-disclosure-icon {
+  position: relative;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  border: 1px solid rgba(245,241,232,.16);
+  border-radius: 50%;
+  background: rgba(255,255,255,.025);
+}
+.is-creator-app .settings-disclosure-icon::before,
+.is-creator-app .settings-disclosure-icon::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 12px;
+  height: 1px;
+  background: var(--text-secondary);
+  transform: translate(-50%, -50%);
+  transition: transform 180ms ease, opacity 180ms ease;
+}
+.is-creator-app .settings-disclosure-icon::after {
+  transform: translate(-50%, -50%) rotate(90deg);
+}
+.is-creator-app details[open] > summary .settings-disclosure-icon::after {
+  opacity: 0;
+  transform: translate(-50%, -50%) rotate(90deg) scaleX(0);
+}
+.is-creator-app .settings-disclosure > summary:hover .settings-disclosure-icon,
+.is-creator-app .settings-disclosure > summary:focus-visible .settings-disclosure-icon,
+.is-creator-app .settings-inline-disclosure > summary:hover .settings-disclosure-icon,
+.is-creator-app .settings-inline-disclosure > summary:focus-visible .settings-disclosure-icon {
+  border-color: rgba(255,77,109,.52);
+  background: rgba(255,77,109,.07);
+}
+.is-creator-app .settings-disclosure > summary:focus-visible,
+.is-creator-app .settings-inline-disclosure > summary:focus-visible {
+  outline: 2px solid rgba(255,77,109,.68);
+  outline-offset: -3px;
+}
+.is-creator-app .settings-disclosure-body {
+  padding: 0 28px 28px;
+  border-top: 1px solid rgba(245,241,232,.09);
+}
+.is-creator-app .settings-disclosure-body > .settings-form,
+.is-creator-app .settings-disclosure-body > .integrations-grid {
+  padding-top: 24px;
+}
+.is-creator-app .settings-inline-disclosure {
+  margin: 4px 0 20px;
+  border-top: 1px solid rgba(245,241,232,.09);
+  border-bottom: 1px solid rgba(245,241,232,.09);
+}
+.is-creator-app .settings-inline-disclosure > summary {
+  padding: 18px 0;
+}
+.is-creator-app .settings-inline-disclosure .settings-disclosure-copy > strong {
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 600;
+}
+.is-creator-app .settings-inline-disclosure .settings-disclosure-copy > span:last-child {
+  font-size: 13px;
+}
+.is-creator-app .settings-inline-body {
+  padding-bottom: 2px;
+}
 .is-creator-app .settings-column {
   display: grid;
   gap: clamp(16px, 2.2vw, 22px);
@@ -9650,6 +9765,10 @@ hr.hairline {
     radial-gradient(circle at 12% 0%, rgba(255,77,109,.07), transparent 32%),
     rgba(17,17,17,.82);
   box-shadow: 0 24px 58px rgba(0,0,0,.28);
+}
+.is-creator-app .settings-clean-shell .settings-card.settings-disclosure {
+  min-height: 0;
+  padding: 0;
 }
 .is-creator-app .settings-clean-shell .settings-form,
 .is-creator-app .settings-integrations-card {
@@ -9921,6 +10040,18 @@ hr.hairline {
     padding: 20px;
     border-radius: 20px;
   }
+  .is-creator-app .settings-clean-shell .settings-card.settings-disclosure {
+    padding: 0;
+  }
+  .is-creator-app .settings-disclosure > summary {
+    padding: 20px;
+  }
+  .is-creator-app .settings-disclosure-body {
+    padding: 0 20px 22px;
+  }
+  .is-creator-app .settings-disclosure-title {
+    font-size: 20px;
+  }
   .is-creator-app .settings-clean-shell .integrations-grid,
   .is-creator-app .settings-clean-shell .settings-meta-grid {
     grid-template-columns: 1fr;
@@ -9929,6 +10060,12 @@ hr.hairline {
   .is-creator-app .settings-clean-shell .settings-actions .btn,
   .is-creator-app .settings-clean-shell .settings-actions button {
     width: 100%;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .is-creator-app .settings-disclosure-icon::before,
+  .is-creator-app .settings-disclosure-icon::after {
+    transition: none;
   }
 }
 @media (max-width: 430px) {

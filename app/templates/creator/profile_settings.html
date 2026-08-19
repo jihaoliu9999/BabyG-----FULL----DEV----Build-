@@ -25,12 +25,13 @@
   </div>
   {% endif %}
 
-  <div class="settings-grid">
+  <div class="settings-grid settings-progressive">
     <form class="settings-group settings-card settings-form profile-deals" id="deal-preferences" method="post" action="/creator/profile/deals">
         {% include "_partials/csrf.html" %}
         <div class="settings-card-head">
+          <span class="mono eyebrow">common controls</span>
           <h2>deal preferences</h2>
-          <p>rate floor, usage rights, and travel rules babyg should remember before drafting.</p>
+          <p>set the number babyg should protect when reviewing opportunities.</p>
         </div>
         {% if deals_flash == 'ok' %}<div class="settings-flash settings-flash-ok">deal preferences saved.</div>
         {% elif deals_flash == 'save_failed' %}<div class="settings-flash">couldn't save deal preferences. try again.</div>
@@ -49,40 +50,77 @@
           />
         </div>
 
-        <div class="settings-field">
-          <label for="deal_usage_rights_default">usage rights</label>
-          <select id="deal_usage_rights_default" name="deal_usage_rights_default">
-            <option value="" {% if not profile.deal_usage_rights_default %}selected{% endif %}>not set</option>
-            <option value="organic_only" {% if profile.deal_usage_rights_default == 'organic_only' %}selected{% endif %}>organic only, no paid amplification</option>
-            <option value="paid_organic" {% if profile.deal_usage_rights_default == 'paid_organic' %}selected{% endif %}>paid usage on my channels OK</option>
-            <option value="paid_with_usage" {% if profile.deal_usage_rights_default == 'paid_with_usage' %}selected{% endif %}>full usage rights negotiable for paid</option>
-            <option value="flexible" {% if profile.deal_usage_rights_default == 'flexible' %}selected{% endif %}>flexible, case by case</option>
-          </select>
-        </div>
+        <details class="settings-inline-disclosure">
+          <summary>
+            <span class="settings-disclosure-copy">
+              <strong>advanced terms</strong>
+              <span>usage rights and travel</span>
+            </span>
+            <span class="settings-disclosure-icon" aria-hidden="true"></span>
+          </summary>
+          <div class="settings-inline-body">
+            <div class="settings-field">
+              <label for="deal_usage_rights_default">usage rights</label>
+              <select id="deal_usage_rights_default" name="deal_usage_rights_default">
+                <option value="" {% if not profile.deal_usage_rights_default %}selected{% endif %}>not set</option>
+                <option value="organic_only" {% if profile.deal_usage_rights_default == 'organic_only' %}selected{% endif %}>organic only, no paid amplification</option>
+                <option value="paid_organic" {% if profile.deal_usage_rights_default == 'paid_organic' %}selected{% endif %}>paid usage on my channels OK</option>
+                <option value="paid_with_usage" {% if profile.deal_usage_rights_default == 'paid_with_usage' %}selected{% endif %}>full usage rights negotiable for paid</option>
+                <option value="flexible" {% if profile.deal_usage_rights_default == 'flexible' %}selected{% endif %}>flexible, case by case</option>
+              </select>
+            </div>
 
-        <div class="settings-field">
-          <label for="deal_travel_willingness">travel</label>
-          <select id="deal_travel_willingness" name="deal_travel_willingness">
-            <option value="" {% if not profile.deal_travel_willingness %}selected{% endif %}>not set</option>
-            <option value="no" {% if profile.deal_travel_willingness == 'no' %}selected{% endif %}>no travel</option>
-            <option value="local_only" {% if profile.deal_travel_willingness == 'local_only' %}selected{% endif %}>local only</option>
-            <option value="regional" {% if profile.deal_travel_willingness == 'regional' %}selected{% endif %}>regional</option>
-            <option value="open" {% if profile.deal_travel_willingness == 'open' %}selected{% endif %}>open to anywhere</option>
-          </select>
-        </div>
+            <div class="settings-field">
+              <label for="deal_travel_willingness">travel</label>
+              <select id="deal_travel_willingness" name="deal_travel_willingness">
+                <option value="" {% if not profile.deal_travel_willingness %}selected{% endif %}>not set</option>
+                <option value="no" {% if profile.deal_travel_willingness == 'no' %}selected{% endif %}>no travel</option>
+                <option value="local_only" {% if profile.deal_travel_willingness == 'local_only' %}selected{% endif %}>local only</option>
+                <option value="regional" {% if profile.deal_travel_willingness == 'regional' %}selected{% endif %}>regional</option>
+                <option value="open" {% if profile.deal_travel_willingness == 'open' %}selected{% endif %}>open to anywhere</option>
+              </select>
+            </div>
+          </div>
+        </details>
 
         <div class="settings-actions">
           <button class="btn btn-lime btn-sm" type="submit">save preferences</button>
         </div>
     </form>
 
-      {% set privacy_flash = request.query_params.get('privacy') %}
-      <form class="settings-group settings-card settings-form" id="privacy" method="post" action="/creator/profile/privacy">
-        {% include "_partials/csrf.html" %}
+      <section class="settings-group settings-card settings-work-card" id="insights">
         <div class="settings-card-head">
-          <h2>visibility</h2>
-          <p>choose what others can see and who can start a DM.</p>
+          <span class="mono eyebrow">your work</span>
+          <h2>insights and receipts</h2>
+          <p>open performance snapshots or the content babyg can reference.</p>
         </div>
+        <div class="profile-fidelity-settings-card" role="list">
+          <a href="/creator/performance" role="listitem">
+            <span class="mono eyebrow">insights</span>
+            <strong>performance <span>your visible post signals.</span></strong>
+            <span aria-hidden="true">&rsaquo;</span>
+          </a>
+          <a href="/creator/receipts" role="listitem">
+            <span class="mono eyebrow">library</span>
+            <strong>content receipts <span>posts babyg can quote in briefs.</span></strong>
+            <span aria-hidden="true">&rsaquo;</span>
+          </a>
+        </div>
+      </section>
+
+      {% set privacy_flash = request.query_params.get('privacy') %}
+      <details class="settings-group settings-card settings-disclosure" id="privacy" {% if privacy_flash %}open{% endif %}>
+        <summary>
+          <span class="settings-disclosure-copy">
+            <span class="mono eyebrow">privacy</span>
+            <strong class="settings-disclosure-title">visibility</strong>
+            <span>choose what others can see and who can start a DM.</span>
+          </span>
+          <span class="settings-disclosure-icon" aria-hidden="true"></span>
+        </summary>
+        <div class="settings-disclosure-body">
+        <form class="settings-form settings-disclosure-form" method="post" action="/creator/profile/privacy">
+        {% include "_partials/csrf.html" %}
         {% if privacy_flash == 'ok' %}<div class="settings-flash settings-flash-ok">saved.</div>
         {% elif privacy_flash == 'invalid' %}<div class="settings-flash">invalid selection. try again.</div>
         {% elif privacy_flash == 'save_failed' %}<div class="settings-flash">couldn't save. try again.</div>
@@ -108,43 +146,37 @@
         <div class="settings-actions">
           <button class="btn btn-lime btn-sm" type="submit">save privacy</button>
         </div>
-      </form>
-
-      <div class="settings-group settings-card settings-integrations-card" id="integrations">
-        <div class="settings-card-head">
-          <h2>integrations</h2>
-          <p>connect the accounts babyg can use to read context and draft better moves.</p>
+        </form>
         </div>
+      </details>
+
+      <details class="settings-group settings-card settings-disclosure settings-integrations-card" id="integrations" {% if ig_flash %}open{% endif %}>
+        <summary>
+          <span class="settings-disclosure-copy">
+            <span class="mono eyebrow">accounts</span>
+            <strong class="settings-disclosure-title">integrations</strong>
+            <span>connect the accounts babyg can use for context.</span>
+          </span>
+          <span class="settings-disclosure-icon" aria-hidden="true"></span>
+        </summary>
+        <div class="settings-disclosure-body">
         {% include "_partials/integrations_grid.html" %}
-      </div>
-
-      <section class="settings-group settings-card" id="insights">
-        <div class="settings-card-head">
-          <h2>your work</h2>
-          <p>performance snapshots and content receipts stay off the public profile. open them here when you need them.</p>
         </div>
-        <div class="profile-fidelity-settings-card" role="list">
-          <a href="/creator/performance" role="listitem">
-            <span class="mono eyebrow">insights</span>
-            <strong>performance <span>weekly numbers you log for babyg.</span></strong>
-            <span aria-hidden="true">&rsaquo;</span>
-          </a>
-          <a href="/creator/receipts" role="listitem">
-            <span class="mono eyebrow">library</span>
-            <strong>content receipts <span>posts babyg can quote in briefs.</span></strong>
-            <span aria-hidden="true">&rsaquo;</span>
-          </a>
-        </div>
-      </section>
+      </details>
 
       {% set babyg_flash = request.query_params.get('babyg') %}
-      <form class="settings-group settings-card settings-form" id="babyg-behavior" method="post" action="/creator/profile/babyg">
+      <details class="settings-group settings-card settings-disclosure" id="babyg-behavior" {% if babyg_flash %}open{% endif %}>
+        <summary>
+          <span class="settings-disclosure-copy">
+            <span class="mono eyebrow">babyg</span>
+            <strong class="settings-disclosure-title">AI behavior</strong>
+            <span>control tone, risk checks, and where babyg can help.</span>
+          </span>
+          <span class="settings-disclosure-icon" aria-hidden="true"></span>
+        </summary>
+        <div class="settings-disclosure-body">
+      <form class="settings-form settings-disclosure-form" method="post" action="/creator/profile/babyg">
         {% include "_partials/csrf.html" %}
-        <div class="settings-card-head">
-          <span class="mono eyebrow">babyg</span>
-          <h2>behavior</h2>
-          <p>control tone, risk checks, and where babyg is allowed to help.</p>
-        </div>
         {% if babyg_flash == 'ok' %}<div class="settings-flash settings-flash-ok">saved.</div>
         {% elif babyg_flash == 'save_failed' %}<div class="settings-flash">couldn't save. try again.</div>
         {% endif %}
@@ -194,6 +226,8 @@
           <button class="btn btn-lime btn-sm" type="submit">save babyg</button>
         </div>
       </form>
+        </div>
+      </details>
 
       <section class="settings-group settings-card settings-danger" id="delete-account">
         <div class="settings-header">
