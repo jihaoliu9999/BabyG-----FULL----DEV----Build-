@@ -3190,19 +3190,23 @@ select.profile-detail-input {
 .bot-message.assistant .bubble strong { color: var(--ink); font-weight: 600; }
 
 /* Nudge messages — proactive turns babyg initiates (new match, unconfirmed
-   booking). Coral tinted bubble + a small "babyg · <category>" tag so
-   the user reads it as a manager check-in, not another reply in the
-   flow. Keeps the same bubble shape so nudges don't feel like alerts. */
+   booking). Coral tinted bubble + a split "babyg · <CATEGORY>" tag: the
+   "babyg ·" prefix reads muted like every other meta line, and the
+   category itself is uppercase coral bold so the urgency (NEW MATCH,
+   NEEDS YOU) lands as a status label the eye jumps to. */
 .bot-message-nudge-tag {
-  color: var(--accent-text) !important;
   display: inline-flex;
-  align-items: center;
+  align-items: baseline;
   gap: 6px;
 }
-.bot-message-nudge-dot {
-  width: 5px; height: 5px; border-radius: 50%;
-  background: var(--accent);
-  box-shadow: 0 0 5px var(--accent);
+.bot-message-nudge-tag-lead {
+  color: var(--ink-dim);
+}
+.bot-message-nudge-tag-label {
+  color: var(--accent-text);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .18em;
 }
 .bot-message-nudge .bubble {
   border-color: rgba(255,77,109,.24);

@@ -137,8 +137,8 @@ def _match_nudges(user_id: str) -> list[dict[str, Any]]:
                     },
                     {
                         "kind": "fill",
-                        "label": "skip",
-                        "text": "skip this one",
+                        "label": "connect",
+                        "text": f"send a connection request to {title}",
                     },
                 ],
             }

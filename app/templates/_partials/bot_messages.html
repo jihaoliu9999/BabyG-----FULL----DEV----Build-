@@ -24,7 +24,7 @@
     {% set is_nudge = m.tool_calls and m.tool_calls.kind == "nudge" %}
     <li class="bot-message {{ m.role }}{% if is_nudge %} bot-message-nudge{% endif %}" data-bot-message-id="{{ m.id }}">
       {% if is_nudge %}
-      <span class="meta bot-message-nudge-tag"><span class="bot-message-nudge-dot" aria-hidden="true"></span>babyg · {{ (m.tool_calls.nudge_category or 'needs you')|replace('_', ' ') }}</span>
+      <span class="meta bot-message-nudge-tag"><span class="bot-message-nudge-tag-lead">babyg ·</span> <span class="bot-message-nudge-tag-label">{{ (m.tool_calls.nudge_category or 'needs you')|replace('_', ' ') }}</span></span>
       {% else %}
       <span class="meta">{{ "you" if m.role == "user" else "babyg" }}</span>
       {% endif %}

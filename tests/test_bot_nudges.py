@@ -83,6 +83,10 @@ def test_fresh_discover_card_produces_a_new_match_nudge(monkeypatch, stub_insert
     assert sum(1 for c in chips if c.get("primary")) == 1
     labels = [c["label"] for c in chips]
     assert "pitch it" in labels
+    # The third chip is the affirmative "connect" (replaces the earlier
+    # dismissive "skip") so every nudge ends with two positive moves.
+    assert "connect" in labels
+    assert "skip" not in labels
 
 
 def test_stale_discover_card_does_not_nudge(monkeypatch, stub_inserts):

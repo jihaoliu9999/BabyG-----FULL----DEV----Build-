@@ -109,16 +109,20 @@ def test_template_renders_nudge_message_with_chips():
                 "chips": [
                     {"kind": "fill", "label": "pitch it", "text": "draft pitch", "primary": True},
                     {"kind": "nav", "label": "see it", "href": "/creator/discover"},
-                    {"kind": "fill", "label": "skip", "text": "skip"},
+                    {"kind": "fill", "label": "connect", "text": "connect"},
                 ],
             },
         }
     ]
     html = _render_partial(rows)
     assert "bot-message-nudge" in html
-    assert "babyg · new match" in html
+    # Split tag: "babyg ·" muted + uppercase category label class present.
+    assert "babyg ·" in html
+    assert "bot-message-nudge-tag-label" in html
+    assert "new match" in html
     assert "pitch it" in html
     assert "see it" in html
+    assert "connect" in html
     assert 'data-chip-fill="draft pitch"' in html
     assert 'data-chip-submit="1"' in html  # primary auto-submits
     assert 'href="/creator/discover"' in html
