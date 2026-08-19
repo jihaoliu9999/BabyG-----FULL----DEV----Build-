@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
+from app.config import get_settings
 from app.core.security import read_session
 from app.core.templating import templates
 
@@ -19,7 +20,14 @@ async def landing(request: Request):
     session = read_session(request)
     if session is not None:
         return RedirectResponse(_dashboard_path(session["role"]), status_code=302)
-    return templates.TemplateResponse(request, "marketing/landing.html", {})
+    public_app_url = (
+        get_settings().public_app_url or str(request.base_url)
+    ).rstrip("/")
+    return templates.TemplateResponse(
+        request,
+        "marketing/landing.html",
+        {"public_app_url": public_app_url},
+    )
 
 
 @router.get("/get-started", response_class=HTMLResponse)

@@ -1,8 +1,21 @@
 {% extends "base.html" %}
 
-{% block title %}babyg · meet, match, manage{% endblock %}
+{% block title %}babyg | creator and brand network with an ai manager{% endblock %}
 
 {% block head_extra %}
+<meta name="description" content="babyg helps creators and brands meet, match, connect, and manage opportunities with an ai manager." />
+<meta name="robots" content="index, follow, max-image-preview:large" />
+<link rel="canonical" href="{{ public_app_url }}/" />
+<meta property="og:type" content="website" />
+<meta property="og:site_name" content="babyg" />
+<meta property="og:title" content="babyg | meet, match, manage" />
+<meta property="og:description" content="the creator and brand network backed by an ai manager." />
+<meta property="og:url" content="{{ public_app_url }}/" />
+<meta property="og:image" content="{{ public_app_url }}/static/assets/logo-bg.png" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="babyg | meet, match, manage" />
+<meta name="twitter:description" content="the creator and brand network backed by an ai manager." />
+<meta name="twitter:image" content="{{ public_app_url }}/static/assets/logo-bg.png" />
 <link rel="stylesheet" href="{{ asset_url('css/landing.css') }}" />
 {% endblock %}
 

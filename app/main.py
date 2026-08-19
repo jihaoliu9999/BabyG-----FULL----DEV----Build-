@@ -89,9 +89,53 @@ def create_app() -> FastAPI:
         return JSONResponse({"status": "ok"})
 
     @app.get("/robots.txt", include_in_schema=False)
-    async def robots() -> Response:
-        # Invite-only. Don't index anything.
-        return Response("User-agent: *\nDisallow: /\n", media_type="text/plain")
+    async def robots(request: Request) -> Response:
+        public_origin = (
+            settings.public_app_url or str(request.base_url)
+        ).rstrip("/")
+        body = "\n".join(
+            (
+                "User-agent: *",
+                "Allow: /",
+                "Disallow: /auth/",
+                "Disallow: /brand/",
+                "Disallow: /creator/",
+                "Disallow: /operator/",
+                "Disallow: /onboarding/",
+                "Disallow: /get-started",
+                "Disallow: /docs",
+                "Disallow: /openapi.json",
+                f"Sitemap: {public_origin}/sitemap.xml",
+                "",
+            )
+        )
+        return Response(body, media_type="text/plain")
+
+    @app.get("/sitemap.xml", include_in_schema=False)
+    async def sitemap(request: Request) -> Response:
+        public_origin = (
+            settings.public_app_url or str(request.base_url)
+        ).rstrip("/")
+        public_paths = (
+            "",
+            "/about",
+            "/contact",
+            "/privacy",
+            "/terms",
+            "/accessibility",
+            "/data-deletion",
+        )
+        urls = "\n".join(
+            f"  <url><loc>{public_origin}{path or '/'}</loc></url>"
+            for path in public_paths
+        )
+        body = (
+            '<?xml version="1.0" encoding="UTF-8"?>\n'
+            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+            f"{urls}\n"
+            "</urlset>\n"
+        )
+        return Response(body, media_type="application/xml")
 
     @app.get("/favicon.ico", include_in_schema=False)
     async def favicon_ico() -> FileResponse:

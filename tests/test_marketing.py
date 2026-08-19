@@ -26,6 +26,10 @@ def test_landing_renders_for_anon(client: TestClient) -> None:
     assert "babyg" in r.text.lower()
     assert "css/babyg-design/styles.css" not in r.text
     assert 'data-babyg-redesign="true"' not in r.text
+    assert '<meta name="description"' in r.text
+    assert '<meta name="robots" content="index, follow' in r.text
+    assert '<link rel="canonical" href="http://testserver/"' in r.text
+    assert '<meta property="og:title"' in r.text
 
 
 def test_landing_exposes_both_creator_and_brand_entry_points(
@@ -114,8 +118,28 @@ def test_get_started_with_invalid_role_renders_cards(client: TestClient) -> None
     assert "/auth/login?role=creator" in r.text
 
 
-def test_robots_blocks_indexing(client: TestClient) -> None:
+def test_robots_indexes_public_site_and_protects_private_routes(
+    client: TestClient,
+) -> None:
     r = client.get("/robots.txt")
     assert r.status_code == 200
-    assert "User-agent: *" in r.text
-    assert "Disallow: /" in r.text
+    lines = r.text.splitlines()
+    assert "User-agent: *" in lines
+    assert "Allow: /" in lines
+    assert "Disallow: /" not in lines
+    assert "Disallow: /creator/" in lines
+    assert "Disallow: /brand/" in lines
+    assert "Disallow: /auth/" in lines
+    assert "Sitemap: http://testserver/sitemap.xml" in lines
+
+
+def test_sitemap_lists_only_public_pages(client: TestClient) -> None:
+    r = client.get("/sitemap.xml")
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("application/xml")
+    assert "<loc>http://testserver/</loc>" in r.text
+    assert "<loc>http://testserver/about</loc>" in r.text
+    assert "<loc>http://testserver/privacy</loc>" in r.text
+    assert "/creator" not in r.text
+    assert "/brand" not in r.text
+    assert "/auth" not in r.text

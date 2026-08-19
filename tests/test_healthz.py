@@ -15,10 +15,13 @@ def test_healthz_returns_ok(client: TestClient) -> None:
     assert "env" not in body
 
 
-def test_robots_disallows_indexing(client: TestClient) -> None:
+def test_robots_allows_public_indexing(client: TestClient) -> None:
     response = client.get("/robots.txt")
     assert response.status_code == 200
-    assert "Disallow: /" in response.text
+    lines = response.text.splitlines()
+    assert "Allow: /" in lines
+    assert "Disallow: /" not in lines
+    assert "Disallow: /creator/" in lines
 
 
 def test_csp_allows_same_origin_static_css(client: TestClient) -> None:
