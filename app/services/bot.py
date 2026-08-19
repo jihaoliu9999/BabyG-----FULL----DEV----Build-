@@ -165,7 +165,14 @@ class BotActionResult:
 
 
 def list_messages(user_id: str, *, limit: int = 100) -> list[dict[str, Any]]:
-    """Return oldest-first chat history for one creator."""
+    """Return oldest-first chat history for one creator.
+
+    Supabase-py returns ``jsonb`` columns as either a Python dict (post
+    v2) or the raw JSON string (some earlier paths). The template layer
+    can't safely branch on that, so we normalise ``tool_calls`` to a
+    dict (or None) here. A malformed value drops to None rather than
+    poisoning the render.
+    """
     try:
         result = (
             supabase_client.get_service_client()
@@ -180,7 +187,24 @@ def list_messages(user_id: str, *, limit: int = 100) -> list[dict[str, Any]]:
         logger.exception("bot message list failed for %s", user_id)
         return []
     rows = getattr(result, "data", None) or []
+    for row in rows:
+        row["tool_calls"] = _coerce_tool_calls(row.get("tool_calls"))
     return list(reversed(rows))
+
+
+def _coerce_tool_calls(value: Any) -> dict[str, Any] | None:
+    """Normalise a bot_messages.tool_calls value to a plain dict."""
+    if value is None or value == "":
+        return None
+    if isinstance(value, dict):
+        return value
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+        except (ValueError, TypeError):
+            return None
+        return parsed if isinstance(parsed, dict) else None
+    return None
 
 
 def handle_creator_message(*, user_id: str, content: str) -> BotTurnResult:
@@ -2166,7 +2190,13 @@ def _get_message_for_user(*, message_id: str, user_id: str) -> dict[str, Any] | 
         logger.exception("bot action lookup failed: %s", message_id)
         return None
     rows = getattr(result, "data", None) or []
-    return rows[0] if rows else None
+    if not rows:
+        return None
+    row = rows[0]
+    # Same jsonb-string safety as list_messages — callers here read
+    # tool_calls.status / kind / payload directly.
+    row["tool_calls"] = _coerce_tool_calls(row.get("tool_calls"))
+    return row
 
 
 def _update_message_tool_calls(

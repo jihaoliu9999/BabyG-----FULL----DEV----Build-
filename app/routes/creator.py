@@ -9,6 +9,7 @@ in the full design but were removed when brand was deferred to v1.5
 
 from __future__ import annotations
 
+import logging
 import re
 from datetime import date, datetime, timedelta
 from typing import Any
@@ -37,6 +38,7 @@ from app.services import (
     audit,
     bookings,
     bot,
+    bot_nudges,
     bot_prompts,
     calendar_sync,
     discover,
@@ -56,6 +58,8 @@ from app.services import (
     storage,
     views,
 )
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["creator"])
 
@@ -231,6 +235,15 @@ async def bot_chat(
     profile = profiles.get_creator_profile(session["user_id"]) or {}
     if not profile.get("onboarding_completed_at"):
         return RedirectResponse("/onboarding/creator", status_code=302)
+
+    # Proactive nudges — babyg drops a message the moment a fresh
+    # discover match or an imminent pending booking lands. Deduped by
+    # nudge_key so the same event never nudges twice. Wrapped so any
+    # source failure never blanks the chat.
+    try:
+        bot_nudges.generate_pending(session["user_id"])
+    except Exception:
+        logger.exception("bot_nudges.generate_pending failed")
 
     messages = bot.list_messages(session["user_id"])
 
