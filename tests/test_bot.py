@@ -213,7 +213,7 @@ def test_bot_post_persists_turn_and_redirects(monkeypatch, client: TestClient) -
     )
     calls: list[dict[str, str]] = []
 
-    def _handle(*, user_id: str, content: str):
+    def _handle(*, user_id: str, content: str, **_ignored):
         calls.append({"user_id": user_id, "content": content})
         return bot_service.BotTurnResult(response="Done")
 
@@ -1144,7 +1144,7 @@ def test_bot_post_ajax_returns_message_partial(monkeypatch, client: TestClient) 
     monkeypatch.setattr(
         creator_routes.bot,
         "handle_creator_message",
-        lambda *, user_id, content: bot_service.BotTurnResult(response="Drafted."),
+        lambda *, user_id, content, **_ignored: bot_service.BotTurnResult(response="Drafted."),
     )
     monkeypatch.setattr(
         creator_routes.bot,
@@ -1184,7 +1184,7 @@ def test_bot_post_ajax_failure_returns_partial_with_banner(
     monkeypatch.setattr(
         creator_routes.bot,
         "handle_creator_message",
-        lambda *, user_id, content: bot_service.BotTurnResult(response=""),
+        lambda *, user_id, content, **_ignored: bot_service.BotTurnResult(response=""),
     )
     monkeypatch.setattr(creator_routes.bot, "list_messages", lambda uid: [])
 
@@ -1302,7 +1302,7 @@ def test_bot_post_without_ajax_header_still_redirects(
     monkeypatch.setattr(
         creator_routes.bot,
         "handle_creator_message",
-        lambda *, user_id, content: bot_service.BotTurnResult(response="ok"),
+        lambda *, user_id, content, **_ignored: bot_service.BotTurnResult(response="ok"),
     )
 
     r = client.post(

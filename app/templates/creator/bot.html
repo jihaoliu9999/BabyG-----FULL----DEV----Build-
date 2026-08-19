@@ -42,6 +42,12 @@
 
   <form class="bot-composer" method="post" action="/creator/bot" data-bot-composer>
     {% include "_partials/csrf.html" %}
+    {# device wall-clock + IANA tz — bot.js refreshes them right before
+       every submit so babyg's system prompt is grounded to the user's
+       actual "now", not a training-time hallucination. Empty defaults
+       let the server fall back to UTC + profile city if JS is off. #}
+    <input type="hidden" name="user_now_iso" data-bot-user-now value="" />
+    <input type="hidden" name="user_tz" data-bot-user-tz value="" />
     <div class="box">
       <label class="sr-only" for="bot-message">message babyg</label>
       <textarea id="bot-message" name="message" rows="1" placeholder="tell babyg what to handle…" maxlength="4000" autocomplete="off" required></textarea>

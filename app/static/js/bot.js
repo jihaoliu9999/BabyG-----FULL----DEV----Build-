@@ -241,12 +241,33 @@
   window.addEventListener("resize", updateKeyboardInset);
   window.addEventListener("orientationchange", updateKeyboardInset);
 
+  // Fill the composer's hidden device-time inputs. Called just before
+  // every submit so a user who opens the page at 1pm and sends at 2pm
+  // still hands babyg the correct "now" — not a stale page-load value.
+  // Falls back gracefully when Intl/Date behaves weirdly (older browsers).
+  const stampDeviceTime = () => {
+    const tzInput = composer.querySelector("[data-bot-user-tz]");
+    const nowInput = composer.querySelector("[data-bot-user-now]");
+    if (!tzInput || !nowInput) return;
+    try {
+      tzInput.value = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
+      nowInput.value = new Date().toISOString();
+    } catch (_e) {
+      tzInput.value = "";
+      nowInput.value = "";
+    }
+  };
+  // Prime once on load so a native (no-JS-intercept) form submit still
+  // sends something; the submit path re-stamps for freshness.
+  stampDeviceTime();
+
   async function send() {
     if (inFlight) return;
     const value = textarea.value.trim();
     if (!value) return;
 
     clearInlineError();
+    stampDeviceTime();
     const fd = new FormData(composer);
     resetTextarea();
     setBusy(true);

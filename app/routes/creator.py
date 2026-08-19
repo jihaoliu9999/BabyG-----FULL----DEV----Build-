@@ -313,13 +313,20 @@ def _bot_messages_partial(
 async def bot_send(
     request: Request,
     message: str = Form(...),
+    user_now_iso: str | None = Form(default=None),
+    user_tz: str | None = Form(default=None),
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
     profile = profiles.get_creator_profile(session["user_id"]) or {}
     if not profile.get("onboarding_completed_at"):
         return RedirectResponse("/onboarding/creator", status_code=302)
 
-    result = bot.handle_creator_message(user_id=session["user_id"], content=message)
+    result = bot.handle_creator_message(
+        user_id=session["user_id"],
+        content=message,
+        user_now_iso=user_now_iso,
+        user_tz=user_tz,
+    )
 
     if _is_ajax(request):
         err = None if result.response else "babyg couldn't answer that turn. Try again."

@@ -19,6 +19,7 @@ from app.services import (
     bookings,
     jobs,
     oauth_connections,
+    profiles,
     prompts,
     reminders,
 )
@@ -207,8 +208,21 @@ def _coerce_tool_calls(value: Any) -> dict[str, Any] | None:
     return None
 
 
-def handle_creator_message(*, user_id: str, content: str) -> BotTurnResult:
-    """Persist a creator message and return babyg's response."""
+def handle_creator_message(
+    *,
+    user_id: str,
+    content: str,
+    user_now_iso: str | None = None,
+    user_tz: str | None = None,
+) -> BotTurnResult:
+    """Persist a creator message and return babyg's response.
+
+    ``user_now_iso`` and ``user_tz`` are the device's local wall-clock
+    time and IANA timezone (e.g. ``America/New_York``) captured by
+    bot.js on submit. When present, babyg's system prompt is grounded
+    to that datetime so it stops hallucinating a training-time date.
+    Missing = fall back to server UTC + profile location.
+    """
     user_content = (content or "").strip()[:MAX_USER_MESSAGE_CHARS]
     if not user_content:
         return BotTurnResult(response="Send me a creator task and I'll help.")
@@ -250,7 +264,11 @@ def handle_creator_message(*, user_id: str, content: str) -> BotTurnResult:
 
     history = _messages_for_claude(list_messages(user_id, limit=MAX_HISTORY_MESSAGES))
     draft_kind = _draft_kind(user_content)
+    prompt_context = _build_prompt_context(
+        user_id=user_id, user_now_iso=user_now_iso, user_tz=user_tz
+    )
     system_prompt = prompts.babyg_system_prompt(
+        context=prompt_context,
         draft_kind=draft_kind,
         task_kind=_task_kind(user_content, draft_kind=draft_kind),
     )
@@ -1076,6 +1094,60 @@ def _cancel_calendar_modify_action(
 
 def build_context(user_id: str) -> dict[str, Any]:
     return read_only.collect_context(user_id)
+
+
+def _build_prompt_context(
+    *,
+    user_id: str,
+    user_now_iso: str | None,
+    user_tz: str | None,
+) -> dict[str, Any]:
+    """Fresh context injected into every bot turn's system prompt.
+
+    Three layers of provenance, best available wins:
+      1. ``user_now_iso`` + ``user_tz`` from the device (bot.js sets
+         them on submit). Ground truth for the user's wall clock.
+      2. Profile city + region (already stored). Grounds *where*.
+      3. Server UTC (last-resort clock).
+
+    The values render into the "creator context:" block via
+    prompts._format_context, so Claude has "today: Tue Aug 19, 2026,
+    1:47pm ET" instead of hallucinating a training-time date.
+    """
+    ctx: dict[str, Any] = {}
+    now_label = _format_now(user_now_iso=user_now_iso, user_tz=user_tz)
+    if now_label:
+        ctx["today"] = now_label
+    if user_tz:
+        ctx["timezone"] = user_tz
+
+    try:
+        profile = profiles.get_creator_profile(user_id) or {}
+    except Exception:
+        profile = {}
+    city = (profile.get("location_city") or "").strip()
+    region = (profile.get("location_region") or "").strip()
+    if city or region:
+        ctx["location"] = ", ".join(p for p in (city, region) if p)
+    return ctx
+
+
+def _format_now(*, user_now_iso: str | None, user_tz: str | None) -> str | None:
+    """Human-friendly 'Tuesday, Aug 19, 2026 · 1:47pm' from best source."""
+    from datetime import UTC, datetime  # local import — only needed here
+
+    dt: datetime | None = None
+    tz_label = user_tz or "UTC"
+    if user_now_iso:
+        try:
+            dt = datetime.fromisoformat(user_now_iso.replace("Z", "+00:00"))
+        except ValueError:
+            dt = None
+    if dt is None:
+        dt = datetime.now(UTC)
+        tz_label = "UTC"
+    stamp = dt.strftime("%A, %b %-d, %Y · %-I:%M%p").lower()
+    return f"{stamp} ({tz_label})"
 
 
 def _run_agent_loop(
