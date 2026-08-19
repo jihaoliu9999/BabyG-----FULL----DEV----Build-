@@ -2,6 +2,35 @@
 
 {% block title %}network — babyg{% endblock %}
 
+{% macro platform_icon(platform) -%}
+  {% set p = (platform or '')|lower %}
+  <span class="discover-platform-icon{% if 'instagram' in p %} discover-platform-icon-instagram{% elif 'tiktok' in p %} discover-platform-icon-tiktok{% elif 'youtube' in p %} discover-platform-icon-youtube{% else %} discover-platform-icon-web{% endif %}" aria-label="{{ platform }}" title="{{ platform }}">
+    {% if 'instagram' in p %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <rect x="4" y="4" width="16" height="16" rx="5" />
+      <circle cx="12" cy="12" r="3.2" />
+      <path d="M17 7.2h.01" />
+    </svg>
+    {% elif 'tiktok' in p %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M14 5v10.2a4.2 4.2 0 1 1-3-4" />
+      <path d="M14 5c1 3 2.7 4.6 5 4.9" />
+    </svg>
+    {% elif 'youtube' in p %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <rect x="3.5" y="6.5" width="17" height="11" rx="3.2" />
+      <path d="m10.5 9.5 4.5 2.5-4.5 2.5z" />
+    </svg>
+    {% else %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="8" />
+      <path d="M4 12h16M12 4a12 12 0 0 1 0 16M12 4a12 12 0 0 0 0 16" />
+    </svg>
+    {% endif %}
+    <span class="sr-only">{{ platform }}</span>
+  </span>
+{%- endmacro %}
+
 {% block content %}
 {% set mode = discovery_mode or "both" %}
 <div class="wrap network-swipe-wrap">
@@ -26,8 +55,12 @@
         <form method="post" action="/creator/network/undo" class="network-undo-form">
           {% include "_partials/csrf.html" %}
           <input type="hidden" name="mode" value="{{ mode }}" />
-          <button type="submit" class="btn btn-ghost btn-sm" data-network-undo aria-label="undo last pass">
-            ↩ undo pass
+          <button type="submit" class="btn btn-ghost btn-sm network-undo-icon" data-network-undo aria-label="go back to previous card" title="go back">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M9 14 4 9l5-5" />
+              <path d="M4 9h9a7 7 0 1 1-5.3 11.6" />
+            </svg>
+            <span class="sr-only">go back</span>
           </button>
         </form>
         {% endif %}
@@ -145,7 +178,7 @@
 
         {% if card.follower_range or card.primary_platform %}
         <div class="network-swipe-meta">
-          {% if card.primary_platform %}<span>{{ card.primary_platform }}</span>{% endif %}
+          {% if card.primary_platform %}{{ platform_icon(card.primary_platform) }}{% endif %}
           {% if card.follower_range %}<span>{{ card.follower_range }} followers</span>{% endif %}
         </div>
         {% endif %}

@@ -10262,13 +10262,7 @@ hr.hairline {
 
 
 /* ============================================================
- * Discover card — signal badges + "why babyg picked this" reasons.
- * Badges sit under the card title as a small horizontal row.
- * Relevance block flips from a one-line stub to a bullet list when
- * the server attaches real reasons; falls back to the old string
- * when no reasons could be derived. Palette stays coral-first,
- * with two supporting colors (mint + sky) reserved for the two
- * non-coral signals so scan-reading tells you which is which.
+ * Discover card compact signal polish.
  * ============================================================ */
 .discover-signals {
   display: flex;
@@ -10305,6 +10299,81 @@ hr.hairline {
   background: rgba(255, 77, 109, 0.10);
   border: 1px solid rgba(255, 77, 109, 0.32);
   color: var(--lime, #ff4d6d);
+}
+
+.discover-verified-check {
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--lime);
+  border: 1px solid rgba(196, 255, 77, 0.28);
+  background: rgba(196, 255, 77, 0.08);
+  box-shadow: 0 0 18px rgba(196, 255, 77, 0.12);
+}
+.discover-verified-check svg {
+  width: 17px;
+  height: 17px;
+}
+.discover-platform-value {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.discover-platform-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  color: rgba(245, 241, 232, 0.88);
+  border: 1px solid rgba(245, 241, 232, 0.14);
+  background: rgba(245, 241, 232, 0.05);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+}
+.discover-platform-icon svg {
+  width: 18px;
+  height: 18px;
+}
+.discover-platform-icon-instagram {
+  color: #ff5f83;
+  border-color: rgba(255, 95, 131, 0.34);
+  background: rgba(255, 95, 131, 0.09);
+}
+.discover-platform-icon-tiktok {
+  color: #8ee8ff;
+  border-color: rgba(142, 232, 255, 0.30);
+  background: rgba(142, 232, 255, 0.08);
+}
+.discover-platform-icon-youtube {
+  color: #ff5a66;
+  border-color: rgba(255, 90, 102, 0.30);
+  background: rgba(255, 90, 102, 0.08);
+}
+.discover-platform-icon-web {
+  color: rgba(245, 241, 232, 0.72);
+}
+.network-undo-icon {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.network-undo-icon svg {
+  width: 20px;
+  height: 20px;
+}
+.network-swipe-meta .discover-platform-icon {
+  width: 32px;
+  height: 32px;
 }
 
 /* Relevance block — reason list variant. When card.relevance_reasons

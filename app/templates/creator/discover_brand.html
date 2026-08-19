@@ -2,6 +2,16 @@
 
 {% block title %}brand · discover · babyg{% endblock %}
 
+{% macro verified_check(trust) -%}
+  {% if trust and trust.status in ['verified', 'likely_legitimate'] %}
+  <span class="discover-verified-check" aria-label="verified" title="verified">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  </span>
+  {% endif %}
+{%- endmacro %}
+
 {% block content %}
 <section class="discover-detail">
   <a class="back-link" href="/creator/discover?kind=brand">← discover</a>
@@ -9,9 +19,7 @@
   <article class="discover-detail-card">
     <div class="discover-card-topline">
       <span class="discover-card-kind">brand</span>
-      {% if card.trust %}
-      <span class="discover-trust trust-{{ card.trust.tone }}">{{ card.trust.label }}</span>
-      {% endif %}
+      {{ verified_check(card.trust) }}
     </div>
 
     <div class="discover-identity">
@@ -28,17 +36,6 @@
       {% if card.location_label %}<div><dt>location</dt><dd>{{ card.location_label }}</dd></div>{% endif %}
       {% if card.tags %}<div><dt>focus</dt><dd>{{ card.tags[:2]|join(', ') }}</dd></div>{% endif %}
     </dl>
-
-    <div class="discover-relevance">
-      <span>why this is relevant</span>
-      <p>{{ card.why_relevant }}</p>
-    </div>
-
-    {% if card.trust and card.trust.status not in ['verified', 'likely_legitimate'] %}
-    <div class="discover-trust-note trust-{{ card.trust.tone }}">
-      {{ card.trust.summary }}
-    </div>
-    {% endif %}
 
     <form method="post" action="/creator/discover/swipe" class="discover-detail-actions">
       {% include "_partials/csrf.html" %}
