@@ -13,66 +13,99 @@
 {% if messages %}
   {% for m in messages %}
     {% if m.role != "system" %}
-    <li class="bot-message {{ m.role }}" data-bot-message-id="{{ m.id }}">
+    {% set tc = m.tool_calls or {} %}
+    {% set is_nudge = tc.get('kind') == 'nudge' %}
+    {% set chips = tc.get('chips') %}
+    <li class="bot-message {{ m.role }}{% if is_nudge %} bot-message-nudge{% endif %}" data-bot-message-id="{{ m.id }}">
+      {% if is_nudge %}
+      <span class="meta bot-message-nudge-tag"><span class="bot-message-nudge-dot" aria-hidden="true"></span>babyg · {{ tc.get('nudge_category', 'needs you')|replace('_', ' ') }}</span>
+      {% else %}
       <span class="meta">{{ "you" if m.role == "user" else "babyg" }}</span>
+      {% endif %}
       <div class="bubble">{% if m.role == "assistant" %}{{ m.content|bot_markdown }}{% else %}{{ m.content }}{% endif %}</div>
-      {% if m.tool_calls and m.tool_calls.kind == "proposed_action" %}
-      <div class="card bot-action-card {% if m.tool_calls.status == 'pending' %}bot-action-pending{% elif m.tool_calls.status == 'confirmed' %}bot-action-confirmed{% else %}bot-action-cancelled{% endif %}" style="margin-top:10px;max-width:86%;{{ 'align-self:flex-start;' if m.role == 'assistant' else '' }}">
+      {% if tc.get('kind') == 'proposed_action' %}
+      <div class="card bot-action-card {% if tc.status == 'pending' %}bot-action-pending{% elif tc.status == 'confirmed' %}bot-action-confirmed{% else %}bot-action-cancelled{% endif %}" style="margin-top:10px;max-width:86%;{{ 'align-self:flex-start;' if m.role == 'assistant' else '' }}">
         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;">
-          <span class="badge badge-muted">{{ m.tool_calls.action_type|replace("_", " ")|replace(".", " ") }}</span>
+          <span class="badge badge-muted">{{ tc.action_type|replace("_", " ")|replace(".", " ") }}</span>
           <span class="status-pill">
-            <span class="pulse-dot" style="{{ '' if m.tool_calls.status == 'pending' else 'background:var(--ink-dim);box-shadow:none;' }}"></span>
-            {{ m.tool_calls.status }}
+            <span class="pulse-dot" style="{{ '' if tc.status == 'pending' else 'background:var(--ink-dim);box-shadow:none;' }}"></span>
+            {{ tc.status }}
           </span>
         </div>
         <p style="margin:0 0 12px;color:var(--ink-mid);font-size:13px;">
-          {% if m.tool_calls.status == "pending" %}review this. nothing runs until you confirm.
-          {% elif m.tool_calls.status == "confirmed" %}approved. saving now.
-          {% elif m.tool_calls.status == "executing" %}saving now.
-          {% elif m.tool_calls.status == "executed" %}saved.
-          {% elif m.tool_calls.status == "failed" %}couldn't save. nothing was sent.
+          {% if tc.status == "pending" %}review this. nothing runs until you confirm.
+          {% elif tc.status == "confirmed" %}approved. saving now.
+          {% elif tc.status == "executing" %}saving now.
+          {% elif tc.status == "executed" %}saved.
+          {% elif tc.status == "failed" %}couldn't save. nothing was sent.
           {% else %}cancelled. nothing was saved.{% endif %}
         </p>
-        {% if m.tool_calls.action_type in ["gmail.create_draft", "gmail.send_email"] and m.tool_calls.payload %}
+        {% if tc.action_type in ["gmail.create_draft", "gmail.send_email"] and tc.payload %}
         <div class="bot-action-preview" style="display:grid;gap:8px;margin:0 0 12px;font-size:12.5px;color:var(--ink-mid);">
-          {% if m.tool_calls.action_type == "gmail.send_email" and m.tool_calls.status == "pending" %}
+          {% if tc.action_type == "gmail.send_email" and tc.status == "pending" %}
           <div style="color:var(--danger);font-weight:500;">confirming will send this email.</div>
           {% endif %}
-          <div><strong style="color:var(--ink);font-weight:500;">to</strong> {{ m.tool_calls.payload.to }}</div>
-          <div><strong style="color:var(--ink);font-weight:500;">subject</strong> {{ m.tool_calls.payload.subject }}</div>
-          <pre style="white-space:pre-wrap;margin:0;padding:10px;border-radius:10px;background:rgba(255,255,255,0.04);color:var(--ink);font:inherit;max-height:220px;overflow:auto;">{{ m.tool_calls.payload.body }}</pre>
+          <div><strong style="color:var(--ink);font-weight:500;">to</strong> {{ tc.payload.to }}</div>
+          <div><strong style="color:var(--ink);font-weight:500;">subject</strong> {{ tc.payload.subject }}</div>
+          <pre style="white-space:pre-wrap;margin:0;padding:10px;border-radius:10px;background:rgba(255,255,255,0.04);color:var(--ink);font:inherit;max-height:220px;overflow:auto;">{{ tc.payload.body }}</pre>
         </div>
         {% endif %}
-        {% if m.tool_calls.action_type == "calendar.create_event" and m.tool_calls.payload %}
+        {% if tc.action_type == "calendar.create_event" and tc.payload %}
         <div class="bot-action-preview" style="display:grid;gap:8px;margin:0 0 12px;font-size:12.5px;color:var(--ink-mid);">
-          {% if m.tool_calls.status == "pending" %}
+          {% if tc.status == "pending" %}
           <div style="color:var(--danger);font-weight:500;">confirming will create this Google Calendar event.</div>
           {% endif %}
-          <div><strong style="color:var(--ink);font-weight:500;">title</strong> {{ m.tool_calls.payload.title }}</div>
-          <div><strong style="color:var(--ink);font-weight:500;">starts</strong> {{ m.tool_calls.payload.starts_at }}</div>
-          {% if m.tool_calls.payload.ends_at %}
-          <div><strong style="color:var(--ink);font-weight:500;">ends</strong> {{ m.tool_calls.payload.ends_at }}</div>
+          <div><strong style="color:var(--ink);font-weight:500;">title</strong> {{ tc.payload.title }}</div>
+          <div><strong style="color:var(--ink);font-weight:500;">starts</strong> {{ tc.payload.starts_at }}</div>
+          {% if tc.payload.ends_at %}
+          <div><strong style="color:var(--ink);font-weight:500;">ends</strong> {{ tc.payload.ends_at }}</div>
           {% endif %}
-          {% if m.tool_calls.payload.location %}
-          <div><strong style="color:var(--ink);font-weight:500;">location</strong> {{ m.tool_calls.payload.location }}</div>
+          {% if tc.payload.location %}
+          <div><strong style="color:var(--ink);font-weight:500;">location</strong> {{ tc.payload.location }}</div>
           {% endif %}
-          {% if m.tool_calls.payload.notes %}
-          <pre style="white-space:pre-wrap;margin:0;padding:10px;border-radius:10px;background:rgba(255,255,255,0.04);color:var(--ink);font:inherit;max-height:180px;overflow:auto;">{{ m.tool_calls.payload.notes }}</pre>
+          {% if tc.payload.notes %}
+          <pre style="white-space:pre-wrap;margin:0;padding:10px;border-radius:10px;background:rgba(255,255,255,0.04);color:var(--ink);font:inherit;max-height:180px;overflow:auto;">{{ tc.payload.notes }}</pre>
           {% endif %}
         </div>
         {% endif %}
-        {% if m.tool_calls.status == "pending" %}
-        <div style="display:flex;gap:8px;">
-          <form method="post" action="/creator/bot/actions/{{ m.id }}/confirm" data-bot-action>
+        {% if tc.status == "pending" %}
+        <div class="bot-chip-row bot-chip-row-inline">
+          <form method="post" action="/creator/bot/actions/{{ m.id }}/confirm" data-bot-action class="bot-chip-form">
             {% include "_partials/csrf.html" %}
-            <button class="btn btn-lime btn-sm" type="submit">confirm</button>
+            <button type="submit" class="bot-chip bot-chip-primary">confirm</button>
           </form>
-          <form method="post" action="/creator/bot/actions/{{ m.id }}/cancel" data-bot-action>
+          <form method="post" action="/creator/bot/actions/{{ m.id }}/cancel" data-bot-action class="bot-chip-form">
             {% include "_partials/csrf.html" %}
-            <button class="btn btn-ghost btn-sm" type="submit">cancel</button>
+            <button type="submit" class="bot-chip bot-chip-ghost">cancel</button>
           </form>
         </div>
         {% endif %}
+      </div>
+      {% endif %}
+      {# Chip row — appears when the assistant turn carries suggested actions.
+         Kinds: fill (button that drops text into composer, primary auto-submits),
+         nav (link to another screen), confirm/cancel (native forms
+         hitting existing action endpoints — reused by JS delegated handler). #}
+      {% if chips %}
+      <div class="bot-chip-row">
+        {% for c in chips %}
+          {% set primary = c.primary %}
+          {% if c.kind == 'confirm' %}
+          <form method="post" action="/creator/bot/actions/{{ m.id }}/confirm" data-bot-action class="bot-chip-form">
+            {% include "_partials/csrf.html" %}
+            <button type="submit" class="bot-chip {% if primary %}bot-chip-primary{% else %}bot-chip-ghost{% endif %}">{{ c.label }}</button>
+          </form>
+          {% elif c.kind == 'cancel' %}
+          <form method="post" action="/creator/bot/actions/{{ m.id }}/cancel" data-bot-action class="bot-chip-form">
+            {% include "_partials/csrf.html" %}
+            <button type="submit" class="bot-chip bot-chip-ghost">{{ c.label }}</button>
+          </form>
+          {% elif c.kind == 'nav' %}
+          <a href="{{ c.href|safe_url }}" class="bot-chip {% if primary %}bot-chip-primary{% else %}bot-chip-ghost{% endif %}">{{ c.label }}</a>
+          {% else %}
+          <button type="button" class="bot-chip {% if primary %}bot-chip-primary{% else %}bot-chip-ghost{% endif %}" data-bot-chip data-chip-fill="{{ c.text or c.label }}"{% if primary %} data-chip-submit="1"{% endif %}>{{ c.label }}</button>
+          {% endif %}
+        {% endfor %}
       </div>
       {% endif %}
     </li>
