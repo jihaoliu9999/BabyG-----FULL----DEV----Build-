@@ -41,6 +41,36 @@
   </span>
 {%- endmacro %}
 
+{% macro platform_profile_url(card) -%}
+  {%- set p = (card.primary_platform or '')|lower -%}
+  {%- if 'instagram' in p -%}
+    {%- set raw_handle = (card.instagram_handle or card.profile_handle or '')|string|trim -%}
+    {%- set handle = raw_handle|replace('@', '')|trim -%}
+    {%- if handle -%}https://www.instagram.com/{{ handle }}{%- endif -%}
+  {%- elif 'tiktok' in p -%}
+    {%- set raw_handle = (card.tiktok_handle or '')|string|trim -%}
+    {%- set handle = raw_handle|replace('@', '')|trim -%}
+    {%- if handle -%}https://www.tiktok.com/@{{ handle }}{%- endif -%}
+  {%- elif 'youtube' in p -%}
+    {%- set raw_handle = (card.youtube_handle or '')|string|trim -%}
+    {%- set handle = raw_handle|replace('@', '')|trim -%}
+    {%- if handle -%}https://www.youtube.com/@{{ handle }}{%- endif -%}
+  {%- else -%}
+    {{- card.brand_website or card.website_url or card.url or '' -}}
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro linked_platform_icon(card) -%}
+  {%- set href = platform_profile_url(card)|trim -%}
+  {%- if href -%}
+    <a class="discover-platform-link" href="{{ href|safe_url }}" target="_blank" rel="noopener noreferrer" aria-label="open {{ card.title or card.display_name or 'profile' }} on {{ card.primary_platform }}">
+      {{ platform_icon(card.primary_platform) }}
+    </a>
+  {%- else -%}
+    {{ platform_icon(card.primary_platform) }}
+  {%- endif -%}
+{%- endmacro %}
+
 {% block content %}
 <section class="discover" data-discover-root>
   <header class="discover-head">
@@ -134,7 +164,7 @@
               <div>
                 <dt>platform</dt>
                 <dd class="discover-platform-value">
-                  {{ platform_icon(card.primary_platform) }}
+                  {{ linked_platform_icon(card) }}
                   {% if card.follower_range and card.card_kind == 'creator' %}<span>{{ card.follower_range }}</span>{% endif %}
                 </dd>
               </div>

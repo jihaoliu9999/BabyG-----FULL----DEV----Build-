@@ -10335,6 +10335,29 @@ hr.hairline {
   background: rgba(245, 241, 232, 0.05);
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
 }
+.discover-platform-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: inherit;
+  line-height: 1;
+  text-decoration: none;
+  transition: filter 180ms ease, transform 180ms ease;
+}
+.discover-platform-link:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+.discover-platform-link:focus-visible {
+  outline: 2px solid rgba(255, 74, 111, 0.72);
+  outline-offset: 4px;
+}
+.discover-platform-link:hover .discover-platform-icon,
+.discover-platform-link:focus-visible .discover-platform-icon {
+  border-color: rgba(255, 74, 111, 0.48);
+  box-shadow: 0 0 0 1px rgba(255, 74, 111, 0.14), 0 14px 30px rgba(255, 74, 111, 0.14);
+}
 .discover-platform-icon svg {
   width: 18px;
   height: 18px;
@@ -10374,6 +10397,14 @@ hr.hairline {
 .network-swipe-meta .discover-platform-icon {
   width: 32px;
   height: 32px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .discover-platform-link {
+    transition: none;
+  }
+  .discover-platform-link:hover {
+    transform: none;
+  }
 }
 
 /* Relevance block — reason list variant. When card.relevance_reasons
