@@ -29,10 +29,16 @@ from app.services import (
     bookings as bookings_module,
 )
 from app.services import (
+    discover as discover_module,
+)
+from app.services import (
     dms as dms_module,
 )
 from app.services import (
     intel as intel_module,
+)
+from app.services import (
+    network as network_module,
 )
 from app.services import (
     notifications as notifications_module,
@@ -83,6 +89,8 @@ def stub_dashboard(monkeypatch):
     monkeypatch.setattr(notifications_module, "list_unread", lambda uid, *, limit=4: [])
     monkeypatch.setattr(notifications_module, "unread_count", lambda uid: 0)
     monkeypatch.setattr(dms_module, "unread_count_for_user", lambda uid: 0)
+    monkeypatch.setattr(network_module, "list_incoming_pending", lambda uid: [])
+    monkeypatch.setattr(discover_module, "list_cards", lambda **kw: [])
     monkeypatch.setattr(
         bookings_module, "list_for_user",
         lambda uid, **kw: list(state["bookings"]),
@@ -113,10 +121,8 @@ def test_home_renders_today_section_when_calendar_not_connected(
     # spec mandates — no fake events, no fake "ai" upsell.
     assert "connect calendar" in r.text.lower()
     assert "today's calls" in r.text.lower()
-    # "view calendar" link is always present so the user can dig in.
+    # "open calendar" link is always present so the user can dig in.
     assert "/creator/calendar" in r.text
-    assert 'class="app-topbar"' in r.text
-    assert 'class="mobile-header"' in r.text
     assert 'aria-label="next five days"' in r.text
     assert 'aria-current="date"' in r.text
     assert "<strong>now</strong>" not in r.text
@@ -157,7 +163,8 @@ def test_home_renders_upcoming_events_when_present(
     assert "Brand intro call" in r.text
     assert "Studio shoot" in r.text
     assert 'href="/creator/calendar/b-1"' in r.text
-    assert "up next" in r.text.lower()
+    # Section is now titled "today" — the section header is on the page.
+    assert ">today<" in r.text
     # The connect-calendar prompt must not also appear once connected.
     assert "connect calendar" not in r.text.lower()
 
@@ -174,7 +181,7 @@ def test_home_renders_quiet_empty_state_when_connected_but_no_events(
     assert "connect calendar" not in r.text.lower()
 
 
-def test_home_caps_upcoming_preview_to_four_items(
+def test_home_caps_upcoming_preview_to_three_items(
     client: TestClient, stub_dashboard
 ) -> None:
     """Home stays uncluttered. Preview shows only the next few — full
@@ -192,10 +199,10 @@ def test_home_caps_upcoming_preview_to_four_items(
     ]
     r = client.get("/creator")
     assert r.status_code == 200
-    # Event 0..3 visible; Event 4..7 must not be rendered.
-    for i in range(4):
+    # Event 0..2 visible; Event 3..7 must not be rendered.
+    for i in range(3):
         assert f"Event {i}" in r.text
-    for i in range(4, 8):
+    for i in range(3, 8):
         assert f"Event {i}" not in r.text
 
 

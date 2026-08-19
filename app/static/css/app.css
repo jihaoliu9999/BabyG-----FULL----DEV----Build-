@@ -10994,3 +10994,359 @@ hr.hairline {
 .dm-thread-brief-pill-safe { color: rgb(126,223,196); border-color: rgba(126,223,196,.32); background: rgba(126,223,196,.08); }
 .dm-thread-brief-pill-mild { color: rgb(156,202,255); border-color: rgba(156,202,255,.32); background: rgba(156,202,255,.08); }
 .dm-thread-brief-pill-caution { color: rgb(234,215,181); border-color: rgba(234,215,181,.32); background: rgba(234,215,181,.08); }
+
+/* Creator home v4: a daily command center. Greeting + "needs you" +
+   compact today strip + matched picks + jump-to shortcuts. Every row
+   surfaces its own action so the page can't turn into a dead list. */
+.is-creator-app .creator-home-avatar {
+  width: 42px; height: 42px; flex: 0 0 42px;
+  display: grid; place-items: center;
+  overflow: hidden;
+  color: var(--ink);
+  border: 1px solid var(--hairline);
+  border-radius: 50%;
+  background: var(--surface-2);
+  font-family: var(--mono);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.is-creator-app .creator-home-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.is-creator-app .creator-home-section-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px;
+}
+.is-creator-app .creator-home-section-head h2 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 15.5px;
+  font-weight: 600;
+  letter-spacing: -.015em;
+}
+.is-creator-app .creator-home-link {
+  min-height: 32px;
+  display: inline-flex; align-items: center;
+  color: var(--accent-text);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.is-creator-app .creator-home-link:hover { color: var(--accent); }
+
+/* needs-you list — hairline rows, no card boxes. Each row is a grid
+   of [36px icon] [1fr body] [auto actions]. Actions can be inline
+   chip forms (accept/decline) or a single link chip. */
+.is-creator-app .creator-needs-list {
+  list-style: none; margin: 0; padding: 0;
+  display: grid;
+  border-top: 1px solid var(--hairline);
+}
+.is-creator-app .creator-needs-row {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr);
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 4px;
+  border-bottom: 1px solid var(--hairline);
+}
+.is-creator-app .creator-needs-icon {
+  width: 36px; height: 36px;
+  display: grid; place-items: center;
+  color: var(--accent);
+  border: 1px solid rgba(255,77,109,.28);
+  border-radius: 11px;
+  background: rgba(255,77,109,.08);
+}
+.is-creator-app .creator-needs-icon svg { width: 17px; height: 17px; }
+.is-creator-app .creator-needs-body {
+  min-width: 0;
+  display: grid; gap: 10px;
+}
+.is-creator-app .creator-needs-link {
+  display: grid; gap: 3px;
+  color: inherit;
+  text-decoration: none;
+}
+.is-creator-app .creator-needs-title {
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.is-creator-app .creator-needs-sub {
+  color: var(--text-tertiary);
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.is-creator-app .creator-needs-row-simple {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px;
+}
+.is-creator-app .creator-needs-cta {
+  flex: none;
+  color: var(--accent-text);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.is-creator-app .creator-needs-actions {
+  display: flex; align-items: center; flex-wrap: wrap;
+  gap: 6px;
+}
+.is-creator-app .creator-needs-actions-inline { margin: 0; display: inline-flex; }
+.is-creator-app .creator-needs-chip {
+  min-height: 32px;
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 6px 12px;
+  color: var(--accent-text);
+  border: 1px solid rgba(255,77,109,.28);
+  border-radius: 999px;
+  background: rgba(255,77,109,.06);
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+.is-creator-app .creator-needs-chip:hover {
+  color: #fff;
+  border-color: var(--accent);
+  background: var(--accent);
+}
+.is-creator-app .creator-needs-chip svg { width: 12px; height: 12px; }
+.is-creator-app .creator-needs-chip.ghost {
+  color: var(--text-secondary);
+  border-color: var(--border-default);
+  background: var(--surface-2);
+}
+.is-creator-app .creator-needs-chip.ghost:hover {
+  color: var(--ink);
+  border-color: var(--hairline-strong);
+  background: var(--surface-3);
+}
+.is-creator-app .creator-needs-empty {
+  display: flex; align-items: center; gap: 10px;
+  padding: 18px;
+  color: var(--text-secondary);
+  border: 1px dashed var(--hairline);
+  border-radius: var(--radius-lg);
+  background: rgba(52,189,132,.05);
+  font-size: 13px;
+}
+.is-creator-app .creator-needs-empty svg {
+  width: 18px; height: 18px; flex: 0 0 18px;
+  color: var(--safe);
+}
+
+/* today card — reuse the 5-day strip pattern from the old calendar
+   preview, keep it inside a single wrapper card. */
+.is-creator-app .creator-today-card {
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+  box-shadow: var(--shadow-card);
+}
+.is-creator-app .creator-today-strip {
+  display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 5px;
+  padding: 12px;
+  border-bottom: 1px solid var(--hairline);
+}
+.is-creator-app .creator-today-strip span {
+  min-width: 0;
+  display: grid; place-items: center; gap: 3px;
+  padding: 8px 2px;
+  color: var(--text-tertiary);
+  border-radius: var(--radius-sm);
+}
+.is-creator-app .creator-today-strip span.is-active {
+  color: #fff;
+  background: var(--accent);
+}
+.is-creator-app .creator-today-strip small {
+  font-family: var(--mono);
+  font-size: 8px;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+}
+.is-creator-app .creator-today-strip strong {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 600;
+}
+.is-creator-app .creator-today-events { display: grid; }
+.is-creator-app .creator-today-event {
+  display: grid;
+  grid-template-columns: 108px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 62px;
+  padding: 11px 14px;
+  color: inherit;
+  border-top: 1px solid var(--hairline);
+  text-decoration: none;
+}
+.is-creator-app .creator-today-event:first-child { border-top: 0; }
+.is-creator-app .creator-today-event:hover { background: var(--surface-2); }
+.is-creator-app .creator-today-event-time {
+  color: var(--safe);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: .02em;
+}
+.is-creator-app .creator-today-event-body {
+  min-width: 0;
+  display: grid; gap: 3px;
+}
+.is-creator-app .creator-today-event-body strong {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 550;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.is-creator-app .creator-today-event-body small {
+  color: var(--text-tertiary);
+  font-size: 11.5px;
+}
+.is-creator-app .creator-today-event > span[aria-hidden="true"] {
+  flex: none;
+  color: var(--text-tertiary);
+  font-size: 20px;
+  line-height: 1;
+}
+.is-creator-app .creator-today-empty {
+  display: flex; align-items: center; gap: 11px;
+  padding: 14px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  font-size: 13px;
+}
+.is-creator-app .creator-today-empty svg {
+  width: 18px; height: 18px; flex: 0 0 18px;
+  color: var(--text-tertiary);
+}
+.is-creator-app a.creator-today-empty:hover { background: var(--surface-2); }
+.is-creator-app .creator-today-empty-clear svg { color: var(--safe); }
+
+/* matched — babyg-curated discover picks, top 3. Two column at wide,
+   stacks below 640. Each card is grid [thumb] [body]. */
+.is-creator-app .creator-matched {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.is-creator-app .creator-match-card {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px;
+  color: inherit;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--surface-1);
+  box-shadow: var(--shadow-card);
+  text-decoration: none;
+  transition: border-color 140ms ease, background-color 140ms ease, transform 120ms ease;
+}
+.is-creator-app .creator-match-card:hover {
+  border-color: rgba(255,77,109,.32);
+  background: var(--surface-2);
+}
+.is-creator-app .creator-match-card:active { transform: scale(.995); }
+.is-creator-app .creator-match-thumb {
+  width: 44px; height: 44px;
+  display: grid; place-items: center;
+  overflow: hidden;
+  color: var(--text-secondary);
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  background: var(--surface-2);
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 600;
+}
+.is-creator-app .creator-match-thumb.creator { border-radius: 50%; }
+.is-creator-app .creator-match-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.is-creator-app .creator-match-thumb svg { width: 18px; height: 18px; }
+.is-creator-app .creator-match-body {
+  min-width: 0;
+  display: grid; gap: 4px;
+}
+.is-creator-app .creator-match-topline {
+  display: flex; align-items: center; flex-wrap: wrap;
+  gap: 6px;
+  color: var(--text-tertiary);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.is-creator-app .creator-match-kind {
+  color: var(--accent-text);
+  font-weight: 700;
+}
+.is-creator-app .creator-match-kind.brand { color: var(--ai, #c96bd6); }
+.is-creator-app .creator-match-kind.creator { color: var(--safe); }
+.is-creator-app .creator-match-title {
+  color: var(--text-primary);
+  font-size: 14.5px;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -.01em;
+  overflow-wrap: anywhere;
+}
+.is-creator-app .creator-match-meta {
+  color: var(--text-tertiary);
+  font-size: 12px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+/* jump-to shortcuts — three flat pills. No card container, just chips
+   because home already surfaces state for everything else. */
+.is-creator-app .creator-home-shortcuts {
+  display: flex; align-items: center; flex-wrap: wrap;
+  gap: 8px;
+}
+.is-creator-app .creator-home-shortcut {
+  min-height: 40px;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 14px;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-default);
+  border-radius: 999px;
+  background: var(--surface-2);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: none;
+  transition: color 140ms ease, border-color 140ms ease, background-color 140ms ease;
+}
+.is-creator-app .creator-home-shortcut:hover {
+  color: var(--ink);
+  border-color: rgba(255,77,109,.4);
+  background: var(--surface-3);
+}
+.is-creator-app .creator-home-shortcut svg { width: 15px; height: 15px; color: var(--accent); }
+
+@media (max-width: 640px) {
+  .is-creator-app .creator-matched { grid-template-columns: 1fr; }
+  .is-creator-app .creator-today-event { grid-template-columns: 92px minmax(0, 1fr) auto; gap: 10px; padding-inline: 12px; }
+  .is-creator-app .creator-needs-actions { width: 100%; }
+  .is-creator-app .creator-needs-chip { flex: 1; justify-content: center; min-width: 0; }
+}
+@media (max-width: 420px) {
+  .is-creator-app .creator-home-hero { gap: 12px; }
+  .is-creator-app .creator-home-avatar { width: 38px; height: 38px; flex-basis: 38px; }
+  .is-creator-app .creator-today-event { grid-template-columns: 76px minmax(0, 1fr) auto; gap: 8px; }
+  .is-creator-app .creator-today-event-time { font-size: 10px; }
+  .is-creator-app .creator-today-event-body strong { font-size: 13.5px; }
+  .is-creator-app .creator-home-shortcut { flex: 1; justify-content: center; min-width: 0; padding-inline: 10px; }
+}

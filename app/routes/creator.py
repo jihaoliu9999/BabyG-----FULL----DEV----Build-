@@ -39,6 +39,7 @@ from app.services import (
     bot,
     bot_prompts,
     calendar_sync,
+    discover,
     discovery,
     dm_briefs,
     dms,
@@ -129,9 +130,22 @@ async def dashboard(
     )
     post_ids = [str(p["id"]) for p in posts]
     feedback_map = intel.feedback_for_user(session["user_id"], post_ids)
-    unread_notifs = notifications.list_unread(session["user_id"], limit=4)
-    unread_total = notifications.unread_count(session["user_id"])
-    unread_dms = dms.unread_count_for_user(session["user_id"])
+
+    # "needs you" surfaces non-DM notifications only. DM alerts get their
+    # own /creator/dm page; duplicating them here made the home feel
+    # spammy and let a user tap into a thread from home instead of the
+    # dedicated inbox. We keep the raw counts for the greeting summary
+    # (so "3 things need you today" stays honest).
+    unread_notifs_all = notifications.list_unread(session["user_id"], limit=8)
+    unread_notifs = [n for n in unread_notifs_all if n.get("kind") != "new_dm"]
+    non_dm_unread_total = len(unread_notifs)
+
+    # Pending inbound connection requests power the accept/decline chips
+    # on the top rows — clearest "waiting on you" action after DMs.
+    try:
+        pending_connections = network.list_incoming_pending(session["user_id"])
+    except Exception:
+        pending_connections = []
 
     # Home becomes the daily command center: include a compact calendar
     # preview so creators don't have to leave Home to see what's next.
@@ -153,22 +167,55 @@ async def dashboard(
     except Exception:
         calendar_connected = False
 
+    # Matched picks — the babyg-curated discover feed, top 3 for home.
+    # Whatever the discover service already filters/prioritizes for this
+    # viewer flows through unchanged; this is just a smaller slice.
+    viewer_location_label = ", ".join(
+        p for p in (profile.get("location_city"), profile.get("location_region")) if p
+    ) or None
+    try:
+        matched_picks = discover.list_cards(
+            viewer_id=session["user_id"],
+            viewer_role="creator",
+            kind="all",
+            viewer_tags=list(profile.get("niches") or []),
+            viewer_location_label=viewer_location_label,
+            viewer_platform=profile.get("primary_platform"),
+            limit=3,
+        )
+    except Exception:
+        matched_picks = []
+
+    # "N things need you today" summary count: connections + confirm
+    # bookings + non-DM notifications. DMs deliberately excluded so
+    # the number matches what's shown in "needs you" below.
+    needs_count = (
+        len(pending_connections)
+        + (1 if upcoming_bookings else 0)
+        + non_dm_unread_total
+    )
+
     first_name = (profile.get("full_name") or "creator").split(" ")[0].lower()
     daily_greeting = greetings.pick_daily(session["user_id"], first_name)
+    profile_initial = (
+        (profile.get("full_name") or profile.get("instagram_handle") or "c")[:1].upper()
+    )
 
     return templates.TemplateResponse(
         request,
         "creator/dashboard.html",
         {
             "profile": profile,
+            "profile_initial": profile_initial,
             "posts": posts,
             "feedback_map": feedback_map,
             "categories": list(CATEGORY_LABELS.items()),
             "active_category": category if category in intel.CATEGORIES else None,
             "unread_notifs": unread_notifs,
-            "unread_total": unread_total,
-            "unread_dms": unread_dms,
+            "pending_connections": pending_connections,
             "upcoming_bookings": upcoming_bookings,
+            "matched_picks": matched_picks,
+            "needs_count": needs_count,
             "calendar_connected": calendar_connected,
             "calendar_days": _calendar_preview_days(),
             "daily_greeting": daily_greeting,
