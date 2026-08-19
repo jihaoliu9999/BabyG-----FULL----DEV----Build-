@@ -34,11 +34,12 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
       </summary>
       <div class="dm-thread-menu-panel">
+        <a href="/creator/network/{{ peer_id }}" class="dm-thread-menu-item">view profile</a>
         <form method="post" action="/creator/dm/{{ peer_id }}/brief" data-brief-refresh>
           {% include "_partials/csrf.html" %}
           <button type="submit" class="dm-thread-menu-item" data-ask-babyg{% if not brief and not brief_message_id %} disabled aria-disabled="true"{% endif %}>ask babyg</button>
         </form>
-        <a href="/creator/network/{{ peer_id }}" class="dm-thread-menu-item">view profile</a>
+        <button type="button" class="dm-thread-menu-item dm-thread-menu-item-danger" data-dm-report-toggle>report conversation</button>
       </div>
     </details>
   </header>
@@ -61,9 +62,24 @@
   <div class="dm-thread-messages-wrap">
     {% if messages %}
       {% include "_partials/dm_thread_messages.html" %}
+      {# No brief yet — offer to have babyg read the thread. Renders as
+         a quiet dashed strip below the last group so sparse threads
+         (1-2 messages, no brief yet) don't feel dead. The "ask babyg"
+         button posts to the same endpoint as the ⋯ menu option. #}
+      {% if not brief %}
+      <div class="dm-thread-brief-empty">
+        <span>no brief yet — babyg can read the thread and suggest a reply.</span>
+        <form method="post" action="/creator/dm/{{ peer_id }}/brief" data-brief-refresh>
+          {% include "_partials/csrf.html" %}
+          <button type="submit" class="dm-thread-brief-empty-ask" data-ask-babyg{% if not brief_message_id %} disabled aria-disabled="true"{% endif %}>ask babyg</button>
+        </form>
+      </div>
+      {% endif %}
     {% else %}
       <div class="dm-thread-empty">
-        <p class="mono">start of your conversation.</p>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <strong>start a conversation with {{ (peer.full_name or 'them').split(' ')[0]|lower }}.</strong>
+        <span>babyg watches every thread. reads incoming, suggests replies, holds your rate.</span>
       </div>
     {% endif %}
   </div>
@@ -146,7 +162,12 @@
   </details>
   {% endif %}
 
-  <div class="dm-thread-report">
+  {# Report form lives in the DOM but stays hidden until the "report
+     conversation" item in the ⋯ menu toggles it. Keeps the reporting
+     path safe + fully server-rendered (no JS required to submit),
+     while removing the "Report this conversation" text that was
+     appearing raw at the bottom of every thread. #}
+  <div class="dm-thread-report" hidden data-dm-report>
     {% set target_type = "dm_thread" %}
     {% set target_id = thread.id %}
     {% set return_to = "/creator/dm/" ~ peer_id %}

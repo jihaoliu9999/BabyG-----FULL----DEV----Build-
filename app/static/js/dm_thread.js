@@ -21,6 +21,23 @@
     });
   });
 
+  // "report conversation" in the ⋯ menu → reveal the hidden report
+  // form and scroll to it. The form itself is server-rendered <details>
+  // that also opens on click so the reason field is immediately visible.
+  var reportToggle = root.querySelector("[data-dm-report-toggle]");
+  var reportWrap = root.querySelector("[data-dm-report]");
+  if (reportToggle && reportWrap) {
+    reportToggle.addEventListener("click", function () {
+      reportWrap.hidden = false;
+      var innerDetails = reportWrap.querySelector("details");
+      if (innerDetails) innerDetails.open = true;
+      // Collapse the ⋯ menu.
+      var menu = reportToggle.closest("details");
+      if (menu) menu.open = false;
+      reportWrap.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+  }
+
   // If the DM-list row's chip forwarded a ?draft=… param, prefill it.
   try {
     var params = new URLSearchParams(window.location.search);
