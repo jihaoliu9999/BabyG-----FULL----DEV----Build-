@@ -10726,33 +10726,35 @@ hr.hairline {
   padding: 0 0 48px;
   display: flex; flex-direction: column;
 }
-/* Slim top bar: [tag] [search] [compose]. Grid keeps all three
-   vertically centered on one line, so tag height ≈ input height ≈
-   compose button height. Alignment is deterministic. */
+/* Hide the shared mobile-header on the DM inbox — sidebar (desktop)
+   and tabbar (mobile) already provide profile access, and stacking
+   the header above the sticky topbar was causing overlap. */
+.is-creator-app .app-shell:has(.dm-inbox) .mobile-header { display: none; }
+.is-creator-app .app-shell:has(.dm-inbox) .app-main > #view { padding-top: 0; }
+.is-creator-app .app-shell:has(.dm-inbox) .view { padding-top: 0; max-width: none; }
+
+/* Slim top bar: search + compose only. Flex is more forgiving than
+   grid when a sticky element's width chases its container — the
+   previous 3-column grid with an "auto" tag on the left clipped its
+   own first letter in some layouts. */
 .dm-inbox-topbar {
   position: sticky;
   top: 0;
   z-index: 5;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
+  display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
   padding: 12px 20px;
   background: rgba(10,10,10,.92);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--hairline);
 }
-.dm-inbox-tag {
-  display: inline-flex; align-items: center; gap: 6px;
-  color: var(--ink-mid);
-  font-family: var(--mono);
-  font-size: 10.5px; font-weight: 600;
-  letter-spacing: .12em; text-transform: uppercase;
-  white-space: nowrap;
-}
-.dm-inbox-tag b { color: var(--accent-text); font-weight: 700; }
+/* Tag was clipping — moved into search placeholder instead. Class
+   kept as a no-op in case the template still references it. */
+.dm-inbox-tag { display: none; }
 .dm-inbox-search {
+  flex: 1 1 auto;
   display: flex; align-items: center; gap: 8px;
   height: 36px;
   padding: 0 14px;
@@ -10783,6 +10785,7 @@ hr.hairline {
   border-radius: 999px;
   text-decoration: none;
   transition: color .15s ease, border-color .15s ease, background .15s ease;
+  margin-left: auto;
 }
 .dm-inbox-compose:hover {
   color: var(--ink);

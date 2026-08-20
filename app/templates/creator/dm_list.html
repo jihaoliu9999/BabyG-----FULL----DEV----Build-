@@ -4,17 +4,14 @@
 
 {% block content %}
 <section class="dm-inbox" data-dm-inbox>
-  {# Slim top bar: page marker on the left, search center, compose right.
-     Kills the ~60px of dead space that a headline-less inbox had, and
-     keeps every element on one line — everything vertically centered. #}
+  {# Slim top bar: search + compose. Count lives in the placeholder
+     ("search N unread messages") so we don't need a separate tag
+     element that was clipping in some layouts. #}
   <div class="dm-inbox-topbar">
-    <span class="dm-inbox-tag">
-      dms{% if thread_count %} <b>· {{ thread_count }}</b>{% endif %}
-    </span>
     <label class="dm-inbox-search">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
       <input type="search" name="q" autocomplete="off" data-dm-search
-             placeholder="{% if unread_total %}search {{ unread_total }} unread{% if unread_total == 1 %} message{% else %} messages{% endif %}{% else %}search{% endif %}" />
+             placeholder="{% if unread_total %}search {{ unread_total }} unread{% if unread_total == 1 %} message{% else %} messages{% endif %}{% elif thread_count %}search {{ thread_count }} conversation{% if thread_count != 1 %}s{% endif %}{% else %}search{% endif %}" />
     </label>
     <a href="/creator/network" class="dm-inbox-compose" aria-label="start a new conversation" title="new">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
