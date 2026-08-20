@@ -10726,28 +10726,20 @@ hr.hairline {
   padding: 0 0 48px;
   display: flex; flex-direction: column;
 }
-/* Hide the shared mobile-header on the DM inbox — sidebar (desktop)
-   and tabbar (mobile) already provide profile access, and stacking
-   the header above the sticky topbar was causing overlap. */
-.is-creator-app .app-shell:has(.dm-inbox) .mobile-header { display: none; }
-.is-creator-app .app-shell:has(.dm-inbox) .app-main > #view { padding-top: 0; }
-.is-creator-app .app-shell:has(.dm-inbox) .view { padding-top: 0; max-width: none; }
+/* Keep the shared mobile-header + desktop app-topbar visible on the
+   DM inbox — the profile avatar in the top-right needs to sit in the
+   same spot on every page. My dm-inbox-topbar renders BELOW it, not
+   sticky, so the two never fight for the same slot. */
+.is-creator-app .app-shell:has(.dm-inbox) .view { max-width: none; padding-top: 0; }
 
-/* Slim top bar: search + compose only. Flex is more forgiving than
-   grid when a sticky element's width chases its container — the
-   previous 3-column grid with an "auto" tag on the left clipped its
-   own first letter in some layouts. */
+/* Slim top bar: search + compose only. Renders inline (not sticky) so
+   it doesn't overlap the shared header above. Flex is more forgiving
+   than grid when the container width chases its parent. */
 .dm-inbox-topbar {
-  position: sticky;
-  top: 0;
-  z-index: 5;
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 12px 20px;
-  background: rgba(10,10,10,.92);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--hairline);
 }
 /* Tag was clipping — moved into search placeholder instead. Class
