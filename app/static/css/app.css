@@ -10726,34 +10726,70 @@ hr.hairline {
   padding: 0 0 48px;
   display: flex; flex-direction: column;
 }
-.dm-inbox-search-bar {
+/* Slim top bar: [tag] [search] [compose]. Grid keeps all three
+   vertically centered on one line, so tag height ≈ input height ≈
+   compose button height. Alignment is deterministic. */
+.dm-inbox-topbar {
   position: sticky;
   top: 0;
   z-index: 5;
-  padding: 14px 20px;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
   background: rgba(10,10,10,.92);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-bottom: 1px solid var(--hairline);
 }
+.dm-inbox-tag {
+  display: inline-flex; align-items: center; gap: 6px;
+  color: var(--ink-mid);
+  font-family: var(--mono);
+  font-size: 10.5px; font-weight: 600;
+  letter-spacing: .12em; text-transform: uppercase;
+  white-space: nowrap;
+}
+.dm-inbox-tag b { color: var(--accent-text); font-weight: 700; }
 .dm-inbox-search {
-  display: flex; align-items: center; gap: 10px;
-  padding: 10px 16px;
+  display: flex; align-items: center; gap: 8px;
+  height: 36px;
+  padding: 0 14px;
   background: var(--surface-1);
   border: 1px solid var(--hairline);
   border-radius: 999px;
   transition: border-color .15s ease, background .15s ease;
+  min-width: 0;
 }
 .dm-inbox-search:focus-within {
   border-color: rgba(255,77,109,.32);
   background: var(--surface-2);
 }
-.dm-inbox-search svg { width: 15px; height: 15px; color: var(--ink-dim); flex: 0 0 15px; }
+.dm-inbox-search svg { width: 14px; height: 14px; color: var(--ink-dim); flex: 0 0 14px; }
 .dm-inbox-search input {
   flex: 1; background: transparent; border: none; outline: none;
-  color: var(--ink); font: inherit; font-size: 14px;
+  color: var(--ink); font: inherit; font-size: 13.5px;
+  min-width: 0;
 }
 .dm-inbox-search input::placeholder { color: var(--ink-dim); }
+.dm-inbox-compose {
+  flex: 0 0 36px;
+  width: 36px; height: 36px;
+  display: grid; place-items: center;
+  color: var(--ink-mid);
+  background: transparent;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  text-decoration: none;
+  transition: color .15s ease, border-color .15s ease, background .15s ease;
+}
+.dm-inbox-compose:hover {
+  color: var(--ink);
+  border-color: var(--hairline-strong);
+  background: var(--surface-2);
+}
+.dm-inbox-compose svg { width: 14px; height: 14px; }
 .dm-inbox-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .dm-inbox-row {
   border-bottom: 1px solid var(--hairline);
@@ -10772,11 +10808,14 @@ hr.hairline {
   display: grid;
   grid-template-columns: 48px minmax(0, 1fr) auto;
   gap: 14px;
-  padding: 14px 20px;
+  padding: 14px 20px 4px;
   color: inherit;
   text-decoration: none;
   align-items: flex-start;
 }
+/* Row with no chips (empty state or brief hidden): pull bottom padding
+   back in so the row height matches a chip-carrying row's rhythm. */
+.dm-inbox-row:not(:has(.dm-inbox-chips)) .dm-inbox-link { padding-bottom: 14px; }
 .dm-inbox-avatar {
   width: 48px; height: 48px; border-radius: 50%;
   background: var(--surface-2);
@@ -10826,26 +10865,32 @@ hr.hairline {
   line-height: 1;
 }
 
-/* babyg-suggested reply chips — live inside the row, indented past
-   the avatar so they align with the preview text above. Tap = jump
-   to thread with draft pre-filled (dm_thread.js consumes ?draft=). */
+/* Action row on every DM row. Indented past the avatar so chips
+   align with the preview text above them. Renders in two flavors:
+     .dm-inbox-chips (form or ul of chips) — babyg-suggested replies.
+     .dm-inbox-chip-ghost — fallback "ask babyg to read" when no
+       brief exists yet. Same shape, muted color, click to fire the
+       brief endpoint (form POST). */
 .dm-inbox-chips {
   display: flex; flex-wrap: wrap; gap: 6px;
   /* left = row padding (20) + avatar (48) + column gap (14) */
-  padding: 0 20px 14px calc(20px + 48px + 14px);
-  margin-top: -6px;
+  padding: 6px 20px 14px calc(20px + 48px + 14px);
+  margin: 0;
 }
 .dm-inbox-chip {
   display: inline-flex; align-items: center; gap: 6px;
-  padding: 6px 11px;
+  height: 28px;
+  padding: 0 12px;
   color: var(--accent-text);
   border: 1px solid rgba(255, 77, 109, 0.28);
   border-radius: 999px;
   background: rgba(255, 77, 109, 0.05);
+  font: inherit;
   font-size: 12px;
   font-weight: 600;
   line-height: 1;
   text-decoration: none;
+  cursor: pointer;
   max-width: 100%;
   transition: background .15s ease, border-color .15s ease, color .15s ease;
 }
@@ -10859,13 +10904,30 @@ hr.hairline {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   max-width: 220px;
 }
+.dm-inbox-chip-ghost {
+  color: var(--ink-mid);
+  border-color: var(--hairline-strong);
+  background: transparent;
+}
+.dm-inbox-chip-ghost:hover {
+  color: var(--ink);
+  border-color: var(--ink-mid);
+  background: var(--surface-2);
+}
 @media (max-width: 640px) {
-  /* On narrow screens keep the row compact — 2 chips max, scroll if
-     they don't fit. The 3rd is still reachable inside the thread. */
-  .dm-inbox-chips { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-bottom: 12px; }
+  /* Narrow screens: keep the row compact — chips scroll horizontally,
+     first 2 visible, extras still reachable inside the thread. Use
+     sibling-count over nth-child so hidden <input> children inside a
+     form-wrapped chip row (csrf token, next hint) don't get counted
+     — that was hiding the ghost "ask babyg to read" button. */
+  .dm-inbox-chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
   .dm-inbox-chips::-webkit-scrollbar { display: none; }
   .dm-inbox-chip { flex: 0 0 auto; }
-  .dm-inbox-chip:nth-child(n+3) { display: none; }
+  .dm-inbox-chip ~ .dm-inbox-chip ~ .dm-inbox-chip { display: none; }
 }
 
 .dm-inbox-empty-hint {
@@ -10879,10 +10941,14 @@ hr.hairline {
 .dm-inbox-empty p { margin: 0; font-size: 13.5px; }
 
 @media (max-width: 640px) {
-  .dm-inbox-search-bar { padding: 12px 14px; }
-  .dm-inbox-link { padding: 14px 14px; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 12px; }
+  .dm-inbox-topbar { padding: 10px 14px; gap: 8px; }
+  .dm-inbox-tag { font-size: 10px; letter-spacing: .14em; }
+  .dm-inbox-search { height: 34px; }
+  .dm-inbox-compose { width: 34px; height: 34px; flex-basis: 34px; }
+  .dm-inbox-link { padding: 14px 14px 4px; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 12px; }
+  .dm-inbox-row:not(:has(.dm-inbox-chips)) .dm-inbox-link { padding-bottom: 14px; }
   .dm-inbox-avatar { width: 44px; height: 44px; }
-  .dm-inbox-chips { padding: 0 14px 12px calc(14px + 44px + 12px); }
+  .dm-inbox-chips { padding: 6px 14px 12px calc(14px + 44px + 12px); }
 }
 
 /* ============================================================

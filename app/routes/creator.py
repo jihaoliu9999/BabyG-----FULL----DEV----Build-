@@ -1020,17 +1020,24 @@ async def dm_send(
 async def dm_brief(
     peer_user_id: str,
     request: Request,
+    next: str | None = Form(default=None),
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
     """Manual "ask babyg" — (re)generate the private brief for the latest
     incoming message in this thread. Recipient-only, read-only, never
     sends anything. Returns JSON for the AJAX path, redirect for no-JS.
+
+    ``next`` (optional) — same-origin path to redirect to after the
+    brief lands. Used by the inbox "ask babyg to read" ghost chip so
+    the user stays on the inbox instead of getting bounced into the
+    thread they never opened.
     """
     peer, _kind = _resolve_creator_dm_peer(
         me_id=session["user_id"], peer_user_id=peer_user_id
     )
     if peer is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    safe_next = safe_same_origin(next) if next else None
     if not dm_brief_manual_limiter.allow(
         "dm-brief-manual", session["user_id"]
     ):
@@ -1055,7 +1062,9 @@ async def dm_brief(
         return JSONResponse(
             {"ok": brief is not None, "brief": _brief_public(brief)}
         )
-    return RedirectResponse(f"/creator/dm/{peer_user_id}", status_code=303)
+    return RedirectResponse(
+        safe_next or f"/creator/dm/{peer_user_id}", status_code=303
+    )
 
 
 @router.post("/creator/dm/{peer_user_id}/brief/follow-up")

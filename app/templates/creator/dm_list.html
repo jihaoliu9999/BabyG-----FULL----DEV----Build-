@@ -4,16 +4,21 @@
 
 {% block content %}
 <section class="dm-inbox" data-dm-inbox>
-  {# No page heading. The unread count lives inside the search
-     placeholder (e.g. "search 3 unread messages"), so we don't
-     dedicate a whole title block to it. Cleaner + more room for
-     the actual list. #}
-  <div class="dm-inbox-search-bar">
+  {# Slim top bar: page marker on the left, search center, compose right.
+     Kills the ~60px of dead space that a headline-less inbox had, and
+     keeps every element on one line — everything vertically centered. #}
+  <div class="dm-inbox-topbar">
+    <span class="dm-inbox-tag">
+      dms{% if thread_count %} <b>· {{ thread_count }}</b>{% endif %}
+    </span>
     <label class="dm-inbox-search">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
       <input type="search" name="q" autocomplete="off" data-dm-search
-             placeholder="{% if unread_total %}search {{ unread_total }} unread{% if unread_total == 1 %} message{% else %} messages{% endif %}{% else %}search dms{% endif %}" />
+             placeholder="{% if unread_total %}search {{ unread_total }} unread{% if unread_total == 1 %} message{% else %} messages{% endif %}{% else %}search{% endif %}" />
     </label>
+    <a href="/creator/network" class="dm-inbox-compose" aria-label="start a new conversation" title="new">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+    </a>
   </div>
 
   {% if threads %}
@@ -59,10 +64,13 @@
           {% if unread %}<span class="dm-inbox-count-dot">{{ unread }}</span>{% endif %}
         </span>
       </a>
-      {# babyg-suggested reply chips. Live inside the row (not the
-         anchor — nested anchors are invalid HTML). Tap opens the
-         thread with the draft pre-filled via ?draft= param, handled
-         in dm_thread.js. Up to 3 on desktop, 2 on mobile via CSS. #}
+      {# Action row — every thread gets at least one chip so no row
+         ever renders naked.
+           * brief + reply_options → real coral chips, tap = jump to
+             thread with draft pre-filled.
+           * no brief → single ghost "ask babyg to read" chip. Posts
+             to the brief endpoint with next=/creator/dm so the user
+             stays on the inbox and the brief lands next render. #}
       {% if b and b.reply_options %}
       <div class="dm-inbox-chips" aria-label="babyg suggested replies">
         {% for reply in b.reply_options[:3] %}
@@ -74,6 +82,14 @@
         </a>
         {% endfor %}
       </div>
+      {% else %}
+      <form method="post" action="/creator/dm/{{ t.peer_id }}/brief" class="dm-inbox-chips">
+        {% include "_partials/csrf.html" %}
+        <input type="hidden" name="next" value="/creator/dm" />
+        <button type="submit" class="dm-inbox-chip dm-inbox-chip-ghost">
+          <span>ask babyg to read</span>
+        </button>
+      </form>
       {% endif %}
     </li>
     {% endfor %}
