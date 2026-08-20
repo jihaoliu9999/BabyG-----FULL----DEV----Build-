@@ -44,11 +44,16 @@
   <!-- DESKTOP TOP BAR -->
   <header class="app-topbar" aria-label="profile access">
     <div class="right">
+      {# Fall back to current_profile(request) when the route didn't
+         explicitly pass `profile` — otherwise the avatar would render
+         as a generic "C" fallback on some pages while showing the real
+         photo on others. #}
+      {% set _p = profile if (profile is defined and profile is not none) else current_profile(request) %}
       <a href="/creator/profile" class="creator-profile-link" aria-label="profile">
-        {% if profile is defined and profile is not none and profile.profile_photo_url %}
-        <img src="{{ profile.profile_photo_url }}" alt="" />
+        {% if _p and _p.profile_photo_url %}
+        <img src="{{ _p.profile_photo_url }}" alt="" />
         {% else %}
-        {% set _desktop_initial = ((profile.full_name if profile is defined and profile is not none else '') or (profile.instagram_handle if profile is defined and profile is not none else '') or 'creator')[:1]|upper %}
+        {% set _desktop_initial = ((_p.full_name if _p else '') or (_p.instagram_handle if _p else '') or 'creator')[:1]|upper %}
         <span class="avatar av-g3 creator-profile-avatar" aria-hidden="true">{{ _desktop_initial }}</span>
         {% endif %}
       </a>

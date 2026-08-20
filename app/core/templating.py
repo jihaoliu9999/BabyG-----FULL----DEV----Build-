@@ -201,6 +201,41 @@ def _current_role(request) -> str | None:
     return session["role"] if session else None
 
 
+def _current_profile(request):
+    """Return the signed-in creator profile (dict) or ``None``.
+
+    Base.html uses this to render the top-right profile avatar on
+    EVERY creator page without every route having to thread ``profile``
+    into its context. Previously, routes that forgot the ``profile``
+    key made the avatar fall back to "creator" → "C" while nearby
+    pages showed the real photo — the inconsistency the user reported.
+
+    Cached on ``request.state.current_profile`` for the duration of
+    the request so repeated calls in a single template render don't
+    stack DB lookups. Only fires for creator sessions; brand/operator
+    return None.
+    """
+    from app.core.security import read_session
+    from app.services import profiles
+
+    if hasattr(request, "state") and hasattr(request.state, "current_profile"):
+        return request.state.current_profile
+
+    resolved = None
+    try:
+        session = read_session(request)
+        if session and session.get("role") == "creator":
+            resolved = profiles.get_creator_profile(session["user_id"]) or None
+    except Exception:
+        resolved = None
+
+    if hasattr(request, "state"):
+        import contextlib
+        with contextlib.suppress(Exception):
+            request.state.current_profile = resolved
+    return resolved
+
+
 def _dm_time(value):
     """Render an ISO timestamp as a compact tail time — '3:31pm'.
 
@@ -272,6 +307,7 @@ templates.env.filters["dm_time"] = _dm_time
 templates.env.filters["dm_day_sep"] = _dm_day_sep
 templates.env.globals["asset_url"] = asset_url
 templates.env.globals["current_role"] = _current_role
+templates.env.globals["current_profile"] = _current_profile
 
 # Lazy-import to avoid a circular: csrf.py imports from app.config which is
 # safe, but app.core.security imports app.config too and we don't want any
