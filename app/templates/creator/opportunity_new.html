@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block title %}post an opportunity — babyg{% endblock %}
+
+{% block content %}
+<section class="op-new" data-op-new>
+  <header class="op-new-head">
+    <a href="/creator/discover?kind=opportunity" class="op-new-back" aria-label="back to discover">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+    </a>
+    <div class="op-new-title">
+      <h1>post an opportunity</h1>
+      <p>show up in discover for creators + brands who match.</p>
+    </div>
+  </header>
+
+  {% if error %}
+  <div class="op-new-banner" role="alert">{{ error }}</div>
+  {% endif %}
+
+  <form method="post" action="/creator/opportunities/new" class="op-new-form">
+    {% include "_partials/csrf.html" %}
+
+    <fieldset class="op-new-kinds">
+      <legend>kind</legend>
+      <div class="op-new-kind-grid">
+        {% for choice in kind_choices %}
+        <label class="op-new-kind{% if values.get('listing_type') == choice.value %} on{% endif %}">
+          <input type="radio" name="listing_type" value="{{ choice.value }}"
+                 {% if values.get('listing_type') == choice.value or (not values.get('listing_type') and loop.first) %}checked{% endif %} />
+          <span class="op-new-kind-label">{{ choice.label }}</span>
+          <span class="op-new-kind-hint">{{ choice.hint }}</span>
+        </label>
+        {% endfor %}
+      </div>
+    </fieldset>
+
+    <label class="op-new-field">
+      <span class="op-new-field-label">title</span>
+      <input type="text" name="title" required maxlength="120"
+             value="{{ values.get('title', '') }}"
+             placeholder="e.g. ugc brief — greek yogurt reels" />
+    </label>
+
+    <label class="op-new-field">
+      <span class="op-new-field-label">what you need</span>
+      <textarea name="description" required maxlength="2000" rows="4"
+                placeholder="one short paragraph. scope, deliverables, timing, any must-haves.">{{ values.get('description', '') }}</textarea>
+    </label>
+
+    <div class="op-new-row-2">
+      <label class="op-new-field">
+        <span class="op-new-field-label">compensation</span>
+        <input type="text" name="compensation_text" maxlength="120"
+               value="{{ values.get('compensation_text', '') }}"
+               placeholder="$500 — $1,500 · or product trade" />
+      </label>
+      <label class="op-new-field">
+        <span class="op-new-field-label">closes</span>
+        <input type="date" name="deadline"
+               value="{{ values.get('deadline', '') }}" />
+      </label>
+    </div>
+
+    <label class="op-new-field">
+      <span class="op-new-field-label">tags · comma separated</span>
+      <input type="text" name="target_niches" maxlength="240"
+             value="{{ values.get('target_niches', '') }}"
+             placeholder="food, wellness, ugc" />
+    </label>
+
+    <button type="submit" class="op-new-submit">post it</button>
+  </form>
+</section>
+{% endblock %}

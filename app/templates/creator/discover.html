@@ -79,10 +79,15 @@
       <h1>discover</h1>
       <p>{{ discover_subtitle|default('people, brands, and opportunities worth knowing.') }}</p>
     </div>
-    <button class="discover-filter-toggle" type="button" data-filter-toggle aria-expanded="false" aria-controls="discover-filters">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M6 14v6"/></svg>
-      <span class="sr-only">filters</span>
-    </button>
+    <div class="discover-head-actions">
+      <a class="discover-post-fab" href="/creator/opportunities/new" aria-label="post an opportunity" title="post an opportunity">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+      </a>
+      <button class="discover-filter-toggle" type="button" data-filter-toggle aria-expanded="false" aria-controls="discover-filters">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M6 14v6"/></svg>
+        <span class="sr-only">filters</span>
+      </button>
+    </div>
   </header>
 
   <nav class="discover-kind-tabs" aria-label="discover card type">
@@ -104,7 +109,7 @@
           <span>location</span>
           <input type="text" name="location" value="{{ location }}" maxlength="80" placeholder="city or region" />
         </label>
-        {% if active_kind in ['all', 'opportunity'] %}
+        {% if active_kind == 'opportunity' %}
         <div class="discover-budget-fields">
           <label>
             <span>minimum budget</span>

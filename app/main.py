@@ -30,6 +30,7 @@ from app.routes import legal as legal_routes
 from app.routes import marketing as marketing_routes
 from app.routes import onboarding as onboarding_routes
 from app.routes import operator as operator_routes
+from app.routes import opportunities as opportunities_routes
 
 logger = logging.getLogger(__name__)
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -77,6 +78,7 @@ def create_app() -> FastAPI:
     app.include_router(onboarding_routes.router)
     app.include_router(creator_routes.router)
     app.include_router(discover_routes.router)
+    app.include_router(opportunities_routes.router)
     app.include_router(brand_routes.router)
     app.include_router(operator_routes.router)
     app.include_router(abuse_routes.router)
