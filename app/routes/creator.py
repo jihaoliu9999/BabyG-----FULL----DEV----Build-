@@ -36,6 +36,7 @@ from app.deps import require_role
 from app.integrations import google_calendar, instagram_meta
 from app.services import (
     audit,
+    babyg_awareness,
     bookings,
     bot,
     bot_nudges,
@@ -247,27 +248,24 @@ async def bot_chat(
 
     messages = bot.list_messages(session["user_id"])
 
-    # First-turn chip prompts only render when the thread is empty. We
-    # skip the DB lookups otherwise so the loaded-chat path stays cheap.
-    prompts: list[bot_prompts.BotPrompt] = []
-    if not messages:
-        try:
-            unread_dms_count = dms.unread_count_for_user(session["user_id"])
-        except Exception:
-            unread_dms_count = 0
-        recent_peer_name: str | None = None
-        try:
-            threads = dms.list_threads_for_user(session["user_id"])
-            if threads:
-                peer = profiles.get_creator_profile(threads[0]["peer_id"])
-                if peer:
-                    recent_peer_name = peer.get("full_name")
-        except Exception:
-            recent_peer_name = None
-        prompts = bot_prompts.compute_prompts(
-            unread_dms_count=unread_dms_count,
-            recent_dm_peer_name=recent_peer_name,
-        )
+    # Compose the awareness snapshot once and reuse it for both the
+    # composer chip strip AND the assistant system prompt on the next
+    # turn (bot.list_messages doesn't need it, but the send path does).
+    # Snapshot reads are ~30s cached per user so re-renders are cheap.
+    try:
+        snap = babyg_awareness.snapshot(session["user_id"])
+    except Exception:
+        logger.exception("babyg_awareness.snapshot failed")
+        snap = {}
+
+    # Composer chip strip. Rendered on every turn now (not just empty
+    # threads) because chips reflect the live state of the world and
+    # the user should always have something useful to tap.
+    prompts = bot_prompts.compute_prompts(
+        unread_dms_count=int((snap.get("unread_dms") or {}).get("count") or 0),
+        recent_dm_peer_name=(snap.get("unread_dms") or {}).get("latest_peer_name"),
+        snapshot=snap,
+    )
 
     return templates.TemplateResponse(
         request,

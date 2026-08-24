@@ -1129,6 +1129,21 @@ def _build_prompt_context(
     region = (profile.get("location_region") or "").strip()
     if city or region:
         ctx["location"] = ", ".join(p for p in (city, region) if p)
+
+    # Awareness snapshot — real state babyg should reference by name,
+    # not hallucinate from generic priors. Multi-line bullet block so
+    # _format_context renders it under one "state" key. Cached ~30s
+    # per user so the extra reads never dominate turn cost.
+    try:
+        from app.services import babyg_awareness
+
+        snap = babyg_awareness.snapshot(user_id)
+        lines = babyg_awareness.snapshot_summary_lines(snap)
+        if lines:
+            ctx["state"] = "\n" + "\n".join(lines)
+    except Exception:
+        # Never let a snapshot failure blank the whole turn context.
+        pass
     return ctx
 
 

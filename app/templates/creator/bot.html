@@ -38,8 +38,6 @@
     {% include "_partials/bot_messages.html" with context %}
   </ol>
 
-  {% include "_partials/bot_prompt_chips.html" with context %}
-
   <form class="bot-composer" method="post" action="/creator/bot" data-bot-composer>
     {% include "_partials/csrf.html" %}
     {# device wall-clock + IANA tz — bot.js refreshes them right before
@@ -48,6 +46,12 @@
        let the server fall back to UTC + profile city if JS is off. #}
     <input type="hidden" name="user_now_iso" data-bot-user-now value="" />
     <input type="hidden" name="user_tz" data-bot-user-tz value="" />
+    {# Context-driven chip strip lives inside the composer surround,
+       right above the input row. Chips are generated per render from
+       the awareness snapshot in bot_prompts.compute_prompts(...) and
+       always number ≤ 4. Tapping a chip fills the textarea; the user
+       still taps send. #}
+    {% include "_partials/bot_prompt_chips.html" with context %}
     <div class="box">
       <label class="sr-only" for="bot-message">message babyg</label>
       <textarea id="bot-message" name="message" rows="1" placeholder="tell babyg what to handle…" maxlength="4000" autocomplete="off" required></textarea>
