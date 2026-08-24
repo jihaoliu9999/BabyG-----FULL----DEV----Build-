@@ -20,6 +20,7 @@ from app.core.rate_limit import (
     magic_link_limiter,
 )
 from app.main import app
+from app.services import babyg_awareness
 
 
 @pytest.fixture(autouse=True)
@@ -40,6 +41,17 @@ def _reset_rate_limiter():
     magic_link_limiter._buckets.clear()
     dm_brief_auto_limiter._buckets.clear()
     dm_brief_manual_limiter._buckets.clear()
+
+
+@pytest.fixture(autouse=True)
+def _clear_awareness_cache():
+    """Reset the babyg-awareness snapshot cache between tests. The
+    module-level cache is TTL'd in production; in tests, a snapshot
+    built for u-1 by an earlier test would leak into the next test's
+    fixture setup and mask its stubs."""
+    babyg_awareness._CACHE.clear()
+    yield
+    babyg_awareness._CACHE.clear()
 
 
 @pytest.fixture(autouse=True)

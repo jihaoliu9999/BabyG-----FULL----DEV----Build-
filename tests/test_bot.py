@@ -98,8 +98,12 @@ def test_bot_page_renders_history(monkeypatch, client: TestClient) -> None:
     assert '/static/js/bot.js' in response.text
     assert "Need a caption" in response.text
     assert "Drafting it." in response.text
-    # Chip row must NOT render when there are messages already.
-    assert 'class="bot-prompt-chips"' not in response.text
+    # Chip row now renders on every render — chips are context-driven
+    # by the awareness snapshot, not gated on empty threads. With no
+    # signals available in this fixture setup, the strip falls back to
+    # the two evergreen chips.
+    assert 'class="bot-prompt-chips"' in response.text
+    assert 'data-bot-prompt="what needs me today?"' in response.text
     # The chat header no longer carries the "babyg guide" shortcut or the
     # "private" pill — it's just the logo/name lockup now. The composer
     # form still posts to /creator/bot.

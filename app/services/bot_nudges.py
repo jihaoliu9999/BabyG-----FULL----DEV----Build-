@@ -52,12 +52,21 @@ def generate_pending(user_id: str) -> list[str]:
     """Insert any not-yet-nudged messages for ``user_id`` and return ids.
 
     Idempotent per ``nudge_key``. Empty return means either everything
-    was already surfaced or nothing qualified.
+    was already surfaced or nothing qualified. Category order below is
+    the surfacing priority when multiple sources fire at once.
     """
     existing_keys = _recent_nudge_keys(user_id)
     inserted: list[str] = []
 
-    for nudge in _match_nudges(user_id) + _booking_nudges(user_id):
+    candidates: list[dict[str, Any]] = []
+    candidates.extend(_match_nudges(user_id))
+    candidates.extend(_booking_nudges(user_id))
+    candidates.extend(_connection_accepted_nudges(user_id))
+    candidates.extend(_event_soon_nudges(user_id))
+    candidates.extend(_pending_action_nudges(user_id))
+    candidates.extend(_hot_drop_nudges(user_id))
+
+    for nudge in candidates:
         if nudge["nudge_key"] in existing_keys:
             continue
         mid = create_message(
@@ -211,6 +220,189 @@ def _booking_nudges(user_id: str) -> list[dict[str, Any]]:
             }
         )
     return out
+
+
+def _connection_accepted_nudges(user_id: str) -> list[dict[str, Any]]:
+    """Someone just accepted your connection request — babyg opens with
+    a low-friction 'say hi' nudge. Reads via babyg_awareness (which
+    itself reads from network + profiles with a proper public projection)
+    so this stays safe-to-fail."""
+    try:
+        from app.services import babyg_awareness
+
+        snap = babyg_awareness.snapshot(user_id)
+    except Exception:
+        logger.exception("bot_nudges: awareness snapshot failed for %s", user_id)
+        return []
+    accepted = snap.get("recent_connection_accepted") or {}
+    peer_id = accepted.get("peer_id")
+    peer_name = accepted.get("peer_name")
+    if not peer_id or not peer_name:
+        return []
+    return [
+        {
+            "nudge_key": f"connection_accepted:{peer_id}",
+            "category": "connection_accepted",
+            "content": (
+                f"**{peer_name}** just accepted your connection. "
+                "want to say hi while it's fresh?"
+            ),
+            "chips": [
+                {
+                    "kind": "fill",
+                    "label": f"say hi to {_first_word(peer_name).lower()}",
+                    "text": f"draft a warm hello to {peer_name}",
+                    "primary": True,
+                },
+                {
+                    "kind": "nav",
+                    "label": "open their profile",
+                    "href": f"/creator/network/{peer_id}",
+                },
+                {
+                    "kind": "fill",
+                    "label": "pitch a collab",
+                    "text": f"draft a short collab pitch for {peer_name}",
+                },
+            ],
+        }
+    ]
+
+
+def _event_soon_nudges(user_id: str) -> list[dict[str, Any]]:
+    """Confirmed event starting inside the next 60 min — quick check-in prompt."""
+    try:
+        from app.services import babyg_awareness
+
+        snap = babyg_awareness.snapshot(user_id)
+    except Exception:
+        return []
+    ev = snap.get("next_booking") or {}
+    minutes = ev.get("minutes_until_start")
+    ev_id = ev.get("id")
+    title = ev.get("title")
+    if not ev_id or not title or minutes is None or minutes > 60:
+        return []
+    venue = ev.get("venue_name") or ""
+    where = f" at {venue}" if venue else ""
+    return [
+        {
+            "nudge_key": f"event_soon:{ev_id}",
+            "category": "event_soon",
+            "content": (
+                f"heads up — **{title}** starts in ~{minutes} min{where}. "
+                "want me to send an 'on the way' note?"
+            ),
+            "chips": [
+                {
+                    "kind": "fill",
+                    "label": "send \"on the way\"",
+                    "text": f"draft a short 'on the way' note for {title}",
+                    "primary": True,
+                },
+                {
+                    "kind": "nav",
+                    "label": "open the event",
+                    "href": f"/creator/calendar/{ev_id}",
+                },
+                {
+                    "kind": "fill",
+                    "label": "reschedule",
+                    "text": f"reschedule {title}",
+                },
+            ],
+        }
+    ]
+
+
+def _pending_action_nudges(user_id: str) -> list[dict[str, Any]]:
+    """Action proposal awaiting the user's confirm — surface it so it
+    doesn't sit unnoticed. We deliberately don't include a confirm chip
+    here (that stays inside the action-card in the message that
+    proposed it); we just link back."""
+    try:
+        from app.services import babyg_awareness
+
+        snap = babyg_awareness.snapshot(user_id)
+    except Exception:
+        return []
+    ap = snap.get("pending_action_proposal") or {}
+    ap_id = ap.get("id")
+    action_type = ap.get("action_type") or ""
+    if not ap_id or not action_type:
+        return []
+    label = action_type.replace("_", " ").replace(".", " ")
+    return [
+        {
+            "nudge_key": f"pending_action:{ap_id}",
+            "category": "pending_action",
+            "content": (
+                f"you have a **{label}** action waiting on your confirm. "
+                "nothing runs until you tap it."
+            ),
+            "chips": [
+                {
+                    "kind": "fill",
+                    "label": "open the pending action",
+                    "text": "open the action i still need to confirm",
+                    "primary": True,
+                },
+                {
+                    "kind": "fill",
+                    "label": "not now",
+                    "text": "leave that action for later",
+                },
+            ],
+        }
+    ]
+
+
+def _hot_drop_nudges(user_id: str) -> list[dict[str, Any]]:
+    """Fresh intel post matching my niches — babyg flags it so the
+    creator sees it in-thread instead of only on Home."""
+    try:
+        from app.services import babyg_awareness
+
+        snap = babyg_awareness.snapshot(user_id)
+    except Exception:
+        return []
+    hot = snap.get("recent_hot_drop") or {}
+    hot_id = hot.get("id")
+    title = hot.get("title")
+    if not hot_id or not title:
+        return []
+    return [
+        {
+            "nudge_key": f"hot_drop:{hot_id}",
+            "category": "hot_drop",
+            "content": (
+                f"new hot drop for you: **{title}**. "
+                "want me to break down whether it's worth your move?"
+            ),
+            "chips": [
+                {
+                    "kind": "fill",
+                    "label": "break it down",
+                    "text": f"break down whether {title} is worth chasing",
+                    "primary": True,
+                },
+                {
+                    "kind": "nav",
+                    "label": "open home",
+                    "href": "/creator",
+                },
+                {
+                    "kind": "fill",
+                    "label": "skip",
+                    "text": "skip that one",
+                },
+            ],
+        }
+    ]
+
+
+def _first_word(text: str) -> str:
+    return (text or "").strip().split(" ", 1)[0]
 
 
 def _parse_iso(value: Any) -> datetime | None:
