@@ -1,0 +1,64 @@
+{# The Creator Card body — the shared piece used on /creator/profile
+   and on every discover result. Expects `card` in context, matching:
+     card.kind_label      — "creator" | "brand" | "opportunity"
+     card.avatar_url      — profile photo URL or None
+     card.initial         — 1-char fallback if no photo
+     card.name            — display name
+     card.social_url      — full https URL to the primary social profile,
+                            or None
+     card.social_platform — "instagram" | "tiktok" | "youtube" | "x"
+     card.bio             — short bio / subtitle
+     card.location_label  — "Miami, Florida" or similar, or None
+     card.follower_range  — "42k" or "<10k" or None
+     card.tags            — list of chip strings (max 6 rendered)
+
+   The action row is NOT rendered here — each surface renders it after
+   the body since the actions differ (edit vs pass/save/connect). #}
+<div class="creator-card-body">
+  <span class="creator-card-avatar" aria-hidden="true">
+    {% if card.avatar_url %}
+    <img src="{{ card.avatar_url|safe_url }}" alt="" loading="lazy" />
+    {% else %}
+    <span>{{ card.initial }}</span>
+    {% endif %}
+  </span>
+  {% if card.kind_label %}
+  <span class="creator-card-kind">{{ card.kind_label }}</span>
+  {% endif %}
+  <h2 class="creator-card-name">{{ card.name }}</h2>
+  {% if card.social_url %}
+  <div class="creator-card-socials">
+    <a class="creator-card-social {{ {'instagram':'ig','tiktok':'tt','youtube':'yt','x':'x'}.get(card.social_platform, 'ig') }}"
+       href="{{ card.social_url }}"
+       target="_blank" rel="noopener noreferrer"
+       aria-label="open on {{ card.social_platform or 'instagram' }}">
+      {% if card.social_platform == 'tiktok' %}
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19.6 6.3a5 5 0 0 1-3.4-1.4V15a5 5 0 1 1-5-5v3.2a1.9 1.9 0 1 0 1.9 1.9V2h3.1a5 5 0 0 0 3.4 4.3z"/></svg>
+      {% elif card.social_platform == 'youtube' %}
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M23 12s0-3.5-.4-5.2a3 3 0 0 0-2-2C18.7 4.3 12 4.3 12 4.3s-6.7 0-8.6.5a3 3 0 0 0-2 2C1 8.5 1 12 1 12s0 3.5.4 5.2a3 3 0 0 0 2 2c1.9.5 8.6.5 8.6.5s6.7 0 8.6-.5a3 3 0 0 0 2-2C23 15.5 23 12 23 12zM10 15.5V8.5l6 3.5-6 3.5z"/></svg>
+      {% elif card.social_platform == 'x' %}
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.9 3H22l-7.5 8.6L23 21h-6.9l-5.4-6.5L4.5 21H1.4l8-9.2L1 3h7l4.9 6z"/></svg>
+      {% else %}
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor"/></svg>
+      {% endif %}
+    </a>
+  </div>
+  {% endif %}
+  {% if card.bio %}
+  <p class="creator-card-bio">{{ card.bio }}</p>
+  {% endif %}
+  {% if card.location_label or card.follower_range %}
+  <span class="creator-card-meta">
+    {% if card.location_label %}{{ card.location_label }}{% endif %}
+    {% if card.location_label and card.follower_range %}<span class="dot" aria-hidden="true"></span>{% endif %}
+    {% if card.follower_range %}{{ card.follower_range }} followers{% endif %}
+  </span>
+  {% endif %}
+  {% if card.tags %}
+  <div class="creator-card-tags" aria-label="tags">
+    {% for tag in card.tags[:6] %}
+    <span class="creator-card-tag">{{ tag }}</span>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>

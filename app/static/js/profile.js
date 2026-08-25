@@ -345,3 +345,19 @@
     });
   });
 })();
+
+/* Card → editor. The "edit profile" primary button on the creator card
+ * scrolls to #profile-editor (a <details>) and forces it open so the
+ * user lands on an expanded editor instead of a collapsed summary they
+ * have to click a second time. Anchor navigation still runs so the
+ * browser scrolls naturally; we only mutate the `open` state. */
+(() => {
+  const triggers = document.querySelectorAll("[data-open-editor]");
+  const panel = document.getElementById("profile-editor");
+  if (!panel) return;
+  triggers.forEach((el) => {
+    el.addEventListener("click", () => { panel.open = true; });
+  });
+  // Also open when the URL already has the hash on load.
+  if (window.location.hash === "#profile-editor") { panel.open = true; }
+})();

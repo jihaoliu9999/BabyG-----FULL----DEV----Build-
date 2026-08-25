@@ -58,30 +58,29 @@
 {% endmacro %}
 
 {% block content %}
+{# Build the shared card shape once so profile + discover render the
+   same body layout. Owner-scoped fields (photo, bio, chips) come from
+   `profile`; public-safe fields (location_label) come from
+   profile_preview which respects the location_display_level setting. #}
+{% set _handle = profile.instagram_handle %}
+{% set _social_url = ("https://instagram.com/" ~ _handle) if _handle else None %}
+{% set _photo_url = (profile_preview.profile_photo_url or profile.profile_photo_url) %}
+{% set _photo_url_versioned = (_photo_url ~ ("?v=" ~ (profile.updated_at | replace(':','') | replace('-','') | replace('.','') | replace(' ','')))) if (_photo_url and profile.updated_at) else _photo_url %}
+{% set card = {
+  "kind_label": "creator",
+  "avatar_url": _photo_url_versioned,
+  "initial": initials[0],
+  "name": profile.full_name or profile.instagram_handle or 'creator',
+  "social_url": _social_url,
+  "social_platform": "instagram",
+  "bio": profile.bio,
+  "location_label": profile_preview.location_label,
+  "follower_range": profile.follower_range,
+  "tags": (profile_chip_values.get('niches', []) + profile_chip_values.get('formats', []))[:6],
+} %}
+
 <div class="ambient-page profile-page">
 <div class="wrap ambient-shell profile-shell profile-flow-shell">
-  <header class="profile-header">
-    <div class="profile-header-avatar">
-      {% if profile.profile_photo_url %}
-      <button type="button" class="avatar avatar-photo av-g3 xl profile-identity-avatar profile-photo-trigger" aria-label="change photo" data-profile-photo-open>
-        <img data-profile-photo-preview src="{{ profile.profile_photo_url|safe_url }}{% if profile.updated_at %}?v={{ profile.updated_at | replace(':','') | replace('-','') | replace('.','') | replace(' ','') }}{% endif %}" alt="" />
-        <span data-profile-photo-initials hidden>{{ initials[0] }}</span>
-      </button>
-      {% else %}
-      <button type="button" class="avatar av-g3 xl profile-identity-avatar profile-photo-empty-cta" aria-label="add a photo" data-profile-photo-open>
-        <img data-profile-photo-preview hidden alt="" />
-        <span data-profile-photo-initials>{{ initials[0] }}</span>
-      </button>
-      {% endif %}
-    </div>
-    <div class="profile-header-copy">
-      <span class="mono eyebrow">your profile</span>
-      <h1 class="detail-title">{{ profile.full_name or 'creator' }}</h1>
-      {% if profile.instagram_handle %}
-      <p>@{{ profile.instagram_handle }}{% if profile.primary_platform %} / {{ profile.primary_platform }}{% endif %}</p>
-      {% endif %}
-    </div>
-  </header>
 
   {{ flash_block('photo', photo_flash) }}
   {{ flash_block('chips', chips_flash) }}
@@ -91,56 +90,20 @@
 
   <div class="profile-primary-grid">
     <div class="profile-public-column">
-      <section class="profile-fidelity-preview" aria-label="profile preview">
-        <div class="profile-preview-top">
-          {% if profile_preview.profile_photo_url %}
-          <span class="avatar av-g3 xl profile-preview-avatar" aria-hidden="true">
-            <img data-profile-photo-preview src="{{ profile_preview.profile_photo_url|safe_url }}{% if profile_preview.updated_at %}?v={{ profile_preview.updated_at|short_dt|replace(' ', 'T')|replace(':', '-') }}{% endif %}" alt="" />
-            <span data-profile-photo-initials hidden>{{ initials[0] }}</span>
-          </span>
-          {% elif profile.profile_photo_url %}
-          <span class="avatar av-g3 xl profile-preview-avatar" aria-hidden="true">
-            <img data-profile-photo-preview src="{{ profile.profile_photo_url|safe_url }}{% if profile.updated_at %}?v={{ profile.updated_at | replace(':','') | replace('-','') | replace('.','') | replace(' ','') }}{% endif %}" alt="" />
-            <span data-profile-photo-initials hidden>{{ initials[0] }}</span>
-          </span>
-          {% else %}
-          <span class="avatar av-g3 xl profile-preview-avatar" data-profile-photo-fallback aria-hidden="true">
-            <img data-profile-photo-preview hidden alt="" />
-            <span data-profile-photo-initials>{{ initials[0] }}</span>
-          </span>
-          {% endif %}
-          <div class="profile-preview-copy">
-            <span class="mono">preview</span>
-            <h2>{{ profile_preview.full_name or profile_preview.instagram_handle or 'creator' }}</h2>
-            <p>
-              {% if profile_preview.instagram_handle %}@{{ profile_preview.instagram_handle }}{% endif %}
-              {% if profile_preview.location_label %}{% if profile_preview.instagram_handle %} / {% endif %}{{ profile_preview.location_label }}{% endif %}
-              {% if not profile_preview.location_label %}{% if profile_preview.instagram_handle %} / {% endif %}location hidden{% endif %}
-            </p>
-          </div>
-        </div>
-
-        {% if profile_preview.bio %}
-        <p class="profile-preview-bio">{{ profile_preview.bio }}</p>
-        {% else %}
-        <p class="profile-preview-bio profile-chip-empty">add a bio so your card has a hook.</p>
-        {% endif %}
-
-        <div class="profile-preview-meta" aria-label="public profile details">
-          {% if profile_preview.primary_platform %}<span>{{ profile_preview.primary_platform }}</span>{% endif %}
-          {% if profile_preview.follower_range %}<span>{{ profile_preview.follower_range }} followers</span>{% endif %}
-        </div>
-
-        <div class="chip-group profile-preview-tags" aria-label="public profile tags">
-          {% for value in (profile_chip_values.get('niches', []) + profile_chip_values.get('formats', []))[:6] %}
-          <span class="chip profile-chip-static">{{ value }}</span>
-          {% endfor %}
+      <section class="creator-card" aria-label="your creator card">
+        {% include "_partials/creator_card_body.html" %}
+        <div class="creator-card-actions is-own">
+          <a href="#profile-editor" class="creator-card-btn-primary" data-open-editor>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 3l4 4-11 11H6v-4z"/></svg>
+            edit profile
+          </a>
         </div>
       </section>
     </div>
 
     <div class="profile-edit-column">
-      <details class="profile-section profile-quick-section profile-editor-panel">
+      <details class="profile-section profile-quick-section profile-editor-panel"
+               id="profile-editor" data-profile-editor>
         <summary class="profile-editor-summary">
           <span>
             <span class="mono">public card</span>

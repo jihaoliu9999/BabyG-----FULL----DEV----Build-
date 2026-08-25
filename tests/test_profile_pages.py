@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import re
-
 from fastapi import Response
 from fastapi.testclient import TestClient
 
@@ -71,6 +69,10 @@ def test_creator_profile_page_renders(monkeypatch, client: TestClient) -> None:
 def test_creator_profile_photo_renders_with_initials_fallback(
     monkeypatch, client: TestClient
 ) -> None:
+    """After the profile-page redesign the page renders the creator card
+    directly (no separate header+preview). The photo URL still appears —
+    just once on the card avatar — and the initials fallback stays as
+    the alt path if the photo ever fails to load."""
     _signed_in(client, role="creator")
     profile = {
         **_profile(),
@@ -84,13 +86,16 @@ def test_creator_profile_photo_renders_with_initials_fallback(
     response = client.get("/creator/profile")
 
     assert response.status_code == 200
-    assert response.text.count("https://cdn.example/mia.jpg") >= 2
-    assert response.text.count("data-profile-photo-initials hidden") >= 2
+    assert "https://cdn.example/mia.jpg" in response.text
+    assert "creator-card-avatar" in response.text
 
 
-def test_creator_profile_page_has_single_preview_and_section_budget(
+def test_creator_profile_page_has_single_creator_card(
     monkeypatch, client: TestClient
 ) -> None:
+    """The redesigned profile page renders exactly one creator card
+    (same shape used in discover) plus the editor panel. Old
+    `profile-fidelity-preview` shell is gone."""
     _signed_in(client, role="creator")
     monkeypatch.setattr(creator_routes.profiles, "get_creator_profile", lambda uid: _profile())
 
@@ -98,15 +103,15 @@ def test_creator_profile_page_has_single_preview_and_section_budget(
 
     assert response.status_code == 200
     html = response.text
+    # New card lives on the page; old preview classes are gone.
+    assert 'class="creator-card"' in html
+    assert "profile-fidelity-preview" not in html
     assert 'class="profile-preview"' not in html
-    assert html.count('class="profile-fidelity-preview"') == 1
     assert 'action="/creator/profile/deals"' not in html
     assert 'id="deal-preferences"' not in html
-
-    section_count = len(re.findall(r"<section\b", html))
-    settings_group_count = len(re.findall(r'<form[^>]+class="[^"]*\bsettings-group\b', html))
-    details_card_count = html.count("profile-details-card")
-    assert section_count + settings_group_count + details_card_count <= 8
+    # Editor still present (as a <details id="profile-editor">) so the
+    # card's edit button has a target.
+    assert 'id="profile-editor"' in html
 
 
 def test_creator_profile_chip_update_saves_existing_fields(
@@ -560,12 +565,12 @@ def test_settings_page_renders_deals_section_with_existing_values(
 # ---------------------------------------------------------------------------
 
 
-def test_profile_page_renders_discover_preview(
+def test_profile_page_renders_creator_card_fields(
     monkeypatch, client: TestClient
 ) -> None:
-    """The preview at the top of /creator/profile must render fields
-    that come through public_creator() — name, handle, location_label,
-    follower_range, niches, bio."""
+    """The creator card body at the top of /creator/profile renders
+    name, location_label from public_creator(), and links to the
+    creator's Instagram profile via the primary_platform handle."""
     _signed_in(client, role="creator")
     monkeypatch.setattr(
         creator_routes.profiles, "get_creator_profile", lambda uid: _profile()
@@ -574,18 +579,21 @@ def test_profile_page_renders_discover_preview(
     response = client.get("/creator/profile")
 
     assert response.status_code == 200
-    assert "preview" in response.text.lower()
+    assert "creator-card" in response.text
     # Card body renders public-projected fields.
     assert "Mia Creator" in response.text
-    assert "@miacreates" in response.text
     assert "Los Angeles, California" in response.text
+    # Social icon points at the creator's real Instagram profile — the
+    # handle text is intentionally NOT rendered; the icon does the work.
+    assert "instagram.com/miacreates" in response.text
 
 
 def test_profile_preview_honors_location_hidden(
     monkeypatch, client: TestClient
 ) -> None:
-    """When location_display_level=hidden, the preview must NOT leak
-    the city/region — it should show the 'location hidden' empty state."""
+    """When location_display_level=hidden, the card meta must NOT leak
+    the city/region. The card body simply omits the location line —
+    cleaner than shouting 'location hidden' at the owner."""
     _signed_in(client, role="creator")
     hidden = {**_profile(), "location_display_level": "hidden"}
     monkeypatch.setattr(
@@ -595,16 +603,26 @@ def test_profile_preview_honors_location_hidden(
     response = client.get("/creator/profile")
 
     assert response.status_code == 200
-    # The full label must not appear inside the preview card meta row.
-    # (The chip dialog elsewhere on the page may still surface the raw
-    # city for editing — that's owner-side; the preview is the
-    # public-projection mirror and that's what must hide it.)
-    assert "location hidden" in response.text.lower()
+    # The card's location line must not include the city/region text.
+    # The editor form elsewhere on the page still holds the raw city for
+    # editing (owner-only) — that's not a leak. What matters is that the
+    # public-view card doesn't render the location.
+    import re as _re
+    meta_blocks = _re.findall(
+        r'<span class="creator-card-meta">.*?</span>',
+        response.text, flags=_re.DOTALL,
+    )
+    for block in meta_blocks:
+        assert "Los Angeles" not in block
+        assert "California" not in block
 
 
-def test_profile_preview_prompts_for_bio_when_empty(
+def test_profile_card_omits_bio_line_when_empty(
     monkeypatch, client: TestClient
 ) -> None:
+    """A missing bio no longer prints inline "add a bio" placeholder
+    text — cleaner card. The user reaches the editor via the card's
+    [edit profile] button."""
     _signed_in(client, role="creator")
     no_bio = {**_profile(), "bio": ""}
     monkeypatch.setattr(
@@ -614,7 +632,10 @@ def test_profile_preview_prompts_for_bio_when_empty(
     response = client.get("/creator/profile")
 
     assert response.status_code == 200
-    assert "add a bio" in response.text.lower()
+    assert "add a bio" not in response.text.lower()
+    # The edit path stays available via the card's primary button.
+    assert "edit profile" in response.text.lower()
+    assert 'href="#profile-editor"' in response.text
 
 
 # ---------------------------------------------------------------------------

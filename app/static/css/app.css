@@ -11888,3 +11888,227 @@ hr.hairline {
 }
 .op-new-submit:hover { background: var(--accent-hover, #e8455f); }
 .op-new-submit:active { transform: scale(.99); }
+
+/* ============================================================
+ * The Creator Card — one shape, two contexts.
+ * Rendered as the ONLY thing on /creator/profile (edit action)
+ * and as each discover result (pass · save · connect). Identical
+ * body: avatar, kind pill, name, social icon (creator's preferred),
+ * bio, location + follower meta, tag chips. Only the action row
+ * at the bottom changes. Centered layout, capped ~380px so it
+ * reads well on any width.
+ * ============================================================ */
+.creator-card {
+  width: min(100%, 380px);
+  margin: 0 auto;
+  border: 1px solid var(--hairline);
+  border-radius: 22px;
+  background: linear-gradient(180deg, rgba(255,77,109,.045), transparent 45%),
+              var(--surface-1);
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(0,0,0,.28);
+}
+.creator-card-body {
+  padding: 30px 24px 22px;
+  display: grid; gap: 14px;
+  justify-items: center;
+  text-align: center;
+}
+.creator-card-avatar {
+  width: 116px; height: 116px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  border: 3px solid var(--ink);
+  box-shadow: 0 0 0 3px rgba(255,77,109,.35), 0 12px 28px rgba(0,0,0,.45);
+  overflow: hidden;
+  display: grid; place-items: center;
+  color: var(--ink-mid);
+  font-family: var(--mono); font-weight: 700; font-size: 36px;
+}
+.creator-card-avatar img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.creator-card-kind {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 10px;
+  color: var(--accent-text);
+  border: 1px solid rgba(255,77,109,.32);
+  border-radius: 999px;
+  background: rgba(255,77,109,.06);
+  font-family: var(--mono);
+  font-size: 9.5px; font-weight: 700;
+  letter-spacing: .14em; text-transform: uppercase;
+}
+.creator-card-name {
+  margin: 4px 0 0;
+  color: var(--ink);
+  font-size: 32px; font-weight: 600;
+  letter-spacing: -.03em; line-height: 1.05;
+  overflow-wrap: anywhere;
+}
+/* Icon-only socials. The icon *is* the link; tap opens the
+   platform profile in a new tab. No handle text next to it. */
+.creator-card-socials {
+  display: inline-flex; align-items: center; gap: 8px;
+  margin-top: -2px;
+}
+.creator-card-social {
+  width: 36px; height: 36px;
+  display: grid; place-items: center;
+  color: #fff;
+  border-radius: 10px;
+  text-decoration: none;
+  transition: transform 120ms ease, filter 140ms ease;
+}
+.creator-card-social:hover { transform: translateY(-1px); filter: brightness(1.08); }
+.creator-card-social svg { width: 16px; height: 16px; }
+.creator-card-social.ig { background: linear-gradient(135deg, #f09433, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888); }
+.creator-card-social.tt { background: #000; border: 1px solid var(--hairline-strong); }
+.creator-card-social.yt { background: #ff0000; }
+.creator-card-social.x  { background: #000; border: 1px solid var(--hairline-strong); }
+.creator-card-bio {
+  margin: 0;
+  color: var(--ink);
+  font-size: 14.5px; line-height: 1.5;
+  max-width: 300px;
+  overflow-wrap: anywhere;
+}
+.creator-card-bio.is-empty { color: var(--ink-dim); font-style: italic; }
+.creator-card-meta {
+  display: inline-flex; align-items: center; gap: 8px;
+  color: var(--ink-mid);
+  font-size: 12.5px;
+}
+.creator-card-meta .dot { width: 3px; height: 3px; border-radius: 50%; background: var(--ink-dim); }
+.creator-card-tags {
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 6px;
+  max-width: 300px;
+}
+.creator-card-tag {
+  padding: 5px 11px;
+  color: var(--ink-mid);
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  font-size: 11.5px;
+  white-space: nowrap;
+}
+
+.creator-card-actions {
+  padding: 14px 22px 20px;
+  border-top: 1px solid var(--hairline);
+  display: grid; gap: 10px;
+  align-items: center;
+}
+.creator-card-actions.is-own { grid-template-columns: 1fr; }
+.creator-card-actions.is-other {
+  grid-template-columns: 44px 44px minmax(0, 1fr);
+}
+.creator-card-actions form { margin: 0; display: contents; }
+.creator-card-actions form > button { grid-column: span 1; }
+.creator-card-btn-primary {
+  height: 46px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  color: #fff;
+  background: var(--accent);
+  border: none;
+  border-radius: 12px;
+  font: inherit; font-weight: 700; font-size: 14px; letter-spacing: -.005em;
+  cursor: pointer;
+  text-decoration: none;
+  transition: background-color 140ms ease, transform 120ms ease;
+}
+.creator-card-btn-primary:hover { background: var(--accent-hover, #e8455f); }
+.creator-card-btn-primary:active { transform: scale(.99); }
+.creator-card-btn-primary svg { width: 14px; height: 14px; }
+.creator-card-btn-icon {
+  width: 44px; height: 44px;
+  display: grid; place-items: center;
+  color: var(--ink-mid);
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: color 140ms ease, border-color 140ms ease, background-color 140ms ease;
+}
+.creator-card-btn-icon:hover { color: var(--ink); border-color: var(--hairline-strong); background: var(--surface-3); }
+.creator-card-btn-icon svg { width: 14px; height: 14px; }
+
+@media (max-width: 420px) {
+  .creator-card-avatar { width: 100px; height: 100px; font-size: 32px; }
+  .creator-card-name { font-size: 28px; }
+  .creator-card-body { padding: 26px 20px 20px; gap: 12px; }
+}
+
+/* Discover uses .creator-card + a native discover-actions sibling.
+   The action row lives outside the article so JS keeps working; we
+   make it visually feel like a bottom row on the same card. */
+/* On discover the actions dock is a sibling element (JS relies on it),
+   so drop the card's bottom radius to make the two visually join. */
+.creator-card.discover-card {
+  padding: 0;
+  border: 1px solid var(--hairline);
+  border-radius: 22px 22px 0 0;
+  border-bottom: 0;
+}
+.creator-card .discover-detail-link {
+  display: block;
+  width: 100%;
+  padding: 10px;
+  color: var(--ink-dim);
+  background: transparent;
+  border: none;
+  border-top: 1px solid var(--hairline);
+  font: inherit;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .12em; text-transform: lowercase;
+  cursor: pointer;
+}
+.creator-card .discover-detail-link:hover { color: var(--ink); background: var(--surface-2); }
+.discover-stack:has(.creator-card) + .discover-actions {
+  width: min(100%, 380px);
+  margin: -1px auto 0;
+  padding: 14px 22px 20px;
+  border: 1px solid var(--hairline);
+  border-top: 0;
+  border-radius: 0 0 22px 22px;
+  background: var(--surface-1);
+  display: grid;
+  grid-template-columns: 44px 44px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+}
+.discover-stack:has(.creator-card) { padding: 0; }
+.discover-stack:has(.creator-card) + .discover-actions form { margin: 0; display: contents; }
+.discover-stack:has(.creator-card) + .discover-actions button {
+  width: 100%; height: 44px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  color: var(--ink-mid);
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
+  font: inherit; font-size: 12.5px; font-weight: 600;
+  cursor: pointer;
+}
+.discover-stack:has(.creator-card) + .discover-actions button svg { width: 14px; height: 14px; }
+.discover-stack:has(.creator-card) + .discover-actions button.primary {
+  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent);
+  font-weight: 700;
+  height: 46px;
+}
+.discover-stack:has(.creator-card) + .discover-actions button.primary:hover { background: var(--accent-hover, #e8455f); }
+/* Round + tuck: pass/save icons show only their SVG, primary is the big
+   "connect" button on the right. Match the mockup 44 44 1fr grid. */
+.discover-stack:has(.creator-card) + .discover-actions [aria-label="pass"] span,
+.discover-stack:has(.creator-card) + .discover-actions [aria-label="save"] span,
+.discover-stack:has(.creator-card) + .discover-actions [data-swipe-form="passed"] button span,
+.discover-stack:has(.creator-card) + .discover-actions [data-swipe-form="saved"] button span {
+  display: none;
+}
+.discover-stack:has(.creator-card) ~ .discover-action-meta {
+  width: min(100%, 380px);
+  margin: 12px auto 0;
+  padding: 0 22px;
+  display: flex; justify-content: center; gap: 8px;
+}

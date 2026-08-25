@@ -133,57 +133,30 @@
       <div class="discover-count" aria-live="polite"><strong data-card-count>{{ cards|length }}</strong> left</div>
       <div class="discover-stack" data-card-stack>
         {% for card in cards %}
-        {% set card_initial = (card.title or card.subtitle or card.card_kind or 'c')[:1]|upper %}
-        <article class="discover-card discover-card-{{ card.card_kind }}" data-discover-card data-card-kind="{{ card.card_kind }}" {% if not loop.first %}hidden{% endif %}>
-          <div class="discover-card-media">
-            <div class="discover-card-topline">
-              <span class="discover-card-kind">{{ 'creator' if card.card_kind == 'creator' else card.card_kind }}</span>
-              {{ verified_check(card.trust) }}
-            </div>
-            <div class="discover-media-icon" aria-hidden="true">
-              {% if card.profile_photo_url %}
-              <img src="{{ card.profile_photo_url|safe_url }}{% if card.updated_at %}?v={{ card.updated_at|short_dt|replace(' ', 'T')|replace(':', '-') }}{% endif %}" alt="" loading="lazy" decoding="async" />
-              {% else %}
-              <span>{{ card_initial }}</span>
-              {% endif %}
-            </div>
-          </div>
-          <div class="discover-card-body">
-            <div class="discover-card-topline discover-card-topline-inline">
-              <span class="discover-card-kind">{{ 'creator' if card.card_kind == 'creator' else card.card_kind }}</span>
-              {{ verified_check(card.trust) }}
-            </div>
-
-            <div>
-              <h2>{{ card.title }}</h2>
-              {% if card.subtitle %}<p>{{ card.subtitle }}</p>{% endif %}
-            </div>
-
-            {% if card.description %}<p class="discover-description">{{ card.description }}</p>{% endif %}
-
-            <dl class="discover-facts">
-              {% if card.compensation_text %}<div><dt>compensation</dt><dd>{{ card.compensation_text }}</dd></div>{% endif %}
-              {% if card.deadline %}<div><dt>deadline</dt><dd>{{ card.deadline[:10] }}</dd></div>{% endif %}
-              {% if card.location_label %}<div><dt>location</dt><dd>{{ card.location_label }}</dd></div>{% endif %}
-              {% if card.primary_platform %}
-              <div>
-                <dt>platform</dt>
-                <dd class="discover-platform-value">
-                  {{ linked_platform_icon(card) }}
-                  {% if card.follower_range and card.card_kind == 'creator' %}<span>{{ card.follower_range }}</span>{% endif %}
-                </dd>
-              </div>
-              {% endif %}
-            </dl>
-
-            {% if card.tags %}
-            <div class="discover-tags" aria-label="categories">
-              {% for tag in card.tags[:3] %}<span>{{ tag }}</span>{% endfor %}
-            </div>
-            {% endif %}
-
-          </div>
-
+        {% set _card_initial = (card.title or card.subtitle or card.card_kind or 'c')[:1]|upper %}
+        {% set _platform = (card.primary_platform or '').lower()|trim %}
+        {% set _social_url_raw = platform_profile_url(card)|trim %}
+        {% set _photo = card.profile_photo_url %}
+        {% set _photo_versioned = (_photo ~ ("?v=" ~ (card.updated_at|short_dt|replace(' ', 'T')|replace(':', '-')))) if (_photo and card.updated_at) else _photo %}
+        {% set _social_platform = _platform if (_platform in ('instagram','tiktok','youtube','x') and _social_url_raw) else None %}
+        {% set card_view = {
+          "kind_label": card.card_kind,
+          "avatar_url": _photo_versioned,
+          "initial": _card_initial,
+          "name": card.title,
+          "social_url": _social_url_raw if _social_url_raw else None,
+          "social_platform": _social_platform,
+          "bio": card.subtitle or card.description,
+          "location_label": card.location_label,
+          "follower_range": card.follower_range if card.card_kind == 'creator' else None,
+          "tags": card.tags or [],
+        } %}
+        <article class="creator-card discover-card discover-card-{{ card.card_kind }}"
+                 data-discover-card data-card-kind="{{ card.card_kind }}"
+                 {% if not loop.first %}hidden{% endif %}>
+          {% with card = card_view %}
+          {% include "_partials/creator_card_body.html" %}
+          {% endwith %}
           <form method="post" action="{{ discover_swipe_path }}" class="discover-detail-form">
             {% include "_partials/csrf.html" %}
             <input type="hidden" name="target_kind" value="{{ card.card_kind }}" />
@@ -194,7 +167,7 @@
             <input type="hidden" name="location" value="{{ location }}" />
             {% if budget_min is not none %}<input type="hidden" name="budget_min" value="{{ budget_min }}" />{% endif %}
             {% if budget_max is not none %}<input type="hidden" name="budget_max" value="{{ budget_max }}" />{% endif %}
-            <button type="submit">view details <span aria-hidden="true">›</span></button>
+            <button type="submit" class="discover-detail-link">view details <span aria-hidden="true">›</span></button>
           </form>
         </article>
         {% endfor %}
