@@ -4,15 +4,12 @@
 
 {% block content %}
 <section class="dm-inbox" data-dm-inbox>
-  {# Slim top bar: search + compose. Count lives in the placeholder
-     ("search N unread messages") so we don't need a separate tag
-     element that was clipping in some layouts. #}
   <div class="dm-inbox-topbar">
-    <label class="dm-inbox-search">
+    <form class="dm-inbox-search" action="/creator/dm" method="get" role="search">
+      <label class="sr-only" for="creator-dm-search">Search conversations</label>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
-      <input type="search" name="q" autocomplete="off" data-dm-search
-             placeholder="{% if unread_total %}search {{ unread_total }} unread{% if unread_total == 1 %} message{% else %} messages{% endif %}{% elif thread_count %}search {{ thread_count }} conversation{% if thread_count != 1 %}s{% endif %}{% else %}search{% endif %}" />
-    </label>
+      <input id="creator-dm-search" type="search" name="q" value="{{ dm_query|default('') }}" autocomplete="off" data-dm-search placeholder="Search conversations" />
+    </form>
     <a href="/creator/network" class="dm-inbox-compose" aria-label="start a new conversation" title="new">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
     </a>

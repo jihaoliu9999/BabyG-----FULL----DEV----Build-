@@ -10780,16 +10780,21 @@ hr.hairline {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 20px;
+  max-width: 100%;
+  padding: 10px 20px;
   border-bottom: 1px solid var(--hairline);
 }
 /* Tag was clipping — moved into search placeholder instead. Class
    kept as a no-op in case the template still references it. */
 .dm-inbox-tag { display: none; }
 .dm-inbox-search {
-  flex: 1 1 auto;
+  flex: 1 1 0%;
+  width: auto;
+  max-width: calc(100% - 54px);
   display: flex; align-items: center; gap: 8px;
-  height: 36px;
+  min-height: 44px;
+  height: 44px;
+  margin: 0;
   padding: 0 14px;
   background: var(--surface-1);
   border: 1px solid var(--hairline);
@@ -10803,14 +10808,31 @@ hr.hairline {
 }
 .dm-inbox-search svg { width: 14px; height: 14px; color: var(--ink-dim); flex: 0 0 14px; }
 .dm-inbox-search input {
-  flex: 1; background: transparent; border: none; outline: none;
-  color: var(--ink); font: inherit; font-size: 13.5px;
+  width: 100%;
   min-width: 0;
+  height: 42px;
+  flex: 1;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  outline: 0;
+  box-shadow: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: 16px;
+  line-height: 1.2;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.dm-inbox-search input:focus {
+  border: 0;
+  box-shadow: none;
 }
 .dm-inbox-search input::placeholder { color: var(--ink-dim); }
 .dm-inbox-compose {
-  flex: 0 0 36px;
-  width: 36px; height: 36px;
+  flex: 0 0 44px;
+  width: 44px; height: 44px;
+  min-width: 44px;
   display: grid; place-items: center;
   color: var(--ink-mid);
   background: transparent;
@@ -10818,7 +10840,7 @@ hr.hairline {
   border-radius: 999px;
   text-decoration: none;
   transition: color .15s ease, border-color .15s ease, background .15s ease;
-  margin-left: auto;
+  margin-left: 0;
 }
 .dm-inbox-compose:hover {
   color: var(--ink);
@@ -10977,10 +10999,10 @@ hr.hairline {
 .dm-inbox-empty p { margin: 0; font-size: 13.5px; }
 
 @media (max-width: 640px) {
-  .dm-inbox-topbar { padding: 10px 14px; gap: 8px; }
+  .dm-inbox-topbar { padding: 10px 14px; gap: 10px; }
   .dm-inbox-tag { font-size: 10px; letter-spacing: .14em; }
-  .dm-inbox-search { height: 34px; }
-  .dm-inbox-compose { width: 34px; height: 34px; flex-basis: 34px; }
+  .dm-inbox-search { min-height: 44px; height: 44px; }
+  .dm-inbox-compose { width: 44px; height: 44px; flex-basis: 44px; }
   .dm-inbox-link { padding: 14px 14px 4px; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 12px; }
   .dm-inbox-row:not(:has(.dm-inbox-chips)) .dm-inbox-link { padding-bottom: 14px; }
   .dm-inbox-avatar { width: 44px; height: 44px; }

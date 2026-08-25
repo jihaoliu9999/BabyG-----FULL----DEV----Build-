@@ -307,6 +307,25 @@ def test_creator_dm_list_renders(client, world):
     r = client.get("/creator/dm")
     assert r.status_code == 200
     assert "Anna Reyes" in r.text
+    assert 'class="dm-inbox-search"' in r.text
+    assert "data-dm-search" in r.text
+    assert 'placeholder="Search conversations"' in r.text
+    assert 'href="/creator/network"' in r.text
+
+
+def test_creator_dm_list_search_filters_by_peer(client, world):
+    _signed_in(client, role="creator", user_id="c-1")
+    world.add_creator(user_id="c-1")
+    world.add_creator(user_id="c-2", full_name="Anna Reyes")
+    world.add_creator(user_id="c-3", full_name="Maya Chen")
+    _seed_thread(world, a="c-2", b="c-1", body="hello", sender="c-2")
+    _seed_thread(world, a="c-3", b="c-1", body="hello", sender="c-3")
+
+    r = client.get("/creator/dm?q=maya")
+
+    assert r.status_code == 200
+    assert "Maya Chen" in r.text
+    assert "Anna Reyes" not in r.text
 
 
 def test_creator_dm_thread_marks_messages_read(client, world, monkeypatch):
