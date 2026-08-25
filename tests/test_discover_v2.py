@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
@@ -265,3 +266,253 @@ def test_normalize_rejects_invalid_ids():
     raw = _card("creator")
     raw["card_id"] = "not-a-uuid"
     assert discover_service._normalize_card(raw, viewer_tags=[]) is None
+
+
+# ---------------------------------------------------------------------------
+# Query-bounding tests — patch 2A
+#
+# The v1 implementation always fetched HARD_LIMIT*4 = 120 rows regardless
+# of what the caller asked for, and read the entire per-user action
+# history to compute exclusions. These tests lock in the new behavior so
+# a home-preview render (limit=3) no longer over-fetches, and so the
+# exclusion query is bounded with an order + hard cap.
+# ---------------------------------------------------------------------------
+
+
+class _RecordingTable:
+    """Chainable Supabase-table stub that records calls verbatim.
+
+    Enough of the supabase-py builder surface to be a drop-in for
+    `.select().eq().neq().in_().order().limit().contains().ilike()
+    .gte().lte().execute()`.
+    """
+
+    def __init__(self, rows: list[dict[str, Any]]) -> None:
+        self._rows = list(rows)
+        self.calls: list[tuple[str, tuple[Any, ...], dict[str, Any]]] = []
+
+    def _record(self, name: str, *args: Any, **kwargs: Any) -> _RecordingTable:
+        self.calls.append((name, args, kwargs))
+        return self
+
+    def select(self, *a: Any, **k: Any) -> _RecordingTable:
+        return self._record("select", *a, **k)
+
+    def neq(self, *a: Any, **k: Any) -> _RecordingTable:
+        return self._record("neq", *a, **k)
+
+    def eq(self, *a: Any, **k: Any) -> _RecordingTable:
+        return self._record("eq", *a, **k)
+
+    def in_(self, *a: Any, **k: Any) -> _RecordingTable:
+        return self._record("in_", *a, **k)
+
+    def order(self, *a: Any, **k: Any) -> _RecordingTable:
+        return self._record("order", *a, **k)
+
+    def limit(self, *a: Any, **k: Any) -> _RecordingTable:
+        return self._record("limit", *a, **k)
+
+    def contains(self, *a: Any, **k: Any) -> _RecordingTable:
+        return self._record("contains", *a, **k)
+
+    def ilike(self, *a: Any, **k: Any) -> _RecordingTable:
+        return self._record("ilike", *a, **k)
+
+    def gte(self, *a: Any, **k: Any) -> _RecordingTable:
+        return self._record("gte", *a, **k)
+
+    def lte(self, *a: Any, **k: Any) -> _RecordingTable:
+        return self._record("lte", *a, **k)
+
+    def execute(self):
+        from types import SimpleNamespace
+
+        return SimpleNamespace(data=list(self._rows))
+
+
+class _RecordingClient:
+    def __init__(self, tables: dict[str, _RecordingTable]) -> None:
+        self._tables = tables
+
+    def table(self, name: str) -> _RecordingTable:
+        return self._tables[name]
+
+
+def _viewer_uid() -> str:
+    return str(uuid4())
+
+
+def _fetch_limit_used(cards_table: _RecordingTable) -> int:
+    """Last `.limit(...)` value applied to the discovery_cards query."""
+    limits = [args[0] for name, args, _ in cards_table.calls if name == "limit"]
+    assert limits, "list_cards did not call .limit() on discovery_cards"
+    return int(limits[-1])
+
+
+def test_list_cards_home_preview_does_not_overfetch_120_rows(monkeypatch):
+    """Home preview asks for 3 cards → we must NOT read the old 120."""
+    cards_table = _RecordingTable(rows=[])
+    actions_table = _RecordingTable(rows=[])
+    monkeypatch.setattr(
+        discover_service.supabase_client,
+        "get_service_client",
+        lambda: _RecordingClient(
+            {
+                "discovery_cards": cards_table,
+                "creator_discovery_actions": actions_table,
+            }
+        ),
+    )
+    discover_service.list_cards(
+        viewer_id=_viewer_uid(),
+        viewer_role="creator",
+        kind="all",
+        limit=3,
+    )
+    used = _fetch_limit_used(cards_table)
+    # Old behavior was 120 unconditionally. New behavior scales to a
+    # small exclusion buffer above the requested slice.
+    assert used < 120
+    assert used >= 3  # room for at least the requested slice
+    assert used <= 30  # tiny caller stays tiny
+
+
+def test_list_cards_default_slice_stays_below_old_ceiling(monkeypatch):
+    """A default /creator/discover render (limit=DEFAULT_LIMIT=12) also
+    no longer fetches 120."""
+    cards_table = _RecordingTable(rows=[])
+    actions_table = _RecordingTable(rows=[])
+    monkeypatch.setattr(
+        discover_service.supabase_client,
+        "get_service_client",
+        lambda: _RecordingClient(
+            {
+                "discovery_cards": cards_table,
+                "creator_discovery_actions": actions_table,
+            }
+        ),
+    )
+    discover_service.list_cards(
+        viewer_id=_viewer_uid(),
+        viewer_role="creator",
+        kind="all",
+    )
+    used = _fetch_limit_used(cards_table)
+    assert used < 120
+    assert used >= discover_service.DEFAULT_LIMIT
+
+
+def test_list_cards_max_caller_stays_capped(monkeypatch):
+    """A caller asking at HARD_LIMIT gets a bounded buffer, never above
+    the historical HARD_LIMIT*4 ceiling."""
+    cards_table = _RecordingTable(rows=[])
+    actions_table = _RecordingTable(rows=[])
+    monkeypatch.setattr(
+        discover_service.supabase_client,
+        "get_service_client",
+        lambda: _RecordingClient(
+            {
+                "discovery_cards": cards_table,
+                "creator_discovery_actions": actions_table,
+            }
+        ),
+    )
+    discover_service.list_cards(
+        viewer_id=_viewer_uid(),
+        viewer_role="creator",
+        kind="all",
+        limit=discover_service.HARD_LIMIT,
+    )
+    used = _fetch_limit_used(cards_table)
+    assert used <= discover_service.HARD_LIMIT * 4
+
+
+def test_excluded_card_keys_query_is_ordered_and_capped(monkeypatch):
+    """The exclusion history read must include an order + hard limit so
+    a power user with thousands of actions can't force a full-table
+    scan on every discover render."""
+    actions_table = _RecordingTable(rows=[])
+    monkeypatch.setattr(
+        discover_service.supabase_client,
+        "get_service_client",
+        lambda: _RecordingClient({"creator_discovery_actions": actions_table}),
+    )
+    discover_service._excluded_card_keys("00000000-0000-0000-0000-000000000001")
+
+    call_names = [name for name, _, _ in actions_table.calls]
+    assert "order" in call_names, "exclusion query must be ordered"
+    assert "limit" in call_names, "exclusion query must be bounded"
+
+    order_args = next(args for name, args, _ in actions_table.calls if name == "order")
+    order_kwargs = next(kw for name, _, kw in actions_table.calls if name == "order")
+    assert order_args[0] == "created_at"
+    assert order_kwargs.get("desc") is True
+
+    limit_arg = next(args[0] for name, args, _ in actions_table.calls if name == "limit")
+    assert isinstance(limit_arg, int) and 0 < limit_arg <= 1000
+
+
+def test_excluded_card_keys_still_honors_passed_cooldown_and_commits(monkeypatch):
+    """The bounded read must not change exclusion semantics: recent
+    passes still exclude, older passes past the 30-day cooldown do
+    not, commits (saved/connected/interested) are permanent, and an
+    undo after a pass restores the card."""
+    kind = "creator"
+    committed = str(uuid4())
+    recently_passed = str(uuid4())
+    old_passed = str(uuid4())
+    passed_then_undone = str(uuid4())
+
+    now = datetime.now(UTC)
+    yesterday = (now - timedelta(days=1)).isoformat()
+    thirty_five_days_ago = (now - timedelta(days=35)).isoformat()
+    two_days_ago = (now - timedelta(days=2)).isoformat()
+
+    rows = [
+        {
+            "target_kind": kind,
+            "target_card_id": committed,
+            "action_type": "saved",
+            "created_at": (now - timedelta(days=100)).isoformat(),
+        },
+        {
+            "target_kind": kind,
+            "target_card_id": recently_passed,
+            "action_type": "passed",
+            "created_at": yesterday,
+        },
+        {
+            "target_kind": kind,
+            "target_card_id": old_passed,
+            "action_type": "passed",
+            "created_at": thirty_five_days_ago,
+        },
+        {
+            "target_kind": kind,
+            "target_card_id": passed_then_undone,
+            "action_type": "passed",
+            "created_at": two_days_ago,
+        },
+        {
+            "target_kind": kind,
+            "target_card_id": passed_then_undone,
+            "action_type": "undo_pass",
+            "created_at": yesterday,
+        },
+    ]
+
+    actions_table = _RecordingTable(rows=rows)
+    monkeypatch.setattr(
+        discover_service.supabase_client,
+        "get_service_client",
+        lambda: _RecordingClient({"creator_discovery_actions": actions_table}),
+    )
+
+    excluded = discover_service._excluded_card_keys(
+        "00000000-0000-0000-0000-000000000002"
+    )
+    assert (kind, committed) in excluded
+    assert (kind, recently_passed) in excluded
+    assert (kind, old_passed) not in excluded  # past cooldown
+    assert (kind, passed_then_undone) not in excluded  # undo wins
