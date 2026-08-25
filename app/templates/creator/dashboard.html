@@ -12,7 +12,6 @@
           data-greet-afternoon="{{ daily_greeting.afternoon }}"
           data-greet-evening="{{ daily_greeting.evening }}"
           data-greet-night="{{ daily_greeting.night }}">{{ daily_greeting.afternoon }}</h1>
-      <p>{% if needs_count %}{{ needs_count }} {{ 'thing needs' if needs_count == 1 else 'things need' }} you today.{% else %}you're clear today.{% endif %}</p>
     </div>
     <a href="/creator/profile" class="creator-home-avatar" aria-label="profile">
       {% if profile is defined and profile is not none and profile.profile_photo_url %}

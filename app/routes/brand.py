@@ -370,7 +370,6 @@ async def discover_page(
             "discover_swipe_path": "/brand/discover/swipe",
             "discover_undo_path": "/brand/discover/undo",
             "discover_title": "discover",
-            "discover_subtitle": "creators and opportunities worth knowing.",
         },
     )
 
