@@ -857,13 +857,33 @@ async def notifications_mark_all_read(
 
 @router.get("/creator/dm", response_class=HTMLResponse)
 async def dm_list(
-    request: Request, session: SessionPayload = Depends(require_role("creator"))
+    request: Request,
+    q: str | None = Query(None),
+    session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
     threads = dms.list_threads_for_user(session["user_id"])
     # v1 is creator-only — peer is always another connected creator.
     peer_ids = sorted({str(t["peer_id"]) for t in threads})
     peers = profiles.get_creators_by_ids(peer_ids)
     peer_kinds = {pid: ("creator" if pid in peers else "unknown") for pid in peer_ids}
+    dm_query = " ".join((q or "").split())[:80]
+    if dm_query:
+        terms = [term.casefold() for term in dm_query.split()]
+
+        def _matches_thread(thread: dict[str, Any]) -> bool:
+            peer_id = str(thread.get("peer_id") or "")
+            peer = peers.get(peer_id) or {}
+            haystack = " ".join(
+                str(value or "")
+                for value in (
+                    peer.get("full_name"),
+                    peer.get("instagram_handle"),
+                    peer_id,
+                )
+            ).casefold()
+            return all(term in haystack for term in terms)
+
+        threads = [thread for thread in threads if _matches_thread(thread)]
     thread_ids = [str(t["id"]) for t in threads]
     # Private babyg risk chips: latest brief per thread, recipient-scoped.
     briefs = dm_briefs.latest_briefs_for_threads(
@@ -888,6 +908,7 @@ async def dm_list(
             "unread_total": unread_total,
             "last_messages": last_messages,
             "thread_count": len(threads),
+            "dm_query": dm_query,
         },
     )
 

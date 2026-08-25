@@ -44,6 +44,23 @@ def test_mobile_controls_keep_ios_safe_font_size() -> None:
     assert "font-size: 16px" in composer_rule
 
 
+def test_creator_dm_search_toolbar_is_mobile_safe() -> None:
+    toolbar_rule = APP_CSS.split(".dm-inbox-topbar {", 1)[1].split("}", 1)[0]
+    search_rule = APP_CSS.split(".dm-inbox-search {", 1)[1].split("}", 1)[0]
+    input_rule = APP_CSS.split(".dm-inbox-search input {", 1)[1].split("}", 1)[0]
+    action_rule = APP_CSS.split(".dm-inbox-compose {", 1)[1].split("}", 1)[0]
+
+    assert "display: flex" in toolbar_rule
+    assert "align-items: center" in toolbar_rule
+    assert "gap: 10px" in toolbar_rule
+    assert "flex: 1 1 0%" in search_rule
+    assert "min-width: 0" in search_rule
+    assert "font-size: 16px" in input_rule
+    assert "min-width: 0" in input_rule
+    assert "flex: 0 0 44px" in action_rule
+    assert "min-width: 44px" in action_rule
+
+
 def test_hidden_brand_topbar_does_not_reserve_mobile_space() -> None:
     assert ".is-brand-shell .brand-main" in APP_CSS
     assert "padding-top: max(18px, env(safe-area-inset-top, 0px))" in APP_CSS
