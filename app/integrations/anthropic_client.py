@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from typing import Any, cast
 
 from app.config import get_settings
+from app.core.external_timing import time_external
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +62,8 @@ def complete_chat(
         }
         if tools:
             create_kwargs["tools"] = cast(Any, tools)
-        response = client.messages.create(**create_kwargs)
+        with time_external("anthropic"):
+            response = client.messages.create(**create_kwargs)
     except ClaudeNotConfiguredError:
         raise
     except Exception as exc:  # pragma: no cover - exercised via service tests

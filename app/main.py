@@ -59,6 +59,13 @@ def create_app() -> FastAPI:
     # URL generation about the original scheme so `url_for(...)` emits HTTPS.
     app.add_middleware(_ForwardedProtoMiddleware)
 
+    # Per-request wall-time. Logs one line per dynamic request and
+    # appends X-Response-Time. Wrapped OUTSIDE gzip/csrf/security so the
+    # duration reflects the full time spent inside the app, including
+    # those middlewares.
+    from app.core.request_timing import RequestTimingMiddleware
+    app.add_middleware(RequestTimingMiddleware)
+
     # GZip every response over 1KB. Most HTML pages are 5-30KB → ~70% off the wire.
     app.add_middleware(GZipMiddleware, minimum_size=1024)
 
