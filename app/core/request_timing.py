@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import logging
 import time
-from collections.abc import Callable
 
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
@@ -70,7 +69,7 @@ class RequestTimingMiddleware:
 
 def _make_wrapped_send(
     send: Send, start: float, status_holder: dict[str, int]
-) -> Callable[[Message], object]:
+) -> Send:
     """Return a send callable that injects X-Response-Time on response start.
 
     We do it here (not in the outer try/finally) so the header is set
