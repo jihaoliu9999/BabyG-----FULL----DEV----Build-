@@ -45,6 +45,12 @@ ALLOWED_ACTIONS: Final[frozenset[str]] = frozenset(
 PASSED_COOLDOWN_DAYS: Final = 30
 DEFAULT_LIMIT: Final = 12
 HARD_LIMIT: Final = 30
+# Hard cap for the action-history read used to compute exclusions. The
+# ~30-day `passed` cooldown plus permanent commits (saved/connected/
+# interested) fit comfortably inside this window for any realistic user,
+# and it bounds the read so a power user with thousands of swipes
+# doesn't force a full-table scan on every discover render.
+_EXCLUSION_HISTORY_CAP: Final = 500
 
 
 def list_cards(
@@ -72,6 +78,11 @@ def list_cards(
         return []
     kind_clean = clean_kind(kind)
     bounded = max(1, min(int(limit or DEFAULT_LIMIT), HARD_LIMIT))
+    # Keep an exclusion buffer above the caller's requested count so
+    # cards the viewer has already passed/saved/connected/interested on
+    # don't starve small slices (e.g. the home preview asks for 3).
+    # Capped at HARD_LIMIT*4 so heavy callers don't grow unbounded.
+    fetch_limit = min(max(bounded * 3, bounded + 10), HARD_LIMIT * 4)
 
     try:
         query = (
@@ -80,7 +91,7 @@ def list_cards(
             .select("*")
             .neq("owner_user_id", uid)
             .order("created_at", desc=True)
-            .limit(HARD_LIMIT * 4)
+            .limit(fetch_limit)
         )
         if kind_clean != "all":
             query = query.eq("card_kind", kind_clean)
@@ -243,6 +254,8 @@ def _excluded_card_keys(user_id: str) -> set[tuple[str, str]]:
                 "action_type",
                 ["passed", "undo_pass", "saved", "connected", "interested"],
             )
+            .order("created_at", desc=True)
+            .limit(_EXCLUSION_HISTORY_CAP)
             .execute()
         )
     except Exception:
