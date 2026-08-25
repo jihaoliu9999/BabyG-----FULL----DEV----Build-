@@ -91,7 +91,9 @@
     <a href="{{ discover_base_path }}?kind={{ value }}" class="{{ 'active' if active_kind == value }}" {% if active_kind == value %}aria-current="page"{% endif %}>{{ label }}</a>
     {% endfor %}
     <a href="/creator/connections">my connections</a>
-    <a class="post" href="/creator/opportunities/new" aria-label="post an opportunity">post +</a>
+    <a class="post" href="/creator/opportunities/new" aria-label="post an opportunity" title="post an opportunity">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+    </a>
   </nav>
 
   <div class="discover-layout">

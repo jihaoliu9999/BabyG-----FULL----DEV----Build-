@@ -6104,13 +6104,18 @@ hr.hairline {
 }
 .discover-kind-tabs a.post {
   margin-left: auto;
+  display: inline-grid;
+  place-items: center;
+  min-height: 40px;
+  width: 40px;
+  padding: 0;
   border-color: var(--accent);
   background: var(--accent);
   color: #fff;
-  font-weight: 600;
   text-decoration: none;
   box-shadow: 0 6px 14px rgba(255,77,109,.24);
 }
+.discover-kind-tabs a.post svg { width: 18px; height: 18px; }
 .discover-kind-tabs a.post:hover {
   background: var(--accent-hover, #e8455f);
   border-color: var(--accent-hover, #e8455f);
@@ -6577,6 +6582,9 @@ hr.hairline {
   box-shadow: inset 0 0 0 1px rgba(255,77,109,.12);
 }
 .discover-kind-tabs a.post {
+  min-height: 40px;
+  width: 40px;
+  padding: 0;
   border-color: var(--accent);
   background: var(--accent);
   color: #fff;
