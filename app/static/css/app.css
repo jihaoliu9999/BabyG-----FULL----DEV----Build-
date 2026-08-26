@@ -9154,6 +9154,17 @@ hr.hairline {
 .is-creator-app .profile-fidelity-settings-card > a:hover { background: var(--surface-2); }
 .is-creator-app .profile-fidelity-settings-card strong { overflow: hidden; color: var(--text-primary); font-size: 13px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .is-creator-app .profile-fidelity-settings-card strong span { color: var(--text-tertiary); font-weight: 450; }
+.is-creator-app .settings-work-card .profile-fidelity-settings-card > a > .eyebrow,
+.is-creator-app .settings-work-card .profile-fidelity-settings-card strong,
+.is-creator-app .settings-work-card .profile-fidelity-settings-card strong span {
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 650;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.is-creator-app .settings-work-card .profile-fidelity-settings-card > a > .eyebrow { color: var(--text-secondary); }
+.is-creator-app .settings-work-card .profile-fidelity-settings-card strong span { color: var(--text-tertiary); }
 .is-creator-app .profile-setting-icon { width: 32px; height: 32px; display: grid; place-items: center; border-radius: var(--radius-sm); background: var(--surface-2); }
 .is-creator-app .profile-setting-icon svg { width: 16px; height: 16px; stroke-width: 1.7; }
 .is-creator-app .profile-setting-icon-safe { color: var(--safe); background: var(--safe-soft); }

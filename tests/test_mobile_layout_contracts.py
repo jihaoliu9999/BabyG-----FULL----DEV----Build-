@@ -79,6 +79,19 @@ def test_creator_settings_work_links_do_not_overlap_labels() -> None:
     assert "34px minmax(0, 1fr)" not in rule
 
 
+def test_creator_settings_work_links_use_uniform_bold_text() -> None:
+    rule = APP_CSS.split(
+        ".is-creator-app .settings-work-card .profile-fidelity-settings-card > a > .eyebrow,",
+        1,
+    )[1].split("}", 1)[0]
+
+    assert "font-family: var(--sans)" in rule
+    assert "font-size: 13px" in rule
+    assert "font-weight: 650" in rule
+    assert "letter-spacing: 0" in rule
+    assert "text-transform: none" in rule
+
+
 def test_hidden_brand_topbar_does_not_reserve_mobile_space() -> None:
     assert ".is-brand-shell .brand-main" in APP_CSS
     assert "padding-top: max(18px, env(safe-area-inset-top, 0px))" in APP_CSS
