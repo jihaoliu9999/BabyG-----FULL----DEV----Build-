@@ -311,6 +311,9 @@ def test_creator_dm_list_renders(client, world):
     assert "data-dm-search" in r.text
     assert 'placeholder="Search conversations"' in r.text
     assert 'href="/creator/network"' in r.text
+    assert " is-dm " in r.text
+    assert 'class="app-topbar"' not in r.text
+    assert 'class="mobile-header"' not in r.text
 
 
 def test_creator_dm_list_search_filters_by_peer(client, world):
@@ -345,6 +348,21 @@ def test_creator_dm_thread_marks_messages_read(client, world, monkeypatch):
     assert "ask babyg" in r.text
     assert "ask babyg about this message" not in r.text
     assert "ask babyg to re-check" not in r.text
+
+
+def test_creator_dm_thread_omits_shared_profile_chrome(client, world, monkeypatch):
+    _signed_in(client, role="creator", user_id="c-1")
+    world.add_creator(user_id="c-1")
+    world.add_creator(user_id="c-2")
+    _accepted_connection(monkeypatch, a="c-2", b="c-1")
+
+    r = client.get("/creator/dm/c-2")
+
+    assert r.status_code == 200
+    assert " is-dm " in r.text
+    assert " is-dm-thread" in r.text
+    assert 'class="app-topbar"' not in r.text
+    assert 'class="mobile-header"' not in r.text
 
 
 def test_creator_dm_send_appends_and_notifies(client, world, monkeypatch):

@@ -7614,13 +7614,14 @@ hr.hairline {
 .is-product-app h1 { text-wrap: balance; }
 .is-product-app p { text-wrap: pretty; }
 
-/* Creator navigation: fixed six-tab order, iPhone-safe. */
+/* Creator navigation: fixed five-tab order, iPhone-safe. */
 .is-creator-app .creator-tabbar {
   min-height: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px));
   padding: 8px max(12px, env(safe-area-inset-right, 0px)) max(13px, env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px));
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   align-items: end;
+  justify-items: stretch;
   background: rgba(9,8,10,.96);
   border: 1px solid rgba(255,255,255,.105);
   border-top-color: rgba(255,255,255,.12);
@@ -7628,6 +7629,9 @@ hr.hairline {
   box-shadow: 0 -16px 42px -28px rgba(0,0,0,.98), inset 0 1px rgba(255,255,255,.035);
 }
 .is-creator-app .creator-tabbar a {
+  justify-self: stretch;
+  width: 100%;
+  max-width: none;
   min-width: 0;
   min-height: 60px;
   gap: 7px;
@@ -7818,9 +7822,12 @@ hr.hairline {
 .is-creator-app .network-swipe-card { border-radius: var(--radius-2xl); box-shadow: var(--shadow-raised); }
 .is-creator-app .discover-actions button,
 .is-creator-app .swipe-actions button { min-width: 48px; min-height: 48px; }
-.is-creator-app .bot-shell,
-.is-creator-app .dm-thread { min-height: calc(100dvh - var(--tabbar-h) - env(safe-area-inset-bottom)); }
-.is-creator-app .dm-thread { padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px) + 12px); }
+.is-creator-app .bot-shell { min-height: calc(100dvh - var(--tabbar-h) - env(safe-area-inset-bottom)); }
+.is-creator-app .dm-thread {
+  height: 100%;
+  min-height: 100%;
+  padding-bottom: 0;
+}
 .is-creator-app .dm-composer {
   bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px));
   padding: 7px max(12px, env(safe-area-inset-right)) 10px max(12px, env(safe-area-inset-left));
@@ -8406,6 +8413,19 @@ hr.hairline {
   .is-creator-app .app-main { padding-bottom: 0; }
   .is-brand-shell .brand-main {
     padding-top: max(18px, env(safe-area-inset-top, 0px));
+  }
+  .is-creator-app.is-dm .app-topbar,
+  .is-creator-app.is-dm .mobile-header,
+  .is-creator-app .app-shell:has(.dm-inbox) .app-topbar,
+  .is-creator-app .app-shell:has(.dm-inbox) .mobile-header,
+  .is-creator-app .app-shell:has(.dm-thread) .app-topbar,
+  .is-creator-app .app-shell:has(.dm-thread) .mobile-header {
+    display: none !important;
+  }
+  .is-creator-app.is-dm .app-main > #view,
+  .is-creator-app .app-shell:has(.dm-inbox) .app-main > #view,
+  .is-creator-app .app-shell:has(.dm-thread) .app-main > #view {
+    padding-top: 0;
   }
   .is-creator-app .app-shell:has(.creator-home) .mobile-header,
   .is-creator-app .app-shell:has(.creator-screen-topbar) .mobile-header,

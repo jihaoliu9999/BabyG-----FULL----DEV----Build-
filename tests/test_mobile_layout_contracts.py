@@ -111,26 +111,35 @@ def test_creator_dm_pages_do_not_render_shared_profile_chrome() -> None:
     creator badge/avatar should not stack above the search bar or the
     thread header."""
     assert (
+        "{% set is_dm = is_creator and cp.startswith('/creator/dm') %}"
+        in BASE_TEMPLATE
+    )
+    assert "{{ 'is-dm' if is_dm else '' }}" in BASE_TEMPLATE
+    assert (
         BASE_TEMPLATE.count(
-            "not cp.startswith('/creator/bot') and not cp.startswith('/creator/dm')"
+            "not cp.startswith('/creator/bot') and not is_dm"
         )
         == 2
     )
+    assert ".is-creator-app.is-dm .mobile-header" in APP_CSS
+    assert ".is-creator-app.is-dm .app-main > #view" in APP_CSS
 
 
 def test_creator_tabbar_items_are_centered_on_mobile() -> None:
-    rule = APP_CSS.split(".creator-tabbar {", 1)[1].split("}", 1)[0]
-    item_rule = APP_CSS.split(".creator-tabbar a {", 1)[1].split("}", 1)[0]
+    rule = APP_CSS.split(".is-creator-app .creator-tabbar {", 1)[1].split("}", 1)[0]
+    item_rule = APP_CSS.split(".is-creator-app .creator-tabbar a {", 1)[1].split(
+        "}", 1
+    )[0]
 
-    assert "justify-content: center" in rule
-    assert "gap: clamp(2px, 1.2vw, 10px)" in rule
-    assert "flex: 0 1 clamp(56px, 17vw, 68px)" in item_rule
-    assert "width: clamp(56px, 17vw, 68px)" in item_rule
-    assert "flex: 1;" not in item_rule
+    assert "grid-template-columns: repeat(5, minmax(0, 1fr))" in rule
+    assert "repeat(6" not in rule
+    assert "justify-items: stretch" in rule
+    assert "width: 100%" in item_rule
+    assert "max-width: none" in item_rule
 
 
 def test_dm_thread_composer_sits_close_to_bottom_tabbar() -> None:
-    thread_rule = APP_CSS.split(".is-creator-app .dm-thread {", 2)[2].split(
+    thread_rule = APP_CSS.split(".is-creator-app .dm-thread {", 1)[1].split(
         "}", 1
     )[0]
     composer_rule = APP_CSS.split(".dm-thread-composer {", 1)[1].split("}", 1)[0]
@@ -145,10 +154,10 @@ def test_dm_thread_composer_sits_close_to_bottom_tabbar() -> None:
         "}", 1
     )[0]
 
-    assert (
-        "padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px) + 12px)"
-        in thread_rule
-    )
+    assert "height: 100%" in thread_rule
+    assert "min-height: 100%" in thread_rule
+    assert "padding-bottom: 0" in thread_rule
+    assert "var(--tabbar-h)" not in thread_rule
     assert "+ 86px" not in thread_rule
     assert "padding: 8px 16px 8px" in composer_rule
     assert "height: 0" in status_rule
