@@ -4,10 +4,6 @@
    inconsistency). #}
 {% set _p = profile if (profile is defined and profile is not none) else current_profile(request) %}
 <header class="mobile-header" id="mobile-header" aria-label="profile access">
-  <span class="role-pill role-pill-creator" aria-label="signed in as creator">
-    <svg class="role-pill-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-    creator
-  </span>
   <a href="/creator/profile/settings#your-card" class="mobile-profile-link" aria-label="settings">
     {% if _p and _p.profile_photo_url %}
     <img src="{{ _p.profile_photo_url }}" alt="" />

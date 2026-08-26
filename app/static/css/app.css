@@ -359,7 +359,9 @@ h1, h2, h3, h4 {
 }
 .app-topbar .right { margin-left: auto; display: inline-flex; align-items: center; gap: 14px; }
 
-/* mobile header */
+/* mobile header — avatar only, right-aligned. The redundant CREATOR
+   role pill was removed since the user already knows their own role
+   and it was crowding the top-right corner on mobile. */
 .mobile-header {
   position: sticky; top: 0;
   z-index: 50;
@@ -368,9 +370,9 @@ h1, h2, h3, h4 {
   -webkit-backdrop-filter: blur(18px) saturate(140%);
   border-bottom: 1px solid var(--hairline);
   height: calc(54px + env(safe-area-inset-top, 0px));
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 1px 44px;
-  align-items: end;
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
   padding: env(safe-area-inset-top, 0px) 14px 8px;
 }
 .mobile-header .brand-lockup {
