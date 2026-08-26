@@ -47,8 +47,7 @@ def test_mobile_controls_keep_ios_safe_font_size() -> None:
 def test_creator_dm_search_toolbar_is_mobile_safe() -> None:
     toolbar_rule = APP_CSS.split(".dm-inbox-topbar {", 1)[1].split("}", 1)[0]
     search_rule = APP_CSS.split(".dm-inbox-search {", 1)[1].split("}", 1)[0]
-    input_rule = APP_CSS.split(".dm-inbox-search input {", 1)[1].split("}", 1)[0]
-    input_reset_rule = APP_CSS.split(
+    input_rule = APP_CSS.split(
         ".is-creator-app .dm-inbox-search input,", 1
     )[1].split("}", 1)[0]
     action_rule = APP_CSS.split(".dm-inbox-compose {", 1)[1].split("}", 1)[0]
@@ -58,12 +57,15 @@ def test_creator_dm_search_toolbar_is_mobile_safe() -> None:
     assert "gap: 10px" in toolbar_rule
     assert "flex: 1 1 0%" in search_rule
     assert "min-width: 0" in search_rule
+    assert "background: transparent" in search_rule
+    assert "border: 0" in search_rule
+    assert "border-radius: 0" in search_rule
     assert "font-size: 16px" in input_rule
     assert "min-width: 0" in input_rule
-    assert "background: transparent" in input_reset_rule
-    assert "border: 0" in input_reset_rule
-    assert "border-radius: 0" in input_reset_rule
-    assert "box-shadow: none" in input_reset_rule
+    assert "padding: 0 14px 0 38px" in input_rule
+    assert "background: var(--surface-1)" in input_rule
+    assert "border: 1px solid var(--hairline)" in input_rule
+    assert "border-radius: 999px" in input_rule
     assert "flex: 0 0 44px" in action_rule
     assert "min-width: 44px" in action_rule
 
