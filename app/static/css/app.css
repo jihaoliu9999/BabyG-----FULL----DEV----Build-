@@ -9149,7 +9149,7 @@ hr.hairline {
 .is-creator-app .profile-fidelity-settings-list { display: grid; gap: 10px; }
 .is-creator-app .profile-fidelity-settings-list > h2 { margin: 0; color: var(--text-primary); font-size: 17px; font-weight: 650; letter-spacing: -.02em; }
 .is-creator-app .profile-fidelity-settings-card { overflow: hidden; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--surface-1); box-shadow: var(--shadow-card); }
-.is-creator-app .profile-fidelity-settings-card > a { min-height: 58px; display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; align-items: center; gap: 11px; padding: 10px 14px; border-top: 1px solid var(--border-subtle); }
+.is-creator-app .profile-fidelity-settings-card > a { min-height: 58px; display: grid; grid-template-columns: minmax(66px, max-content) minmax(0, 1fr) auto; align-items: center; gap: 11px; padding: 10px 14px; border-top: 1px solid var(--border-subtle); }
 .is-creator-app .profile-fidelity-settings-card > a:first-child { border-top: 0; }
 .is-creator-app .profile-fidelity-settings-card > a:hover { background: var(--surface-2); }
 .is-creator-app .profile-fidelity-settings-card strong { overflow: hidden; color: var(--text-primary); font-size: 13px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }

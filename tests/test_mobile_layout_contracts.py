@@ -70,6 +70,15 @@ def test_creator_dm_search_toolbar_is_mobile_safe() -> None:
     assert "min-width: 44px" in action_rule
 
 
+def test_creator_settings_work_links_do_not_overlap_labels() -> None:
+    rule = APP_CSS.split(
+        ".is-creator-app .profile-fidelity-settings-card > a {", 1
+    )[1].split("}", 1)[0]
+
+    assert "grid-template-columns: minmax(66px, max-content) minmax(0, 1fr) auto" in rule
+    assert "34px minmax(0, 1fr)" not in rule
+
+
 def test_hidden_brand_topbar_does_not_reserve_mobile_space() -> None:
     assert ".is-brand-shell .brand-main" in APP_CSS
     assert "padding-top: max(18px, env(safe-area-inset-top, 0px))" in APP_CSS
