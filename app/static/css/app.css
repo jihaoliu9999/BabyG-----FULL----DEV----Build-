@@ -6124,16 +6124,14 @@ hr.hairline {
   min-height: 40px;
   width: 40px;
   padding: 0;
-  border-color: var(--accent);
+  border: 0;
   background: var(--accent);
   color: #fff;
   text-decoration: none;
-  box-shadow: 0 6px 14px rgba(255,77,109,.24);
 }
 .discover-kind-tabs a.post svg { width: 18px; height: 18px; }
 .discover-kind-tabs a.post:hover {
   background: var(--accent-hover, #e8455f);
-  border-color: var(--accent-hover, #e8455f);
 }
 .discover-layout { min-width: 0; }
 .discover-filters {
@@ -6600,14 +6598,12 @@ hr.hairline {
   min-height: 40px;
   width: 40px;
   padding: 0;
-  border-color: var(--accent);
+  border: 0;
   background: var(--accent);
   color: #fff;
-  box-shadow: 0 6px 14px rgba(255,77,109,.24);
 }
 .discover-kind-tabs a.post:hover {
   background: var(--accent-hover, #e8455f);
-  border-color: var(--accent-hover, #e8455f);
 }
 .discover-count {
   display: none;
@@ -9911,6 +9907,13 @@ hr.hairline {
   font-weight: 500;
   letter-spacing: .22em;
   text-transform: lowercase;
+  /* Explicit line-height + generous top/bottom padding so wide-tracked
+     lowercase labels never get clipped by the grid gap or the field's
+     hairline border. Previous rendering was cutting the top of "dms",
+     "usage rights", etc. on some browsers. */
+  line-height: 1.4;
+  padding: 4px 0 2px;
+  overflow: visible;
 }
 .is-creator-app .settings-clean-shell .settings-field input,
 .is-creator-app .settings-clean-shell .settings-field select,
