@@ -49,7 +49,7 @@
          as a generic "C" fallback on some pages while showing the real
          photo on others. #}
       {% set _p = profile if (profile is defined and profile is not none) else current_profile(request) %}
-      <a href="/creator/profile" class="creator-profile-link" aria-label="profile">
+      <a href="/creator/profile/settings#your-card" class="creator-profile-link" aria-label="settings">
         {% if _p and _p.profile_photo_url %}
         <img src="{{ _p.profile_photo_url }}" alt="" />
         {% else %}
@@ -101,11 +101,7 @@
           dms
           {% if unread_dms is defined and unread_dms and unread_dms > 0 %}<span class="count">{{ unread_dms }}</span>{% endif %}
         </a>
-        <a href="/creator/profile" data-tab="profile" class="{{ 'active' if cp == '/creator/profile' }}">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>
-          profile
-        </a>
-        <a href="/creator/profile/settings" data-tab="settings" class="{{ 'active' if cp.startswith('/creator/profile/settings') or cp.startswith('/creator/settings') or cp.startswith('/creator/performance') or cp.startswith('/creator/receipts') or cp.startswith('/creator/views') }}">
+        <a href="/creator/profile/settings" data-tab="settings" class="{{ 'active' if cp.startswith('/creator/profile/settings') or cp.startswith('/creator/profile') or cp.startswith('/creator/settings') or cp.startswith('/creator/performance') or cp.startswith('/creator/receipts') or cp.startswith('/creator/views') }}">
           <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9.6 4.18a2.42 2.42 0 0 1 4.8 0 2.42 2.42 0 0 0 3.4 1.96 2.42 2.42 0 0 1 2.4 4.16 2.42 2.42 0 0 0 0 3.4 2.42 2.42 0 0 1-2.4 4.16 2.42 2.42 0 0 0-3.4 1.96 2.42 2.42 0 0 1-4.8 0 2.42 2.42 0 0 0-3.4-1.96 2.42 2.42 0 0 1-2.4-4.16 2.42 2.42 0 0 0 0-3.4 2.42 2.42 0 0 1 2.4-4.16 2.42 2.42 0 0 0 3.4-1.96Z"/><circle cx="12" cy="12" r="3"/></svg>
           settings
         </a>

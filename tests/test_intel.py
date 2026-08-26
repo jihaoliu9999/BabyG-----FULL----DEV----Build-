@@ -252,10 +252,9 @@ def test_creator_mobile_nav_keeps_required_tab_order(client, store, fake_creator
         'href="/creator/discover"',
         'href="/creator/bot"',
         'href="/creator/dm"',
-        'href="/creator/profile"',
         'href="/creator/profile/settings"',
     ]
-    assert mobile_nav.count("data-tab=") == 6
+    assert mobile_nav.count("data-tab=") == 5
     assert [mobile_nav.index(destination) for destination in destinations] == sorted(
         mobile_nav.index(destination) for destination in destinations
     )

@@ -72,15 +72,12 @@
   "tags": (profile_chip_values.get('niches', []) + profile_chip_values.get('formats', []))[:6],
 } %}
 
-<div class="ambient-page profile-page">
-<div class="wrap ambient-shell profile-shell profile-flow-shell">
+{{ _flash('photo', photo_flash) }}
+{{ _flash('chips', chips_flash) }}
+{{ _flash('bio', bio_flash) }}
+{{ _flash('details', details_flash) }}
 
-  {{ _flash('photo', photo_flash) }}
-  {{ _flash('chips', chips_flash) }}
-  {{ _flash('bio', bio_flash) }}
-  {{ _flash('details', details_flash) }}
-
-  <div class="profile-primary-grid">
+<div class="profile-primary-grid">
     <div class="profile-public-column">
       <section class="creator-card" aria-label="your creator card">
         {% include "_partials/creator_card_body.html" %}
@@ -240,6 +237,3 @@
       </dialog>
     </div>
   </div>
-
-</div>
-</div>

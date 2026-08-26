@@ -231,9 +231,9 @@ def test_home_degrades_gracefully_when_bookings_service_errors(
 def test_tabbar_has_five_destinations_in_order(
     client: TestClient, stub_dashboard
 ) -> None:
-    """Mobile tabbar order: Home → Discover → Babyg → DMs → Profile.
-    Locked in by checking the order of href substrings in the rendered
-    HTML."""
+    """Mobile tabbar order: Home → Discover → Babyg → DMs → Settings.
+    Profile was absorbed into Settings as a disclosure section, so the
+    dedicated Profile tab was removed."""
     _signed_in(client)
     r = client.get("/creator")
     text = r.text
@@ -242,24 +242,25 @@ def test_tabbar_has_five_destinations_in_order(
         "discover": text.find('href="/creator/discover"\n     data-tab="network"'),
         "babyg": text.find('href="/creator/bot"\n     data-tab="chat"'),
         "dms": text.find('href="/creator/dm"\n     data-tab="inbox"'),
-        "profile": text.find('href="/creator/profile"\n     data-tab="profile"'),
+        "settings": text.find('href="/creator/profile/settings"\n     data-tab="settings"'),
     }
     # Every destination is present on the page.
     for label, pos in positions.items():
         assert pos != -1, f"{label} tab missing from rendered tabbar"
     # Order is left-to-right as specified.
     ordered = sorted(positions.items(), key=lambda kv: kv[1])
-    assert [k for k, _ in ordered] == ["home", "discover", "babyg", "dms", "profile"]
+    assert [k for k, _ in ordered] == ["home", "discover", "babyg", "dms", "settings"]
+    # Profile tab is gone — settings owns it now.
+    assert 'data-tab="profile"' not in text
 
 
 def test_tabbar_does_not_include_standalone_calendar_or_stats_tabs(
     client: TestClient, stub_dashboard
 ) -> None:
-    """Calendar moves to Home; Stats moves to Profile. Neither should
+    """Calendar moves to Home; Stats moves to Settings. Neither should
     appear as a top-level tab."""
     _signed_in(client)
     r = client.get("/creator")
-    # No bottom-tab anchor for the calendar or stats routes.
     assert 'data-tab="calendar"' not in r.text
     assert 'data-tab="stats"' not in r.text
 
@@ -282,8 +283,8 @@ def test_tabbar_marks_home_active_for_calendar_path(stub_dashboard) -> None:
     ).render({"request": request})
     # Home anchor is active when path starts with /creator/calendar.
     assert 'data-tab="feed"\n     class="active"' in rendered
-    # The chat / inbox / network / profile tabs must NOT be active.
-    for not_active in ("chat", "inbox", "network", "profile"):
+    # The chat / inbox / network / settings tabs must NOT be active.
+    for not_active in ("chat", "inbox", "network", "settings"):
         assert f'data-tab="{not_active}"\n     class="active"' not in rendered
 
 

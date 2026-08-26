@@ -13,7 +13,7 @@
           data-greet-evening="{{ daily_greeting.evening }}"
           data-greet-night="{{ daily_greeting.night }}">{{ daily_greeting.afternoon }}</h1>
     </div>
-    <a href="/creator/profile" class="creator-home-avatar" aria-label="profile">
+    <a href="/creator/profile/settings#your-card" class="creator-home-avatar" aria-label="settings">
       {% if profile is defined and profile is not none and profile.profile_photo_url %}
       <img src="{{ profile.profile_photo_url|safe_url }}" alt="" />
       {% else %}

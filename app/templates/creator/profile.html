@@ -4,5 +4,9 @@
 {% block head_extra %}<script src="/static/js/profile.js" defer></script>{% endblock %}
 
 {% block content %}
-{% include "_partials/profile_editor.html" %}
+<div class="ambient-page profile-page">
+<div class="wrap ambient-shell profile-shell profile-flow-shell">
+  {% include "_partials/profile_editor.html" %}
+</div>
+</div>
 {% endblock %}

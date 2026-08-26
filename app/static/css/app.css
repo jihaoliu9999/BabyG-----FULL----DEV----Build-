@@ -5010,17 +5010,15 @@ hr.hairline {
 /* Fee visibility line inside deal preferences — quietly reminds the
    creator what babyg keeps of each closed deal. */
 .settings-fee-note {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+  display: block;
   margin: 4px 0 0;
-  padding: 10px 12px;
+  padding: 10px 14px;
   border-radius: 10px;
   background: rgba(255,77,109,0.08);
   border: 1px solid rgba(255,77,109,0.22);
   color: var(--ink);
   font-size: 12.5px;
-  line-height: 1.4;
+  line-height: 1.5;
 }
 .settings-fee-note strong { color: var(--accent, #ff4d6d); font-weight: 600; }
 
@@ -9820,6 +9818,13 @@ hr.hairline {
 }
 .is-creator-app .settings-disclosure-body {
   padding: 0 28px 28px;
+  border-top: 1px solid rgba(245,241,232,.09);
+}
+/* "your card" hosts the profile editor partial which brings its own
+   layout scaffolding; strip our padding+rule so the partial paints
+   edge-to-edge inside the disclosure and doesn't double-inset. */
+.is-creator-app .settings-disclosure-body-plain {
+  padding: 20px 20px 24px;
   border-top: 1px solid rgba(245,241,232,.09);
 }
 .is-creator-app .settings-disclosure-body > .settings-form,

@@ -4,12 +4,6 @@
 {% block head_extra %}<script src="/static/js/profile.js" defer></script>{% endblock %}
 
 {% block content %}
-{# One destination for everything a creator owns. Top: their public
-   card + full profile editor (photo, bio, chips, location). Below:
-   private controls — deals, visibility, integrations, assistant,
-   delete. #}
-{% include "_partials/profile_editor.html" %}
-
 <div class="wrap settings-shell settings-clean-shell">
   <header class="settings-hero">
     <h1 class="detail-title">settings</h1>
@@ -17,6 +11,14 @@
 
   {% set ig_flash = request.query_params.get('instagram') %}
   {% set deals_flash = request.query_params.get('deals') %}
+  {% set privacy_flash = request.query_params.get('privacy') %}
+  {% set babyg_flash = request.query_params.get('babyg') %}
+  {% set profile_flash =
+       request.query_params.get('photo')
+       or request.query_params.get('chips')
+       or request.query_params.get('bio')
+       or request.query_params.get('details') %}
+
   {% if ig_flash %}
   <div class="settings-status mono {% if ig_flash == 'connected' %}is-ok{% elif ig_flash == 'disconnected' %}is-muted{% else %}is-alert{% endif %}">
     {% if ig_flash == 'connected' %}instagram connected
@@ -33,6 +35,20 @@
 
   <div class="settings-grid settings-progressive">
 
+    {# 1 · your card — the profile card + full editor, collapsed by default. #}
+    <details class="settings-group settings-card settings-disclosure" id="your-card" {% if profile_flash %}open{% endif %}>
+      <summary>
+        <span class="settings-disclosure-copy">
+          <strong class="settings-disclosure-title">your card</strong>
+        </span>
+        <span class="settings-disclosure-icon" aria-hidden="true"></span>
+      </summary>
+      <div class="settings-disclosure-body settings-disclosure-body-plain">
+        {% include "_partials/profile_editor.html" %}
+      </div>
+    </details>
+
+    {# 2 · deal preferences — always visible; the fee line lives here. #}
     <form class="settings-group settings-card settings-form profile-deals" id="deal-preferences" method="post" action="/creator/profile/deals">
       {% include "_partials/csrf.html" %}
       <div class="settings-card-head">
@@ -96,7 +112,7 @@
       </div>
     </form>
 
-    {% set privacy_flash = request.query_params.get('privacy') %}
+    {# 3 · visibility #}
     <details class="settings-group settings-card settings-disclosure" id="privacy" {% if privacy_flash %}open{% endif %}>
       <summary>
         <span class="settings-disclosure-copy">
@@ -136,6 +152,7 @@
       </div>
     </details>
 
+    {# 4 · integrations #}
     <details class="settings-group settings-card settings-disclosure settings-integrations-card" id="integrations" {% if ig_flash %}open{% endif %}>
       <summary>
         <span class="settings-disclosure-copy">
@@ -148,7 +165,7 @@
       </div>
     </details>
 
-    {% set babyg_flash = request.query_params.get('babyg') %}
+    {# 5 · assistant #}
     <details class="settings-group settings-card settings-disclosure" id="babyg-behavior" {% if babyg_flash %}open{% endif %}>
       <summary>
         <span class="settings-disclosure-copy">
@@ -204,6 +221,7 @@
       </div>
     </details>
 
+    {# 6 · delete account — always last. #}
     <section class="settings-group settings-card settings-danger" id="delete-account">
       <div class="settings-header">
         <h2>delete account</h2>

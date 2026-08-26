@@ -361,3 +361,21 @@
   // Also open when the URL already has the hash on load.
   if (window.location.hash === "#profile-editor") { panel.open = true; }
 })();
+
+/* Settings "your card" disclosure. When the sidebar avatar deep-links
+ * to /creator/profile/settings#your-card we want the section to be
+ * pre-expanded so the user lands on the editor, not on a summary they
+ * have to click again. Same pattern as #profile-editor above. */
+(() => {
+  const panel = document.getElementById("your-card");
+  const editor = document.getElementById("profile-editor");
+  if (!panel) return;
+  const openAll = () => {
+    panel.open = true;
+    if (editor) editor.open = true;
+  };
+  if (window.location.hash === "#your-card") openAll();
+  window.addEventListener("hashchange", () => {
+    if (window.location.hash === "#your-card") openAll();
+  });
+})();
