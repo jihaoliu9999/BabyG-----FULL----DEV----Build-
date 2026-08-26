@@ -11540,115 +11540,145 @@ hr.hairline {
 }
 .is-creator-app .creator-home-link:hover { color: var(--accent); }
 
-/* needs-you list — hairline rows, no card boxes. Each row is a grid
-   of [36px icon] [1fr body] [auto actions]. Actions can be inline
-   chip forms (accept/decline) or a single link chip. */
-.is-creator-app .creator-needs-list {
-  list-style: none; margin: 0; padding: 0;
-  display: grid;
-  border-top: 1px solid var(--hairline);
+/* needs you — verb-first task rows. Small colored glyph on the left,
+   title (verb-first) + one context line, one primary chip + one
+   plain-text secondary. Boxes go neutral; only the glyph and the
+   primary button carry color. */
+.is-creator-app .creator-needs {
+  display: grid; gap: 6px;
 }
 .is-creator-app .creator-needs-row {
   display: grid;
-  grid-template-columns: 36px minmax(0, 1fr);
-  align-items: flex-start;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  align-items: center;
   gap: 12px;
-  padding: 14px 4px;
-  border-bottom: 1px solid var(--hairline);
-}
-.is-creator-app .creator-needs-icon {
-  width: 36px; height: 36px;
-  display: grid; place-items: center;
-  color: var(--accent);
-  border: 1px solid rgba(255,77,109,.28);
-  border-radius: 11px;
-  background: rgba(255,77,109,.08);
-}
-.is-creator-app .creator-needs-icon svg { width: 17px; height: 17px; }
-.is-creator-app .creator-needs-body {
-  min-width: 0;
-  display: grid; gap: 10px;
-}
-.is-creator-app .creator-needs-link {
-  display: grid; gap: 3px;
+  padding: 12px 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
   color: inherit;
   text-decoration: none;
+  transition: border-color 140ms ease;
+}
+.is-creator-app .creator-needs-row:hover { border-color: var(--hairline-strong); }
+.is-creator-app .creator-needs-glyph {
+  width: 20px; height: 20px;
+  display: grid; place-items: center;
+  color: var(--ink-faint);
+}
+.is-creator-app .creator-needs-glyph svg { width: 14px; height: 14px; }
+.is-creator-app .creator-needs-row.actionable .creator-needs-glyph { color: var(--accent); }
+.is-creator-app .creator-needs-row.deadline   .creator-needs-glyph { color: #ffc07a; }
+.is-creator-app .creator-needs-body {
+  min-width: 0;
+  display: flex; flex-direction: column; gap: 2px;
 }
 .is-creator-app .creator-needs-title {
-  color: var(--text-primary);
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 1.3;
-  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-size: 14px; font-weight: 600;
+  letter-spacing: -0.008em;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .is-creator-app .creator-needs-sub {
-  color: var(--text-tertiary);
-  font-size: 12px;
-  line-height: 1.4;
-  overflow-wrap: anywhere;
-}
-.is-creator-app .creator-needs-row-simple {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 12px;
-}
-.is-creator-app .creator-needs-cta {
-  flex: none;
-  color: var(--accent-text);
-  font-size: 12px;
-  font-weight: 600;
-  white-space: nowrap;
+  color: var(--ink-dim);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .is-creator-app .creator-needs-actions {
-  display: flex; align-items: center; flex-wrap: wrap;
-  gap: 6px;
+  display: flex; align-items: center; gap: 10px;
+  flex: 0 0 auto;
 }
-.is-creator-app .creator-needs-actions-inline { margin: 0; display: inline-flex; }
+.is-creator-app .creator-needs-actions-inline {
+  display: inline-flex; margin: 0;
+}
 .is-creator-app .creator-needs-chip {
-  min-height: 32px;
-  display: inline-flex; align-items: center; gap: 5px;
-  padding: 6px 12px;
-  color: var(--accent-text);
-  border: 1px solid rgba(255,77,109,.28);
+  appearance: none; border: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 30px; padding: 0 14px;
   border-radius: 999px;
-  background: rgba(255,77,109,.06);
-  font-family: inherit;
-  font-size: 12px;
-  font-weight: 600;
+  background: var(--accent); color: #fff;
+  font: inherit; font-size: 12px; font-weight: 600;
   line-height: 1;
   white-space: nowrap;
-  text-decoration: none;
   cursor: pointer;
-  transition: background-color 140ms ease, border-color 140ms ease, color 140ms ease;
+  text-decoration: none;
+  transition: background-color 140ms ease;
 }
-.is-creator-app .creator-needs-chip:hover {
-  color: #fff;
-  border-color: var(--accent);
-  background: var(--accent);
+.is-creator-app .creator-needs-chip:hover { background: var(--accent-hover, #e8455f); }
+.is-creator-app .creator-needs-chip.warn {
+  background: #ffc07a; color: #1a1218;
 }
-.is-creator-app .creator-needs-chip svg { width: 12px; height: 12px; }
-.is-creator-app .creator-needs-chip.ghost {
-  color: var(--text-secondary);
-  border-color: var(--border-default);
+.is-creator-app .creator-needs-chip.warn:hover { background: #ffb666; }
+.is-creator-app .creator-needs-text {
+  appearance: none; border: 0; background: transparent;
+  color: var(--ink-dim); cursor: pointer;
+  font: inherit; font-size: 12px; font-weight: 500;
+  padding: 0 2px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.is-creator-app .creator-needs-text:hover { color: var(--ink); }
+.is-creator-app .creator-needs-arrow { margin-left: 3px; }
+
+/* matched for you — vertical list of media rows. Colored icon on the
+   left (briefcase = opportunity, magnifier = brand, camera = creator),
+   title + one info line, chevron on the right. No text kind labels. */
+.is-creator-app .creator-match-row {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
   background: var(--surface-2);
-}
-.is-creator-app .creator-needs-chip.ghost:hover {
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
   color: var(--ink);
-  border-color: var(--hairline-strong);
+  text-decoration: none;
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
+.is-creator-app .creator-match-row:hover {
   background: var(--surface-3);
+  border-color: var(--hairline-strong);
 }
-.is-creator-app .creator-needs-empty {
-  display: flex; align-items: center; gap: 10px;
-  padding: 18px;
-  color: var(--text-secondary);
-  border: 1px dashed var(--hairline);
-  border-radius: var(--radius-lg);
-  background: rgba(52,189,132,.05);
-  font-size: 13px;
+.is-creator-app .creator-match-icon {
+  width: 42px; height: 42px;
+  border-radius: 11px;
+  display: grid; place-items: center;
+  background: var(--surface-3);
+  color: var(--ink-mid);
+  flex: 0 0 auto;
 }
-.is-creator-app .creator-needs-empty svg {
-  width: 18px; height: 18px; flex: 0 0 18px;
-  color: var(--safe);
+.is-creator-app .creator-match-icon svg { width: 18px; height: 18px; }
+.is-creator-app .creator-match-row.k-opportunity .creator-match-icon {
+  background: rgba(255,77,109,.14); color: var(--accent);
 }
+.is-creator-app .creator-match-row.k-brand .creator-match-icon {
+  background: rgba(90,160,255,.12); color: #a4d0ff;
+}
+.is-creator-app .creator-match-row.k-creator .creator-match-icon {
+  background: rgba(255,192,122,.12); color: #ffc07a;
+}
+.is-creator-app .creator-match-body {
+  display: flex; flex-direction: column; gap: 2px; min-width: 0;
+}
+.is-creator-app .creator-match-title {
+  font-size: 14.5px; font-weight: 600;
+  letter-spacing: -0.008em; color: var(--ink);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.is-creator-app .creator-match-line {
+  font-size: 12px; color: var(--ink-dim);
+  font-variant-numeric: tabular-nums;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.is-creator-app .creator-match-chev {
+  display: grid; place-items: center;
+  width: 20px; height: 20px; color: var(--ink-faint);
+  flex: 0 0 auto;
+}
+.is-creator-app .creator-match-chev svg { width: 14px; height: 14px; }
+.is-creator-app .creator-match-row:hover .creator-match-chev { color: var(--ink-mid); }
 
 /* today card — reuse the 5-day strip pattern from the old calendar
    preview, keep it inside a single wrapper card. */
@@ -11743,11 +11773,10 @@ hr.hairline {
 .is-creator-app a.creator-today-empty:hover { background: var(--surface-2); }
 .is-creator-app .creator-today-empty-clear svg { color: var(--safe); }
 
-/* matched — babyg-curated discover picks, top 3. Two column at wide,
-   stacks below 640. Each card is grid [thumb] [body]. */
+/* matched — babyg-curated discover picks, top 3. Stacked vertical
+   media-row list (see .creator-match-row rules above). */
 .is-creator-app .creator-matched {
-  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px;
+  display: grid; gap: 6px;
 }
 .is-creator-app .creator-match-card {
   display: grid;
@@ -11817,37 +11846,45 @@ hr.hairline {
   overflow-wrap: anywhere;
 }
 
-/* jump-to shortcuts — three flat pills. No card container, just chips
-   because home already surfaces state for everything else. */
+/* jump-to shortcuts — 4-tile grid. 1×4 on desktop, 2×2 on phones.
+   Each shortcut gets a per-action color tint on its icon so the row
+   reads as a system, not four identical chips. */
 .is-creator-app .creator-home-shortcuts {
-  display: flex; align-items: center; flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
   gap: 8px;
 }
 .is-creator-app .creator-home-shortcut {
-  min-height: 40px;
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 8px 14px;
-  color: var(--text-secondary);
-  border: 1px solid var(--border-default);
-  border-radius: 999px;
+  min-height: 44px;
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 10px 14px;
+  color: var(--ink);
+  border: 1px solid var(--hairline);
+  border-radius: 12px;
   background: var(--surface-2);
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 500;
   text-decoration: none;
-  transition: color 140ms ease, border-color 140ms ease, background-color 140ms ease;
+  transition: background-color 140ms ease, border-color 140ms ease;
 }
 .is-creator-app .creator-home-shortcut:hover {
-  color: var(--ink);
-  border-color: rgba(255,77,109,.4);
   background: var(--surface-3);
+  border-color: var(--hairline-strong);
 }
-.is-creator-app .creator-home-shortcut svg { width: 15px; height: 15px; color: var(--accent); }
+.is-creator-app .creator-home-shortcut svg {
+  width: 15px; height: 15px;
+  color: var(--ink-dim);
+  flex: 0 0 auto;
+}
+.is-creator-app .creator-home-shortcut.sc-dm svg          { color: #a4d0ff; }
+.is-creator-app .creator-home-shortcut.sc-babyg svg       { color: #ffc07a; }
+.is-creator-app .creator-home-shortcut.sc-discover svg    { color: var(--lime, #c6ff3d); }
+.is-creator-app .creator-home-shortcut.sc-connections svg { color: var(--accent); }
 
 @media (max-width: 640px) {
   .is-creator-app .creator-matched { grid-template-columns: 1fr; }
   .is-creator-app .creator-today-event { grid-template-columns: 92px minmax(0, 1fr) auto; gap: 10px; padding-inline: 12px; }
-  .is-creator-app .creator-needs-actions { width: 100%; }
-  .is-creator-app .creator-needs-chip { flex: 1; justify-content: center; min-width: 0; }
+  .is-creator-app .creator-home-shortcuts { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 420px) {
   .is-creator-app .creator-home-hero { gap: 12px; }
@@ -11855,7 +11892,8 @@ hr.hairline {
   .is-creator-app .creator-today-event { grid-template-columns: 76px minmax(0, 1fr) auto; gap: 8px; }
   .is-creator-app .creator-today-event-time { font-size: 10px; }
   .is-creator-app .creator-today-event-body strong { font-size: 13.5px; }
-  .is-creator-app .creator-home-shortcut { flex: 1; justify-content: center; min-width: 0; padding-inline: 10px; }
+  .is-creator-app .creator-needs-actions { gap: 8px; }
+  .is-creator-app .creator-needs-chip { padding: 0 12px; }
 }
 
 /* Post-opportunity form — mobile-first, single column. Sits inside the
