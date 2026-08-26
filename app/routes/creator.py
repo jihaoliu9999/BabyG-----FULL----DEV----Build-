@@ -1424,7 +1424,7 @@ async def connections_list(
     peer_ids = sorted({str(row["peer_id"]) for row in accepted + incoming + outgoing})
     peers = profiles.get_creators_by_ids(peer_ids)
 
-    active_filter = filter if filter in {"all", "creators", "brands", "received", "sent"} else "all"
+    active_filter = filter if filter in {"all", "creators", "brands", "sent"} else "all"
 
     # Every peer on the creator side today is a creator (creator_connections
     # table). "brands" is wired for when brand↔creator connections land.

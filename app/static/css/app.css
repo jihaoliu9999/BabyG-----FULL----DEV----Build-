@@ -12250,22 +12250,44 @@ hr.hairline {
 .conn-tab.active .n { color: var(--ink); background: rgba(255,255,255,.08); }
 .conn-tab:focus-visible { outline: 2px solid var(--lime); outline-offset: 2px; }
 
-.conn-toolbar { display: flex; gap: 8px; align-items: center; margin-bottom: 14px; }
+/* Search bar — matches the DM inbox search: icon-overlaid pill, 44px tall */
 .conn-search {
-  flex: 1;
-  display: flex; align-items: center; gap: 10px;
-  padding: 0 14px; height: 42px;
+  position: relative;
+  width: 100%;
+  height: 44px;
+  margin: 0 0 14px;
+}
+.conn-search svg {
+  position: absolute;
+  left: 14px; top: 50%;
+  width: 14px; height: 14px;
+  color: rgba(245,241,232,.42);
+  transform: translateY(-50%);
+  pointer-events: none;
+  z-index: 1;
+}
+.conn-search input,
+.conn-search input:focus,
+.conn-search input:focus-visible {
+  display: block;
+  width: 100%;
+  height: 44px; min-height: 44px;
+  padding: 0 14px 0 38px;
+  box-sizing: border-box;
+  color: var(--ink);
   background: var(--surface-1, #141216);
   border: 1px solid var(--hairline, rgba(255,255,255,.06));
   border-radius: 999px;
+  font: inherit; font-size: 13.5px;
+  outline: 0;
+  transition: border-color .15s ease, box-shadow .15s ease;
 }
-.conn-search svg { width: 15px; height: 15px; color: rgba(245,241,232,.28); flex: 0 0 auto; }
-.conn-search input {
-  background: transparent; border: 0; outline: 0;
-  color: var(--ink); font: inherit; font-size: 13.5px;
-  width: 100%; min-width: 0;
+.conn-search input:focus,
+.conn-search input:focus-visible {
+  border-color: rgba(255,77,109,.35);
+  box-shadow: 0 0 0 3px rgba(255,77,109,.12);
 }
-.conn-search input::placeholder { color: rgba(245,241,232,.28); }
+.conn-search input::placeholder { color: rgba(245,241,232,.32); }
 
 .conn-list {
   list-style: none; margin: 0; padding: 0;
@@ -12309,15 +12331,21 @@ hr.hairline {
   min-width: 0;
 }
 .conn-name:hover { color: var(--accent); }
-.conn-kind {
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 9.5px; letter-spacing: 0.08em; text-transform: uppercase;
-  color: rgba(245,241,232,.28);
-  padding: 2px 6px; border-radius: 4px;
-  background: rgba(255,255,255,.04);
+.conn-kind-glyph {
+  display: inline-grid; place-items: center;
+  width: 18px; height: 18px;
+  border-radius: 5px;
   flex: 0 0 auto;
 }
-.conn-kind.brand { color: #a4d0ff; background: rgba(90,160,255,.09); }
+.conn-kind-glyph svg { width: 12px; height: 12px; display: block; }
+.conn-kind-glyph-creator {
+  color: var(--accent, #ff4d6d);
+  background: rgba(255,77,109,.1);
+}
+.conn-kind-glyph-brand {
+  color: #a4d0ff;
+  background: rgba(90,160,255,.1);
+}
 .conn-sub-line {
   display: flex; align-items: center; gap: 6px;
   color: rgba(245,241,232,.42);

@@ -2,6 +2,24 @@
 
 {% block title %}my connections - babyg{% endblock %}
 
+{% macro conn_kind_glyph(kind) -%}
+  {%- if kind == 'brand' -%}
+    <span class="conn-kind-glyph conn-kind-glyph-brand" title="brand" aria-label="brand">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M4 8h16l-1 11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2z"/>
+        <path d="M9 8V6a3 3 0 0 1 6 0v2"/>
+      </svg>
+    </span>
+  {%- else -%}
+    <span class="conn-kind-glyph conn-kind-glyph-creator" title="creator" aria-label="creator">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M4 8h3l2-2h6l2 2h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/>
+        <circle cx="12" cy="13" r="3.5"/>
+      </svg>
+    </span>
+  {%- endif -%}
+{%- endmacro %}
+
 {% block content %}
 <section class="conn-page">
   <header class="conn-page-head">
@@ -15,7 +33,6 @@
         ('all', 'all', accepted|length),
         ('creators', 'creators', creator_count),
         ('brands', 'brands', brand_count),
-        ('received', 'received', incoming|length),
         ('sent', 'sent', outgoing|length),
       ] %}
       {% for slug, label, count in _tabs %}
@@ -29,15 +46,14 @@
     </div>
   </div>
 
-  <form class="conn-toolbar" method="get" action="/creator/connections">
+  <form class="conn-search" method="get" action="/creator/connections" role="search">
     <input type="hidden" name="filter" value="{{ active_filter }}" />
-    <label class="conn-search" for="conn-q">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
-      <input id="conn-q" type="search" name="q" value="{{ search_query }}" placeholder="find a name or handle" maxlength="80" autocomplete="off" />
-    </label>
+    <label class="sr-only" for="conn-q">find a name or handle</label>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
+    <input id="conn-q" type="search" name="q" value="{{ search_query }}" placeholder="find a name or handle" maxlength="80" autocomplete="off" />
   </form>
 
-  {% macro conn_row(c, peer, variant='connected') %}
+  {% macro conn_row(c, peer, variant='connected', kind='creator') %}
   {% set _name = (peer.full_name if peer else 'profile') %}
   {% set _handle = (peer.instagram_handle if peer else None) %}
   <li class="conn-row conn-row-{{ variant }}">
@@ -51,7 +67,7 @@
     <div class="conn-body">
       <div class="conn-name-line">
         <a class="conn-name" href="/creator/network/{{ c.peer_id }}">{{ _name }}</a>
-        <span class="conn-kind">creator</span>
+        {{ conn_kind_glyph(kind) }}
       </div>
       <div class="conn-sub-line">
         {% if _handle %}<span>@{{ _handle }}</span><span class="dot" aria-hidden="true"></span>{% endif %}
@@ -98,15 +114,12 @@
   </li>
   {% endmacro %}
 
-  {# 'all' shows the primary connected list, then received + sent sections below.
-     Filter tabs collapse to just that list. #}
-
   {% if active_filter in ('all', 'creators') %}
     {% if accepted %}
     <ul class="conn-list" role="list">
       {% for c in accepted %}
       {% set peer = peers.get(c.peer_id) %}
-      {{ conn_row(c, peer, 'connected') }}
+      {{ conn_row(c, peer, 'connected', 'creator') }}
       {% endfor %}
     </ul>
     {% else %}
@@ -124,26 +137,19 @@
     </div>
   {% endif %}
 
-  {% if active_filter in ('all', 'received') %}
-    {% if incoming %}
-    {% if active_filter == 'all' %}
+  {# received requests still live in the page even without a dedicated tab:
+     they surface inside the 'all' view when any are pending. #}
+  {% if active_filter == 'all' and incoming %}
     <div class="conn-section-head">
       <span class="eyebrow">received</span>
       <span class="n">{{ incoming|length }}</span>
     </div>
-    {% endif %}
     <ul class="conn-list" role="list">
       {% for c in incoming %}
       {% set peer = peers.get(c.peer_id) %}
-      {{ conn_row(c, peer, 'incoming') }}
+      {{ conn_row(c, peer, 'incoming', 'creator') }}
       {% endfor %}
     </ul>
-    {% elif active_filter == 'received' %}
-    <div class="conn-empty">
-      <span class="mono">nothing waiting on you.</span>
-      <p>incoming requests will show up here.</p>
-    </div>
-    {% endif %}
   {% endif %}
 
   {% if active_filter in ('all', 'sent') %}
@@ -157,7 +163,7 @@
     <ul class="conn-list" role="list">
       {% for c in outgoing %}
       {% set peer = peers.get(c.peer_id) %}
-      {{ conn_row(c, peer, 'outgoing') }}
+      {{ conn_row(c, peer, 'outgoing', 'creator') }}
       {% endfor %}
     </ul>
     {% elif active_filter == 'sent' %}
