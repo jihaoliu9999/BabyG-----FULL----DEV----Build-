@@ -11860,10 +11860,11 @@ hr.hairline {
   grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
   gap: 8px !important;
   align-items: stretch;
+  max-width: 100%;
 }
 .is-creator-app .creator-home-shortcut {
-  min-height: 44px !important;
-  max-height: 56px !important;
+  min-width: 0;
+  min-height: 56px !important;
   display: flex !important;
   flex-direction: row !important;
   align-items: center !important;
@@ -11878,6 +11879,12 @@ hr.hairline {
   font-weight: 500;
   text-decoration: none;
   transition: background-color 140ms ease, border-color 140ms ease;
+}
+.is-creator-app .creator-home-shortcut span {
+  min-width: 0;
+  color: inherit;
+  line-height: 1.18;
+  overflow-wrap: anywhere;
 }
 .is-creator-app .creator-home-shortcut:hover {
   background: var(--surface-3);
@@ -11896,7 +11903,9 @@ hr.hairline {
 @media (max-width: 640px) {
   .is-creator-app .creator-matched { grid-template-columns: 1fr; }
   .is-creator-app .creator-today-event { grid-template-columns: 92px minmax(0, 1fr) auto; gap: 10px; padding-inline: 12px; }
-  .is-creator-app .creator-home-shortcuts { grid-template-columns: repeat(2, 1fr); }
+  .is-creator-app .creator-home-shortcuts { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px !important; }
+  .is-creator-app .creator-home-shortcut { min-height: 62px !important; padding: 12px; border-radius: 14px; font-size: 13px; font-weight: 650; }
+  .is-creator-app .creator-home-shortcut svg { width: 17px; height: 17px; flex-basis: 17px; }
 }
 @media (max-width: 420px) {
   .is-creator-app .creator-home-hero { gap: 12px; }
@@ -11906,6 +11915,8 @@ hr.hairline {
   .is-creator-app .creator-today-event-body strong { font-size: 13.5px; }
   .is-creator-app .creator-needs-actions { gap: 8px; }
   .is-creator-app .creator-needs-chip { padding: 0 12px; }
+  .is-creator-app .creator-home-shortcuts { gap: 8px !important; }
+  .is-creator-app .creator-home-shortcut { gap: 8px; padding-inline: 10px; }
 }
 
 /* Post-opportunity form — mobile-first, single column. Sits inside the
