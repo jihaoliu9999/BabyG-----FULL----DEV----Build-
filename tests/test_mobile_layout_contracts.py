@@ -48,6 +48,9 @@ def test_creator_dm_search_toolbar_is_mobile_safe() -> None:
     toolbar_rule = APP_CSS.split(".dm-inbox-topbar {", 1)[1].split("}", 1)[0]
     search_rule = APP_CSS.split(".dm-inbox-search {", 1)[1].split("}", 1)[0]
     input_rule = APP_CSS.split(".dm-inbox-search input {", 1)[1].split("}", 1)[0]
+    input_reset_rule = APP_CSS.split(
+        ".is-creator-app .dm-inbox-search input,", 1
+    )[1].split("}", 1)[0]
     action_rule = APP_CSS.split(".dm-inbox-compose {", 1)[1].split("}", 1)[0]
 
     assert "display: flex" in toolbar_rule
@@ -57,6 +60,10 @@ def test_creator_dm_search_toolbar_is_mobile_safe() -> None:
     assert "min-width: 0" in search_rule
     assert "font-size: 16px" in input_rule
     assert "min-width: 0" in input_rule
+    assert "background: transparent" in input_reset_rule
+    assert "border: 0" in input_reset_rule
+    assert "border-radius: 0" in input_reset_rule
+    assert "box-shadow: none" in input_reset_rule
     assert "flex: 0 0 44px" in action_rule
     assert "min-width: 44px" in action_rule
 

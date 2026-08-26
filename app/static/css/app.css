@@ -10828,6 +10828,24 @@ hr.hairline {
   border: 0;
   box-shadow: none;
 }
+.is-creator-app .dm-inbox-search input,
+.is-creator-app .dm-inbox-search input:focus,
+.is-creator-app .dm-inbox-search input:focus-visible {
+  min-height: 0;
+  height: 42px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  outline: 0;
+  box-shadow: none;
+}
+.dm-inbox-search input::-webkit-search-decoration,
+.dm-inbox-search input::-webkit-search-cancel-button,
+.dm-inbox-search input::-webkit-search-results-button,
+.dm-inbox-search input::-webkit-search-results-decoration {
+  -webkit-appearance: none;
+}
 .dm-inbox-search input::placeholder { color: var(--ink-dim); }
 .dm-inbox-compose {
   flex: 0 0 44px;
