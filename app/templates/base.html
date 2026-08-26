@@ -40,7 +40,7 @@
 {% if is_creator %}
 <div class="app-shell" id="app">
 
-  {% if not cp.startswith('/creator/bot') %}
+  {% if not cp.startswith('/creator/bot') and not cp.startswith('/creator/dm') %}
   <!-- DESKTOP TOP BAR -->
   <header class="app-topbar" aria-label="profile access">
     <div class="right">
@@ -119,7 +119,7 @@
         <img class="app-bg-mark m5" src="/static/assets/logo-bg.png" alt="" />
         <img class="app-bg-mark m6" src="/static/assets/logo-bg.png" alt="" />
       </div>
-      {% if not cp.startswith('/creator/bot') %}
+      {% if not cp.startswith('/creator/bot') and not cp.startswith('/creator/dm') %}
       {% include "_partials/creator_mobile_header.html" %}
       {% endif %}
       <div id="view">
