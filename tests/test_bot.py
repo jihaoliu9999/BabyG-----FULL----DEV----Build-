@@ -137,7 +137,7 @@ def test_bot_page_renders_prompt_chips_on_empty_thread(
     # Evergreens always present.
     assert "what needs me today?" in response.text
     assert "check my week" in response.text
-    # data-bot-prompt attribute carries the click-to-fill payload.
+    # data-bot-prompt attribute carries the one-tap prompt payload.
     assert 'data-bot-prompt="what needs me today?"' in response.text
 
 

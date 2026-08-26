@@ -348,23 +348,23 @@
     }
   });
 
-  // Suggested-prompt chips. Only rendered by the server on empty-state
-  // pages (see _partials/bot_prompt_chips.html). Click populates the
-  // composer, focuses it, and drops the chip row — the user still has
-  // to press send. Never auto-submits, so a fat-finger tap can't fire
-  // a stale prompt at Claude.
+  // Suggested-prompt chips. Rendered by the server when prompt options
+  // are available. One tap fills the composer and submits the same form
+  // path as the send button.
   const chipsRow = document.querySelector(".bot-prompt-chips");
   if (chipsRow) {
     chipsRow.addEventListener("click", (e) => {
       const chip = e.target.closest("[data-bot-prompt]");
       if (!chip) return;
+      e.preventDefault();
+      if (inFlight) return;
       const text = chip.getAttribute("data-bot-prompt") || "";
       if (!text) return;
       textarea.value = text;
-      textarea.focus();
       // Trigger the auto-resize + button-enable listeners composer sets up.
       textarea.dispatchEvent(new Event("input", { bubbles: true }));
       chipsRow.remove();
+      composer.requestSubmit();
     });
   }
 

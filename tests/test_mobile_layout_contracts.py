@@ -67,6 +67,19 @@ def test_bot_composer_uses_single_visible_textbox() -> None:
     assert "min-width: 0" in textarea_rule
 
 
+def test_bot_prompt_chips_start_prompt_on_tap() -> None:
+    chip_handler = BOT_JS.split("// Suggested-prompt chips.", 1)[1].split(
+        "// Inline chips under any bot message", 1
+    )[0]
+
+    assert "if (inFlight) return" in chip_handler
+    assert "textarea.value = text" in chip_handler
+    assert 'textarea.dispatchEvent(new Event("input", { bubbles: true }))' in chip_handler
+    assert "chipsRow.remove()" in chip_handler
+    assert "composer.requestSubmit()" in chip_handler
+    assert "textarea.focus()" not in chip_handler
+
+
 def test_creator_dm_search_toolbar_is_mobile_safe() -> None:
     toolbar_rule = APP_CSS.split(".dm-inbox-topbar {", 1)[1].split("}", 1)[0]
     search_rule = APP_CSS.split(".dm-inbox-search {", 1)[1].split("}", 1)[0]
