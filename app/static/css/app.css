@@ -11848,15 +11848,24 @@ hr.hairline {
 
 /* jump-to shortcuts — 4-tile grid. 1×4 on desktop, 2×2 on phones.
    Each shortcut gets a per-action color tint on its icon so the row
-   reads as a system, not four identical chips. */
+   reads as a system, not four identical chips.
+   `!important` on the layout props defends against any legacy sibling
+   selectors (nested grid, previous CSS caches) trying to stretch or
+   re-flow these tiles into tall squares. */
 .is-creator-app .creator-home-shortcuts {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
+  display: grid !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+  align-items: stretch;
 }
 .is-creator-app .creator-home-shortcut {
-  min-height: 44px;
-  display: inline-flex; align-items: center; gap: 10px;
+  min-height: 44px !important;
+  max-height: 56px !important;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 10px;
   padding: 10px 14px;
   color: var(--ink);
   border: 1px solid var(--hairline);
