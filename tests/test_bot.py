@@ -1113,9 +1113,8 @@ def test_bot_does_not_crash_on_stats_question_with_empty_data(monkeypatch) -> No
     def _fake_claude(**_kwargs):
         return bot_service.anthropic_client.ClaudeResponse(
             text=(
-                "i don't have connected post stats yet. right now i can use "
-                "saved performance data, and auto-sync will come after "
-                "Meta/TikTok integration."
+                "i don't have connected post stats for that platform yet. "
+                "i can work from saved performance and receipts if that helps."
             )
         )
 
@@ -1126,9 +1125,9 @@ def test_bot_does_not_crash_on_stats_question_with_empty_data(monkeypatch) -> No
         content="what were my last post stats?",
     )
 
-    # Turn completes, response surfaces the stats reality clause.
-    assert "saved performance data" in result.response.lower()
-    assert "Meta/TikTok integration" in result.response
+    # Turn completes, response surfaces the stats-reality fallback.
+    assert "saved performance" in result.response.lower()
+    assert "connected post stats for that platform" in result.response.lower()
 
 
 # ---------------------------------------------------------------------------
@@ -1675,12 +1674,13 @@ def test_instagram_stats_tool_registered_and_prompt_updated() -> None:
 
     p = bot_service.prompts.babyg_system_prompt()
     # The stats reality check must mention IG-as-real-when-connected
-    # AND keep the exact-sentence fallback for the other platforms.
+    # AND keep the exact fallback sentence for platforms babyg can't
+    # read (updated in v2 to drop the dated "auto-sync will come after
+    # Meta/TikTok integration" phrasing).
     assert "read_my_instagram_stats" in p
     assert (
-        "i don't have connected post stats yet. right now i can use "
-        "saved performance data, and auto-sync will come after "
-        "Meta/TikTok integration."
+        "i don't have connected post stats for that platform yet. "
+        "i can work from saved performance and receipts if that helps."
     ) in p
     assert "never invent numbers" in p
 
@@ -3626,3 +3626,172 @@ def test_read_my_calendar_surfaces_google_event_id(monkeypatch) -> None:
     )
     out = read_only.read_my_calendar("creator-1", limit=5)
     assert out[0]["google_event_id"] == "evt_real"
+
+
+# ---------------------------------------------------------------------------
+# Rate-floor enforcement — the manager behavior that stops babyg from
+# happily drafting an "accept" reply for an offer under the creator's
+# stated floor. Runs inside the write-tool stagers before any Gmail call.
+# ---------------------------------------------------------------------------
+
+
+def test_parse_dollar_amount_handles_common_shapes() -> None:
+    assert bot_service._parse_dollar_amount("$500") == 500
+    assert bot_service._parse_dollar_amount("$2k") == 2000
+    assert bot_service._parse_dollar_amount("2k organic") == 2000
+    assert bot_service._parse_dollar_amount("$1,500") == 1500
+    assert bot_service._parse_dollar_amount("$1,500.50") == 1500
+    assert bot_service._parse_dollar_amount("we agreed at $2,500 for the reel") == 2500
+    # Not money: bare integers with no $, no k, no comma-separator
+    assert bot_service._parse_dollar_amount("3 reels in 6 months") is None
+    assert bot_service._parse_dollar_amount("") is None
+    assert bot_service._parse_dollar_amount(None) is None  # type: ignore[arg-type]
+    # Largest match wins when multiple are present
+    assert bot_service._parse_dollar_amount("was $500, i said $2,000") == 2000
+
+
+def test_rate_floor_refusal_blocks_below_floor_accept(monkeypatch) -> None:
+    monkeypatch.setattr(
+        bot_service.profiles,
+        "get_creator_profile",
+        lambda uid: {"deal_min_rate_text": "$2k organic"},
+    )
+    result = bot_service._rate_floor_refusal(
+        tool_input={
+            "to": "brand@loreal.com",
+            "subject": "yes",
+            "body": "sounds good, $500 works.",
+            "deal_intent": "accepting",
+        },
+        user_id="creator-1",
+    )
+    assert result is not None
+    assert "REFUSED" in result
+    assert "$2,000" in result  # floor stated
+    assert "$500" in result    # amount stated
+
+
+def test_rate_floor_refusal_allows_at_or_above_floor(monkeypatch) -> None:
+    monkeypatch.setattr(
+        bot_service.profiles,
+        "get_creator_profile",
+        lambda uid: {"deal_min_rate_text": "$2k"},
+    )
+    result = bot_service._rate_floor_refusal(
+        tool_input={
+            "body": "we're in at $2,500.",
+            "deal_intent": "accepting",
+        },
+        user_id="creator-1",
+    )
+    assert result is None
+
+
+def test_rate_floor_refusal_lets_countering_through(monkeypatch) -> None:
+    monkeypatch.setattr(
+        bot_service.profiles,
+        "get_creator_profile",
+        lambda uid: {"deal_min_rate_text": "$2k"},
+    )
+    # $500 draft with intent=countering should NOT be refused — a counter
+    # can quote whatever it likes; the floor check only guards accepts.
+    result = bot_service._rate_floor_refusal(
+        tool_input={
+            "body": "your $500 is under my rate — my number is $2k.",
+            "deal_intent": "countering",
+        },
+        user_id="creator-1",
+    )
+    assert result is None
+
+
+def test_rate_floor_refusal_lets_declining_through(monkeypatch) -> None:
+    monkeypatch.setattr(
+        bot_service.profiles,
+        "get_creator_profile",
+        lambda uid: {"deal_min_rate_text": "$2k"},
+    )
+    result = bot_service._rate_floor_refusal(
+        tool_input={
+            "body": "not the right fit right now, thanks.",
+            "deal_intent": "declining",
+        },
+        user_id="creator-1",
+    )
+    assert result is None
+
+
+def test_rate_floor_refusal_honors_override(monkeypatch) -> None:
+    monkeypatch.setattr(
+        bot_service.profiles,
+        "get_creator_profile",
+        lambda uid: {"deal_min_rate_text": "$2k"},
+    )
+    result = bot_service._rate_floor_refusal(
+        tool_input={
+            "body": "$500 works, let's do it.",
+            "deal_intent": "accepting",
+            "override_floor": True,
+        },
+        user_id="creator-1",
+    )
+    # Creator explicitly overrode — pass through.
+    assert result is None
+
+
+def test_rate_floor_refusal_noop_when_no_floor_set(monkeypatch) -> None:
+    monkeypatch.setattr(
+        bot_service.profiles,
+        "get_creator_profile",
+        lambda uid: {},
+    )
+    result = bot_service._rate_floor_refusal(
+        tool_input={
+            "body": "$500 works.",
+            "deal_intent": "accepting",
+        },
+        user_id="creator-1",
+    )
+    # No floor set → floor check silently no-ops. Same behavior as pre-v2.
+    assert result is None
+
+
+def test_rate_floor_refusal_flags_missing_amount_on_accept(monkeypatch) -> None:
+    monkeypatch.setattr(
+        bot_service.profiles,
+        "get_creator_profile",
+        lambda uid: {"deal_min_rate_text": "$2k"},
+    )
+    result = bot_service._rate_floor_refusal(
+        tool_input={
+            "body": "sounds good, let's do it.",
+            "deal_intent": "accepting",
+        },
+        user_id="creator-1",
+    )
+    # deal_intent=accepting with no explicit number → make the amount explicit
+    assert result is not None
+    assert "REFUSED" in result
+    assert "$2,000" in result
+
+
+def test_gmail_draft_tool_schema_requires_deal_intent() -> None:
+    tool = next(
+        t for t in bot_service.prompts.BOT_TOOL_DEFINITIONS
+        if t["name"] == "create_gmail_draft"
+    )
+    assert "deal_intent" in tool["input_schema"]["required"]
+    intents = tool["input_schema"]["properties"]["deal_intent"]["enum"]
+    assert set(intents) == {"accepting", "countering", "declining", "other"}
+    # override_floor is optional but declared
+    assert "override_floor" in tool["input_schema"]["properties"]
+
+
+def test_gmail_send_tool_schema_requires_deal_intent() -> None:
+    tool = next(
+        t for t in bot_service.prompts.BOT_TOOL_DEFINITIONS
+        if t["name"] == "send_gmail_email"
+    )
+    assert "deal_intent" in tool["input_schema"]["required"]
+    intents = tool["input_schema"]["properties"]["deal_intent"]["enum"]
+    assert set(intents) == {"accepting", "countering", "declining", "other"}

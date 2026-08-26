@@ -66,12 +66,12 @@ def test_prompt_contains_stats_reality_check() -> None:
     # Must name the platforms it cannot read.
     assert "instagram" in p
     assert "tiktok" in p
-    # Must include the verbatim sentence the user spec'd for the empty
-    # case — that sentence is the contract.
+    # Must include the fallback sentence for unsupported platforms —
+    # updated to drop the dated "auto-sync will come after Meta/TikTok
+    # integration" phrasing that read as a beta promise.
     assert (
-        "i don't have connected post stats yet. right now i can use "
-        "saved performance data, and auto-sync will come after "
-        "Meta/TikTok integration."
+        "i don't have connected post stats for that platform yet. "
+        "i can work from saved performance and receipts if that helps."
     ) in p
     # Must forbid invention.
     assert "never invent numbers" in p

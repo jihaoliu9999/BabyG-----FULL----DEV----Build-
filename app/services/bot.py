@@ -1411,6 +1411,9 @@ def _stage_create_gmail_draft_tool(
             "ok": False,
             "content": f"Missing required Gmail draft fields: {', '.join(missing)}.",
         }
+    refusal = _rate_floor_refusal(tool_input=tool_input, user_id=user_id)
+    if refusal:
+        return {"kind": "write_tool", "ok": False, "content": refusal}
     preview = _action_preview(action_type="gmail.create_draft", payload=payload)
     proposal_row = action_proposals.create_proposal(
         user_id=user_id,
@@ -1473,7 +1476,117 @@ def _gmail_draft_payload_from_tool(tool_input: dict[str, Any]) -> dict[str, Any]
     payload: dict[str, Any] = {"to": to, "subject": subject, "body": body}
     if thread_id:
         payload["thread_id"] = thread_id
+    intent = str(tool_input.get("deal_intent") or "").strip().lower()
+    if intent in {"accepting", "countering", "declining", "other"}:
+        payload["deal_intent"] = intent
     return payload
+
+
+# Only match strings that clearly denote money: prefixed with $, suffixed
+# with k/K, or thousand-separated with commas. Bare integers like "3
+# reels" or "6 months" do not match, avoiding false positives.
+_MONEY_RE = re.compile(
+    r"""(?:
+        \$\s*(\d[\d,]*(?:\.\d+)?)\s*(k|K)?          # $500, $2k, $1,500.00
+        |
+        (\d[\d,]*(?:\.\d+)?)\s*(k|K)                # 2k, 1.5k, 2K
+        |
+        (\d{1,3}(?:,\d{3})+(?:\.\d+)?)              # 2,000 or 1,500.50
+    )""",
+    re.VERBOSE,
+)
+
+
+def _parse_dollar_amount(text: str) -> int | None:
+    """Return the largest confident dollar figure in *text*, or None if
+    no money-like string is present. Handles $500, $2k, 2k, 1,500."""
+    if not text:
+        return None
+    best: float | None = None
+    for match in _MONEY_RE.finditer(text):
+        raw: str | None = None
+        multiplier = 1.0
+        if match.group(1):
+            raw = match.group(1)
+            if match.group(2):
+                multiplier = 1000.0
+        elif match.group(3):
+            raw = match.group(3)
+            multiplier = 1000.0
+        elif match.group(5):
+            raw = match.group(5)
+        if not raw:
+            continue
+        try:
+            n = float(raw.replace(",", "")) * multiplier
+        except ValueError:
+            continue
+        if best is None or n > best:
+            best = n
+    return int(best) if best is not None else None
+
+
+def _rate_floor_refusal(
+    *, tool_input: dict[str, Any], user_id: str
+) -> str | None:
+    """If babyg is drafting an 'accepting' reply below the creator's
+    rate floor, return a refusal message telling the model to counter or
+    decline. Returns None when the send is fine (intent isn't accepting,
+    no floor is set, no amount is stated, or the amount clears the floor).
+
+    Called from the Gmail draft + send stagers before a proposal row is
+    ever created — no external write happens if this refuses.
+    """
+    intent = str(tool_input.get("deal_intent") or "").strip().lower()
+    if intent != "accepting":
+        return None
+    if bool(tool_input.get("override_floor")):
+        logger.info(
+            "rate_floor.override",
+            extra={"user_id": str(user_id)},
+        )
+        return None
+    try:
+        profile = profiles.get_creator_profile(user_id) or {}
+    except Exception:
+        logger.exception("profile lookup failed in rate-floor check")
+        return None
+    floor_text = str(profile.get("deal_min_rate_text") or "").strip()
+    if not floor_text:
+        return None
+    floor = _parse_dollar_amount(floor_text)
+    if floor is None:
+        return None
+    body = str(tool_input.get("body") or "")
+    subject = str(tool_input.get("subject") or "")
+    stated = _parse_dollar_amount(body)
+    if stated is None:
+        stated = _parse_dollar_amount(subject)
+    if stated is None:
+        return (
+            f"REFUSED: deal_intent=accepting but the draft doesn't state a "
+            f"number. Creator's rate floor is ${floor:,}. Either re-draft "
+            f"with an explicit amount at or above the floor, or set "
+            f"deal_intent to countering / declining / other."
+        )
+    if stated < floor:
+        logger.info(
+            "rate_floor.blocked",
+            extra={
+                "user_id": str(user_id),
+                "stated": stated,
+                "floor": floor,
+            },
+        )
+        return (
+            f"REFUSED: draft accepts ${stated:,} but creator's rate floor "
+            f"is ${floor:,}. Either counter (set deal_intent=countering, "
+            f"quote a number at or above ${floor:,}), or decline (set "
+            f"deal_intent=declining). If the creator has explicitly said "
+            f"to send anyway after this refusal, re-call the tool with "
+            f"override_floor=true."
+        )
+    return None
 
 
 def _stage_send_gmail_email_tool(
@@ -1517,6 +1630,9 @@ def _stage_send_gmail_email_tool(
             "ok": False,
             "content": f"Missing required Gmail send fields: {', '.join(missing)}.",
         }
+    refusal = _rate_floor_refusal(tool_input=tool_input, user_id=user_id)
+    if refusal:
+        return {"kind": "write_tool", "ok": False, "content": refusal}
     preview = _action_preview(action_type="gmail.send_email", payload=payload)
     proposal_row = action_proposals.create_proposal(
         user_id=user_id,
