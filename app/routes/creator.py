@@ -1413,6 +1413,8 @@ async def connection_request(
 @router.get("/creator/connections", response_class=HTMLResponse)
 async def connections_list(
     request: Request,
+    filter: str = "all",
+    q: str = "",
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
     accepted = network.list_accepted_for_user(session["user_id"])
@@ -1421,6 +1423,14 @@ async def connections_list(
 
     peer_ids = sorted({str(row["peer_id"]) for row in accepted + incoming + outgoing})
     peers = profiles.get_creators_by_ids(peer_ids)
+
+    active_filter = filter if filter in {"all", "creators", "brands", "received", "sent"} else "all"
+
+    # Every peer on the creator side today is a creator (creator_connections
+    # table). "brands" is wired for when brand↔creator connections land.
+    creator_count = len(accepted)
+    brand_count = 0
+
     return templates.TemplateResponse(
         request,
         "creator/connections_list.html",
@@ -1429,6 +1439,10 @@ async def connections_list(
             "incoming": incoming,
             "outgoing": outgoing,
             "peers": peers,
+            "active_filter": active_filter,
+            "search_query": (q or "").strip()[:80],
+            "creator_count": creator_count,
+            "brand_count": brand_count,
         },
     )
 

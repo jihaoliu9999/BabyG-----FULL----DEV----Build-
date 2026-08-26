@@ -3,119 +3,169 @@
 {% block title %}my connections - babyg{% endblock %}
 
 {% block content %}
-<section class="discover connections-page">
-  <header class="discover-head connections-head">
-    <div class="discover-title-lockup">
-      <span class="brand-mark sm"><img src="/static/assets/logo-bg.png" alt="" /></span>
-      <h1>my connections</h1>
-    </div>
+<section class="conn-page">
+  <header class="conn-page-head">
+    <span class="conn-brand-mark" aria-hidden="true"><img src="/static/assets/logo-bg.png" alt="" /></span>
+    <h1>my connections</h1>
   </header>
 
-  <nav class="discover-kind-tabs" aria-label="discover card type">
-    <a href="/creator/discover?kind=all">all</a>
-    <a href="/creator/discover?kind=creator">creators</a>
-    <a href="/creator/discover?kind=brand">brands</a>
-    <a href="/creator/discover?kind=opportunity">opportunities</a>
-    <a href="/creator/connections" class="active" aria-current="page">my connections</a>
-  </nav>
-
-  <div class="connections-panel connections-panel-primary">
-    <div class="connections-section-head">
-      <div>
-        <span class="mono eyebrow">connected</span>
-        <h2>{{ accepted|length }} {{ 'profile' if accepted|length == 1 else 'profiles' }}</h2>
-      </div>
-    </div>
-
-    {% if accepted %}
-    <div class="connections-list">
-      {% for c in accepted %}
-      {% set peer = peers.get(c.peer_id) %}
-      <article class="connection-card" data-connection-row data-connection-id="{{ c.id }}" data-peer-name="{{ (peer.full_name if peer else 'this profile')|e }}">
-        <a href="/creator/network/{{ c.peer_id }}" class="connection-card-main">
-          {% set creator = peer %}{% set palette = "1" %}{% set size = "" %}{% include "_partials/_avatar.html" %}
-          <span class="connection-card-copy">
-            <span class="connection-name">{{ peer.full_name if peer else 'profile' }}</span>
-            {% if peer and peer.instagram_handle %}<span class="connection-handle">@{{ peer.instagram_handle }}</span>{% endif %}
-          </span>
-        </a>
-        <div class="connection-card-meta">
-          <span class="connection-date">connected {{ (c.responded_at or c.requested_at)|short_date or 'date pending' }}</span>
-          <form method="post" action="/creator/connections/{{ c.id }}/disconnect" class="connection-disconnect-form" data-disconnect-form>
-            {% include "_partials/csrf.html" %}
-            <button type="submit" class="btn btn-ghost btn-sm" data-disconnect-btn aria-label="disconnect from {{ (peer.full_name if peer else 'this profile')|e }}">disconnect</button>
-          </form>
-        </div>
-      </article>
+  <div class="conn-segments-wrap">
+    <div class="conn-segments" role="tablist" aria-label="filter connections">
+      {% set _tabs = [
+        ('all', 'all', accepted|length),
+        ('creators', 'creators', creator_count),
+        ('brands', 'brands', brand_count),
+        ('received', 'received', incoming|length),
+        ('sent', 'sent', outgoing|length),
+      ] %}
+      {% for slug, label, count in _tabs %}
+      <a href="/creator/connections?filter={{ slug }}"
+         class="conn-tab {{ 'active' if active_filter == slug }}"
+         role="tab"
+         {% if active_filter == slug %}aria-selected="true" aria-current="page"{% endif %}>
+        {{ label }} <span class="n">{{ count }}</span>
+      </a>
       {% endfor %}
     </div>
+  </div>
+
+  <form class="conn-toolbar" method="get" action="/creator/connections">
+    <input type="hidden" name="filter" value="{{ active_filter }}" />
+    <label class="conn-search" for="conn-q">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
+      <input id="conn-q" type="search" name="q" value="{{ search_query }}" placeholder="find a name or handle" maxlength="80" autocomplete="off" />
+    </label>
+  </form>
+
+  {% macro conn_row(c, peer, variant='connected') %}
+  {% set _name = (peer.full_name if peer else 'profile') %}
+  {% set _handle = (peer.instagram_handle if peer else None) %}
+  <li class="conn-row conn-row-{{ variant }}">
+    <a href="/creator/network/{{ c.peer_id }}" class="conn-avatar" aria-label="open {{ _name }}">
+      {% if peer and peer.profile_photo_url %}
+      <img src="{{ peer.profile_photo_url|safe_url }}" alt="" loading="lazy" />
+      {% else %}
+      <span>{{ (_name or 'c')[:1]|upper }}</span>
+      {% endif %}
+    </a>
+    <div class="conn-body">
+      <div class="conn-name-line">
+        <a class="conn-name" href="/creator/network/{{ c.peer_id }}">{{ _name }}</a>
+        <span class="conn-kind">creator</span>
+      </div>
+      <div class="conn-sub-line">
+        {% if _handle %}<span>@{{ _handle }}</span><span class="dot" aria-hidden="true"></span>{% endif %}
+        {% if variant == 'connected' %}
+        <span>connected {{ (c.responded_at or c.requested_at)|short_date or '' }}</span>
+        {% elif variant == 'incoming' %}
+        <span>requested {{ c.requested_at|short_date or '' }}</span>
+        {% elif variant == 'outgoing' %}
+        <span>sent {{ c.requested_at|short_date or '' }}</span>
+        {% endif %}
+      </div>
+    </div>
+    <div class="conn-actions">
+      {% if variant == 'connected' %}
+      <a class="conn-btn primary" href="/creator/dm/{{ c.peer_id }}" aria-label="message {{ _name }}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span>message</span>
+      </a>
+      <details class="conn-menu">
+        <summary class="conn-btn icon" aria-label="more actions for {{ _name }}">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="5" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="12" cy="19" r="1.6"/></svg>
+        </summary>
+        <div class="conn-menu-panel" role="menu">
+          <a class="conn-menu-item" href="/creator/network/{{ c.peer_id }}" role="menuitem">view profile</a>
+          <form method="post" action="/creator/connections/{{ c.id }}/disconnect" data-disconnect-form>
+            {% include "_partials/csrf.html" %}
+            <button type="submit" class="conn-menu-item danger" role="menuitem" data-disconnect-btn>disconnect</button>
+          </form>
+        </div>
+      </details>
+      {% elif variant == 'incoming' %}
+      <form method="post" action="/creator/connections/{{ c.id }}/accept" class="conn-inline-form">
+        {% include "_partials/csrf.html" %}
+        <button type="submit" class="conn-btn primary">accept</button>
+      </form>
+      <form method="post" action="/creator/connections/{{ c.id }}/decline" class="conn-inline-form">
+        {% include "_partials/csrf.html" %}
+        <button type="submit" class="conn-btn ghost">decline</button>
+      </form>
+      {% elif variant == 'outgoing' %}
+      <span class="conn-status-pill">awaiting</span>
+      {% endif %}
+    </div>
+  </li>
+  {% endmacro %}
+
+  {# 'all' shows the primary connected list, then received + sent sections below.
+     Filter tabs collapse to just that list. #}
+
+  {% if active_filter in ('all', 'creators') %}
+    {% if accepted %}
+    <ul class="conn-list" role="list">
+      {% for c in accepted %}
+      {% set peer = peers.get(c.peer_id) %}
+      {{ conn_row(c, peer, 'connected') }}
+      {% endfor %}
+    </ul>
     {% else %}
-    <div class="connections-empty">
+    <div class="conn-empty">
       <span class="mono">no connections yet.</span>
       <p>save the profiles that feel like the right fit.</p>
     </div>
     {% endif %}
-  </div>
+  {% endif %}
 
-  {% if incoming or outgoing %}
-  <div class="connections-pending-grid">
+  {% if active_filter == 'brands' %}
+    <div class="conn-empty">
+      <span class="mono">no brand connections yet.</span>
+      <p>connect with brands from discover to see them here.</p>
+    </div>
+  {% endif %}
+
+  {% if active_filter in ('all', 'received') %}
     {% if incoming %}
-    <section class="connections-panel">
-      <div class="connections-section-head compact">
-        <span class="mono eyebrow">incoming</span>
-        <strong>{{ incoming|length }}</strong>
-      </div>
-      <div class="connections-list compact">
-        {% for c in incoming %}
-        {% set peer = peers.get(c.peer_id) %}
-        <article class="connection-card pending">
-          <a href="/creator/network/{{ c.peer_id }}" class="connection-card-main">
-            {% set creator = peer %}{% set palette = "2" %}{% set size = "" %}{% include "_partials/_avatar.html" %}
-            <span class="connection-card-copy">
-              <span class="connection-name">{{ peer.full_name if peer else 'profile' }}</span>
-              <span class="connection-date">requested {{ c.requested_at|short_date or '' }}</span>
-            </span>
-          </a>
-          <div class="connection-action-pair">
-            <form method="post" action="/creator/connections/{{ c.id }}/accept">
-              {% include "_partials/csrf.html" %}
-              <button type="submit" class="btn btn-primary btn-sm">accept</button>
-            </form>
-            <form method="post" action="/creator/connections/{{ c.id }}/decline">
-              {% include "_partials/csrf.html" %}
-              <button type="submit" class="btn btn-ghost btn-sm">decline</button>
-            </form>
-          </div>
-        </article>
-        {% endfor %}
-      </div>
-    </section>
+    {% if active_filter == 'all' %}
+    <div class="conn-section-head">
+      <span class="eyebrow">received</span>
+      <span class="n">{{ incoming|length }}</span>
+    </div>
     {% endif %}
+    <ul class="conn-list" role="list">
+      {% for c in incoming %}
+      {% set peer = peers.get(c.peer_id) %}
+      {{ conn_row(c, peer, 'incoming') }}
+      {% endfor %}
+    </ul>
+    {% elif active_filter == 'received' %}
+    <div class="conn-empty">
+      <span class="mono">nothing waiting on you.</span>
+      <p>incoming requests will show up here.</p>
+    </div>
+    {% endif %}
+  {% endif %}
 
+  {% if active_filter in ('all', 'sent') %}
     {% if outgoing %}
-    <section class="connections-panel">
-      <div class="connections-section-head compact">
-        <span class="mono eyebrow">sent</span>
-        <strong>{{ outgoing|length }}</strong>
-      </div>
-      <div class="connections-list compact">
-        {% for c in outgoing %}
-        {% set peer = peers.get(c.peer_id) %}
-        <a href="/creator/network/{{ c.peer_id }}" class="connection-card pending">
-          <span class="connection-card-main">
-            {% set creator = peer %}{% set palette = "3" %}{% set size = "" %}{% include "_partials/_avatar.html" %}
-            <span class="connection-card-copy">
-              <span class="connection-name">{{ peer.full_name if peer else 'profile' }}</span>
-              <span class="connection-date">sent {{ c.requested_at|short_date or '' }}</span>
-            </span>
-          </span>
-          <span class="connection-status">awaiting response</span>
-        </a>
-        {% endfor %}
-      </div>
-    </section>
+    {% if active_filter == 'all' %}
+    <div class="conn-section-head">
+      <span class="eyebrow">sent</span>
+      <span class="n">{{ outgoing|length }}</span>
+    </div>
     {% endif %}
-  </div>
+    <ul class="conn-list" role="list">
+      {% for c in outgoing %}
+      {% set peer = peers.get(c.peer_id) %}
+      {{ conn_row(c, peer, 'outgoing') }}
+      {% endfor %}
+    </ul>
+    {% elif active_filter == 'sent' %}
+    <div class="conn-empty">
+      <span class="mono">nothing pending.</span>
+      <p>connection requests you send will show up here.</p>
+    </div>
+    {% endif %}
   {% endif %}
 </section>
 {% endblock %}
