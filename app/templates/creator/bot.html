@@ -49,8 +49,7 @@
     {# Context-driven chip strip lives inside the composer surround,
        right above the input row. Chips are generated per render from
        the awareness snapshot in bot_prompts.compute_prompts(...) and
-       always number ≤ 4. Tapping a chip fills the textarea; the user
-       still taps send. #}
+       always number ≤ 4. Tapping a chip starts that prompt. #}
     {% include "_partials/bot_prompt_chips.html" with context %}
     <div class="box">
       <label class="sr-only" for="bot-message">message babyg</label>

@@ -1,7 +1,5 @@
-{# Empty-state chip row above the bot composer. Only rendered when
-   the message history is empty. Clicking a chip populates the
-   textarea (bot.js handles the click via [data-bot-prompt]) — never
-   auto-sends. #}
+{# Context-driven chip row above the bot composer. Clicking a chip
+   starts the prompt through bot.js via [data-bot-prompt]. #}
 {% if bot_prompts %}
 <div class="bot-prompt-chips" role="list" aria-label="suggested prompts">
   {% for p in bot_prompts %}
