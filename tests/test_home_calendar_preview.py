@@ -288,17 +288,18 @@ def test_tabbar_marks_home_active_for_calendar_path(stub_dashboard) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Profile/settings page — stats + receipts reachable from Settings tab
+# Settings page renders — profile card + editor now live at the top of
+# settings; the standalone "insights & receipts" shortcut card was cut
+# to keep the surface actual controls only. /creator/performance and
+# /creator/receipts remain routable, just not surfaced from settings.
 # ---------------------------------------------------------------------------
 
 
-def test_profile_page_links_to_performance_and_receipts(
-    client: TestClient, stub_dashboard
-) -> None:
-    """With profile focused on the public card, Settings owns deeper
-    controls such as performance and receipts."""
+def test_settings_page_renders(client: TestClient, stub_dashboard) -> None:
     _signed_in(client)
     r = client.get("/creator/profile/settings")
     assert r.status_code == 200
-    assert "/creator/performance" in r.text
-    assert "/creator/receipts" in r.text
+    assert "settings" in r.text
+    # The profile card + editor was merged in as the top section.
+    assert "edit profile" in r.text
+    assert "deal preferences" in r.text

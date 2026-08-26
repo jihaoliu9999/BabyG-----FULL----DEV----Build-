@@ -613,10 +613,12 @@ async def profile_settings_page(
     request: Request,
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
-    profile = profiles.get_creator_profile(session["user_id"]) or {}
-    if not profile.get("onboarding_completed_at"):
+    raw_profile = profiles.get_creator_profile(session["user_id"]) or {}
+    if not raw_profile.get("onboarding_completed_at"):
         return RedirectResponse("/onboarding/creator", status_code=302)
-    profile = {**profile, "location_label": profiles.safe_location_label(profile)}
+    profile = {**raw_profile, "location_label": profiles.safe_location_label(raw_profile)}
+    profile_preview = profiles.public_creator(raw_profile) or {}
+    chip_values = _profile_chip_values(profile)
     google_connection = oauth_connections.get_google_connection(session["user_id"])
     # Defensive: a test environment without Supabase configured must
     # still render the page. The worst case is the IG card showing
@@ -636,6 +638,9 @@ async def profile_settings_page(
         "creator/profile_settings.html",
         {
             "profile": profile,
+            "profile_preview": profile_preview,
+            "profile_chip_values": chip_values,
+            "profile_chip_options": _profile_chip_options(chip_values),
             "google_calendar_connected": oauth_connections.google_calendar_connected(
                 google_connection
             ),

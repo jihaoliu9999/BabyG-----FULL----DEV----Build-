@@ -5007,6 +5007,23 @@ hr.hairline {
 }
 .settings-flash-ok { color: var(--lime); border-color: var(--lime); background: rgba(255,77,109,0.08); }
 
+/* Fee visibility line inside deal preferences — quietly reminds the
+   creator what babyg keeps of each closed deal. */
+.settings-fee-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: rgba(255,77,109,0.08);
+  border: 1px solid rgba(255,77,109,0.22);
+  color: var(--ink);
+  font-size: 12.5px;
+  line-height: 1.4;
+}
+.settings-fee-note strong { color: var(--accent, #ff4d6d); font-weight: 600; }
+
 /* ───── kv (description list) ───── */
 .kv {
   display: grid;
@@ -10098,9 +10115,6 @@ hr.hairline {
 @media (max-width: 980px) {
   .is-creator-app .settings-grid {
     grid-template-columns: 1fr;
-  }
-  .is-creator-app .settings-integrations-card {
-    order: 4;
   }
 }
 @media (max-width: 1180px) and (min-width: 981px) {
