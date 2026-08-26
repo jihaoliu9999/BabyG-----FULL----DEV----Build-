@@ -6,20 +6,11 @@
 <main class="creator-home wrap ambient-page">
 
   <header class="creator-home-hero">
-    <div>
-      <h1 data-greeting-slots
-          data-greet-morning="{{ daily_greeting.morning }}"
-          data-greet-afternoon="{{ daily_greeting.afternoon }}"
-          data-greet-evening="{{ daily_greeting.evening }}"
-          data-greet-night="{{ daily_greeting.night }}">{{ daily_greeting.afternoon }}</h1>
-    </div>
-    <a href="/creator/profile/settings#your-card" class="creator-home-avatar" aria-label="settings">
-      {% if profile is defined and profile is not none and profile.profile_photo_url %}
-      <img src="{{ profile.profile_photo_url|safe_url }}" alt="" />
-      {% else %}
-      <span>{{ profile_initial }}</span>
-      {% endif %}
-    </a>
+    <h1 data-greeting-slots
+        data-greet-morning="{{ daily_greeting.morning }}"
+        data-greet-afternoon="{{ daily_greeting.afternoon }}"
+        data-greet-evening="{{ daily_greeting.evening }}"
+        data-greet-night="{{ daily_greeting.night }}">{{ daily_greeting.afternoon }}</h1>
   </header>
 
   {# needs you: verb-first task rows — only when there's actually something #}

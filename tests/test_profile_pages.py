@@ -891,7 +891,9 @@ def test_creator_profile_settings_page_renders(monkeypatch, client: TestClient) 
     response = client.get("/creator/profile/settings")
 
     assert response.status_code == 200
-    assert "<h1 class=\"detail-title\">settings</h1>" in response.text
+    # Page title still says "settings" but the redundant <h1> was cut
+    # since the left-rail nav already labels the surface.
+    assert "<title>settings — babyg</title>" in response.text
     assert "not configured" in response.text
     assert 'action="/creator/profile/deals"' in response.text
     assert 'id="deal-preferences"' in response.text
