@@ -10591,6 +10591,48 @@ hr.hairline {
   .bot-prompt-chip { padding: 9px 12px; font-size: 13px; }
 }
 
+/* Bot composer: keep the textarea as the only visible input surface.
+   The .box wrapper is layout-only so generic form-control styles cannot
+   create the stacked text-box effect seen on mobile. */
+.is-creator-app.is-chat .bot-composer .box,
+.is-creator-app.is-chat .bot-composer .box:focus-within {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+.is-creator-app.is-chat .bot-composer textarea,
+.is-creator-app.is-chat .bot-composer textarea:focus,
+.is-creator-app.is-chat .bot-composer textarea:focus-visible {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  max-height: 104px;
+  padding: 11px 14px;
+  color: var(--ink);
+  background: var(--surface-2);
+  border: 1px solid var(--hairline-strong);
+  border-radius: 14px;
+  outline: 0;
+  box-shadow: none;
+  font-size: 16px;
+  line-height: 1.35;
+  resize: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.is-creator-app.is-chat .bot-composer textarea:focus,
+.is-creator-app.is-chat .bot-composer textarea:focus-visible {
+  background: var(--surface-1);
+  border-color: rgba(255,77,109,.36);
+}
+
 
 /* ============================================================
  * Discover card compact signal polish.

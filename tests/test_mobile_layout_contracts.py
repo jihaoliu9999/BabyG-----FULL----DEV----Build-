@@ -47,6 +47,25 @@ def test_mobile_controls_keep_ios_safe_font_size() -> None:
     assert "font-size: 16px" in composer_rule
 
 
+def test_bot_composer_uses_single_visible_textbox() -> None:
+    box_rule = APP_CSS.split(
+        ".is-creator-app.is-chat .bot-composer .box,", 1
+    )[1].split("}", 1)[0]
+    textarea_rule = APP_CSS.split(
+        ".is-creator-app.is-chat .bot-composer textarea,", 1
+    )[1].split("}", 1)[0]
+
+    assert "background: transparent" in box_rule
+    assert "border: 0" in box_rule
+    assert "border-radius: 0" in box_rule
+    assert "box-shadow: none" in box_rule
+    assert "background: var(--surface-2)" in textarea_rule
+    assert "border: 1px solid var(--hairline-strong)" in textarea_rule
+    assert "border-radius: 14px" in textarea_rule
+    assert "font-size: 16px" in textarea_rule
+    assert "min-width: 0" in textarea_rule
+
+
 def test_creator_dm_search_toolbar_is_mobile_safe() -> None:
     toolbar_rule = APP_CSS.split(".dm-inbox-topbar {", 1)[1].split("}", 1)[0]
     search_rule = APP_CSS.split(".dm-inbox-search {", 1)[1].split("}", 1)[0]
