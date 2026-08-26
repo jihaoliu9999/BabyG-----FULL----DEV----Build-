@@ -6,6 +6,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).parents[1]
 APP_CSS = (ROOT / "app/static/css/app.css").read_text(encoding="utf-8")
+BASE_TEMPLATE = (ROOT / "app/templates/base.html").read_text(encoding="utf-8")
 BOT_JS = (ROOT / "app/static/js/bot.js").read_text(encoding="utf-8")
 DM_BRIEFS_JS = (ROOT / "app/static/js/dm_briefs.js").read_text(encoding="utf-8")
 DM_THREAD_TEMPLATE = (ROOT / "app/templates/creator/dm_thread.html").read_text(
@@ -90,6 +91,60 @@ def test_creator_dm_search_toolbar_is_mobile_safe() -> None:
     assert "border-radius: 999px" in input_rule
     assert "flex: 0 0 44px" in action_rule
     assert "min-width: 44px" in action_rule
+
+
+def test_creator_dm_pages_do_not_render_shared_profile_chrome() -> None:
+    """DM inbox/thread screens own their mobile chrome. The shared
+    creator badge/avatar should not stack above the search bar or the
+    thread header."""
+    assert (
+        BASE_TEMPLATE.count(
+            "not cp.startswith('/creator/bot') and not cp.startswith('/creator/dm')"
+        )
+        == 2
+    )
+
+
+def test_creator_tabbar_items_are_centered_on_mobile() -> None:
+    rule = APP_CSS.split(".creator-tabbar {", 1)[1].split("}", 1)[0]
+    item_rule = APP_CSS.split(".creator-tabbar a {", 1)[1].split("}", 1)[0]
+
+    assert "justify-content: center" in rule
+    assert "gap: clamp(2px, 1.2vw, 10px)" in rule
+    assert "flex: 0 1 clamp(56px, 17vw, 68px)" in item_rule
+    assert "width: clamp(56px, 17vw, 68px)" in item_rule
+    assert "flex: 1;" not in item_rule
+
+
+def test_dm_thread_composer_sits_close_to_bottom_tabbar() -> None:
+    thread_rule = APP_CSS.split(".is-creator-app .dm-thread {", 2)[2].split(
+        "}", 1
+    )[0]
+    composer_rule = APP_CSS.split(".dm-thread-composer {", 1)[1].split("}", 1)[0]
+    status_rule = APP_CSS.split(".dm-thread-composer-status {", 1)[1].split(
+        "}", 1
+    )[0]
+    visible_status_rule = APP_CSS.split(
+        ".dm-thread-composer-status.is-visible {", 1
+    )[1].split("}", 1)[0]
+    box_rule = APP_CSS.split(".dm-thread-composer-box {", 1)[1].split("}", 1)[0]
+    input_rule = APP_CSS.split(".dm-thread-composer-box input {", 1)[1].split(
+        "}", 1
+    )[0]
+
+    assert (
+        "padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px) + 12px)"
+        in thread_rule
+    )
+    assert "+ 86px" not in thread_rule
+    assert "padding: 8px 16px 8px" in composer_rule
+    assert "height: 0" in status_rule
+    assert "min-height: 0" in status_rule
+    assert "overflow: hidden" in status_rule
+    assert "height: 18px" in visible_status_rule
+    assert "min-height: 48px" in box_rule
+    assert "font-size: 16px" in input_rule
+    assert "min-width: 0" in input_rule
 
 
 def test_creator_settings_work_links_do_not_overlap_labels() -> None:
@@ -191,14 +246,19 @@ def test_chat_keyboard_composer_drops_safe_area_padding() -> None:
 
 
 def test_dm_composer_polish_keeps_controls_scoped_and_stable() -> None:
-    """The composer status row keeps a stable height (no layout jump when
-    babyg starts reading a message) and stays visibility-hidden until
-    JS toggles the is-visible class. The send button disables on empty
-    input. All of these must survive the DM thread redesign."""
+    """The composer status row stays hidden until JS toggles the
+    is-visible class, without reserving idle space above the reply box.
+    The send button disables on empty input. All of these must survive
+    the DM thread redesign."""
     status_rule = APP_CSS.split(
         ".dm-thread-composer-status {", 1
     )[1].split("}", 1)[0]
-    assert "min-height: 18px" in status_rule
+    visible_status_rule = APP_CSS.split(
+        ".dm-thread-composer-status.is-visible {", 1
+    )[1].split("}", 1)[0]
+    assert "min-height: 0" in status_rule
+    assert "overflow: hidden" in status_rule
+    assert "min-height: 18px" in visible_status_rule
     assert "visibility: hidden" in status_rule
     assert "data-dm-brief-status" in DM_THREAD_TEMPLATE
     assert '"babyg is reading"' in DM_BRIEFS_JS

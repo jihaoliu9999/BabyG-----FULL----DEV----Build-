@@ -492,6 +492,16 @@ h1, h2, h3, h4 {
   position: relative;
   padding-top: 4px;
 }
+.creator-tabbar {
+  justify-content: center;
+  gap: clamp(2px, 1.2vw, 10px);
+  padding: 9px max(12px, env(safe-area-inset-right, 0px)) max(env(safe-area-inset-bottom, 13px), 13px) max(12px, env(safe-area-inset-left, 0px));
+}
+.creator-tabbar a {
+  flex: 0 1 clamp(56px, 17vw, 68px);
+  width: clamp(56px, 17vw, 68px);
+  max-width: 68px;
+}
 .app-tabbar a[data-tab="feed"] { --nav-accent: #ff526c; --nav-accent-soft: rgba(255,82,108,.18); --nav-glow: rgba(255,82,108,.52); }
 .app-tabbar a[data-tab="chat"] { --nav-accent: #9ccaff; --nav-accent-soft: rgba(156,202,255,.17); --nav-glow: rgba(156,202,255,.46); }
 .app-tabbar a[data-tab="calendar"] { --nav-accent: #79aef4; --nav-accent-soft: rgba(121,174,244,.15); --nav-glow: rgba(121,174,244,.42); }
@@ -7810,7 +7820,7 @@ hr.hairline {
 .is-creator-app .swipe-actions button { min-width: 48px; min-height: 48px; }
 .is-creator-app .bot-shell,
 .is-creator-app .dm-thread { min-height: calc(100dvh - var(--tabbar-h) - env(safe-area-inset-bottom)); }
-.is-creator-app .dm-thread { padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 86px); }
+.is-creator-app .dm-thread { padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px) + 12px); }
 .is-creator-app .dm-composer {
   bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px));
   padding: 7px max(12px, env(safe-area-inset-right)) 10px max(12px, env(safe-area-inset-left));
@@ -10842,10 +10852,8 @@ hr.hairline {
   padding: 0 0 48px;
   display: flex; flex-direction: column;
 }
-/* Keep the shared mobile-header + desktop app-topbar visible on the
-   DM inbox — the profile avatar in the top-right needs to sit in the
-   same spot on every page. My dm-inbox-topbar renders BELOW it, not
-   sticky, so the two never fight for the same slot. */
+/* DM owns its top chrome: the shared creator badge/avatar is hidden in
+   base.html so the search can start cleanly at the top of the view. */
 .is-creator-app .app-shell:has(.dm-inbox) .view { max-width: none; padding-top: 0; }
 
 /* Slim top bar: search + compose only. Renders inline (not sticky) so
@@ -10856,7 +10864,7 @@ hr.hairline {
   align-items: center;
   gap: 10px;
   max-width: 100%;
-  padding: 10px 20px;
+  padding: max(12px, env(safe-area-inset-top, 0px)) 14px 10px;
   border-bottom: 1px solid var(--hairline);
 }
 /* Tag was clipping — moved into search placeholder instead. Class
@@ -11488,7 +11496,7 @@ hr.hairline {
 
 /* Composer — pill shape, matches bot page */
 .dm-thread-composer {
-  padding: 10px 16px 14px;
+  padding: 8px 16px 8px;
   background: rgba(8,8,8,0.92);
   border-top: 1px solid var(--hairline);
   backdrop-filter: blur(20px);
@@ -11500,11 +11508,18 @@ hr.hairline {
   letter-spacing: 0.14em;
   text-transform: lowercase;
   color: var(--ink-dim);
-  min-height: 18px;
-  margin: 0 0 6px 4px;
+  height: 0;
+  min-height: 0;
+  margin: 0;
+  overflow: hidden;
   visibility: hidden;
 }
-.dm-thread-composer-status.is-visible { visibility: visible; }
+.dm-thread-composer-status.is-visible {
+  height: 18px;
+  min-height: 18px;
+  margin: 0 0 6px 4px;
+  visibility: visible;
+}
 .dm-thread-composer-status-dot {
   width: 5px; height: 5px; border-radius: 50%;
   background: transparent;
@@ -11513,19 +11528,21 @@ hr.hairline {
   display: flex; gap: 8px; align-items: center;
   background: linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.02));
   border: 1px solid rgba(255,255,255,.07);
-  border-radius: 26px;
-  padding: 6px 6px 6px 18px;
+  border-radius: 24px;
+  min-height: 48px;
+  padding: 5px 5px 5px 14px;
 }
 .dm-thread-composer-box input {
   flex: 1;
+  min-width: 0;
   background: transparent;
   border: none;
   outline: none;
   color: var(--ink);
   font: inherit;
-  font-size: 15px;
-  padding: 8px 0;
-  min-height: 32px;
+  font-size: 16px;
+  padding: 6px 0;
+  min-height: 34px;
 }
 .dm-thread-composer-box input::placeholder { color: var(--ink-dim); }
 .dm-thread-composer-send {
