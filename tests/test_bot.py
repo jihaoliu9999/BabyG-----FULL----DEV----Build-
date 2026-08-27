@@ -4249,3 +4249,74 @@ def test_read_my_drafts_dispatch_calls_read_only(monkeypatch) -> None:
         "channel": None,
         "limit": 3,
     }
+
+
+# ---------------------------------------------------------------------------
+# Phase 5: read_my_deals tool dispatch.
+# ---------------------------------------------------------------------------
+
+
+def test_read_my_deals_tool_registered_and_prompted() -> None:
+    names = {t["name"] for t in bot_service.prompts.BOT_TOOL_DEFINITIONS}
+    assert "read_my_deals" in names
+    p = bot_service.prompts.babyg_system_prompt()
+    assert "read_my_deals" in p
+
+
+def test_read_my_deals_dispatch_forwards_filters(monkeypatch) -> None:
+    """The /read_my_deals tool routes through read_only.read_my_deals
+    and passes brand/stage/active_only/limit through verbatim."""
+    captured: dict[str, object] = {}
+
+    def _fake(user_id, *, brand=None, stage=None, active_only=False, limit=20):
+        captured.update({
+            "user_id": user_id, "brand": brand, "stage": stage,
+            "active_only": active_only, "limit": limit,
+        })
+        return [{"id": "d1", "brand_name": "Vans", "stage": "negotiating"}]
+
+    monkeypatch.setattr(bot_service.read_only, "read_my_deals", _fake)
+    result = bot_service._execute_read_tool(
+        user_id=_CREATOR_UUID,
+        name="read_my_deals",
+        tool_input={
+            "brand": "vans",
+            "stage": "negotiating",
+            "active_only": True,
+            "limit": 5,
+        },
+    )
+    assert result["ok"] is True
+    assert result["content"][0]["brand_name"] == "Vans"
+    assert captured == {
+        "user_id": _CREATOR_UUID,
+        "brand": "vans",
+        "stage": "negotiating",
+        "active_only": True,
+        "limit": 5,
+    }
+
+
+def test_read_my_deals_defaults_when_no_filters(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+    monkeypatch.setattr(
+        bot_service.read_only,
+        "read_my_deals",
+        lambda user_id, *, brand=None, stage=None, active_only=False, limit=20:
+            captured.update({
+                "brand": brand, "stage": stage,
+                "active_only": active_only, "limit": limit,
+            }) or [],
+    )
+    result = bot_service._execute_read_tool(
+        user_id=_CREATOR_UUID,
+        name="read_my_deals",
+        tool_input={},
+    )
+    assert result["ok"] is True
+    assert captured == {
+        "brand": None,
+        "stage": None,
+        "active_only": False,
+        "limit": 20,
+    }

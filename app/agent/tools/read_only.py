@@ -11,6 +11,7 @@ from __future__ import annotations
 from typing import Any
 
 from app.services import (
+    babyg_deals,
     babyg_memory,
     bookings,
     dms,
@@ -147,6 +148,51 @@ def read_creator_directory(user_id: str, *, limit: int = 6) -> list[dict[str, An
             "follower_range": row.get("follower_range"),
         }
         for row in network.list_directory_for_creator(user_id)[:_bounded_limit(limit)]
+    ]
+
+
+def read_my_deals(
+    user_id: str,
+    *,
+    brand: str | None = None,
+    stage: str | None = None,
+    active_only: bool = False,
+    limit: int = 20,
+) -> list[dict[str, Any]]:
+    """Return the creator's deal pipeline. Case-insensitive brand
+    filter; stage filter; active_only hides terminal stages."""
+    rows = babyg_deals.list_deals(
+        user_id,
+        stage=stage,
+        active_only=active_only,
+        limit=_bounded_limit(limit, default=20, maximum=50),
+    )
+    if brand:
+        needle = " ".join(brand.strip().lower().split())
+        if needle:
+            rows = [
+                r
+                for r in rows
+                if needle in str(r.get("brand_name") or "").lower()
+            ]
+    return [
+        {
+            "id": row.get("id"),
+            "brand_name": row.get("brand_name"),
+            "stage": row.get("stage"),
+            "agreed_amount_cents": row.get("agreed_amount_cents"),
+            "paid_amount_cents": row.get("paid_amount_cents"),
+            "deliverables": row.get("deliverables"),
+            "usage_rights": row.get("usage_rights"),
+            "platform": row.get("platform"),
+            "deadline": row.get("deadline"),
+            "payment_terms": row.get("payment_terms"),
+            "handles": row.get("handles") or [],
+            "emails": row.get("emails") or [],
+            "first_touch_at": row.get("first_touch_at"),
+            "last_touch_at": row.get("last_touch_at"),
+        }
+        for row in rows
     ]
 
 

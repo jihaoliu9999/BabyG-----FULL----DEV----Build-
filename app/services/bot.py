@@ -1402,6 +1402,14 @@ def _execute_read_tool(
                 channel=tool_input.get("channel"),
                 limit=tool_input.get("limit", 10),
             )
+        elif name == "read_my_deals":
+            content = read_only.read_my_deals(
+                user_id,
+                brand=tool_input.get("brand"),
+                stage=tool_input.get("stage"),
+                active_only=bool(tool_input.get("active_only", False)),
+                limit=tool_input.get("limit", 20),
+            )
         elif name == "read_my_receipts":
             content = read_only.read_my_receipts(
                 user_id, limit=tool_input.get("limit", 5)

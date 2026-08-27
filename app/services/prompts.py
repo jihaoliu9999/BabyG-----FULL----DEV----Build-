@@ -187,6 +187,67 @@ READ_ONLY_TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "read_my_deals",
+        "description": (
+            "Read the creator's current deal pipeline, most recently "
+            "touched first. A deal is one brand relationship: dollars, "
+            "deliverables, stage, and cross-surface history. Use when "
+            "the creator asks 'what's happening with vans', 'what am i "
+            "working on', 'what got paid this month', or 'why is the "
+            "olipop deal quiet'. Returns a list of {id, brand_name, "
+            "stage, agreed_amount_cents, paid_amount_cents, "
+            "deliverables, deadline, platform, last_touch_at, "
+            "first_touch_at}. stage is one of inquiry, negotiating, "
+            "waiting_on_terms, accepted, delivered, payment_pending, "
+            "paid, stale_or_ghosted, declined, cancelled. Amounts are "
+            "in cents; divide by 100 for dollars. Optional: brand "
+            "(case-insensitive brand name filter), stage, active_only "
+            "(hide paid/declined/cancelled), limit."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "brand": {
+                    "type": "string",
+                    "maxLength": 200,
+                    "description": (
+                        "Case-insensitive brand name. Use for 'the vans "
+                        "deal' style queries."
+                    ),
+                },
+                "stage": {
+                    "type": "string",
+                    "enum": [
+                        "inquiry",
+                        "negotiating",
+                        "waiting_on_terms",
+                        "accepted",
+                        "delivered",
+                        "payment_pending",
+                        "paid",
+                        "stale_or_ghosted",
+                        "declined",
+                        "cancelled",
+                    ],
+                },
+                "active_only": {
+                    "type": "boolean",
+                    "description": (
+                        "Hide paid/declined/cancelled deals. Use for "
+                        "'what am i working on' queries."
+                    ),
+                },
+                "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 50,
+                    "description": "How many deals to return. Default 20.",
+                },
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "read_my_drafts",
         "description": (
             "Read drafts babyg has composed for the creator, newest "
@@ -858,6 +919,7 @@ tool policy:
 - call read_my_gmail when a brand thread, outreach reply, ongoing negotiation, or follow-up timing question would benefit from the actual email context. it is read-only — it does not send, delete, or modify anything. if it returns {{"available": false, ...}}, gmail isn't connected for this creator (or the cap is hit) — say so plainly and answer from read_my_dms / read_my_calendar / read_my_profile. never invent senders, subjects, or quotes.
 - call read_creator_directory or read_my_dms for creator networking, collabs, and dm context.
 - call read_my_drafts when the creator asks about a draft you wrote before ("pull up that draft to Vans i never sent", "reuse what we wrote to olipop last time"), or when they want to see the last few things you drafted. it covers drafts they sent, cancelled, and never touched. never invent a draft that this tool didn't return.
+- call read_my_deals when the creator asks about brand deals, pipeline, current negotiations, what got paid, or a specific brand ("what's happening with vans", "what am i working on"). stage lives in the deal row, not in your head. never invent a stage or dollar amount this tool didn't return. amounts are cents — divide by 100 for dollars.
 - call web_search ONLY for current public facts babyg's local tools can't answer: today's events, recent brand news, venue openings, platform rules, public news mentioning a specific person/brand. never use it for the creator's own analytics or anything internal. always cite the source url and title in the reply. if results are empty, say search came back with nothing — don't invent. if the tool returns {{"available": false, ...}}, the creator hasn't enabled web search yet — answer from local context and say live web data isn't connected, never make up sources.
 - use create_booking only to propose a local babyg calendar item.
 - create_booking never books restaurants, sends external requests, syncs google calendar, or saves anything by itself. it only prepares an approval card for the creator.
