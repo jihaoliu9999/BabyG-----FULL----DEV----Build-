@@ -4476,3 +4476,59 @@ def test_read_email_thread_requires_thread_id(monkeypatch) -> None:
         "available": False,
         "reason": "thread_id is required",
     }
+
+
+# ---------------------------------------------------------------------------
+# Phase 10: prompt and voice update. The system prompt must forbid em
+# dashes explicitly, dogfood the rule in its own body, and BABYG_PROMPT_VERSION
+# must have bumped to reflect the change.
+# ---------------------------------------------------------------------------
+
+_EM_DASH = "—"
+
+
+def test_prompt_explicitly_forbids_em_dashes() -> None:
+    """docs/babyg-ai-reference.md section 6 lists 'no em dashes' as a
+    voice rule. The prompt must state that rule verbatim so a fresh
+    model turn cannot fall back to em-dashy training-set defaults."""
+    p = bot_service.prompts.babyg_system_prompt()
+    lower = p.lower()
+    assert "em dashes are banned" in lower
+    assert "no em dashes" in lower
+
+
+def test_prompt_body_dogfoods_the_no_em_dash_rule() -> None:
+    """The prompt itself must not use em dashes anywhere except the
+    one place that literally names the banned character in the
+    'forbidden:' list. Any other em dash would model the wrong
+    behavior for the bot."""
+    p = bot_service.prompts.babyg_system_prompt()
+    lines_with_em_dash = [
+        line for line in p.splitlines() if _EM_DASH in line
+    ]
+    # The forbid rule itself is the one legal use.
+    assert len(lines_with_em_dash) == 1
+    assert "em dashes (" + _EM_DASH + ")" in lines_with_em_dash[0]
+
+
+def test_prompt_version_bumped_past_2_0_0() -> None:
+    """Phase 10 requirement: BABYG_PROMPT_VERSION reflects the change.
+    2.0.0 was Phase 3's initial version; any Phase-10 rewrite must be
+    at least 2.1.0."""
+    version = bot_service.prompts.BABYG_PROMPT_VERSION
+    major, minor, patch = (int(x) for x in version.split("."))
+    assert (major, minor, patch) >= (2, 1, 0)
+
+
+def test_prompt_names_manager_voice_traits() -> None:
+    """Voice section must match the spec's traits: calm, confident,
+    tasteful, direct, human."""
+    p = bot_service.prompts.babyg_system_prompt().lower()
+    for trait in ("calm", "confident", "tasteful", "direct", "human"):
+        assert trait in p, f"voice section missing trait: {trait}"
+
+
+def test_prompt_lists_banned_startup_words() -> None:
+    p = bot_service.prompts.babyg_system_prompt().lower()
+    for word in ("seamless", "unlock", "supercharge", "leverage", "optimize", "empower"):
+        assert word in p, f"prompt should ban the word {word!r}"
