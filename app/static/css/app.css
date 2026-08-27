@@ -77,8 +77,6 @@ button { cursor: pointer; }
 
 /* ───── shared bits ───── */
 .wrap { max-width: 1280px; margin: 0 auto; padding: 0 24px; }
-.wrap-wide { max-width: 1440px; margin: 0 auto; padding: 0 24px; }
-.wrap-narrow { max-width: 720px; margin: 0 auto; padding: 0 24px; }
 
 .mono {
   font-family: var(--mono);
@@ -105,17 +103,6 @@ h1, h2, h3, h4 {
   color: var(--ink);
 }
 
-.display { font-size: clamp(48px, 7vw, 120px); line-height: 0.92; }
-.display .chrome {
-  background: linear-gradient(180deg, #ffffff 0%, #cbd5e0 40%, #6e7c9a 75%, #aab4c8 100%);
-  -webkit-background-clip: text;
-          background-clip: text;
-  -webkit-text-fill-color: transparent;
-          color: transparent;
-}
-.display .quiet { color: var(--ink-dim); }
-
-.lede { color: var(--ink-mid); font-size: 16px; line-height: 1.55; max-width: 540px; }
 
 /* ───── buttons ───── */
 .btn {
@@ -1037,14 +1024,10 @@ h1, h2, h3, h4 {
 /* stack & grid */
 .stack > * + * { margin-top: 12px; }
 .stack-lg > * + * { margin-top: 18px; }
-.grid-2, .grid-3, .grid-4 { display: grid; gap: 14px; }
+.grid-2 { display: grid; gap: 14px; }
 .grid-2 { grid-template-columns: 1fr; }
-.grid-3 { grid-template-columns: 1fr; }
-.grid-4 { grid-template-columns: 1fr 1fr; }
 @media (min-width: 700px) {
   .grid-2 { grid-template-columns: 1fr 1fr; }
-  .grid-3 { grid-template-columns: repeat(3, 1fr); }
-  .grid-4 { grid-template-columns: repeat(4, 1fr); }
 }
 
 /* ───── responsive layout switch ───── */
@@ -6549,108 +6532,6 @@ hr.hairline {
   }
 }
 
-/* ---------------------------------------------------------------------------
-   DM private babyg briefs (P4/P5). Recipient-only intelligence panel that
-   sits above the composer in a thread, plus risk chips in the inbox list.
-   Reuses the dark system tokens; high-risk states use the coral accent.
-   --------------------------------------------------------------------------- */
-.dm-brief {
-  margin: 0 16px 8px;
-  border: 1px solid var(--hairline);
-  border-radius: 16px;
-  background: linear-gradient(145deg, var(--surface-1), var(--surface-2));
-  overflow: hidden;
-  min-width: 0;
-}
-.dm-brief-alert { border-color: var(--lime); box-shadow: inset 3px 0 0 var(--lime); }
-.dm-brief > details > summary,
-.dm-brief-summary-row {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 14px;
-  cursor: pointer;
-  list-style: none;
-}
-.dm-brief > details > summary::-webkit-details-marker { display: none; }
-.dm-brief-title { font-size: 13px; color: var(--ink); font-weight: 500; }
-.dm-brief-heading { display: grid; gap: 2px; min-width: 0; }
-.dm-brief-kicker { color: var(--ink-dim); font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em; }
-.dm-brief-chevron { margin-left: auto; color: var(--ink-dim); font-size: 18px; transition: transform 180ms ease; }
-.dm-brief > details[open] > summary .dm-brief-chevron { transform: rotate(45deg); }
-.dm-brief-pill {
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  padding: 4px 9px;
-  border-radius: 999px;
-  border: 1px solid var(--hairline-strong);
-  color: var(--ink-mid);
-  background: var(--surface-2);
-  white-space: nowrap;
-}
-.dm-brief-pill-safe { color: #6fce9f; border-color: rgba(111,206,159,0.4); }
-.dm-brief-pill-suspicious_identity,
-.dm-brief-pill-scam_phishing,
-.dm-brief-pill-unsafe_meetup,
-.dm-brief-pill-adult_minor_risk,
-.dm-brief-pill-payment_risk,
-.dm-brief-pill-inappropriate,
-.dm-brief-pill-legal_contract_review {
-  color: var(--lime);
-  border-color: var(--lime);
-  background: rgba(255,77,109,0.08);
-}
-.dm-brief-content { padding: 2px 14px 14px; min-width: 0; }
-.dm-brief-text { color: var(--ink-mid); font-size: 13.5px; line-height: 1.55; margin: 0 0 10px; }
-.dm-brief-quick { padding: 12px; margin-bottom: 12px; border: 1px solid var(--hairline); border-radius: 12px; background: rgba(255,255,255,0.02); }
-.dm-brief-block { margin: 0 0 12px; min-width: 0; }
-.dm-brief-block p { margin: 0; color: var(--ink-mid); font-size: 12.5px; line-height: 1.5; overflow-wrap: anywhere; }
-.dm-brief-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; }
-.dm-brief-label {
-  display: block;
-  font-family: var(--mono);
-  font-size: 10px;
-  letter-spacing: 0.14em;
-  color: var(--ink-dim);
-  margin-bottom: 5px;
-}
-.dm-brief-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
-.dm-brief-chips li {
-  font-size: 12px;
-  color: var(--ink-mid);
-  padding: 3px 9px;
-  border: 1px solid var(--hairline-strong);
-  border-radius: 999px;
-}
-.dm-brief-meta-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.dm-brief-meta-chips span {
-  max-width: 100%; padding: 4px 8px; border: 1px solid var(--hairline-strong);
-  border-radius: 999px; color: var(--ink-dim); font-family: var(--mono);
-  font-size: 9.5px; letter-spacing: 0.04em; overflow-wrap: anywhere;
-}
-.dm-brief-meta-chips .dm-confidence-high { color: #6fce9f; border-color: rgba(111,206,159,0.4); }
-.dm-brief-meta-chips .dm-confidence-low { color: var(--lime); border-color: rgba(255,77,109,0.45); }
-.dm-brief-low-confidence { margin: 8px 0 0; color: var(--ink-dim); font-size: 11px; }
-.dm-risk-radar { padding: 10px 12px; border-left: 2px solid var(--hairline-strong); }
-.dm-brief-checklist { display: grid; gap: 7px; margin: 0; padding: 0; list-style: none; }
-.dm-brief-checklist li { display: flex; align-items: center; gap: 8px; color: var(--ink-mid); font-size: 12px; }
-.dm-brief-checklist li span { width: 12px; height: 12px; flex: 0 0 12px; border: 1px solid var(--hairline-strong); border-radius: 3px; }
-.dm-brief-notes { margin: 0; padding-left: 18px; color: var(--ink-mid); font-size: 12.5px; line-height: 1.5; }
-.dm-deal-read { display: grid; gap: 1px; margin: 0; overflow: hidden; border: 1px solid var(--hairline); border-radius: 10px; }
-.dm-deal-read div { display: grid; grid-template-columns: minmax(88px, 0.38fr) minmax(0, 1fr); gap: 10px; padding: 8px 10px; background: rgba(255,255,255,0.018); }
-.dm-deal-read dt { color: var(--ink-dim); font-family: var(--mono); font-size: 9.5px; }
-.dm-deal-read dd { margin: 0; color: var(--ink-mid); font-size: 11.5px; overflow-wrap: anywhere; }
-.dm-negotiation-coach { padding: 10px 12px; border: 1px solid var(--hairline); border-radius: 10px; }
-.dm-brief-action { color: var(--ink); font-size: 13px; overflow-wrap: anywhere; }
-.dm-annotation-list { display: flex; flex-wrap: wrap; gap: 6px; }
-.dm-annotation-list span { display: grid; gap: 2px; min-width: 0; max-width: 100%; padding: 7px 9px; border: 1px solid var(--hairline); border-radius: 9px; color: var(--ink-dim); font-size: 11px; overflow-wrap: anywhere; }
-.dm-annotation-list strong { color: var(--ink-mid); font-size: 10px; font-weight: 500; }
-.dm-brief-reply { margin: 4px 0 10px; }
-.dm-brief-reply > summary { cursor: pointer; color: var(--ink); font-size: 12.5px; }
-.dm-brief-reply > summary span { margin-left: 6px; color: var(--ink-dim); font-family: var(--mono); font-size: 9.5px; }
-.dm-reply-option { padding: 10px 0; border-bottom: 1px solid var(--hairline); }
-.dm-reply-option:last-child { border-bottom: 0; }
 .dm-brief-reply-text {
   color: var(--ink-mid);
   font-size: 13px;
@@ -6661,50 +6542,6 @@ hr.hairline {
   padding: 10px 12px;
   margin: 8px 0;
 }
-.dm-brief-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.dm-brief-foot { margin: 10px 0 0; font-size: 10px; color: var(--ink-faint); }
-.dm-follow-ups { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; }
-.dm-follow-ups button { max-width: 100%; padding: 7px 9px; border: 1px solid var(--hairline-strong); border-radius: 999px; background: transparent; color: var(--ink-mid); font: inherit; font-size: 11px; cursor: pointer; }
-.dm-follow-ups button:hover { border-color: var(--ink-dim); color: var(--ink); }
-.dm-follow-ups button:disabled { cursor: wait; opacity: 0.55; }
-.dm-follow-up-result { margin-top: 9px; padding: 10px 12px; border: 1px solid var(--hairline); border-radius: 10px; color: var(--ink-mid); font-size: 12px; line-height: 1.5; overflow-wrap: anywhere; }
-.dm-follow-up-result strong { color: var(--ink); font-weight: 500; }
-.dm-follow-up-result p { margin: 5px 0 0; }
-.dm-protection-note { margin: 12px 0; padding: 10px 12px; border: 1px solid rgba(255,77,109,0.22); border-radius: 10px; background: rgba(255,77,109,0.04); }
-.dm-brief-notice { padding: 10px 14px; border: 1px solid var(--hairline-strong); border-radius: 12px; color: var(--ink-mid); font-size: 12px; text-align: center; }
-
-@media (min-width: 900px) {
-  .dm-brief-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-}
-
-@media (max-width: 430px) {
-  .dm-brief { margin-left: 10px; margin-right: 10px; }
-  .dm-brief > details > summary, .dm-brief-summary-row { gap: 8px; padding: 11px 12px; }
-  .dm-brief-content { padding-left: 12px; padding-right: 12px; }
-  .dm-brief-pill { max-width: 38%; overflow: hidden; text-overflow: ellipsis; }
-  .dm-deal-read div { grid-template-columns: minmax(76px, 0.34fr) minmax(0, 1fr); }
-}
-
-/* Inbox risk chips */
-.dm-risk-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 6px; }
-.dm-risk-chip {
-  font-family: var(--mono);
-  font-size: 9.5px;
-  letter-spacing: 0.08em;
-  padding: 3px 8px;
-  border-radius: 999px;
-  border: 1px solid var(--hairline-strong);
-  color: var(--ink-mid);
-}
-.dm-risk-chip-safe { color: #6fce9f; border-color: rgba(111,206,159,0.4); }
-.dm-risk-chip-suspicious_identity,
-.dm-risk-chip-scam_phishing,
-.dm-risk-chip-unsafe_meetup,
-.dm-risk-chip-adult_minor_risk,
-.dm-risk-chip-payment_risk,
-.dm-risk-chip-inappropriate,
-.dm-risk-chip-legal_contract_review { color: var(--lime); border-color: var(--lime); }
-.dm-risk-next { font-size: 11px; color: var(--ink-dim); }
 
 /* ==========================================================================
    2026 product redesign
