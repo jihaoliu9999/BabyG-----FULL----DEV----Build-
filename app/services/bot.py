@@ -17,6 +17,7 @@ from app.core.uuid_guard import safe_uuid
 from app.integrations import anthropic_client, google_calendar, google_gmail, instagram_meta, tavily
 from app.services import (
     action_proposals,
+    babyg_memory,
     bookings,
     bot_observability,
     jobs,
@@ -632,6 +633,7 @@ def _confirm_gmail_draft_action(
     payload = tool_calls.get("payload")
     if not isinstance(payload, dict):
         payload = {}
+    memory_draft_id = str(payload.get("memory_draft_id") or "")
     draft_id = _execute_gmail_draft(user_id=user_id, payload=payload)
     if draft_id:
         action_proposals.mark_executed(
@@ -639,6 +641,12 @@ def _confirm_gmail_draft_action(
             user_id=user_id,
             external_result_id=draft_id,
         )
+        # Draft landed in Gmail. Flip memory status to 'approved' and
+        # stash the Gmail draft id so we can find it later.
+        if memory_draft_id:
+            babyg_memory.update_draft_status(
+                memory_draft_id, "approved", gmail_message_id=draft_id
+            )
         final_status = "executed"
         message = _success_message("gmail.create_draft", draft_id)
         ok = True
@@ -682,6 +690,10 @@ def _cancel_gmail_draft_action(
     proposal_id = str(tool_calls.get("proposal_id") or "")
     if proposal_id:
         action_proposals.cancel_proposal(proposal_id=proposal_id, user_id=user_id)
+    payload = tool_calls.get("payload") if isinstance(tool_calls.get("payload"), dict) else {}
+    memory_draft_id = str((payload or {}).get("memory_draft_id") or "")
+    if memory_draft_id:
+        babyg_memory.update_draft_status(memory_draft_id, "canceled")
     cancelled = {
         **tool_calls,
         "status": "cancelled",
@@ -786,12 +798,17 @@ def _confirm_gmail_send_action(
             "I couldn't send that email. Nothing else happened."
         )
 
+    memory_draft_id = str(payload.get("memory_draft_id") or "")
     if message_id_sent:
         action_proposals.mark_executed(
             proposal_id=proposal_id,
             user_id=user_id,
             external_result_id=message_id_sent,
         )
+        if memory_draft_id:
+            babyg_memory.update_draft_status(
+                memory_draft_id, "sent", gmail_message_id=message_id_sent
+            )
         final_status = "executed"
         message = _success_message(action_type, message_id_sent)
         ok = True
@@ -835,6 +852,13 @@ def _cancel_gmail_send_action(
     proposal_id = str(tool_calls.get("proposal_id") or "")
     if proposal_id:
         action_proposals.cancel_proposal(proposal_id=proposal_id, user_id=user_id)
+    payload = tool_calls.get("payload") if isinstance(tool_calls.get("payload"), dict) else {}
+    memory_draft_id = str((payload or {}).get("memory_draft_id") or "")
+    # Cancelling gmail.send_email means we never got as far as Gmail;
+    # flip the memory row to canceled. For gmail.send_draft the draft
+    # is still sitting in Gmail (approved), so we leave that status alone.
+    if memory_draft_id and not _is_gmail_send_draft_action(action_type):
+        babyg_memory.update_draft_status(memory_draft_id, "canceled")
     cancelled = {
         **tool_calls,
         "status": "cancelled",
@@ -1370,6 +1394,14 @@ def _execute_read_tool(
             )
         elif name == "read_my_dms":
             content = read_only.read_my_dms(user_id, limit=tool_input.get("limit", 5))
+        elif name == "read_my_drafts":
+            content = read_only.read_my_drafts(
+                user_id,
+                match=tool_input.get("match"),
+                status=tool_input.get("status"),
+                channel=tool_input.get("channel"),
+                limit=tool_input.get("limit", 10),
+            )
         elif name == "read_my_receipts":
             content = read_only.read_my_receipts(
                 user_id, limit=tool_input.get("limit", 5)
@@ -1478,6 +1510,19 @@ def _stage_create_gmail_draft_tool(
     refusal = _rate_floor_refusal(tool_input=tool_input, user_id=user_id)
     if refusal:
         return {"kind": "write_tool", "ok": False, "content": refusal}
+    # Save the draft to babyg's memory BEFORE staging the proposal.
+    # A cancel still leaves the draft in memory so the creator can ask
+    # "pull up that draft to Vans I never sent" later. See Phase 4.
+    memory_draft_id = babyg_memory.save_draft(
+        user_id,
+        channel="email",
+        origin_tool="gmail.create_draft",
+        subject=payload.get("subject"),
+        to_addr=payload.get("to"),
+        body=payload.get("body") or "",
+    )
+    if memory_draft_id:
+        payload["memory_draft_id"] = memory_draft_id
     preview = _action_preview(action_type="gmail.create_draft", payload=payload)
     proposal_row = action_proposals.create_proposal(
         user_id=user_id,
@@ -1697,6 +1742,16 @@ def _stage_send_gmail_email_tool(
     refusal = _rate_floor_refusal(tool_input=tool_input, user_id=user_id)
     if refusal:
         return {"kind": "write_tool", "ok": False, "content": refusal}
+    memory_draft_id = babyg_memory.save_draft(
+        user_id,
+        channel="email",
+        origin_tool="gmail.send_email",
+        subject=payload.get("subject"),
+        to_addr=payload.get("to"),
+        body=payload.get("body") or "",
+    )
+    if memory_draft_id:
+        payload["memory_draft_id"] = memory_draft_id
     preview = _action_preview(action_type="gmail.send_email", payload=payload)
     proposal_row = action_proposals.create_proposal(
         user_id=user_id,

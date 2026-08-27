@@ -3927,3 +3927,325 @@ def test_format_now_bad_tz_string_does_not_crash() -> None:
     assert label is not None
     # Bad tz keeps the UTC label truthful.
     assert "UTC" in label
+
+
+# ---------------------------------------------------------------------------
+# Phase 4: durable draft memory. Every draft babyg composes is written to
+# babyg_memory_drafts BEFORE the action_proposals row is staged, so a
+# creator cancel still leaves the draft in memory for later retrieval.
+# ---------------------------------------------------------------------------
+
+_CREATOR_UUID = "00000000-0000-0000-0000-000000000010"
+
+
+def _memory_stub_installed(monkeypatch, *, save_returns: str | None = "mem-1") -> dict:
+    """Install stub for babyg_memory used by bot.py. Returns the recorder."""
+    calls: dict[str, list] = {"save": [], "update": []}
+
+    def _save_draft(creator_id, *, channel, origin_tool, subject, to_addr, body,
+                    peer_id=None, deal_id=None, thread_id=None):
+        calls["save"].append({
+            "creator_id": creator_id,
+            "channel": channel,
+            "origin_tool": origin_tool,
+            "subject": subject,
+            "to_addr": to_addr,
+            "body": body,
+        })
+        return save_returns
+
+    def _update_draft_status(draft_id, status, *, gmail_message_id=None):
+        calls["update"].append({
+            "draft_id": draft_id,
+            "status": status,
+            "gmail_message_id": gmail_message_id,
+        })
+        return True
+
+    monkeypatch.setattr(bot_service.babyg_memory, "save_draft", _save_draft)
+    monkeypatch.setattr(bot_service.babyg_memory, "update_draft_status", _update_draft_status)
+    return calls
+
+
+def test_stage_gmail_draft_writes_to_memory_before_proposal(monkeypatch) -> None:
+    monkeypatch.setattr(bot_service.google_calendar, "is_configured", lambda: True)
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "get_google_connection",
+        lambda _u: _gmail_compose_connection(),
+    )
+    monkeypatch.setattr(
+        bot_service.google_gmail,
+        "create_draft",
+        lambda *a, **kw: pytest.fail("staging must not call create_draft"),
+    )
+    calls = _memory_stub_installed(monkeypatch)
+    monkeypatch.setattr(
+        bot_service.action_proposals,
+        "create_proposal",
+        lambda **kwargs: {"id": str(uuid4()), **kwargs},
+    )
+
+    result = bot_service._stage_create_gmail_draft_tool(
+        {
+            "to": "vans@example.test",
+            "subject": "re: collab",
+            "body": "hey vans team, happy to chat thursday.",
+        },
+        pending_action=None,
+        user_id=_CREATOR_UUID,
+    )
+    assert result["ok"] is True
+    # Memory row was written with the draft body BEFORE the proposal
+    # even ran — save_draft is called exactly once, with the payload.
+    assert len(calls["save"]) == 1
+    saved = calls["save"][0]
+    assert saved["channel"] == "email"
+    assert saved["origin_tool"] == "gmail.create_draft"
+    assert saved["to_addr"] == "vans@example.test"
+    assert saved["subject"] == "re: collab"
+    assert "vans team" in saved["body"]
+    # No status flips yet — the draft is still 'proposed'.
+    assert calls["update"] == []
+    # And the returned pending_action carries memory_draft_id so
+    # confirm/cancel can flip status later.
+    assert result["pending_action"]["payload"]["memory_draft_id"] == "mem-1"
+
+
+def test_stage_gmail_send_writes_to_memory(monkeypatch) -> None:
+    monkeypatch.setattr(bot_service.google_calendar, "is_configured", lambda: True)
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "get_google_connection",
+        lambda _u: _gmail_send_connection(),
+    )
+    monkeypatch.setattr(
+        bot_service.google_gmail,
+        "send_message",
+        lambda *a, **kw: pytest.fail("staging must not call send"),
+    )
+    calls = _memory_stub_installed(monkeypatch)
+    monkeypatch.setattr(
+        bot_service.action_proposals,
+        "create_proposal",
+        lambda **kwargs: {"id": str(uuid4()), **kwargs},
+    )
+
+    result = bot_service._stage_send_gmail_email_tool(
+        {
+            "to": "olipop@example.test",
+            "subject": "yes",
+            "body": "sending it",
+        },
+        pending_action=None,
+        user_id=_CREATOR_UUID,
+    )
+    assert result["ok"] is True
+    assert len(calls["save"]) == 1
+    assert calls["save"][0]["origin_tool"] == "gmail.send_email"
+    assert result["pending_action"]["payload"]["memory_draft_id"] == "mem-1"
+
+
+def test_confirm_gmail_draft_flips_memory_status_to_approved(monkeypatch) -> None:
+    """On confirm, the memory row must flip 'proposed' -> 'approved'
+    with the Gmail draft id. This is what makes retrieval possible."""
+    calls = _memory_stub_installed(monkeypatch)
+    message_id = str(uuid4())
+    proposal_id = str(uuid4())
+    row = {
+        "id": message_id,
+        "user_id": _CREATOR_UUID,
+        "tool_calls": {
+            "kind": "proposed_action",
+            "status": "pending",
+            "action_type": "gmail.create_draft",
+            "proposal_id": proposal_id,
+            "payload": {
+                "to": "vans@example.test",
+                "subject": "s",
+                "body": "b",
+                "memory_draft_id": "mem-42",
+            },
+            "preview": "Preview",
+            "result": None,
+        },
+    }
+    monkeypatch.setattr(bot_service, "_get_message_for_user", lambda **kw: row)
+    monkeypatch.setattr(
+        bot_service,
+        "_update_message_tool_calls",
+        lambda *, message_id, user_id, tool_calls, expected_status=None: row.update(
+            {"tool_calls": tool_calls}
+        ) or True,
+    )
+    monkeypatch.setattr(
+        bot_service.action_proposals, "confirm_proposal", lambda **kw: True
+    )
+    monkeypatch.setattr(
+        bot_service.action_proposals, "mark_executing", lambda **kw: True
+    )
+    monkeypatch.setattr(
+        bot_service.action_proposals, "mark_executed", lambda **kw: True
+    )
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "get_google_connection",
+        lambda _u: _gmail_compose_connection(),
+    )
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "access_token_for_google",
+        lambda _u: "tok",
+    )
+    monkeypatch.setattr(
+        bot_service.google_gmail,
+        "create_draft",
+        lambda token, *, to, subject, body, thread_id=None: "gmail-draft-abc",
+    )
+    monkeypatch.setattr(bot_service, "create_message", lambda **kw: "msg-2")
+
+    result = bot_service.confirm_action(user_id=_CREATOR_UUID, message_id=message_id)
+
+    assert result.executed is True
+    assert calls["update"] == [
+        {"draft_id": "mem-42", "status": "approved", "gmail_message_id": "gmail-draft-abc"}
+    ]
+
+
+def test_confirm_gmail_send_flips_memory_status_to_sent(monkeypatch) -> None:
+    calls = _memory_stub_installed(monkeypatch)
+    message_id = str(uuid4())
+    proposal_id = str(uuid4())
+    row = {
+        "id": message_id,
+        "user_id": _CREATOR_UUID,
+        "tool_calls": {
+            "kind": "proposed_action",
+            "status": "pending",
+            "action_type": "gmail.send_email",
+            "proposal_id": proposal_id,
+            "payload": {
+                "to": "vans@example.test",
+                "subject": "s",
+                "body": "b",
+                "memory_draft_id": "mem-77",
+            },
+            "preview": "Preview",
+            "result": None,
+        },
+    }
+    monkeypatch.setattr(bot_service, "_get_message_for_user", lambda **kw: row)
+    monkeypatch.setattr(
+        bot_service,
+        "_update_message_tool_calls",
+        lambda *, message_id, user_id, tool_calls, expected_status=None: row.update(
+            {"tool_calls": tool_calls}
+        ) or True,
+    )
+    monkeypatch.setattr(
+        bot_service.action_proposals, "confirm_proposal", lambda **kw: True
+    )
+    monkeypatch.setattr(
+        bot_service.action_proposals, "mark_executing", lambda **kw: True
+    )
+    monkeypatch.setattr(
+        bot_service.action_proposals, "mark_executed", lambda **kw: True
+    )
+    monkeypatch.setattr(
+        bot_service.oauth_connections,
+        "get_google_connection",
+        lambda _u: _gmail_send_connection(),
+    )
+    monkeypatch.setattr(
+        bot_service.oauth_connections, "access_token_for_google", lambda _u: "tok"
+    )
+    monkeypatch.setattr(
+        bot_service.google_gmail,
+        "send_message",
+        lambda token, *, to, subject, body, thread_id=None: "gmail-msg-999",
+    )
+    monkeypatch.setattr(bot_service, "create_message", lambda **kw: "msg-2")
+
+    result = bot_service.confirm_action(user_id=_CREATOR_UUID, message_id=message_id)
+
+    assert result.executed is True
+    assert calls["update"] == [
+        {"draft_id": "mem-77", "status": "sent", "gmail_message_id": "gmail-msg-999"}
+    ]
+
+
+def test_cancel_gmail_draft_flips_memory_status_to_canceled(monkeypatch) -> None:
+    calls = _memory_stub_installed(monkeypatch)
+    message_id = str(uuid4())
+    row = {
+        "id": message_id,
+        "user_id": _CREATOR_UUID,
+        "tool_calls": {
+            "kind": "proposed_action",
+            "status": "pending",
+            "action_type": "gmail.create_draft",
+            "proposal_id": str(uuid4()),
+            "payload": {
+                "to": "x@y.test",
+                "subject": "s",
+                "body": "b",
+                "memory_draft_id": "mem-88",
+            },
+            "preview": "Preview",
+            "result": None,
+        },
+    }
+    monkeypatch.setattr(bot_service, "_get_message_for_user", lambda **kw: row)
+    monkeypatch.setattr(
+        bot_service,
+        "_update_message_tool_calls",
+        lambda *, message_id, user_id, tool_calls, expected_status=None: row.update(
+            {"tool_calls": tool_calls}
+        ) or True,
+    )
+    monkeypatch.setattr(
+        bot_service.action_proposals, "cancel_proposal", lambda **kw: True
+    )
+    monkeypatch.setattr(bot_service, "create_message", lambda **kw: "msg-2")
+
+    result = bot_service.cancel_action(user_id=_CREATOR_UUID, message_id=message_id)
+    assert "Cancelled" in result.message
+    assert calls["update"] == [
+        {"draft_id": "mem-88", "status": "canceled", "gmail_message_id": None}
+    ]
+
+
+def test_read_my_drafts_tool_registered_and_prompted() -> None:
+    names = {t["name"] for t in bot_service.prompts.BOT_TOOL_DEFINITIONS}
+    assert "read_my_drafts" in names
+    # Prompt guidance name-drops the tool so the model knows when to call it.
+    p = bot_service.prompts.babyg_system_prompt()
+    assert "read_my_drafts" in p
+
+
+def test_read_my_drafts_dispatch_calls_read_only(monkeypatch) -> None:
+    """The /read_my_drafts tool routes through read_only.read_my_drafts."""
+    captured: dict[str, object] = {}
+
+    def _fake(user_id, *, match=None, status=None, channel=None, limit=10):
+        captured.update({
+            "user_id": user_id, "match": match, "status": status,
+            "channel": channel, "limit": limit,
+        })
+        return [{"id": "d1", "subject": "re: Vans"}]
+
+    monkeypatch.setattr(bot_service.read_only, "read_my_drafts", _fake)
+    result = bot_service._execute_read_tool(
+        user_id=_CREATOR_UUID,
+        name="read_my_drafts",
+        tool_input={"match": "vans", "status": "proposed", "limit": 3},
+    )
+    assert result["ok"] is True
+    assert result["content"] == [{"id": "d1", "subject": "re: Vans"}]
+    assert captured == {
+        "user_id": _CREATOR_UUID,
+        "match": "vans",
+        "status": "proposed",
+        "channel": None,
+        "limit": 3,
+    }

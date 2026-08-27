@@ -10,7 +10,16 @@ from __future__ import annotations
 
 from typing import Any
 
-from app.services import bookings, dms, intel, network, performance, profiles, receipts
+from app.services import (
+    babyg_memory,
+    bookings,
+    dms,
+    intel,
+    network,
+    performance,
+    profiles,
+    receipts,
+)
 
 
 def collect_context(user_id: str) -> dict[str, Any]:
@@ -139,6 +148,45 @@ def read_creator_directory(user_id: str, *, limit: int = 6) -> list[dict[str, An
         }
         for row in network.list_directory_for_creator(user_id)[:_bounded_limit(limit)]
     ]
+
+
+def read_my_drafts(
+    user_id: str,
+    *,
+    match: str | None = None,
+    status: str | None = None,
+    channel: str | None = None,
+    limit: int = 10,
+) -> list[dict[str, Any]]:
+    """Return recent babyg-composed drafts for the creator. Optional
+    substring/status/channel filters. Prompt-safe shape — body is
+    truncated so the tool result stays small."""
+    rows = babyg_memory.list_drafts(
+        user_id,
+        match=match,
+        status=status,
+        channel=channel,
+        limit=_bounded_limit(limit, default=10, maximum=25),
+    )
+    result: list[dict[str, Any]] = []
+    for row in rows:
+        body = str(row.get("body") or "")
+        result.append(
+            {
+                "id": row.get("id"),
+                "status": row.get("status"),
+                "channel": row.get("channel"),
+                "origin_tool": row.get("origin_tool"),
+                "to": row.get("to_addr"),
+                "subject": row.get("subject"),
+                "body": body[:1200],
+                "body_truncated": len(body) > 1200,
+                "gmail_message_id": row.get("gmail_message_id"),
+                "updated_at": row.get("updated_at"),
+                "sent_at": row.get("sent_at"),
+            }
+        )
+    return result
 
 
 def _as_list(value: Any) -> list[str]:

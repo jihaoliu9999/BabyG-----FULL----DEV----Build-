@@ -188,6 +188,160 @@ def read_recent_summary(creator_id: str) -> dict[str, Any]:
     return summary
 
 
+# ---- Draft helpers --------------------------------------------------------
+#
+# Phase 4 rule: every draft babyg composes writes here BEFORE the action
+# proposal is staged. That way even a draft the creator cancels stays in
+# babyg's memory so "pull up that draft to Vans I never sent" works.
+# Gmail drafts only reach Gmail when the creator confirms.
+
+
+def save_draft(
+    creator_id: str,
+    *,
+    channel: str,
+    origin_tool: str,
+    subject: str | None,
+    to_addr: str | None,
+    body: str,
+    peer_id: str | None = None,
+    deal_id: str | None = None,
+    thread_id: str | None = None,
+) -> str | None:
+    """Write a new draft row and return its id, or None on failure.
+    `thread_id` accepts a uuid string (for on-site DM threads). Gmail
+    thread ids are strings, not uuids — pass None for those and Phase 6
+    (relations) will thread the draft via peer_id / deal_id instead.
+    """
+    creator_uid = safe_uuid(creator_id)
+    if not creator_uid:
+        return None
+    if channel not in {"dm", "email"}:
+        logger.info("babyg_memory.save_draft_bad_channel channel=%s", channel)
+        return None
+    if not (body or "").strip():
+        return None
+    row: dict[str, Any] = {
+        "creator_id": creator_uid,
+        "channel": channel,
+        "origin_tool": (origin_tool or "").strip() or None,
+        "subject": (subject or None),
+        "to_addr": (to_addr or None),
+        "body": body,
+        "status": "proposed",
+    }
+    peer_uid = safe_uuid(peer_id) if peer_id else None
+    if peer_uid:
+        row["peer_id"] = peer_uid
+    deal_uid = safe_uuid(deal_id) if deal_id else None
+    if deal_uid:
+        row["deal_id"] = deal_uid
+    thread_uid = safe_uuid(thread_id) if thread_id else None
+    if thread_uid:
+        row["thread_id"] = thread_uid
+    try:
+        result = (
+            supabase_client.get_service_client()
+            .table("babyg_memory_drafts")
+            .insert(row)
+            .execute()
+        )
+        rows = result.data or []
+        if not rows:
+            return None
+        return str(rows[0].get("id")) if rows[0].get("id") else None
+    except Exception:
+        logger.info("babyg_memory.save_draft_failed", exc_info=True)
+        return None
+
+
+_DRAFT_STATUSES = {"proposed", "edited", "approved", "sent", "canceled", "stale"}
+
+
+def update_draft_status(
+    draft_id: str,
+    status: str,
+    *,
+    gmail_message_id: str | None = None,
+) -> bool:
+    """Flip a draft's status. Sets sent_at when status='sent'. Never
+    raises. Returns True on success."""
+    if not draft_id:
+        return False
+    if status not in _DRAFT_STATUSES:
+        logger.info("babyg_memory.update_draft_status_bad_status status=%s", status)
+        return False
+    updates: dict[str, Any] = {
+        "status": status,
+        "updated_at": datetime.now(UTC).isoformat(),
+    }
+    if gmail_message_id:
+        updates["gmail_message_id"] = gmail_message_id
+    if status == "sent":
+        updates["sent_at"] = datetime.now(UTC).isoformat()
+    try:
+        (
+            supabase_client.get_service_client()
+            .table("babyg_memory_drafts")
+            .update(updates)
+            .eq("id", draft_id)
+            .execute()
+        )
+        return True
+    except Exception:
+        logger.info(
+            "babyg_memory.update_draft_status_failed draft=%s", draft_id, exc_info=True
+        )
+        return False
+
+
+def list_drafts(
+    creator_id: str,
+    *,
+    status: str | None = None,
+    channel: str | None = None,
+    match: str | None = None,
+    limit: int = 10,
+) -> list[dict[str, Any]]:
+    """List the creator's recent drafts, newest first. `status` and
+    `channel` narrow the result. `match` does a case-insensitive
+    substring filter on subject / to_addr / body — the "pull up that
+    draft to Vans I never sent" query. Never raises; returns [] on failure.
+    """
+    creator_uid = safe_uuid(creator_id)
+    if not creator_uid:
+        return []
+    limit = max(1, min(int(limit or 10), 100))
+    try:
+        query = (
+            supabase_client.get_service_client()
+            .table("babyg_memory_drafts")
+            .select("*")
+            .eq("creator_id", creator_uid)
+            .order("updated_at", desc=True)
+            .limit(limit)
+        )
+        if status and status in _DRAFT_STATUSES:
+            query = query.eq("status", status)
+        if channel and channel in {"dm", "email"}:
+            query = query.eq("channel", channel)
+        rows = list(query.execute().data or [])
+    except Exception:
+        logger.info("babyg_memory.list_drafts_failed", exc_info=True)
+        return []
+    if match:
+        needle = match.strip().lower()
+        if needle:
+            rows = [
+                r
+                for r in rows
+                if needle in str(r.get("subject") or "").lower()
+                or needle in str(r.get("to_addr") or "").lower()
+                or needle in str(r.get("body") or "").lower()
+            ]
+    return rows
+
+
 # ---- Operator access ------------------------------------------------------
 
 

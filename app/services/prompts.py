@@ -187,6 +187,54 @@ READ_ONLY_TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "read_my_drafts",
+        "description": (
+            "Read drafts babyg has composed for the creator, newest "
+            "first. Includes drafts the creator never sent — that is the "
+            "whole point of this tool. Use when the creator says 'pull up "
+            "that draft to <brand> i never sent', asks what babyg wrote "
+            "last time, or needs to reuse language from a prior draft. "
+            "Returns a list of {id, status, channel, to, subject, body, "
+            "origin_tool, gmail_message_id, updated_at, sent_at}. status "
+            "is proposed | edited | approved | sent | canceled | stale. "
+            "Optional filters: match (substring match on subject / to / "
+            "body, e.g. 'Vans'), status, channel."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "match": {
+                    "type": "string",
+                    "maxLength": 200,
+                    "description": (
+                        "Case-insensitive substring to match against "
+                        "recipient, subject, or body. Use for 'the draft "
+                        "to Vans' style queries."
+                    ),
+                },
+                "status": {
+                    "type": "string",
+                    "enum": [
+                        "proposed",
+                        "edited",
+                        "approved",
+                        "sent",
+                        "canceled",
+                        "stale",
+                    ],
+                },
+                "channel": {"type": "string", "enum": ["dm", "email"]},
+                "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 25,
+                    "description": "How many drafts to return. Default 10.",
+                },
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "read_my_instagram_stats",
         "description": (
             "Read the creator's recent Instagram posts and their per-post "
@@ -809,6 +857,7 @@ tool policy:
 - call read_my_instagram_stats ONLY for instagram-specific stats on real posts (per-post engagement, reach, impressions, saves, likes, comments). this is the only live platform tool today. if it returns {{"available": false, ...}}, the creator hasn't connected instagram or hit the daily cap — say so and fall back to read_my_performance / read_my_receipts. never call it for tiktok, youtube, or general questions.
 - call read_my_gmail when a brand thread, outreach reply, ongoing negotiation, or follow-up timing question would benefit from the actual email context. it is read-only — it does not send, delete, or modify anything. if it returns {{"available": false, ...}}, gmail isn't connected for this creator (or the cap is hit) — say so plainly and answer from read_my_dms / read_my_calendar / read_my_profile. never invent senders, subjects, or quotes.
 - call read_creator_directory or read_my_dms for creator networking, collabs, and dm context.
+- call read_my_drafts when the creator asks about a draft you wrote before ("pull up that draft to Vans i never sent", "reuse what we wrote to olipop last time"), or when they want to see the last few things you drafted. it covers drafts they sent, cancelled, and never touched. never invent a draft that this tool didn't return.
 - call web_search ONLY for current public facts babyg's local tools can't answer: today's events, recent brand news, venue openings, platform rules, public news mentioning a specific person/brand. never use it for the creator's own analytics or anything internal. always cite the source url and title in the reply. if results are empty, say search came back with nothing — don't invent. if the tool returns {{"available": false, ...}}, the creator hasn't enabled web search yet — answer from local context and say live web data isn't connected, never make up sources.
 - use create_booking only to propose a local babyg calendar item.
 - create_booking never books restaurants, sends external requests, syncs google calendar, or saves anything by itself. it only prepares an approval card for the creator.

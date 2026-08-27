@@ -40,6 +40,7 @@ class _FakeQuery:
         self._order_desc = True
         self._limit_n: int | None = None
         self._insert_payload: dict[str, Any] | None = None
+        self._update_payload: dict[str, Any] | None = None
 
     def select(self, _cols: str) -> _FakeQuery:
         return self
@@ -65,14 +66,31 @@ class _FakeQuery:
         self._insert_payload = payload
         return self
 
+    def update(self, payload: dict[str, Any]) -> _FakeQuery:
+        self._update_payload = payload
+        return self
+
     def execute(self) -> Any:
         if self._insert_payload is not None:
             row = {"id": f"row-{len(self._store.inserts[self._table]) + 1}",
                    **self._insert_payload}
             self._store.inserts[self._table].append(row)
+            self._store.rows.setdefault(self._table, []).append(row)
             if self._store.fail_insert_tables and self._table in self._store.fail_insert_tables:
                 raise RuntimeError(f"synthetic insert fail for {self._table}")
             return type("Result", (), {"data": [row]})()
+
+        if getattr(self, "_update_payload", None) is not None:
+            updated: list[dict[str, Any]] = []
+            for row in self._store.rows.get(self._table, []):
+                if all(
+                    op != "eq" or str(row.get(col)) == str(val)
+                    for op, col, val in self._filters
+                ):
+                    row.update(self._update_payload)
+                    updated.append(row)
+            self._store.updates.setdefault(self._table, []).extend(updated)
+            return type("Result", (), {"data": updated})()
 
         rows = list(self._store.rows.get(self._table, []))
         for op, col, val in self._filters:
@@ -91,6 +109,7 @@ class _FakeStore:
     def __init__(self) -> None:
         self.rows: dict[str, list[dict[str, Any]]] = {}
         self.inserts: dict[str, list[dict[str, Any]]] = {}
+        self.updates: dict[str, list[dict[str, Any]]] = {}
         self.fail_insert_tables: set[str] = set()
 
     def seed(self, table: str, rows: list[dict[str, Any]]) -> None:
@@ -290,6 +309,165 @@ def test_read_recent_summary_counts_every_kind(store: _FakeStore) -> None:
     for kind in babyg_memory._KIND_TABLE:
         assert kind in summary
         assert isinstance(summary[kind], int)
+
+
+# ---------------------------------------------------------------------------
+# Drafts (Phase 4)
+# ---------------------------------------------------------------------------
+
+
+def test_save_draft_writes_row_and_returns_id(store: _FakeStore) -> None:
+    draft_id = babyg_memory.save_draft(
+        _CREATOR_ID,
+        channel="email",
+        origin_tool="gmail.create_draft",
+        subject="re: collab",
+        to_addr="vans@example.test",
+        body="hey team, happy to chat thursday.",
+    )
+    assert draft_id is not None
+    rows = store.inserts["babyg_memory_drafts"]
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["creator_id"] == _CREATOR_ID
+    assert row["channel"] == "email"
+    assert row["origin_tool"] == "gmail.create_draft"
+    assert row["subject"] == "re: collab"
+    assert row["to_addr"] == "vans@example.test"
+    assert row["status"] == "proposed"
+    # Gmail thread ids are strings, not uuids — thread_id must be absent
+    # when not a valid uuid, so we can't corrupt the column.
+    assert "thread_id" not in row
+
+
+def test_save_draft_refuses_bad_channel(store: _FakeStore) -> None:
+    draft_id = babyg_memory.save_draft(
+        _CREATOR_ID,
+        channel="carrier_pigeon",  # type: ignore[arg-type]
+        origin_tool="none",
+        subject="s",
+        to_addr="a@b",
+        body="hi",
+    )
+    assert draft_id is None
+    assert store.inserts.get("babyg_memory_drafts", []) == []
+
+
+def test_save_draft_refuses_empty_body(store: _FakeStore) -> None:
+    draft_id = babyg_memory.save_draft(
+        _CREATOR_ID,
+        channel="email",
+        origin_tool="gmail.create_draft",
+        subject="s",
+        to_addr="a@b",
+        body="   ",
+    )
+    assert draft_id is None
+
+
+def test_save_draft_refuses_bad_creator(store: _FakeStore) -> None:
+    draft_id = babyg_memory.save_draft(
+        "not-a-uuid",
+        channel="email",
+        origin_tool="gmail.create_draft",
+        subject="s",
+        to_addr="a@b",
+        body="hi",
+    )
+    assert draft_id is None
+
+
+def test_update_draft_status_flips_status_and_stamps_sent(store: _FakeStore) -> None:
+    draft_id = babyg_memory.save_draft(
+        _CREATOR_ID,
+        channel="email",
+        origin_tool="gmail.send_email",
+        subject="ok",
+        to_addr="vans@example.test",
+        body="lets do it",
+    )
+    assert draft_id
+    ok = babyg_memory.update_draft_status(
+        draft_id, "sent", gmail_message_id="gmail-msg-123"
+    )
+    assert ok is True
+    row = store.rows["babyg_memory_drafts"][0]
+    assert row["status"] == "sent"
+    assert row["gmail_message_id"] == "gmail-msg-123"
+    assert row["sent_at"]  # stamped
+    assert row["updated_at"]
+
+
+def test_update_draft_status_rejects_bad_status(store: _FakeStore) -> None:
+    draft_id = babyg_memory.save_draft(
+        _CREATOR_ID,
+        channel="email",
+        origin_tool="gmail.create_draft",
+        subject="s",
+        to_addr="a@b",
+        body="hi",
+    )
+    assert draft_id
+    assert not babyg_memory.update_draft_status(draft_id, "yeeted")  # type: ignore[arg-type]
+    row = store.rows["babyg_memory_drafts"][0]
+    assert row["status"] == "proposed"
+
+
+def test_list_drafts_finds_by_substring(store: _FakeStore) -> None:
+    babyg_memory.save_draft(
+        _CREATOR_ID,
+        channel="email",
+        origin_tool="gmail.create_draft",
+        subject="re: Vans collab",
+        to_addr="vans@example.test",
+        body="hey vans team",
+    )
+    babyg_memory.save_draft(
+        _CREATOR_ID,
+        channel="email",
+        origin_tool="gmail.create_draft",
+        subject="Olipop pitch",
+        to_addr="olipop@example.test",
+        body="excited about olipop",
+    )
+    hits = babyg_memory.list_drafts(_CREATOR_ID, match="vans")
+    assert len(hits) == 1
+    assert hits[0]["subject"] == "re: Vans collab"
+
+
+def test_list_drafts_filters_by_status(store: _FakeStore) -> None:
+    d1 = babyg_memory.save_draft(
+        _CREATOR_ID, channel="email", origin_tool="gmail.create_draft",
+        subject="a", to_addr="a@b", body="a",
+    )
+    d2 = babyg_memory.save_draft(
+        _CREATOR_ID, channel="email", origin_tool="gmail.create_draft",
+        subject="b", to_addr="a@b", body="b",
+    )
+    assert d1 and d2
+    babyg_memory.update_draft_status(d2, "canceled")
+    proposed = babyg_memory.list_drafts(_CREATOR_ID, status="proposed")
+    canceled = babyg_memory.list_drafts(_CREATOR_ID, status="canceled")
+    assert [r["subject"] for r in proposed] == ["a"]
+    assert [r["subject"] for r in canceled] == ["b"]
+
+
+def test_list_drafts_scoped_to_creator(store: _FakeStore) -> None:
+    other = "00000000-0000-0000-0000-0000000000cc"
+    babyg_memory.save_draft(
+        _CREATOR_ID, channel="email", origin_tool="gmail.create_draft",
+        subject="mine", to_addr="a@b", body="body",
+    )
+    babyg_memory.save_draft(
+        other, channel="email", origin_tool="gmail.create_draft",
+        subject="theirs", to_addr="a@b", body="body",
+    )
+    mine = babyg_memory.list_drafts(_CREATOR_ID)
+    assert [r["subject"] for r in mine] == ["mine"]
+
+
+def test_list_drafts_bad_creator_returns_empty(store: _FakeStore) -> None:
+    assert babyg_memory.list_drafts("nope") == []
 
 
 def test_default_preload_cutoff_is_365_days_ago() -> None:
