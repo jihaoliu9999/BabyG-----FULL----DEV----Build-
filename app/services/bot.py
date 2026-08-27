@@ -1410,6 +1410,13 @@ def _execute_read_tool(
                 active_only=bool(tool_input.get("active_only", False)),
                 limit=tool_input.get("limit", 20),
             )
+        elif name == "read_relationship_notes":
+            content = read_only.read_relationship_notes(
+                user_id,
+                brand=tool_input.get("brand"),
+                kind=tool_input.get("kind"),
+                limit=tool_input.get("limit", 10),
+            )
         elif name == "read_my_receipts":
             content = read_only.read_my_receipts(
                 user_id, limit=tool_input.get("limit", 5)

@@ -4320,3 +4320,40 @@ def test_read_my_deals_defaults_when_no_filters(monkeypatch) -> None:
         "active_only": False,
         "limit": 20,
     }
+
+
+# ---------------------------------------------------------------------------
+# Phase 6: read_relationship_notes tool dispatch.
+# ---------------------------------------------------------------------------
+
+
+def test_read_relationship_notes_tool_registered_and_prompted() -> None:
+    names = {t["name"] for t in bot_service.prompts.BOT_TOOL_DEFINITIONS}
+    assert "read_relationship_notes" in names
+    p = bot_service.prompts.babyg_system_prompt()
+    assert "read_relationship_notes" in p
+
+
+def test_read_relationship_notes_dispatch_forwards_filters(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+    monkeypatch.setattr(
+        bot_service.read_only,
+        "read_relationship_notes",
+        lambda user_id, *, brand=None, kind=None, limit=10:
+            captured.update({
+                "user_id": user_id, "brand": brand, "kind": kind, "limit": limit,
+            }) or [{"id": "n1", "brand_name": "Vans"}],
+    )
+    result = bot_service._execute_read_tool(
+        user_id=_CREATOR_UUID,
+        name="read_relationship_notes",
+        tool_input={"brand": "vans", "kind": "payment_reliability", "limit": 5},
+    )
+    assert result["ok"] is True
+    assert result["content"][0]["brand_name"] == "Vans"
+    assert captured == {
+        "user_id": _CREATOR_UUID,
+        "brand": "vans",
+        "kind": "payment_reliability",
+        "limit": 5,
+    }

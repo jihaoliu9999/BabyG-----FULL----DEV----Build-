@@ -13,6 +13,7 @@ from typing import Any
 from app.services import (
     babyg_deals,
     babyg_memory,
+    babyg_relations,
     bookings,
     dms,
     intel,
@@ -148,6 +149,34 @@ def read_creator_directory(user_id: str, *, limit: int = 6) -> list[dict[str, An
             "follower_range": row.get("follower_range"),
         }
         for row in network.list_directory_for_creator(user_id)[:_bounded_limit(limit)]
+    ]
+
+
+def read_relationship_notes(
+    user_id: str,
+    *,
+    brand: str | None = None,
+    kind: str | None = None,
+    limit: int = 10,
+) -> list[dict[str, Any]]:
+    """Return relationship notes for the creator, newest first."""
+    rows = babyg_relations.list_relationship_notes(
+        user_id,
+        brand_name=brand,
+        kind=kind,
+        limit=_bounded_limit(limit, default=10, maximum=25),
+    )
+    return [
+        {
+            "id": row.get("id"),
+            "kind": row.get("kind"),
+            "body": row.get("body"),
+            "brand_name": row.get("brand_name"),
+            "peer_id": row.get("peer_id"),
+            "babyg_source": row.get("babyg_source"),
+            "created_at": row.get("created_at"),
+        }
+        for row in rows
     ]
 
 

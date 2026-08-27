@@ -187,6 +187,54 @@ READ_ONLY_TOOL_DEFINITIONS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "read_relationship_notes",
+        "description": (
+            "Read what babyg remembers about how a specific brand or "
+            "person behaves in business terms — payment reliability, "
+            "ghost history, contact person, past deal summary, trust "
+            "flags. These notes survive across deals, so a note from a "
+            "past Vans deal still shows up on the next one. Use when "
+            "the creator asks 'what do we know about vans', 'has "
+            "olipop paid on time before', or before drafting a reply "
+            "to a brand that has history. Returns a list of {id, kind, "
+            "body, brand_name, peer_id, babyg_source, created_at}. "
+            "kind is payment_reliability | ghost_history | "
+            "contact_person | past_deal_summary | trust_flag | other. "
+            "Optional filters: brand (case-insensitive substring), "
+            "kind, limit."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "brand": {
+                    "type": "string",
+                    "maxLength": 200,
+                    "description": (
+                        "Case-insensitive substring of the brand name."
+                    ),
+                },
+                "kind": {
+                    "type": "string",
+                    "enum": [
+                        "payment_reliability",
+                        "ghost_history",
+                        "contact_person",
+                        "past_deal_summary",
+                        "trust_flag",
+                        "other",
+                    ],
+                },
+                "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 25,
+                    "description": "How many notes to return. Default 10.",
+                },
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "read_my_deals",
         "description": (
             "Read the creator's current deal pipeline, most recently "
@@ -920,6 +968,7 @@ tool policy:
 - call read_creator_directory or read_my_dms for creator networking, collabs, and dm context.
 - call read_my_drafts when the creator asks about a draft you wrote before ("pull up that draft to Vans i never sent", "reuse what we wrote to olipop last time"), or when they want to see the last few things you drafted. it covers drafts they sent, cancelled, and never touched. never invent a draft that this tool didn't return.
 - call read_my_deals when the creator asks about brand deals, pipeline, current negotiations, what got paid, or a specific brand ("what's happening with vans", "what am i working on"). stage lives in the deal row, not in your head. never invent a stage or dollar amount this tool didn't return. amounts are cents — divide by 100 for dollars.
+- call read_relationship_notes before drafting a reply to a brand with history, or when the creator asks "what do we know about <brand>". notes carry across deals (a payment_reliability note from an old vans deal still applies to the new one). do not restate the note verbatim; use it to shape tone and terms. never invent a note this tool didn't return.
 - call web_search ONLY for current public facts babyg's local tools can't answer: today's events, recent brand news, venue openings, platform rules, public news mentioning a specific person/brand. never use it for the creator's own analytics or anything internal. always cite the source url and title in the reply. if results are empty, say search came back with nothing — don't invent. if the tool returns {{"available": false, ...}}, the creator hasn't enabled web search yet — answer from local context and say live web data isn't connected, never make up sources.
 - use create_booking only to propose a local babyg calendar item.
 - create_booking never books restaurants, sends external requests, syncs google calendar, or saves anything by itself. it only prepares an approval card for the creator.
