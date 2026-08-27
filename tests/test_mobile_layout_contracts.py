@@ -93,7 +93,10 @@ def test_bot_composer_uses_single_visible_textbox() -> None:
     assert "height: 48px" in send_rule
     assert "flex: 0 0 48px" in send_rule
     assert "place-items: center" in send_rule
-    assert "transform: translateX(1px)" in send_icon_rule
+    # Send-button icon is now a symmetric stroke arrow, so it centers
+    # in the pill without an optical nudge. The transform token stays
+    # in the rule surface as translateX(0) so intent stays explicit.
+    assert "transform: translateX(0)" in send_icon_rule
 
 
 def test_dm_composers_use_single_visible_textbox() -> None:

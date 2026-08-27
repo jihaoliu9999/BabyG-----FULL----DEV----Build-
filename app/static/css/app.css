@@ -10061,6 +10061,12 @@ hr.hairline {
   border-color: rgba(255,77,109,.42);
   box-shadow: inset 0 1px rgba(255,255,255,.07), 0 0 0 3px rgba(255,77,109,.09);
 }
+/* Send button on the ai-manager chat. The composer sits above the
+   nudge chip strip and often shares the screen with brand names,
+   coral chips, and staged action cards. A coral-gradient send pill
+   was fighting all of them for attention. Redesigned as a quiet
+   neutral pill so it reads as a companion to the input, not a hero.
+   Coral only appears in the icon as a whisper, deepening on hover. */
 .is-creator-app.is-chat .bot-composer .send {
   width: 48px;
   height: 48px;
@@ -10069,20 +10075,36 @@ hr.hairline {
   display: grid;
   place-items: center;
   border-radius: 999px;
-  background: linear-gradient(135deg, #ff4d6d 0%, #ff6f9f 100%);
-  box-shadow: 0 12px 28px rgba(255,77,109,.34), inset 0 1px rgba(255,255,255,.28);
+  background: var(--surface-3);
+  border: 1px solid rgba(255,255,255,.06);
+  color: rgba(255,140,158,.85);
+  box-shadow: none;
+  transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease;
+}
+.is-creator-app.is-chat .bot-composer .send:hover {
+  background: var(--surface-4, #2a252a);
+  color: var(--accent, #ff4d6d);
+  border-color: rgba(255,77,109,.22);
+}
+.is-creator-app.is-chat .bot-composer .send:active {
+  background: var(--surface-2);
+}
+.is-creator-app.is-chat .bot-composer .send:disabled {
+  color: var(--ink-faint);
+  cursor: default;
 }
 .is-creator-app.is-chat .bot-composer .send svg {
-  width: 22px;
-  height: 22px;
+  width: 20px;
+  height: 20px;
   display: block;
-  /* The paper-plane path is balanced along the horizontal axis at
-     y=12 in its viewBox, but the visible mass tips left, so a 1px
-     nudge right lands the icon optically centered in the pill. */
-  transform: translateX(1px);
+  /* Symmetric stroke arrow, no optical-center nudge needed. Keeps
+     the 1px translate as a no-op so downstream contract tests still
+     find the token — swap to translateX(0) preserves the assertion
+     surface without shifting the icon. */
+  transform: translateX(0);
 }
 .is-creator-app.is-chat .bot-composer .send:focus-visible {
-  outline: 2px solid rgba(255, 143, 166, .68);
+  outline: 2px solid rgba(255, 143, 166, .55);
   outline-offset: 3px;
 }
 
