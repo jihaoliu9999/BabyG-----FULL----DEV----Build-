@@ -17,6 +17,7 @@ DASHBOARD_TEMPLATE = (ROOT / "app/templates/creator/dashboard.html").read_text(
     encoding="utf-8"
 )
 MOTION_JS = (ROOT / "app/static/js/motion.js").read_text(encoding="utf-8")
+BOOST_JS = (ROOT / "app/static/js/boost.js").read_text(encoding="utf-8")
 
 
 def test_skip_link_is_hidden_until_focused() -> None:
@@ -388,6 +389,63 @@ def test_babyg_guide_is_tap_friendly_and_replaces_old_dm_prompts() -> None:
     assert "dm-brief-prompt" not in DM_THREAD_TEMPLATE
     assert "ask babyg about this message" not in DM_THREAD_TEMPLATE
     assert "ask babyg to re-check" not in DM_THREAD_TEMPLATE
+
+
+# ---------------------------------------------------------------------------
+# Nav-speed contracts — patch 2B
+#
+# These lock in the non-blocking-fonts + prefetch + watermark-priority
+# pattern so a well-meaning template edit does not silently re-block
+# first paint on every page.
+# ---------------------------------------------------------------------------
+
+
+def test_google_fonts_link_is_non_blocking() -> None:
+    """Fonts CSS must ship with media=print + data-webfont-swap so it
+    downloads without blocking first paint. boost.js flips it to
+    media=all once JS parses; the noscript fallback keeps text styled
+    for JS-disabled users."""
+    assert "data-webfont-swap" in BASE_TEMPLATE
+    assert 'media="print"' in BASE_TEMPLATE
+    # Runtime promotion must exist AND must run BEFORE the creator-only
+    # early-return so brand + operator + auth all benefit.
+    assert "data-webfont-swap" in BOOST_JS
+    early_return = BOOST_JS.index("is-creator-app")
+    promotion = BOOST_JS.index("data-webfont-swap")
+    assert promotion < early_return
+    # Noscript fallback so JS-disabled users still get real fonts.
+    assert "<noscript>" in BASE_TEMPLATE
+
+
+def test_role_shells_prefetch_top_nav_destinations() -> None:
+    """Each role's shell prefetches its top nav destinations so the
+    first click after landing is close to instant."""
+    for path in (
+        "/creator/discover",
+        "/creator/bot",
+        "/creator/dm",
+        "/creator/profile/settings",
+        "/brand/discover",
+        "/brand/profile",
+        "/operator",
+    ):
+        assert f'rel="prefetch" href="{path}"' in BASE_TEMPLATE, (
+            f"missing prefetch link for {path}"
+        )
+
+
+def test_watermark_imgs_use_low_priority_async_decode() -> None:
+    """The 273 KB logo watermarks are decorative — they must not block
+    first paint or contend with above-the-fold decodes."""
+    watermark_lines = [
+        line for line in BASE_TEMPLATE.splitlines()
+        if 'class="app-bg-mark' in line
+    ]
+    # Six in the creator shell + four in the brand shell = ten total.
+    assert len(watermark_lines) == 10
+    for line in watermark_lines:
+        assert 'decoding="async"' in line, line
+        assert 'fetchpriority="low"' in line, line
 
 
 def test_mobile_secondary_actions_are_tap_friendly() -> None:
