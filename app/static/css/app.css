@@ -51,7 +51,14 @@ html, body {
   margin: 0;
   background: var(--bg);
   color: var(--ink);
+  /* `clip` visually clips horizontal overflow without turning html/body
+     into a scroll container. `hidden` here breaks iOS Safari's edge
+     swipe-back gesture because the browser treats the page as a
+     scroller and consumes the touch. `clip` keeps the layout tidy
+     and lets the back-swipe fire cleanly. Fallback for old Safari
+     (< 16) uses `hidden`. */
   overflow-x: hidden;
+  overflow-x: clip;
   width: 100%;
   max-width: 100%;
 }

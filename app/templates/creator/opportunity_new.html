@@ -19,7 +19,10 @@
     {% include "_partials/csrf.html" %}
 
     <fieldset class="op-new-kinds">
-      <legend>kind</legend>
+      {# Kind eyebrow removed — the chip strip is self-evident and
+         the extra label just added chrome above the fold. Legend
+         stays in the DOM as visually-hidden for screen readers. #}
+      <legend class="sr-only">kind</legend>
       <div class="op-new-kind-row" role="radiogroup" aria-label="kind">
         {% for choice in kind_choices %}
         <label class="op-new-kind{% if values.get('listing_type') == choice.value %} on{% endif %}">
@@ -52,7 +55,7 @@
                placeholder="$500 to $1,500 or product trade" />
       </label>
       <label class="op-new-field">
-        <span class="op-new-field-label">closes</span>
+        <span class="op-new-field-label">close date</span>
         <input type="date" name="deadline"
                value="{{ values.get('deadline', '') }}" />
       </label>
