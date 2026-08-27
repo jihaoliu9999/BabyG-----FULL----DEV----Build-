@@ -3795,3 +3795,135 @@ def test_gmail_send_tool_schema_requires_deal_intent() -> None:
     assert "deal_intent" in tool["input_schema"]["required"]
     intents = tool["input_schema"]["properties"]["deal_intent"]["enum"]
     assert set(intents) == {"accepting", "countering", "declining", "other"}
+
+
+# ---------------------------------------------------------------------------
+# Phase 0: BABYG_PROMPT_VERSION exists so bot_turns has something to log.
+# Phase 1: bot_observability records without breaking the turn.
+# Phase 2: timezone grounding does not roll a late-evening NY call into
+# tomorrow.
+# See docs/babyg-ai-reference.md.
+# ---------------------------------------------------------------------------
+
+
+def test_babyg_prompt_version_is_present() -> None:
+    version = getattr(bot_service.prompts, "BABYG_PROMPT_VERSION", None)
+    assert isinstance(version, str)
+    # Format: N.N.N
+    parts = version.split(".")
+    assert len(parts) == 3
+    assert all(p.isdigit() for p in parts)
+
+
+def test_bot_observability_recorder_never_breaks_a_turn(monkeypatch) -> None:
+    """A broken Supabase should not surface as a 500 to the creator."""
+    from app.services import bot_observability
+
+    def _explode(*_a, **_kw):
+        raise RuntimeError("supabase down")
+
+    monkeypatch.setattr(bot_observability.supabase_client, "get_service_client", _explode)
+
+    recorder = bot_observability.TurnRecorder.start(
+        user_id="00000000-0000-0000-0000-000000000001",
+        model="claude-test",
+        prompt_version="9.9.9",
+    )
+    recorder.note_guardrail("rate_floor_refusal")
+    # If _safe_insert re-raised, the whole test would fail. It must swallow.
+    recorder.finish(response_type="refusal")
+    assert recorder._finished is True
+
+
+def test_bot_observability_hash_tool_input_is_stable() -> None:
+    from app.services import bot_observability
+
+    a = bot_observability.hash_tool_input({"b": 2, "a": 1})
+    b = bot_observability.hash_tool_input({"a": 1, "b": 2})
+    assert a == b
+    assert len(a) == 12
+
+
+def test_bot_observability_recorder_finish_idempotent(monkeypatch) -> None:
+    """Calling finish twice must not double-insert or raise."""
+    from app.services import bot_observability
+
+    calls: list[dict] = []
+
+    class _Table:
+        def insert(self, payload):
+            calls.append(payload)
+            return self
+        def execute(self):
+            return self
+
+    class _Client:
+        def table(self, _name):
+            return _Table()
+
+    monkeypatch.setattr(bot_observability.supabase_client, "get_service_client", lambda: _Client())
+
+    recorder = bot_observability.TurnRecorder.start(
+        user_id="00000000-0000-0000-0000-000000000001",
+        model="claude-test",
+        prompt_version="9.9.9",
+    )
+    recorder.finish(response_type="text")
+    recorder.finish(response_type="text")
+    assert len(calls) == 1
+
+
+def test_format_now_ny_late_evening_stays_today(monkeypatch) -> None:
+    """America/New_York at 11:30pm on Aug 26 is Aug 26 to the user even
+    though UTC has rolled to Aug 27 at 03:30. Regression guard against
+    the 'babyg is a day ahead' bug."""
+    # 03:30 UTC on Aug 27 is 23:30 EDT on Aug 26.
+    label = bot_service._format_now(
+        user_now_iso="2026-08-27T03:30:00Z",
+        user_tz="America/New_York",
+    )
+    assert label is not None
+    assert "aug 26" in label
+    assert "America/New_York" in label
+    # Not tomorrow's date.
+    assert "aug 27" not in label
+
+
+def test_format_now_la_across_dst_boundary() -> None:
+    """A tz name with underscores and a DST-affected zone must not
+    raise. The exact rendered offset varies by system tz db version;
+    the test only requires that the zone is honored and no exception."""
+    label = bot_service._format_now(
+        user_now_iso="2026-03-08T10:30:00Z",  # after LA spring forward
+        user_tz="America/Los_Angeles",
+    )
+    assert label is not None
+    assert "America/Los_Angeles" in label
+
+
+def test_format_now_multi_component_tz_names() -> None:
+    label = bot_service._format_now(
+        user_now_iso="2026-08-27T15:00:00Z",
+        user_tz="America/Argentina/Buenos_Aires",
+    )
+    assert label is not None
+    assert "America/Argentina/Buenos_Aires" in label
+
+
+def test_format_now_missing_tz_falls_back_to_utc_cleanly() -> None:
+    label = bot_service._format_now(
+        user_now_iso="2026-08-27T03:30:00Z",
+        user_tz=None,
+    )
+    assert label is not None
+    assert "UTC" in label
+
+
+def test_format_now_bad_tz_string_does_not_crash() -> None:
+    label = bot_service._format_now(
+        user_now_iso="2026-08-27T03:30:00Z",
+        user_tz="Fake/Zone",
+    )
+    assert label is not None
+    # Bad tz keeps the UTC label truthful.
+    assert "UTC" in label

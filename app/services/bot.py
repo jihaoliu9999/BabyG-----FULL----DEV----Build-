@@ -11,12 +11,14 @@ from typing import Any, Literal
 from postgrest.exceptions import APIError as PostgrestAPIError
 
 from app.agent.tools import read_only
+from app.config import get_settings
 from app.core import supabase_client
 from app.core.uuid_guard import safe_uuid
 from app.integrations import anthropic_client, google_calendar, google_gmail, instagram_meta, tavily
 from app.services import (
     action_proposals,
     bookings,
+    bot_observability,
     jobs,
     oauth_connections,
     profiles,
@@ -227,6 +229,17 @@ def handle_creator_message(
     if not user_content:
         return BotTurnResult(response="Send me a creator task and I'll help.")
 
+    # Phase 1 observability: one recorder per turn. Records to bot_turns
+    # on finish(). Never breaks the turn on write failure. See
+    # docs/babyg-ai-reference.md phase 1.
+    recorder = bot_observability.TurnRecorder.start(
+        user_id=user_id,
+        model=get_settings().anthropic_model,
+        prompt_version=prompts.BABYG_PROMPT_VERSION,
+    )
+    if len(content or "") > MAX_USER_MESSAGE_CHARS:
+        recorder.note_guardrail("user_message_truncated")
+
     scope_flag = _scope_flag(user_content)
     create_message(
         user_id=user_id,
@@ -245,6 +258,8 @@ def handle_creator_message(
             flagged=True,
             flag_category=scope_flag,
         )
+        recorder.note_guardrail("scope_refusal")
+        recorder.finish(response_type="refusal")
         return BotTurnResult(
             response=response_text,
             flagged=True,
@@ -260,6 +275,8 @@ def handle_creator_message(
             content=response_text,
             tool_calls=proposal,
         )
+        recorder.note_action_proposal_staged(str(proposal.get("action_type") or "unknown"))
+        recorder.finish(response_type="pending_action")
         return BotTurnResult(response=response_text)
 
     history = _messages_for_claude(list_messages(user_id, limit=MAX_HISTORY_MESSAGES))
@@ -294,6 +311,7 @@ def handle_creator_message(
         )
         input_tokens = 0
         output_tokens = 0
+        recorder.note_tool_error("anthropic_client", "not_configured")
     except anthropic_client.ClaudeCallError:
         response_text = (
             "I couldn't reach Claude for that turn. Your message is saved; "
@@ -301,6 +319,7 @@ def handle_creator_message(
         )
         input_tokens = 0
         output_tokens = 0
+        recorder.note_tool_error("anthropic_client", "call_failed")
     except Exception:
         # Belt for the agent loop. ClaudeNotConfigured / ClaudeCallError
         # above cover the known upstream failures; this catches anything
@@ -324,6 +343,27 @@ def handle_creator_message(
         content=response_text,
         tool_calls=pending_action or tool_calls or None,
     )
+
+    # Observability: classify the turn's outcome and record. Never raises.
+    if pending_action is not None:
+        recorder.note_action_proposal_staged(
+            str(pending_action.get("action_type") or "unknown")
+        )
+        _observed_response_type = "pending_action"
+    elif tool_calls:
+        _observed_response_type = "text"
+    else:
+        _observed_response_type = "text"
+    for _tc in tool_calls or []:
+        _tc_name = _tc.get("name") if isinstance(_tc, dict) else None
+        if _tc_name:
+            recorder.note_tool_executed(str(_tc_name), ok=True)
+    recorder.finish(
+        response_type=_observed_response_type,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+    )
+
     return BotTurnResult(
         response=response_text,
         input_tokens=input_tokens,

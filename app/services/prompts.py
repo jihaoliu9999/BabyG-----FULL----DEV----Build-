@@ -14,6 +14,16 @@ from __future__ import annotations
 
 from typing import Any
 
+# babyg AI reference version.
+# Bump on every prompt edit. Format: major.minor.patch.
+#   patch: wording tweaks that do not change meaning
+#   minor: a new block, a new tool, a new guardrail
+#   major: identity or non-negotiable rules change
+# This value flows into bot_turns.prompt_version so we can query which
+# version was live when any given behavior surfaced.
+# See docs/babyg-ai-reference.md, section 16.
+BABYG_PROMPT_VERSION = "2.0.0"
+
 READ_ONLY_TOOL_DEFINITIONS: list[dict[str, Any]] = [
     {
         "name": "read_my_profile",
