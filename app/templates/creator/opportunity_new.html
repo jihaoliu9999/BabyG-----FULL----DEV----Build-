@@ -8,9 +8,7 @@
     <a href="/creator/discover?kind=opportunity" class="op-new-back" aria-label="back to discover">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
     </a>
-    <div class="op-new-title">
-      <h1>post an opportunity</h1>
-    </div>
+    <h1 class="op-new-title">post an opportunity</h1>
   </header>
 
   {% if error %}
@@ -22,13 +20,12 @@
 
     <fieldset class="op-new-kinds">
       <legend>kind</legend>
-      <div class="op-new-kind-grid">
+      <div class="op-new-kind-row" role="radiogroup" aria-label="kind">
         {% for choice in kind_choices %}
         <label class="op-new-kind{% if values.get('listing_type') == choice.value %} on{% endif %}">
           <input type="radio" name="listing_type" value="{{ choice.value }}"
                  {% if values.get('listing_type') == choice.value or (not values.get('listing_type') and loop.first) %}checked{% endif %} />
-          <span class="op-new-kind-label">{{ choice.label }}</span>
-          <span class="op-new-kind-hint">{{ choice.hint }}</span>
+          <span>{{ choice.label }}</span>
         </label>
         {% endfor %}
       </div>
@@ -38,12 +35,12 @@
       <span class="op-new-field-label">title</span>
       <input type="text" name="title" required maxlength="120"
              value="{{ values.get('title', '') }}"
-             placeholder="e.g. ugc brief — greek yogurt reels" />
+             placeholder="e.g. ugc brief for greek yogurt reels" />
     </label>
 
     <label class="op-new-field">
       <span class="op-new-field-label">what you need</span>
-      <textarea name="description" required maxlength="2000" rows="4"
+      <textarea name="description" required maxlength="2000" rows="3"
                 placeholder="one short paragraph. scope, deliverables, timing, any must-haves.">{{ values.get('description', '') }}</textarea>
     </label>
 
@@ -52,7 +49,7 @@
         <span class="op-new-field-label">compensation</span>
         <input type="text" name="compensation_text" maxlength="120"
                value="{{ values.get('compensation_text', '') }}"
-               placeholder="$500 — $1,500 · or product trade" />
+               placeholder="$500 to $1,500 or product trade" />
       </label>
       <label class="op-new-field">
         <span class="op-new-field-label">closes</span>
@@ -62,7 +59,7 @@
     </div>
 
     <label class="op-new-field">
-      <span class="op-new-field-label">tags · comma separated</span>
+      <span class="op-new-field-label">tags</span>
       <input type="text" name="target_niches" maxlength="240"
              value="{{ values.get('target_niches', '') }}"
              placeholder="food, wellness, ugc" />

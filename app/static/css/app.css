@@ -11173,17 +11173,21 @@ body:has(.dm-thread-composer-box input:focus) .creator-tabbar {
 
 /* Post-opportunity form — mobile-first, single column. Sits inside the
    creator app shell so the sidebar/tabbar shell chrome handles nav. */
+/* Post-opportunity form. Mobile-first: single column, slim header,
+   kind as a horizontal chip strip so the form starts on the fields
+   instead of a 2x2 card slab. Sub-660px stays tight to the safe
+   area; wide screens cap at ~640px. */
 .op-new {
-  width: min(100%, 720px);
+  width: min(100%, 640px);
   margin: 0 auto;
-  padding: 22px 20px 60px;
-  display: grid; gap: 18px;
+  padding: 12px 16px calc(var(--tabbar-h, 68px) + env(safe-area-inset-bottom) + 24px);
+  display: grid; gap: 14px;
 }
 .op-new-head {
-  display: flex; align-items: center; gap: 12px;
+  display: flex; align-items: center; gap: 10px;
 }
 .op-new-back {
-  width: 40px; height: 40px; flex: 0 0 40px;
+  width: 36px; height: 36px; flex: 0 0 36px;
   display: grid; place-items: center;
   color: var(--ink-mid);
   background: var(--surface-2);
@@ -11193,16 +11197,15 @@ body:has(.dm-thread-composer-box input:focus) .creator-tabbar {
   transition: color 140ms ease, background-color 140ms ease, border-color 140ms ease;
 }
 .op-new-back:hover { color: var(--ink); border-color: var(--hairline-strong); }
-.op-new-back svg { width: 18px; height: 18px; }
-.op-new-title h1 {
+.op-new-back svg { width: 16px; height: 16px; }
+.op-new-title {
   margin: 0;
-  font-size: 28px;
+  font-size: 20px;
   font-weight: 600;
-  letter-spacing: 0;
-  line-height: 1;
-  text-transform: lowercase;
+  letter-spacing: -.01em;
+  line-height: 1.1;
+  color: var(--ink);
 }
-.op-new-title p { margin: 4px 0 0; color: var(--ink-mid); font-size: 13px; }
 .op-new-banner {
   padding: 10px 14px;
   color: var(--accent-text);
@@ -11211,29 +11214,46 @@ body:has(.dm-thread-composer-box input:focus) .creator-tabbar {
   background: rgba(255,77,109,.06);
   font-size: 13px;
 }
-.op-new-form { display: grid; gap: 14px; }
-.op-new-kinds { border: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.op-new-form { display: grid; gap: 12px; }
+.op-new-kinds { border: none; padding: 0; margin: 0; display: grid; gap: 6px; }
 .op-new-kinds legend {
   padding: 0;
   color: var(--ink-dim);
   font-family: var(--mono);
   font-size: 10px; letter-spacing: .14em; text-transform: uppercase;
 }
-.op-new-kind-grid {
-  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;
+/* Horizontal chip strip. Scrolls on narrow phones so four choices
+   never wrap to two rows and never crowd the fields below. */
+.op-new-kind-row {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 2px;
+  margin: 0 -16px;
+  padding-inline: 16px;
 }
-@media (min-width: 640px) {
-  .op-new-kind-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.op-new-kind-row::-webkit-scrollbar { display: none; }
+@media (min-width: 500px) {
+  .op-new-kind-row { flex-wrap: wrap; margin: 0; padding-inline: 0; overflow: visible; }
 }
 .op-new-kind {
   position: relative;
-  display: grid; gap: 3px;
-  padding: 12px 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 9px 14px;
   color: var(--ink-mid);
   background: var(--surface-2);
   border: 1px solid var(--hairline);
-  border-radius: 12px;
+  border-radius: 999px;
   cursor: pointer;
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex: 0 0 auto;
   transition: color 140ms ease, background-color 140ms ease, border-color 140ms ease;
 }
 .op-new-kind input {
@@ -11242,11 +11262,9 @@ body:has(.dm-thread-composer-box input:focus) .creator-tabbar {
 .op-new-kind:has(input:checked),
 .op-new-kind.on {
   color: var(--ink);
-  border-color: rgba(255,77,109,.4);
-  background: rgba(255,77,109,.06);
+  border-color: rgba(255,77,109,.5);
+  background: rgba(255,77,109,.12);
 }
-.op-new-kind-label { font-size: 13.5px; font-weight: 600; letter-spacing: 0; }
-.op-new-kind-hint { color: var(--ink-dim); font-size: 11px; }
 .op-new-field { display: grid; gap: 5px; }
 .op-new-field-label {
   color: var(--ink-dim);
@@ -11269,18 +11287,19 @@ body:has(.dm-thread-composer-box input:focus) .creator-tabbar {
   border-color: rgba(255,77,109,.4);
   background: var(--surface-3);
 }
-.op-new-field textarea { min-height: 100px; resize: vertical; line-height: 1.5; }
-.op-new-row-2 { display: grid; grid-template-columns: 1fr; gap: 12px; }
-@media (min-width: 640px) {
+.op-new-field textarea { min-height: 84px; resize: vertical; line-height: 1.5; }
+.op-new-row-2 { display: grid; grid-template-columns: 1fr; gap: 10px; }
+@media (min-width: 500px) {
   .op-new-row-2 { grid-template-columns: 1fr 1fr; }
 }
 .op-new-submit {
   height: 46px;
+  margin-top: 4px;
   color: #fff;
   background: var(--accent);
   border: none;
-  border-radius: 12px;
-  font: inherit; font-size: 14.5px; font-weight: 700; letter-spacing: 0;
+  border-radius: 999px;
+  font: inherit; font-size: 15px; font-weight: 700; letter-spacing: 0;
   cursor: pointer;
   transition: background-color 140ms ease, transform 120ms ease;
 }
