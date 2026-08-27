@@ -18,6 +18,16 @@
   <span>{{ error }}</span>
 </div>
 {% endif %}
+{# Chip strip refresh — AJAX responses only.
+   On the initial GET this partial is included from within
+   <ol class="bot-messages"> in bot.html, and the chip strip is
+   rendered separately inside the composer. Duplicating it here would
+   drop a second strip inside the message list. bot.js sets
+   include_chips=True implicitly by calling the render path that
+   passes it — the route's _bot_messages_partial does. #}
+{% if include_chips and bot_prompts %}
+{% include "_partials/bot_prompt_chips.html" with context %}
+{% endif %}
 {% if messages %}
   {% for m in messages %}
     {% if m.role != "system" %}

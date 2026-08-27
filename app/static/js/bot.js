@@ -159,7 +159,32 @@
       errorSlot.innerHTML = banner.outerHTML;
       banner.remove();
     }
+    // Composer v2: the partial ships a fresh [data-bot-chips] strip.
+    // Pluck it out of the response before the innerHTML swap so the
+    // stale strip currently in the composer gets replaced instead of
+    // duplicated into the message list.
+    const freshChips = wrap.querySelector("[data-bot-chips]");
+    if (freshChips) {
+      freshChips.remove();
+      swapChipStrip(freshChips);
+    } else {
+      // No chips returned means the turn had nothing worth showing.
+      // Drop the current strip so we don't leave stale suggestions.
+      const current = document.querySelector("[data-bot-chips]");
+      if (current) current.remove();
+    }
     swapList(wrap.innerHTML, true);
+  };
+
+  const swapChipStrip = (freshEl) => {
+    const current = document.querySelector("[data-bot-chips]");
+    if (current) {
+      current.replaceWith(freshEl);
+    } else if (composer) {
+      // First-turn insert: bot.js drops the empty-state strip on send,
+      // so a live turn is the first chance we get to put chips back.
+      composer.insertBefore(freshEl, composer.querySelector(".box"));
+    }
   };
 
   async function postForm(form) {
@@ -348,25 +373,29 @@
     }
   });
 
-  // Suggested-prompt chips. Rendered by the server when prompt options
-  // are available. One tap fills the composer and submits the same form
-  // path as the send button.
-  const chipsRow = document.querySelector(".bot-prompt-chips");
-  if (chipsRow) {
-    chipsRow.addEventListener("click", (e) => {
-      const chip = e.target.closest("[data-bot-prompt]");
-      if (!chip) return;
-      e.preventDefault();
-      if (inFlight) return;
-      const text = chip.getAttribute("data-bot-prompt") || "";
-      if (!text) return;
-      textarea.value = text;
-      // Trigger the auto-resize + button-enable listeners composer sets up.
-      textarea.dispatchEvent(new Event("input", { bubbles: true }));
-      chipsRow.remove();
+  // Suggested-prompt chips. The strip re-renders every turn, so bind
+  // via delegation on the composer (which is stable) — a fresh chip
+  // element gets the handler for free. One tap fills the composer
+  // and submits the same form path as the send button.
+  //
+  // Chips carrying data-chip-submit="1" (verb chips off the pending-
+  // action path, e.g. "looks good, send it") submit immediately. All
+  // others fill the composer and let the creator edit before send.
+  composer.addEventListener("click", (e) => {
+    const chip = e.target.closest("[data-bot-prompt]");
+    if (!chip) return;
+    e.preventDefault();
+    if (inFlight) return;
+    const text = chip.getAttribute("data-bot-prompt") || "";
+    if (!text) return;
+    textarea.value = text;
+    textarea.dispatchEvent(new Event("input", { bubbles: true }));
+    if (chip.getAttribute("data-chip-submit") === "1") {
       composer.requestSubmit();
-    });
-  }
+    } else {
+      textarea.focus();
+    }
+  });
 
   // Inline chips under any bot message (nudges + assistant turns).
   //   * data-chip-fill drops the text into the composer.

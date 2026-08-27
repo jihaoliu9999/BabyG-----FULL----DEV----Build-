@@ -194,3 +194,166 @@ def test_empty_snapshot_falls_back_to_evergreens() -> None:
         "what needs me today?",
         "check my week",
     ]
+
+
+# ---------------------------------------------------------------------------
+# Composer v2: turn-aware chip generation.
+# Chips must reflect the conversation, not just the awareness snapshot.
+# ---------------------------------------------------------------------------
+
+
+def _msg(role, content, **tc):
+    row = {"role": role, "content": content}
+    if tc:
+        row["tool_calls"] = tc
+    return row
+
+
+def test_evergreens_only_fire_on_cold_open() -> None:
+    """Empty thread: fall through to the two evergreens.
+    Thread with a real user turn: evergreens must not appear."""
+    cold = compute_prompts(messages=[])
+    assert [p["text"] for p in cold] == ["what needs me today?", "check my week"]
+
+    live = compute_prompts(
+        messages=[
+            _msg("user", "hey"),
+            _msg("assistant", "morning."),
+        ]
+    )
+    texts = [p["text"] for p in live]
+    assert "what needs me today?" not in texts
+    assert "check my week" not in texts
+
+
+def test_pending_action_collapses_row_to_verb_chips() -> None:
+    """A pending proposed_action on the newest assistant message is
+    the ONE decision in front of the creator. Chips must collapse
+    to confirm / review / cancel and nothing else."""
+    prompts = compute_prompts(
+        snapshot=_snapshot(),  # empty snapshot; verb chips should override anyway
+        messages=[
+            _msg("user", "draft that vans reply"),
+            _msg(
+                "assistant",
+                "staged the draft.",
+                kind="proposed_action",
+                status="pending",
+                action_type="gmail.create_draft",
+                payload={"to": "team@vans.example", "subject": "re: collab", "body": "hey"},
+            ),
+        ],
+    )
+    texts = [p["text"] for p in prompts]
+    assert texts == [
+        "looks good, send it",
+        "read the draft to vans back to me",
+        "cancel it",
+    ]
+    tones = [p["tone"] for p in prompts]
+    assert tones == ["good", "warn", "primary"]
+    # Only the confirm chip auto-submits; review + cancel fill first.
+    assert prompts[0]["submit"] is True
+    assert prompts[1].get("submit") is not True
+    assert prompts[2].get("submit") is not True
+
+
+def test_pending_action_ignored_if_already_resolved() -> None:
+    """A confirmed / cancelled proposal isn't a decision anymore."""
+    prompts = compute_prompts(
+        messages=[
+            _msg("user", "yes"),
+            _msg(
+                "assistant",
+                "sent.",
+                kind="proposed_action",
+                status="executed",
+                action_type="gmail.create_draft",
+                payload={"to": "team@vans.example"},
+            ),
+        ]
+    )
+    # No pending action, no brand-bolded reply, no snapshot: strip empty.
+    assert prompts == []
+
+
+def test_brand_hint_from_assistant_bold_pulls_deal_chips() -> None:
+    """Assistant bolded a brand name -> chips point at that brand."""
+    prompts = compute_prompts(
+        messages=[
+            _msg("user", "what's happening with vans"),
+            _msg(
+                "assistant",
+                "**Vans** is at negotiating. last touch was 6 days ago.",
+            ),
+        ]
+    )
+    texts = [p["text"] for p in prompts]
+    assert "draft a counter to vans" in texts
+    assert "pull the vans thread" in texts
+    assert "remind me about vans in 2 days" in texts
+    # And no evergreens under a live turn.
+    assert "what needs me today?" not in texts
+
+
+def test_brand_hint_uses_domain_root_of_pending_recipient() -> None:
+    """team@vans.example -> vans (domain root beats local part)."""
+    prompts = compute_prompts(
+        messages=[
+            _msg("user", "draft it"),
+            _msg(
+                "assistant",
+                "staged.",
+                kind="proposed_action",
+                status="pending",
+                action_type="gmail.create_draft",
+                payload={"to": "team@vans.example"},
+            ),
+        ]
+    )
+    review = next(p for p in prompts if p["tone"] == "warn")
+    assert review["text"] == "read the draft to vans back to me"
+
+
+def test_brand_hint_falls_back_when_domain_is_generic() -> None:
+    """anna@gmail.com is a personal address, not a brand. Use the local
+    part as the label instead of the mail provider."""
+    prompts = compute_prompts(
+        messages=[
+            _msg("user", "draft it"),
+            _msg(
+                "assistant",
+                "staged.",
+                kind="proposed_action",
+                status="pending",
+                action_type="gmail.create_draft",
+                payload={"to": "anna@gmail.com"},
+            ),
+        ]
+    )
+    review = next(p for p in prompts if p["tone"] == "warn")
+    assert review["text"] == "read the draft to anna back to me"
+
+
+def test_helpers_do_not_crash_on_missing_fields() -> None:
+    """The helper is defensive against messages missing tool_calls or
+    role. Prod data is messy. Malformed inputs get treated as if
+    there were no user turn (cold-open behavior), so evergreens fill."""
+    got = compute_prompts(messages=[{"content": "hi"}])
+    assert [p["text"] for p in got] == ["what needs me today?", "check my week"]
+    got = compute_prompts(messages=[{"role": "assistant"}])
+    assert [p["text"] for p in got] == ["what needs me today?", "check my week"]
+
+
+def test_day_word_is_not_treated_as_brand() -> None:
+    """Assistant mentioning 'Friday' or 'Monday' must not become a chip
+    like 'draft a counter to friday'. Days are stopwords for the
+    brand extractor."""
+    prompts = compute_prompts(
+        messages=[
+            _msg("user", "any plans"),
+            _msg("assistant", "Friday is open for the shoot."),
+        ]
+    )
+    texts = [p["text"] for p in prompts]
+    assert not any("friday" in t for t in texts)

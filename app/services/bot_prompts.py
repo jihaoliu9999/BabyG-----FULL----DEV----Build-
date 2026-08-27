@@ -17,9 +17,18 @@ from __future__ import annotations
 from typing import Any, TypedDict
 
 
-class BotPrompt(TypedDict):
+class BotPrompt(TypedDict, total=False):
     text: str
     icon: str
+    # Optional verb-weight for coloring the chip. "primary" for the next
+    # concrete move, "warn" for review-before-action, "good" for a
+    # confirm/positive close. Omitted for evergreens.
+    tone: str
+    # When True bot.js auto-submits the chip on tap instead of filling
+    # the composer. Reserved for confirm-style verbs (approving a
+    # pending action, sending a staged draft) where a one-tap gesture
+    # is the whole point.
+    submit: bool
 
 
 # Icon ids resolved in _partials/bot_prompt_chips.html — keep names in sync.
@@ -44,26 +53,91 @@ def compute_prompts(
     unread_dms_count: int = 0,
     recent_dm_peer_name: str | None = None,
     snapshot: dict[str, Any] | None = None,
+    messages: list[dict[str, Any]] | None = None,
 ) -> list[BotPrompt]:
     """Return up to 4 context-driven prompts for the composer chip strip.
 
+    Live conversation state ranks above the awareness snapshot: if the
+    last assistant message has a pending action proposal, the row
+    collapses to confirm / review / cancel verbs — that is the only
+    move worth showing until the creator resolves it. If the reply
+    just staged a brand-specific move, chips point at that brand.
+
+    ``messages`` is the ordered thread with tool_calls attached; the
+    last assistant row is inspected for `tool_calls.status == 'pending'`
+    and the associated action_type / payload. Evergreens ("what needs
+    me today?", "check my week") only fire on a genuine cold open —
+    no user messages yet — so a live turn is never buried under
+    generic filler.
+
     Legacy call-sites that only pass ``unread_dms_count`` +
-    ``recent_dm_peer_name`` keep working — those two args are still
-    honored. When a full awareness ``snapshot`` is provided the strip
-    also considers freshly accepted connections, imminent bookings,
-    pending action proposals, discover matches, and hot drops.
+    ``recent_dm_peer_name`` keep working; those two args are still
+    honored.
 
     Priority order (highest first):
-      1. connection just accepted → nudge to say hi
-      2. event starting in the next few hours → check-in / directions
-      3. pending action proposal awaiting confirm → open it
-      4. unread DMs → summarize / draft
-      5. fresh discover match → look at the card
-      6. fresh hot drop matching niches → skim it
-      7. evergreens fill the rest
+      0. pending action proposal on the last assistant turn (verb chips)
+      1. brand-specific next move from the last staged action
+      2. connection just accepted → nudge to say hi
+      3. event starting in the next few hours → check-in / directions
+      4. pending action proposal (awareness snapshot fallback)
+      5. unread DMs → summarize / draft
+      6. fresh discover match → look at the card
+      7. fresh hot drop matching niches → skim it
+      8. evergreens ONLY on cold open
     """
     prompts: list[BotPrompt] = []
     snap = snapshot or {}
+    msgs = messages or []
+
+    # ---- 0. pending action on the last assistant turn ----
+    #
+    # If the newest assistant message staged an external write, the
+    # only chips worth showing are the verbs that resolve it: confirm,
+    # review, cancel. That collapses the row and beats every other
+    # signal — the creator has ONE decision in front of them.
+    pending = _last_pending_action(msgs)
+    if pending is not None:
+        brand = _brand_hint_from_action(pending)
+        review_text = (
+            f"read the draft to {brand} back to me"
+            if brand
+            else "read the draft back to me before we send"
+        )
+        return [
+            {
+                "text": "looks good, send it",
+                "icon": _ICON_MESSAGE,
+                "tone": "good",
+                "submit": True,
+            },
+            {
+                "text": review_text,
+                "icon": _ICON_PENCIL,
+                "tone": "warn",
+            },
+            {
+                "text": "cancel it",
+                "icon": _ICON_CLOCK,
+                "tone": "primary",
+            },
+        ]
+
+    # ---- 1. brand-specific move pulled from the most recent assistant turn ----
+    brand_from_reply = _last_brand_mentioned(msgs)
+    if brand_from_reply:
+        prompts.append({
+            "text": f"draft a counter to {brand_from_reply}",
+            "icon": _ICON_PENCIL,
+            "tone": "primary",
+        })
+        prompts.append({
+            "text": f"pull the {brand_from_reply} thread",
+            "icon": _ICON_MESSAGE,
+        })
+        prompts.append({
+            "text": f"remind me about {brand_from_reply} in 2 days",
+            "icon": _ICON_CLOCK,
+        })
 
     # ---- 1. connection accepted (highest-signal social moment) ----
     accepted = snap.get("recent_connection_accepted") or {}
@@ -130,9 +204,14 @@ def compute_prompts(
             "icon": _ICON_CLOCK,
         })
 
-    # ---- 7. evergreens — always fit; guarantee the row is never empty ----
-    prompts.append({"text": "what needs me today?", "icon": _ICON_CLOCK})
-    prompts.append({"text": "check my week", "icon": _ICON_CALENDAR})
+    # ---- 8. evergreens — cold open only ----
+    #
+    # Once the thread has real content, evergreens crowd out the
+    # signal we just derived from the conversation. On a genuine cold
+    # open (no user turns yet) they guarantee the row is never empty.
+    if not _has_user_turn(msgs):
+        prompts.append({"text": "what needs me today?", "icon": _ICON_CLOCK})
+        prompts.append({"text": "check my week", "icon": _ICON_CALENDAR})
 
     # Dedupe by text so the same suggestion doesn't slot twice from
     # different signals (e.g. accepted peer == latest DM peer).
@@ -147,3 +226,118 @@ def compute_prompts(
             break
     return unique
 
+
+
+# ---- Turn-aware helpers ---------------------------------------------------
+
+
+def _has_user_turn(messages: list[dict[str, Any]]) -> bool:
+    """True iff the thread has at least one user message. Guards the
+    evergreen chips: they should only show on a genuine cold open."""
+    return any(
+        str(msg.get("role") or "").lower() == "user" for msg in messages or []
+    )
+
+
+def _last_pending_action(messages: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """Return the tool_calls dict of the most recent assistant message
+    that is still awaiting the creator's confirm, or None. Only the
+    LAST assistant message counts — an older pending action that a
+    newer turn has already resolved must not resurrect chips."""
+    if not messages:
+        return None
+    for msg in reversed(messages):
+        role = str(msg.get("role") or "").lower()
+        if role != "assistant":
+            continue
+        tc = msg.get("tool_calls")
+        if not isinstance(tc, dict):
+            return None
+        if tc.get("kind") != "proposed_action":
+            return None
+        if str(tc.get("status") or "") != "pending":
+            return None
+        return tc
+    return None
+
+
+def _brand_hint_from_action(pending: dict[str, Any]) -> str | None:
+    """Given a pending proposed_action, return the recipient hint for a
+    chip label. For gmail actions we use the local-part of `to` when
+    it looks brand-ish; otherwise we skip so the chip stays generic."""
+    payload = pending.get("payload") if isinstance(pending, dict) else None
+    if not isinstance(payload, dict):
+        return None
+    to = str(payload.get("to") or "").strip().lower()
+    if not to or "@" not in to:
+        return None
+    local, _, domain = to.partition("@")
+    # A friendly first token: "team@vans.example" -> "vans",
+    # "anna@olipop.co" -> "olipop". Prefer the domain root over the
+    # local part because local parts are often personal names.
+    root = (domain.split(".", 1)[0] or "").strip()
+    if root and root not in {"gmail", "outlook", "hotmail", "yahoo", "icloud", "proton"}:
+        return root
+    # Personal-mail domain: the local part is what we know.
+    return local or None
+
+
+_STOPWORD_TOKENS = frozenset({
+    "the", "and", "you", "your", "with", "that", "this", "are", "for",
+    "our", "have", "has", "was", "were", "will", "would", "could",
+    "should", "just", "then", "than", "them", "from", "into", "onto",
+    "about", "before", "after", "still", "want", "need", "yeah",
+})
+
+
+def _last_brand_mentioned(messages: list[dict[str, Any]]) -> str | None:
+    """Extract a brand-ish token from the most recent assistant message,
+    falling back to None. The heuristic is deliberately narrow:
+
+        * only inspect the last assistant message
+        * skip if that message has a pending action (handled above)
+        * look for a bolded token (**Vans**) — the prompt already tells
+          babyg to bold brand names, so this is the most reliable
+          signal we have without an NER pass
+        * otherwise pull the first capitalized token that isn't a
+          stopword
+
+    We only surface chips off this signal when the token is clearly a
+    brand-ish word (not "I", "You", "Monday" etc.). This is a
+    heuristic — a wrong chip is cheap because the creator can ignore
+    it, but a wrong CONFIRM chip would be dangerous, which is why
+    those come from the pending-action path instead.
+    """
+    if not messages:
+        return None
+    for msg in reversed(messages):
+        role = str(msg.get("role") or "").lower()
+        if role != "assistant":
+            continue
+        content = str(msg.get("content") or "")
+        return _extract_brand_from_text(content)
+    return None
+
+
+def _extract_brand_from_text(text: str) -> str | None:
+    import re
+
+    # 1. Prefer **bold** tokens — the prompt uses them for brand names.
+    bold_match = re.search(r"\*\*([A-Z][A-Za-z0-9&\-]{1,40})\*\*", text)
+    if bold_match:
+        return bold_match.group(1).lower()
+    # 2. Fall back: a capitalized token near the start of a sentence
+    #    that isn't a stopword and isn't a day/month.
+    day_words = frozenset({
+        "Monday", "Tuesday", "Wednesday", "Thursday", "Friday",
+        "Saturday", "Sunday", "January", "February", "March", "April",
+        "May", "June", "July", "August", "September", "October",
+        "November", "December",
+    })
+    for token in re.findall(r"\b([A-Z][A-Za-z0-9&\-]{2,40})\b", text):
+        if token in day_words:
+            continue
+        if token.lower() in _STOPWORD_TOKENS:
+            continue
+        return token.lower()
+    return None

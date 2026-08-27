@@ -265,6 +265,7 @@ async def bot_chat(
         unread_dms_count=int((snap.get("unread_dms") or {}).get("count") or 0),
         recent_dm_peer_name=(snap.get("unread_dms") or {}).get("latest_peer_name"),
         snapshot=snap,
+        messages=messages,
     )
 
     return templates.TemplateResponse(
@@ -297,12 +298,36 @@ def _bot_messages_partial(
     error: str | None = None,
     status_code: int = 200,
 ) -> Response:
-    """Render the bot_messages.html partial used by every async bot route."""
+    """Render the bot_messages.html partial used by every async bot route.
+
+    Recomputes the composer chip strip from the fresh message list and
+    awareness snapshot so bot.js can swap in an updated set on every
+    turn. Chips are prepended to the partial as a
+    `<div class="bot-prompt-chips" data-bot-chips>` block; bot.js
+    plucks that block out of the wrapper before swapping the message
+    list innerHTML, keeping the message ordering unaffected.
+    """
     messages = bot.list_messages(user_id)
+    try:
+        snap = babyg_awareness.snapshot(user_id)
+    except Exception:
+        logger.exception("babyg_awareness.snapshot failed (partial)")
+        snap = {}
+    prompts = bot_prompts.compute_prompts(
+        unread_dms_count=int((snap.get("unread_dms") or {}).get("count") or 0),
+        recent_dm_peer_name=(snap.get("unread_dms") or {}).get("latest_peer_name"),
+        snapshot=snap,
+        messages=messages,
+    )
     return templates.TemplateResponse(
         request,
         "_partials/bot_messages.html",
-        {"messages": messages, "error": error},
+        {
+            "messages": messages,
+            "error": error,
+            "bot_prompts": prompts,
+            "include_chips": True,
+        },
         status_code=status_code,
     )
 

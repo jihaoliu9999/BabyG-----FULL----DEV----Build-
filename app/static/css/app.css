@@ -2984,6 +2984,9 @@ select.profile-detail-input {
   max-height: 100px;
   min-height: 22px;
   font-family: inherit;
+  /* Silent auto-grow. bot.js resizes rows on input; past the 100px cap
+     the caret still moves, but no scroll rail ever appears. */
+  overflow: hidden;
 }
 .bot-composer textarea::placeholder { color: var(--ink-dim); }
 .bot-composer .send {
@@ -9772,6 +9775,34 @@ hr.hairline {
   opacity: 0.7;
 }
 .bot-prompt-chip-icon svg { display: block; }
+
+/* Verb weight. Chips inherit a taxonomy from the reply intent so the
+   creator sees at a glance whether a chip is the next move (primary),
+   a review action (warn), or a confirm/positive close (good). Visual
+   weight only, no motion. */
+.bot-prompt-chip[data-chip-tone="primary"] {
+  color: #ffb0be;
+  background: rgba(255, 77, 109, 0.14);
+  border-color: rgba(255, 77, 109, 0.4);
+}
+.bot-prompt-chip[data-chip-tone="primary"] .bot-prompt-chip-icon { opacity: 0.95; color: #ff8ea0; }
+.bot-prompt-chip[data-chip-tone="warn"] {
+  color: #ffcc85;
+  background: rgba(255, 190, 100, 0.1);
+  border-color: rgba(255, 190, 100, 0.28);
+}
+.bot-prompt-chip[data-chip-tone="warn"] .bot-prompt-chip-icon { opacity: 0.95; color: #ffb559; }
+.bot-prompt-chip[data-chip-tone="good"] {
+  color: #6ee2a2;
+  background: rgba(110, 226, 162, 0.1);
+  border-color: rgba(110, 226, 162, 0.28);
+}
+.bot-prompt-chip[data-chip-tone="good"] .bot-prompt-chip-icon { opacity: 0.95; color: #6ee2a2; }
+@media (hover: hover) and (pointer: fine) {
+  .bot-prompt-chip[data-chip-tone="primary"]:hover { background: rgba(255, 77, 109, 0.2); color: #ffd0d8; }
+  .bot-prompt-chip[data-chip-tone="warn"]:hover { background: rgba(255, 190, 100, 0.16); color: #ffddaa; }
+  .bot-prompt-chip[data-chip-tone="good"]:hover { background: rgba(110, 226, 162, 0.16); color: #a3f0c4; }
+}
 
 /* Tablet + mobile: chips scroll horizontally in a single row so a
    thumb swipe reveals more, and long strings never wrap awkwardly. */

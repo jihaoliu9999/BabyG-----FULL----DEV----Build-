@@ -1,9 +1,9 @@
 {# Context-driven chip row above the bot composer. Clicking a chip
    starts the prompt through bot.js via [data-bot-prompt]. #}
 {% if bot_prompts %}
-<div class="bot-prompt-chips" role="list" aria-label="suggested prompts">
+<div class="bot-prompt-chips" role="list" aria-label="suggested prompts" data-bot-chips>
   {% for p in bot_prompts %}
-  <button type="button" class="bot-prompt-chip" role="listitem" data-bot-prompt="{{ p.text }}">
+  <button type="button" class="bot-prompt-chip" role="listitem" data-bot-prompt="{{ p.text }}"{% if p.tone %} data-chip-tone="{{ p.tone }}"{% endif %}{% if p.submit %} data-chip-submit="1"{% endif %}>
     <span class="bot-prompt-chip-icon" aria-hidden="true">
     {% if p.icon == "message" %}
       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
