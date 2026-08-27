@@ -67,7 +67,7 @@ MemoryKind = Literal[
 # Every kind maps to exactly one Supabase table. Kept as a dict so a
 # read at call-site fails loudly on a typo instead of silently going
 # to the wrong table.
-_KIND_TABLE: dict[str, str] = {
+_KIND_TABLE: dict[MemoryKind, str] = {
     "drafts": "babyg_memory_drafts",
     "decisions": "babyg_memory_decisions",
     "deals": "babyg_memory_deals",
@@ -80,7 +80,7 @@ _KIND_TABLE: dict[str, str] = {
 
 # Per-kind date column to filter on for `read(..., since=...)`. Deals
 # use last_touch_at, everything else uses created_at.
-_KIND_DATE_COLUMN: dict[str, str] = {
+_KIND_DATE_COLUMN: dict[MemoryKind, str] = {
     "drafts": "created_at",
     "decisions": "created_at",
     "deals": "last_touch_at",
