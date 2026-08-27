@@ -8,12 +8,16 @@ ROOT = Path(__file__).parents[1]
 APP_CSS = (ROOT / "app/static/css/app.css").read_text(encoding="utf-8")
 BASE_TEMPLATE = (ROOT / "app/templates/base.html").read_text(encoding="utf-8")
 BOT_JS = (ROOT / "app/static/js/bot.js").read_text(encoding="utf-8")
+DISCOVER_JS = (ROOT / "app/static/js/discover.js").read_text(encoding="utf-8")
 DM_BRIEFS_JS = (ROOT / "app/static/js/dm_briefs.js").read_text(encoding="utf-8")
 DM_THREAD_JS = (ROOT / "app/static/js/dm_thread.js").read_text(encoding="utf-8")
 DM_THREAD_TEMPLATE = (ROOT / "app/templates/creator/dm_thread.html").read_text(
     encoding="utf-8"
 )
 DASHBOARD_TEMPLATE = (ROOT / "app/templates/creator/dashboard.html").read_text(
+    encoding="utf-8"
+)
+DISCOVER_TEMPLATE = (ROOT / "app/templates/creator/discover.html").read_text(
     encoding="utf-8"
 )
 MOTION_JS = (ROOT / "app/static/js/motion.js").read_text(encoding="utf-8")
@@ -172,6 +176,36 @@ def test_creator_dm_search_toolbar_is_mobile_safe() -> None:
     assert "border-radius: 999px" in input_rule
     assert "flex: 0 0 44px" in action_rule
     assert "min-width: 44px" in action_rule
+
+
+def test_discover_filters_open_as_bounded_mobile_sheet() -> None:
+    mobile_rule = APP_CSS.split(
+        "@media (max-width: 1023px) {", 1
+    )[1].split("@media (min-width: 1024px)", 1)[0]
+    panel_rule = mobile_rule.split(".discover-filters {", 1)[1].split("}", 1)[0]
+    close_rule = mobile_rule.split(".discover-filter-close {", 1)[1].split("}", 1)[0]
+    actions_rule = mobile_rule.split(".discover-filter-actions {", 1)[1].split(
+        "}", 1
+    )[0]
+
+    assert 'data-filter-close aria-label="close filters"' in DISCOVER_TEMPLATE
+    assert 'name="category"' in DISCOVER_TEMPLATE
+    assert 'name="location"' in DISCOVER_TEMPLATE
+    assert 'name="budget_min"' in DISCOVER_TEMPLATE
+    assert 'name="budget_max"' in DISCOVER_TEMPLATE
+    assert 'root.querySelector("[data-filter-close]")' in DISCOVER_JS
+    assert 'window.matchMedia("(max-width: 1023px)")' in DISCOVER_JS
+    assert 'root.classList.toggle("is-filter-open", open)' in DISCOVER_JS
+    assert 'panel.setAttribute("aria-hidden", String(!open))' in DISCOVER_JS
+    assert 'panel.removeAttribute("aria-hidden")' in DISCOVER_JS
+    assert "position: fixed" in panel_rule
+    assert "bottom: calc(var(--tabbar-h)" in panel_rule
+    assert "max-height: min(60dvh, 420px)" in panel_rule
+    assert "overflow-y: auto" in panel_rule
+    assert "z-index: 130" in panel_rule
+    assert "width: 44px" in close_rule
+    assert "height: 44px" in close_rule
+    assert "position: sticky" in actions_rule
 
 
 def test_creator_dm_pages_do_not_render_shared_profile_chrome() -> None:

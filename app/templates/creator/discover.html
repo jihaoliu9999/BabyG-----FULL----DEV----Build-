@@ -93,7 +93,13 @@
   </nav>
 
   <div class="discover-layout">
-    <aside class="discover-filters" id="discover-filters" data-filter-panel>
+    <aside class="discover-filters" id="discover-filters" data-filter-panel aria-label="discover filters">
+      <div class="discover-filter-sheet-head">
+        <span id="discover-filter-title">filters</span>
+        <button class="discover-filter-close" type="button" data-filter-close aria-label="close filters">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
+        </button>
+      </div>
       <form method="get" action="{{ discover_base_path }}">
         <input type="hidden" name="kind" value="{{ active_kind }}" />
         <label>

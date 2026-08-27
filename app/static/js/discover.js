@@ -6,15 +6,46 @@
 
   var toggle = root.querySelector("[data-filter-toggle]");
   var panel = root.querySelector("[data-filter-panel]");
+  var closeButton = root.querySelector("[data-filter-close]");
   if (toggle && panel) {
+    var mobileFilters = window.matchMedia("(max-width: 1023px)");
+
+    function syncFilterA11y(open) {
+      if (mobileFilters.matches) {
+        panel.setAttribute("aria-hidden", String(!open));
+      } else {
+        panel.removeAttribute("aria-hidden");
+      }
+    }
+
     function setFiltersOpen(open) {
       panel.classList.toggle("is-open", open);
+      root.classList.toggle("is-filter-open", open);
       toggle.setAttribute("aria-expanded", String(open));
+      syncFilterA11y(open);
+    }
+
+    syncFilterA11y(panel.classList.contains("is-open"));
+    function syncFilterA11yOnViewportChange() {
+      syncFilterA11y(panel.classList.contains("is-open"));
+    }
+
+    if (mobileFilters.addEventListener) {
+      mobileFilters.addEventListener("change", syncFilterA11yOnViewportChange);
+    } else if (mobileFilters.addListener) {
+      mobileFilters.addListener(syncFilterA11yOnViewportChange);
     }
 
     toggle.addEventListener("click", function () {
       setFiltersOpen(!panel.classList.contains("is-open"));
     });
+
+    if (closeButton) {
+      closeButton.addEventListener("click", function () {
+        setFiltersOpen(false);
+        toggle.focus();
+      });
+    }
 
     document.addEventListener("keydown", function (event) {
       if (event.key === "Escape" && panel.classList.contains("is-open")) {
