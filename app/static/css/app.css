@@ -2920,20 +2920,29 @@ select.profile-detail-input {
 }
 .dm-screen .dm-composer .box {
   display: flex; gap: 8px;
-  background: var(--surface-2);
-  border: 1px solid var(--hairline);
-  border-radius: 999px;
-  padding: 6px 6px 6px 16px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
   align-items: center;
 }
 .dm-screen .dm-composer input {
   flex: 1;
-  background: transparent; border: 0; outline: none;
+  min-width: 0;
+  min-height: 44px;
+  background: var(--surface-2);
+  border: 1px solid var(--hairline-strong);
+  border-radius: 16px;
+  outline: none;
+  box-shadow: none;
   color: var(--ink);
   /* >= 16px — iOS Safari auto-zoom guard, same as .bot-composer textarea. */
   font-size: 16px;
-  padding: 8px 0;
+  padding: 0 14px;
   font-family: inherit;
+  -webkit-appearance: none;
+  appearance: none;
 }
 .dm-screen .dm-composer input::placeholder { color: var(--ink-dim); }
 .dm-screen .dm-composer .send {
@@ -7867,26 +7876,38 @@ hr.hairline {
   50% { opacity: 1; }
 }
 .is-creator-app .dm-composer .box {
-  min-height: 54px;
+  min-height: 44px;
   gap: 8px;
-  padding: 5px 5px 5px 14px;
-  border: 1px solid var(--border-default);
-  border-radius: 18px;
-  background: var(--surface-2);
-  box-shadow: inset 0 1px rgba(255,255,255,.025);
-  transition: border-color 160ms ease, box-shadow 160ms ease;
-}
-.is-creator-app .dm-composer .box:focus-within {
-  border-color: rgba(255,77,109,.34);
-  box-shadow: 0 0 0 3px rgba(255,77,109,.07), inset 0 1px rgba(255,255,255,.035);
-}
-.is-creator-app .dm-screen .dm-composer input,
-.is-creator-app .dm-screen .dm-composer input:focus,
-.is-creator-app .dm-screen .dm-composer input:focus-visible {
+  padding: 0;
   border: 0;
   border-radius: 0;
   background: transparent;
   box-shadow: none;
+  transition: none;
+}
+.is-creator-app .dm-composer .box:focus-within {
+  border-color: transparent;
+  box-shadow: none;
+}
+.is-creator-app .dm-screen .dm-composer input,
+.is-creator-app .dm-screen .dm-composer input:focus,
+.is-creator-app .dm-screen .dm-composer input:focus-visible {
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 16px;
+  background: var(--surface-2);
+  box-shadow: none;
+  outline: 0;
+  font-size: 16px;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.is-creator-app .dm-screen .dm-composer input:focus,
+.is-creator-app .dm-screen .dm-composer input:focus-visible {
+  background: var(--surface-1);
+  border-color: rgba(255,77,109,.36);
 }
 .is-creator-app .dm-composer .send {
   width: 44px;
@@ -11546,27 +11567,30 @@ hr.hairline {
   width: 5px; height: 5px; border-radius: 50%;
   background: transparent;
 }
-/* Composer pill — one clean surface. Input + send sit inside a
-   single dark pill. Focus is a subtle coral border, no browser outline,
-   no gradient artifact ("scroll line") behind the send button. */
+/* DM composers: keep the input as the only visible textbox. The wrapper
+   is layout-only so generic form-control styling cannot draw a second
+   box around the real text field. */
 .dm-thread-composer-box {
-  display: flex; align-items: center; gap: 0;
-  background: rgba(255,255,255,.04);
-  border: 1px solid rgba(255,255,255,.08);
-  border-radius: 26px;
-  min-height: 48px;
-  padding: 4px 4px 4px 16px;
-  transition: border-color .15s ease, box-shadow .15s ease;
+  display: flex; align-items: center; gap: 8px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  min-height: 44px;
+  padding: 0;
+  box-shadow: none;
+  transition: none;
 }
 .dm-thread-composer-box:focus-within {
-  border-color: rgba(255,77,109,.42);
-  box-shadow: 0 0 0 3px rgba(255,77,109,.10);
+  border-color: transparent;
+  box-shadow: none;
 }
 .dm-thread-composer-box input {
   flex: 1;
   min-width: 0;
-  background: transparent;
-  border: 0;
+  min-height: 44px;
+  background: var(--surface-2);
+  border: 1px solid var(--hairline-strong);
+  border-radius: 16px;
   outline: 0;
   box-shadow: none;
   -webkit-appearance: none;
@@ -11574,24 +11598,25 @@ hr.hairline {
   color: var(--ink);
   font: inherit;
   font-size: 16px;   /* 16px avoids iOS zoom on focus */
-  padding: 6px 10px 6px 0;
-  min-height: 34px;
+  padding: 0 14px;
 }
 .dm-thread-composer-box input:focus,
 .dm-thread-composer-box input:focus-visible {
   outline: 0;
   box-shadow: none;
+  background: var(--surface-1);
+  border-color: rgba(255,77,109,.36);
 }
 .dm-thread-composer-box input::placeholder { color: var(--ink-dim); }
 .dm-thread-composer-send {
-  width: 40px; height: 40px;
+  width: 44px; height: 44px;
   border-radius: 50%;
   background: var(--accent, #ff4d6d);
   border: 0;
   display: grid; place-items: center;
   color: #fff;
   cursor: pointer;
-  flex: 0 0 40px;
+  flex: 0 0 44px;
   transition: background-color .15s ease, transform .12s ease;
 }
 .dm-thread-composer-send:hover { background: var(--accent-hover, #e8455f); }
