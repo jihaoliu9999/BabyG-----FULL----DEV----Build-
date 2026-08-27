@@ -6075,22 +6075,10 @@ hr.hairline {
 }
 .discover-head {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 18px;
-}
-.discover-head h1 {
-  margin: 0;
-  font-size: clamp(34px, 10vw, 52px);
-  line-height: .96;
-  letter-spacing: -.04em;
-  text-transform: lowercase;
-}
-.discover-head p {
-  margin: 8px 0 0;
-  color: var(--ink-mid);
-  font-size: 14px;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-bottom: 10px;
 }
 .discover-head-actions {
   display: inline-flex;
@@ -6532,10 +6520,8 @@ hr.hairline {
   }
   .discover-head {
     align-items: center;
-    margin-bottom: 24px;
+    margin-bottom: 16px;
   }
-  .discover-head h1 { font-size: 52px; }
-  .discover-head p { font-size: 15px; }
   .discover-kind-tabs {
     margin: 0 0 24px;
     padding: 0;
@@ -6547,6 +6533,7 @@ hr.hairline {
     justify-content: center;
   }
   .discover-filter-toggle { display: none; }
+  .discover-head { display: none; }
   .discover-filters {
     display: block;
     margin: 26px 0 0;
@@ -6582,27 +6569,9 @@ hr.hairline {
 }
 .discover-head {
   align-items: center;
-  margin-bottom: 16px;
-}
-.discover-title-lockup {
-  min-width: 0;
-  display: grid;
-  grid-template-columns: 32px minmax(0, auto);
-  align-items: center;
-  gap: 10px;
-}
-.discover-title-lockup .brand-mark {
-  width: 30px;
-  height: 30px;
-}
-.discover-title-lockup h1 {
-  font-size: clamp(28px, 8vw, 38px);
-  letter-spacing: -0.05em;
-}
-.discover-title-lockup p {
-  grid-column: 2;
-  margin: 1px 0 0;
-  font-size: 12.5px;
+  justify-content: flex-end;
+  margin-bottom: 10px;
+  min-height: 0;
 }
 .discover-filter-toggle {
   width: 44px;
