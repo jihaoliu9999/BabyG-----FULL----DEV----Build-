@@ -6794,16 +6794,16 @@ hr.hairline {
 
 /* Creator navigation: fixed five-tab order, iPhone-safe. */
 .is-creator-app .creator-tabbar {
-  min-height: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px));
-  padding: 8px max(12px, env(safe-area-inset-right, 0px)) max(13px, env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px));
+  min-height: 76px;
+  padding: 7px max(12px, env(safe-area-inset-right, 0px)) max(8px, calc(env(safe-area-inset-bottom, 0px) - 20px)) max(12px, env(safe-area-inset-left, 0px));
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  align-items: end;
+  align-items: center;
   justify-items: stretch;
   background: rgba(9,8,10,.96);
   border: 1px solid rgba(255,255,255,.105);
   border-top-color: rgba(255,255,255,.12);
-  border-radius: 0 0 34px 34px;
+  border-radius: 0;
   box-shadow: 0 -16px 42px -28px rgba(0,0,0,.98), inset 0 1px rgba(255,255,255,.035);
 }
 .is-creator-app .creator-tabbar a {
@@ -7733,6 +7733,9 @@ hr.hairline {
   .is-creator-app .app-shell:has(.dm-inbox) .app-main > #view,
   .is-creator-app .app-shell:has(.dm-thread) .app-main > #view {
     padding-top: 0;
+  }
+  .is-creator-app .dm-inbox-topbar {
+    padding-top: calc(max(52px, env(safe-area-inset-top, 0px)) + 18px);
   }
   .is-creator-app .app-shell:has(.creator-home) .mobile-header,
   .is-creator-app .app-shell:has(.creator-screen-topbar) .mobile-header,
@@ -10217,7 +10220,7 @@ hr.hairline {
   align-items: center;
   gap: 10px;
   max-width: 100%;
-  padding: max(12px, env(safe-area-inset-top, 0px)) 14px 10px;
+  padding: 12px 14px 10px;
   border-bottom: 1px solid var(--hairline);
 }
 /* Tag was clipping — moved into search placeholder instead. Class
@@ -10436,7 +10439,7 @@ hr.hairline {
 .dm-inbox-empty p { margin: 0; font-size: 13.5px; }
 
 @media (max-width: 640px) {
-  .dm-inbox-topbar { padding: 10px 14px; gap: 10px; }
+  .dm-inbox-topbar { padding: calc(max(52px, env(safe-area-inset-top, 0px)) + 18px) 14px 10px; gap: 10px; }
   .dm-inbox-tag { font-size: 10px; letter-spacing: .14em; }
   .dm-inbox-search { min-height: 44px; height: 44px; }
   .dm-inbox-compose { width: 44px; height: 44px; flex-basis: 44px; }

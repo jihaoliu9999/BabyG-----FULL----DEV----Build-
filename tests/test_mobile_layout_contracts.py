@@ -153,7 +153,10 @@ def test_bot_prompt_chips_start_prompt_on_tap() -> None:
 
 
 def test_creator_dm_search_toolbar_is_mobile_safe() -> None:
-    toolbar_rule = APP_CSS.split(".dm-inbox-topbar {", 1)[1].split("}", 1)[0]
+    toolbar_rule = APP_CSS.split("\n.dm-inbox-topbar {", 1)[1].split("}", 1)[0]
+    mobile_shell_rule = APP_CSS.split("@media (max-width: 999px) {", 1)[1].split(
+        "/* iPhone range", 1
+    )[0]
     search_rule = APP_CSS.split(".dm-inbox-search {", 1)[1].split("}", 1)[0]
     input_rule = APP_CSS.split(
         ".is-creator-app .dm-inbox-search input,", 1
@@ -163,6 +166,8 @@ def test_creator_dm_search_toolbar_is_mobile_safe() -> None:
     assert "display: flex" in toolbar_rule
     assert "align-items: center" in toolbar_rule
     assert "gap: 10px" in toolbar_rule
+    assert ".is-creator-app .dm-inbox-topbar" in mobile_shell_rule
+    assert "calc(max(52px, env(safe-area-inset-top, 0px)) + 18px)" in mobile_shell_rule
     assert "flex: 1 1 0%" in search_rule
     assert "min-width: 0" in search_rule
     assert "background: transparent" in search_rule
@@ -236,6 +241,10 @@ def test_creator_tabbar_items_are_centered_on_mobile() -> None:
     assert "grid-template-columns: repeat(5, minmax(0, 1fr))" in rule
     assert "repeat(6" not in rule
     assert "justify-items: stretch" in rule
+    assert "align-items: center" in rule
+    assert "min-height: 76px" in rule
+    assert "border-radius: 0" in rule
+    assert "calc(env(safe-area-inset-bottom, 0px) - 20px)" in rule
     assert "width: 100%" in item_rule
     assert "max-width: none" in item_rule
     assert "letter-spacing: 0" in item_rule
