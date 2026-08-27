@@ -10,13 +10,16 @@ from typing import Any, Literal
 
 from postgrest.exceptions import APIError as PostgrestAPIError
 
-from app.agent.tools import read_only
+from app.agent.tools import memory_write, read_only
+from app.config import get_settings
 from app.core import supabase_client
 from app.core.uuid_guard import safe_uuid
 from app.integrations import anthropic_client, google_calendar, google_gmail, instagram_meta, tavily
 from app.services import (
     action_proposals,
+    babyg_memory,
     bookings,
+    bot_observability,
     jobs,
     oauth_connections,
     profiles,
@@ -227,6 +230,17 @@ def handle_creator_message(
     if not user_content:
         return BotTurnResult(response="Send me a creator task and I'll help.")
 
+    # Phase 1 observability: one recorder per turn. Records to bot_turns
+    # on finish(). Never breaks the turn on write failure. See
+    # docs/babyg-ai-reference.md phase 1.
+    recorder = bot_observability.TurnRecorder.start(
+        user_id=user_id,
+        model=get_settings().anthropic_model,
+        prompt_version=prompts.BABYG_PROMPT_VERSION,
+    )
+    if len(content or "") > MAX_USER_MESSAGE_CHARS:
+        recorder.note_guardrail("user_message_truncated")
+
     scope_flag = _scope_flag(user_content)
     create_message(
         user_id=user_id,
@@ -245,6 +259,8 @@ def handle_creator_message(
             flagged=True,
             flag_category=scope_flag,
         )
+        recorder.note_guardrail("scope_refusal")
+        recorder.finish(response_type="refusal")
         return BotTurnResult(
             response=response_text,
             flagged=True,
@@ -260,6 +276,8 @@ def handle_creator_message(
             content=response_text,
             tool_calls=proposal,
         )
+        recorder.note_action_proposal_staged(str(proposal.get("action_type") or "unknown"))
+        recorder.finish(response_type="pending_action")
         return BotTurnResult(response=response_text)
 
     history = _messages_for_claude(list_messages(user_id, limit=MAX_HISTORY_MESSAGES))
@@ -294,6 +312,7 @@ def handle_creator_message(
         )
         input_tokens = 0
         output_tokens = 0
+        recorder.note_tool_error("anthropic_client", "not_configured")
     except anthropic_client.ClaudeCallError:
         response_text = (
             "I couldn't reach Claude for that turn. Your message is saved; "
@@ -301,6 +320,7 @@ def handle_creator_message(
         )
         input_tokens = 0
         output_tokens = 0
+        recorder.note_tool_error("anthropic_client", "call_failed")
     except Exception:
         # Belt for the agent loop. ClaudeNotConfigured / ClaudeCallError
         # above cover the known upstream failures; this catches anything
@@ -324,6 +344,28 @@ def handle_creator_message(
         content=response_text,
         tool_calls=pending_action or tool_calls or None,
     )
+
+    # Observability: classify the turn's outcome and record. Never raises.
+    _observed_response_type: Literal["text", "pending_action"]
+    if pending_action is not None:
+        recorder.note_action_proposal_staged(
+            str(pending_action.get("action_type") or "unknown")
+        )
+        _observed_response_type = "pending_action"
+    elif tool_calls:
+        _observed_response_type = "text"
+    else:
+        _observed_response_type = "text"
+    for _tc in tool_calls or []:
+        _tc_name = _tc.get("name") if isinstance(_tc, dict) else None
+        if _tc_name:
+            recorder.note_tool_executed(str(_tc_name), ok=True)
+    recorder.finish(
+        response_type=_observed_response_type,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+    )
+
     return BotTurnResult(
         response=response_text,
         input_tokens=input_tokens,
@@ -591,6 +633,7 @@ def _confirm_gmail_draft_action(
     payload = tool_calls.get("payload")
     if not isinstance(payload, dict):
         payload = {}
+    memory_draft_id = str(payload.get("memory_draft_id") or "")
     draft_id = _execute_gmail_draft(user_id=user_id, payload=payload)
     if draft_id:
         action_proposals.mark_executed(
@@ -598,6 +641,12 @@ def _confirm_gmail_draft_action(
             user_id=user_id,
             external_result_id=draft_id,
         )
+        # Draft landed in Gmail. Flip memory status to 'approved' and
+        # stash the Gmail draft id so we can find it later.
+        if memory_draft_id:
+            babyg_memory.update_draft_status(
+                memory_draft_id, "approved", gmail_message_id=draft_id
+            )
         final_status = "executed"
         message = _success_message("gmail.create_draft", draft_id)
         ok = True
@@ -641,6 +690,10 @@ def _cancel_gmail_draft_action(
     proposal_id = str(tool_calls.get("proposal_id") or "")
     if proposal_id:
         action_proposals.cancel_proposal(proposal_id=proposal_id, user_id=user_id)
+    payload = tool_calls.get("payload") if isinstance(tool_calls.get("payload"), dict) else {}
+    memory_draft_id = str((payload or {}).get("memory_draft_id") or "")
+    if memory_draft_id:
+        babyg_memory.update_draft_status(memory_draft_id, "canceled")
     cancelled = {
         **tool_calls,
         "status": "cancelled",
@@ -745,12 +798,17 @@ def _confirm_gmail_send_action(
             "I couldn't send that email. Nothing else happened."
         )
 
+    memory_draft_id = str(payload.get("memory_draft_id") or "")
     if message_id_sent:
         action_proposals.mark_executed(
             proposal_id=proposal_id,
             user_id=user_id,
             external_result_id=message_id_sent,
         )
+        if memory_draft_id:
+            babyg_memory.update_draft_status(
+                memory_draft_id, "sent", gmail_message_id=message_id_sent
+            )
         final_status = "executed"
         message = _success_message(action_type, message_id_sent)
         ok = True
@@ -794,6 +852,13 @@ def _cancel_gmail_send_action(
     proposal_id = str(tool_calls.get("proposal_id") or "")
     if proposal_id:
         action_proposals.cancel_proposal(proposal_id=proposal_id, user_id=user_id)
+    payload = tool_calls.get("payload") if isinstance(tool_calls.get("payload"), dict) else {}
+    memory_draft_id = str((payload or {}).get("memory_draft_id") or "")
+    # Cancelling gmail.send_email means we never got as far as Gmail;
+    # flip the memory row to canceled. For gmail.send_draft the draft
+    # is still sitting in Gmail (approved), so we leave that status alone.
+    if memory_draft_id and not _is_gmail_send_draft_action(action_type):
+        babyg_memory.update_draft_status(memory_draft_id, "canceled")
     cancelled = {
         **tool_calls,
         "status": "cancelled",
@@ -1329,6 +1394,47 @@ def _execute_read_tool(
             )
         elif name == "read_my_dms":
             content = read_only.read_my_dms(user_id, limit=tool_input.get("limit", 5))
+        elif name == "read_my_drafts":
+            content = read_only.read_my_drafts(
+                user_id,
+                match=tool_input.get("match"),
+                status=tool_input.get("status"),
+                channel=tool_input.get("channel"),
+                limit=tool_input.get("limit", 10),
+            )
+        elif name == "read_my_deals":
+            content = read_only.read_my_deals(
+                user_id,
+                brand=tool_input.get("brand"),
+                stage=tool_input.get("stage"),
+                active_only=bool(tool_input.get("active_only", False)),
+                limit=tool_input.get("limit", 20),
+            )
+        elif name == "read_relationship_notes":
+            content = read_only.read_relationship_notes(
+                user_id,
+                brand=tool_input.get("brand"),
+                kind=tool_input.get("kind"),
+                limit=tool_input.get("limit", 10),
+            )
+        elif name == "read_dm_thread":
+            content = read_only.read_dm_thread(
+                user_id,
+                peer_id=str(tool_input.get("peer_id") or ""),
+                limit=tool_input.get("limit", 30),
+            )
+        elif name == "read_email_thread":
+            content = _run_gmail_thread(user_id=user_id, tool_input=tool_input)
+        elif name == "read_recent_decisions":
+            content = read_only.read_recent_decisions(
+                user_id, limit=tool_input.get("limit", 10)
+            )
+        elif name == "read_voice_samples":
+            content = read_only.read_voice_samples(
+                user_id, limit=tool_input.get("limit", 10)
+            )
+        elif name == "remember":
+            content = memory_write.remember(user_id, tool_input)
         elif name == "read_my_receipts":
             content = read_only.read_my_receipts(
                 user_id, limit=tool_input.get("limit", 5)
@@ -1437,6 +1543,19 @@ def _stage_create_gmail_draft_tool(
     refusal = _rate_floor_refusal(tool_input=tool_input, user_id=user_id)
     if refusal:
         return {"kind": "write_tool", "ok": False, "content": refusal}
+    # Save the draft to babyg's memory BEFORE staging the proposal.
+    # A cancel still leaves the draft in memory so the creator can ask
+    # "pull up that draft to Vans I never sent" later. See Phase 4.
+    memory_draft_id = babyg_memory.save_draft(
+        user_id,
+        channel="email",
+        origin_tool="gmail.create_draft",
+        subject=payload.get("subject"),
+        to_addr=payload.get("to"),
+        body=payload.get("body") or "",
+    )
+    if memory_draft_id:
+        payload["memory_draft_id"] = memory_draft_id
     preview = _action_preview(action_type="gmail.create_draft", payload=payload)
     proposal_row = action_proposals.create_proposal(
         user_id=user_id,
@@ -1656,6 +1775,16 @@ def _stage_send_gmail_email_tool(
     refusal = _rate_floor_refusal(tool_input=tool_input, user_id=user_id)
     if refusal:
         return {"kind": "write_tool", "ok": False, "content": refusal}
+    memory_draft_id = babyg_memory.save_draft(
+        user_id,
+        channel="email",
+        origin_tool="gmail.send_email",
+        subject=payload.get("subject"),
+        to_addr=payload.get("to"),
+        body=payload.get("body") or "",
+    )
+    if memory_draft_id:
+        payload["memory_draft_id"] = memory_draft_id
     preview = _action_preview(action_type="gmail.send_email", payload=payload)
     proposal_row = action_proposals.create_proposal(
         user_id=user_id,
@@ -2390,6 +2519,96 @@ def _run_gmail_inbox(*, user_id: str, tool_input: dict[str, Any]) -> dict[str, A
         for t in threads
     ]
     return {"available": True, "results": results}
+
+
+def _run_gmail_thread(*, user_id: str, tool_input: dict[str, Any]) -> dict[str, Any]:
+    """Read one Gmail thread by thread_id. Same available/reason envelope
+    as _run_gmail_inbox — the bot survives Gmail outages and can still
+    answer from local context."""
+    thread_id = str(tool_input.get("thread_id") or "").strip()
+    if not thread_id:
+        return {"available": False, "reason": "thread_id is required"}
+    if not google_calendar.is_configured():
+        return {
+            "available": False,
+            "reason": "gmail integration is not configured on this server yet",
+        }
+    used_today = _bump_gmail_inbox_counter(user_id)
+    if used_today > GMAIL_INBOX_DAILY_CAP:
+        return {
+            "available": False,
+            "reason": (
+                f"daily gmail inbox cap reached "
+                f"({GMAIL_INBOX_DAILY_CAP}/day). fall back to local "
+                "context for the rest of today."
+            ),
+        }
+    try:
+        connection = oauth_connections.get_google_connection(user_id)
+    except Exception:
+        logger.exception("gmail connection lookup failed")
+        connection = None
+    if not connection or not oauth_connections.google_gmail_connected(connection):
+        return {
+            "available": False,
+            "reason": (
+                "gmail isn't connected for this creator. they can "
+                "connect it from /creator/profile/settings under the "
+                "Google integration card."
+            ),
+        }
+    try:
+        token = oauth_connections.access_token_for_google(user_id)
+    except Exception:
+        logger.exception("gmail access token lookup failed")
+        token = None
+    if not token:
+        return {
+            "available": False,
+            "reason": "gmail token unavailable — the creator may need to reconnect",
+        }
+    try:
+        thread = google_gmail.get_thread(token, thread_id=thread_id)
+    except google_gmail.GmailUnauthorizedError:
+        return {
+            "available": False,
+            "reason": (
+                "gmail token rejected — the creator may need to "
+                "reconnect Gmail from /creator/profile/settings"
+            ),
+        }
+    except google_gmail.GmailNotConnectedError:
+        return {
+            "available": False,
+            "reason": (
+                "gmail scope is missing — the creator should reconnect "
+                "Gmail and tick the Gmail box on the picker"
+            ),
+        }
+    except google_gmail.GmailError:
+        return {
+            "available": False,
+            "reason": "gmail api failed — try again later",
+        }
+    return {
+        "available": True,
+        "thread_id": thread.thread_id,
+        "snippet": thread.snippet,
+        "is_unread": thread.is_unread,
+        "messages": [
+            {
+                "message_id": m.message_id,
+                "from": m.from_,
+                "to": m.to,
+                "subject": m.subject,
+                "snippet": m.snippet,
+                "body_text": m.body_text,
+                "internal_date": m.internal_date,
+                "is_unread": m.is_unread,
+            }
+            for m in thread.messages
+        ],
+    }
 
 
 def _as_tool_list(value: Any) -> list[str]:

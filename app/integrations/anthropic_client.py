@@ -3,6 +3,11 @@
 The rest of the app talks to this module instead of importing Anthropic
 directly. That keeps API-key handling server-side and gives tests a small,
 mockable surface.
+
+RULE: This file is the only allowed entry point to the Anthropic SDK.
+No route, service, or worker calls `anthropic.Anthropic` directly. If we
+ever want to add a fallback provider, swap tiers, or route through a
+proxy, one file changes. See docs/babyg-ai-reference.md section 16.
 """
 
 from __future__ import annotations

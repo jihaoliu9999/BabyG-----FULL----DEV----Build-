@@ -10,7 +10,6 @@
     ".creator-card",
     ".event-card",
     ".thread-row",
-    ".alert-item",
     ".role-card",
     ".card",
     ".onb-section",

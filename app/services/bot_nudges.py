@@ -27,7 +27,7 @@ import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from app.services import bookings, discover
+from app.services import babyg_deals, babyg_memory, bookings, discover
 from app.services.bot import create_message, list_messages
 
 logger = logging.getLogger(__name__)
@@ -47,6 +47,13 @@ _MATCH_FRESHNESS = timedelta(hours=72)
 # ± a business day of react time without pinging them a week out.
 _BOOKING_HORIZON = timedelta(hours=48)
 
+# Cap deal-derived nudges per turn so a creator with a busy pipeline
+# doesn't get flooded on their first login. The dedupe pattern means
+# whatever we skip today shows up on the next visit if it's still
+# unresolved.
+_MAX_DEAL_NUDGES = 3
+_MAX_DRAFT_NUDGES = 2
+
 
 def generate_pending(user_id: str) -> list[str]:
     """Insert any not-yet-nudged messages for ``user_id`` and return ids.
@@ -65,6 +72,12 @@ def generate_pending(user_id: str) -> list[str]:
     candidates.extend(_event_soon_nudges(user_id))
     candidates.extend(_pending_action_nudges(user_id))
     candidates.extend(_hot_drop_nudges(user_id))
+    # Phase 8: deal-derived surfaces. Every candidate here shares its
+    # dedupe_key format with the corresponding home-page card so the
+    # same event never surfaces twice.
+    candidates.extend(_ghosted_deal_nudges(user_id))
+    candidates.extend(_late_payment_nudges(user_id))
+    candidates.extend(_stale_draft_nudges(user_id))
 
     for nudge in candidates:
         if nudge["nudge_key"] in existing_keys:
@@ -399,6 +412,152 @@ def _hot_drop_nudges(user_id: str) -> list[dict[str, Any]]:
             ],
         }
     ]
+
+
+def _ghosted_deal_nudges(user_id: str) -> list[dict[str, Any]]:
+    """Deals that the background sweep flipped to stale_or_ghosted.
+    babyg prompts a follow-up. Dedupe by deal id + calendar day so a
+    creator who ignores the nudge today gets a fresh chance tomorrow
+    without spam within one day."""
+    try:
+        deals = babyg_deals.list_deals(user_id, stage="stale_or_ghosted", limit=10)
+    except Exception:
+        logger.exception("bot_nudges: ghosted deal lookup failed for %s", user_id)
+        return []
+    day = datetime.now(UTC).strftime("%Y%m%d")
+    out: list[dict[str, Any]] = []
+    for deal in deals[:_MAX_DEAL_NUDGES]:
+        deal_id = deal.get("id")
+        brand = (deal.get("brand_name") or "").strip() or "that brand"
+        if not deal_id:
+            continue
+        out.append(
+            {
+                "nudge_key": f"deal_ghosted:{deal_id}:{day}",
+                "category": "deal_ghosted",
+                "content": (
+                    f"**{brand}** has gone quiet on the deal. "
+                    "want me to draft a soft nudge or move on?"
+                ),
+                "chips": [
+                    {
+                        "kind": "fill",
+                        "label": "draft a follow up",
+                        "text": f"draft a short follow up to {brand}",
+                        "primary": True,
+                    },
+                    {
+                        "kind": "fill",
+                        "label": "mark declined",
+                        "text": f"mark the {brand} deal declined",
+                    },
+                    {
+                        "kind": "fill",
+                        "label": "give it a week",
+                        "text": f"remind me about {brand} in a week",
+                    },
+                ],
+            }
+        )
+    return out
+
+
+def _late_payment_nudges(user_id: str) -> list[dict[str, Any]]:
+    """Deals stuck in payment_pending — babyg surfaces the ones with an
+    unpaid amount so the creator knows what to chase. Dedupe by deal id
+    + day. Not filtered by an explicit deadline yet (deal.deadline is a
+    delivery date, not a payment-by date); the fact that a deal has been
+    in payment_pending long enough to matter is captured by ordering on
+    last_touch_at desc plus the daily dedupe."""
+    try:
+        deals = babyg_deals.list_deals(user_id, stage="payment_pending", limit=10)
+    except Exception:
+        logger.exception("bot_nudges: late payment lookup failed for %s", user_id)
+        return []
+    day = datetime.now(UTC).strftime("%Y%m%d")
+    out: list[dict[str, Any]] = []
+    for deal in deals[:_MAX_DEAL_NUDGES]:
+        deal_id = deal.get("id")
+        brand = (deal.get("brand_name") or "").strip() or "that brand"
+        agreed = deal.get("agreed_amount_cents")
+        paid = deal.get("paid_amount_cents") or 0
+        if not deal_id:
+            continue
+        # Skip if the deal was fully paid but stage never rolled — that
+        # is a data drift we don't want to nudge the creator about.
+        if agreed and paid and paid >= agreed:
+            continue
+        amount_note = ""
+        if agreed:
+            dollars = agreed // 100
+            amount_note = f" — ${dollars:,} still to land"
+        out.append(
+            {
+                "nudge_key": f"deal_payment_pending:{deal_id}:{day}",
+                "category": "deal_payment_pending",
+                "content": (
+                    f"payment on the **{brand}** deal is still open"
+                    f"{amount_note}. want me to draft the ping?"
+                ),
+                "chips": [
+                    {
+                        "kind": "fill",
+                        "label": "draft the payment ping",
+                        "text": f"draft a short payment reminder to {brand}",
+                        "primary": True,
+                    },
+                    {
+                        "kind": "fill",
+                        "label": "mark it paid",
+                        "text": f"mark the {brand} deal paid",
+                    },
+                ],
+            }
+        )
+    return out
+
+
+def _stale_draft_nudges(user_id: str) -> list[dict[str, Any]]:
+    """Drafts the sweep flipped to status='stale'. Offer to reuse the
+    body or discard. Dedupe by draft id — a stale draft nudged once
+    stays acknowledged."""
+    try:
+        drafts = babyg_memory.list_drafts(user_id, status="stale", limit=10)
+    except Exception:
+        logger.exception("bot_nudges: stale draft lookup failed for %s", user_id)
+        return []
+    out: list[dict[str, Any]] = []
+    for draft in drafts[:_MAX_DRAFT_NUDGES]:
+        draft_id = draft.get("id")
+        if not draft_id:
+            continue
+        target = (draft.get("to_addr") or "").strip()
+        subject = (draft.get("subject") or "").strip()
+        label = subject or (target or "an old draft")
+        out.append(
+            {
+                "nudge_key": f"draft_stale:{draft_id}",
+                "category": "draft_stale",
+                "content": (
+                    f"you never sent that draft **{label}**. "
+                    "want me to freshen it up or bin it?"
+                ),
+                "chips": [
+                    {
+                        "kind": "fill",
+                        "label": "pull it up",
+                        "text": f"pull up the stale draft to {target or label}",
+                        "primary": True,
+                    },
+                    {
+                        "kind": "fill",
+                        "label": "discard it",
+                        "text": f"discard the stale draft to {target or label}",
+                    },
+                ],
+            }
+        )
+    return out
 
 
 def _first_word(text: str) -> str:
