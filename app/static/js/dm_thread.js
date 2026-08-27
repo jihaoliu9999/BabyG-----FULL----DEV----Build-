@@ -7,6 +7,51 @@
   var input = root.querySelector("[data-dm-composer-input]");
   if (!input) return;
 
+  function updateKeyboardViewport() {
+    var visualViewport = window.visualViewport;
+    if (!visualViewport) {
+      document.documentElement.style.setProperty(
+        "--dm-visual-viewport-height",
+        Math.round(window.innerHeight || document.documentElement.clientHeight) +
+          "px"
+      );
+      document.body.classList.toggle(
+        "dm-keyboard-open",
+        document.activeElement === input
+      );
+      return;
+    }
+
+    var visibleHeight = Math.round(
+      visualViewport.height + visualViewport.offsetTop
+    );
+    document.documentElement.style.setProperty(
+      "--dm-visual-viewport-height",
+      visibleHeight + "px"
+    );
+
+    document.body.classList.toggle(
+      "dm-keyboard-open",
+      document.activeElement === input
+    );
+  }
+
+  function scheduleKeyboardViewportUpdate() {
+    window.requestAnimationFrame(updateKeyboardViewport);
+  }
+
+  input.addEventListener("focus", scheduleKeyboardViewportUpdate);
+  input.addEventListener("blur", function () {
+    window.setTimeout(updateKeyboardViewport, 120);
+  });
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", updateKeyboardViewport);
+    window.visualViewport.addEventListener("scroll", updateKeyboardViewport);
+  }
+  window.addEventListener("resize", updateKeyboardViewport);
+  window.addEventListener("orientationchange", updateKeyboardViewport);
+  updateKeyboardViewport();
+
   function setDraft(text) {
     if (!text) return;
     input.value = text;

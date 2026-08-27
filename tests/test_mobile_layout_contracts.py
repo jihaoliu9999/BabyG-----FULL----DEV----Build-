@@ -9,6 +9,7 @@ APP_CSS = (ROOT / "app/static/css/app.css").read_text(encoding="utf-8")
 BASE_TEMPLATE = (ROOT / "app/templates/base.html").read_text(encoding="utf-8")
 BOT_JS = (ROOT / "app/static/js/bot.js").read_text(encoding="utf-8")
 DM_BRIEFS_JS = (ROOT / "app/static/js/dm_briefs.js").read_text(encoding="utf-8")
+DM_THREAD_JS = (ROOT / "app/static/js/dm_thread.js").read_text(encoding="utf-8")
 DM_THREAD_TEMPLATE = (ROOT / "app/templates/creator/dm_thread.html").read_text(
     encoding="utf-8"
 )
@@ -300,6 +301,32 @@ def test_chat_keyboard_composer_drops_safe_area_padding() -> None:
     assert "padding-bottom: 2px" in keyboard_open_rule
     # No safe-area-inset-bottom involvement when keyboard is up.
     assert "safe-area-inset-bottom" not in keyboard_open_rule
+
+
+def test_dm_thread_keyboard_composer_docks_to_visual_viewport() -> None:
+    """When the DM composer is focused, the tabbar is hidden and should
+    not keep reserving height below the input. The thread uses the real
+    visual viewport so the composer sits against the keyboard instead of
+    floating above an empty band."""
+    assert "--dm-visual-viewport-height" in DM_THREAD_JS
+    assert "visualViewport.height + visualViewport.offsetTop" in DM_THREAD_JS
+    assert "dm-keyboard-open" in DM_THREAD_JS
+
+    keyboard_view_rule = APP_CSS.split(
+        ".is-dm-thread.dm-keyboard-open #view {", 1
+    )[1].split("}", 1)[0]
+    keyboard_composer_rule = APP_CSS.split(
+        ".is-dm-thread.dm-keyboard-open .dm-thread-composer {", 1
+    )[1].split("}", 1)[0]
+    tabbar_hide_rule = APP_CSS.split(
+        "body.dm-keyboard-open .app-tabbar,", 1
+    )[1].split("}", 1)[0]
+
+    assert "var(--dm-visual-viewport-height, 100dvh)" in keyboard_view_rule
+    assert "var(--tabbar-h)" not in keyboard_view_rule
+    assert "padding-bottom: 2px" in keyboard_composer_rule
+    assert "safe-area-inset-bottom" not in keyboard_composer_rule
+    assert "body.dm-keyboard-open .creator-tabbar" in tabbar_hide_rule
 
 
 def test_dm_composer_polish_keeps_controls_scoped_and_stable() -> None:
