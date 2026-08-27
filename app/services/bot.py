@@ -10,7 +10,7 @@ from typing import Any, Literal
 
 from postgrest.exceptions import APIError as PostgrestAPIError
 
-from app.agent.tools import read_only
+from app.agent.tools import memory_write, read_only
 from app.config import get_settings
 from app.core import supabase_client
 from app.core.uuid_guard import safe_uuid
@@ -1417,6 +1417,24 @@ def _execute_read_tool(
                 kind=tool_input.get("kind"),
                 limit=tool_input.get("limit", 10),
             )
+        elif name == "read_dm_thread":
+            content = read_only.read_dm_thread(
+                user_id,
+                peer_id=str(tool_input.get("peer_id") or ""),
+                limit=tool_input.get("limit", 30),
+            )
+        elif name == "read_email_thread":
+            content = _run_gmail_thread(user_id=user_id, tool_input=tool_input)
+        elif name == "read_recent_decisions":
+            content = read_only.read_recent_decisions(
+                user_id, limit=tool_input.get("limit", 10)
+            )
+        elif name == "read_voice_samples":
+            content = read_only.read_voice_samples(
+                user_id, limit=tool_input.get("limit", 10)
+            )
+        elif name == "remember":
+            content = memory_write.remember(user_id, tool_input)
         elif name == "read_my_receipts":
             content = read_only.read_my_receipts(
                 user_id, limit=tool_input.get("limit", 5)
@@ -2501,6 +2519,96 @@ def _run_gmail_inbox(*, user_id: str, tool_input: dict[str, Any]) -> dict[str, A
         for t in threads
     ]
     return {"available": True, "results": results}
+
+
+def _run_gmail_thread(*, user_id: str, tool_input: dict[str, Any]) -> dict[str, Any]:
+    """Read one Gmail thread by thread_id. Same available/reason envelope
+    as _run_gmail_inbox — the bot survives Gmail outages and can still
+    answer from local context."""
+    thread_id = str(tool_input.get("thread_id") or "").strip()
+    if not thread_id:
+        return {"available": False, "reason": "thread_id is required"}
+    if not google_calendar.is_configured():
+        return {
+            "available": False,
+            "reason": "gmail integration is not configured on this server yet",
+        }
+    used_today = _bump_gmail_inbox_counter(user_id)
+    if used_today > GMAIL_INBOX_DAILY_CAP:
+        return {
+            "available": False,
+            "reason": (
+                f"daily gmail inbox cap reached "
+                f"({GMAIL_INBOX_DAILY_CAP}/day). fall back to local "
+                "context for the rest of today."
+            ),
+        }
+    try:
+        connection = oauth_connections.get_google_connection(user_id)
+    except Exception:
+        logger.exception("gmail connection lookup failed")
+        connection = None
+    if not connection or not oauth_connections.google_gmail_connected(connection):
+        return {
+            "available": False,
+            "reason": (
+                "gmail isn't connected for this creator. they can "
+                "connect it from /creator/profile/settings under the "
+                "Google integration card."
+            ),
+        }
+    try:
+        token = oauth_connections.access_token_for_google(user_id)
+    except Exception:
+        logger.exception("gmail access token lookup failed")
+        token = None
+    if not token:
+        return {
+            "available": False,
+            "reason": "gmail token unavailable — the creator may need to reconnect",
+        }
+    try:
+        thread = google_gmail.get_thread(token, thread_id=thread_id)
+    except google_gmail.GmailUnauthorizedError:
+        return {
+            "available": False,
+            "reason": (
+                "gmail token rejected — the creator may need to "
+                "reconnect Gmail from /creator/profile/settings"
+            ),
+        }
+    except google_gmail.GmailNotConnectedError:
+        return {
+            "available": False,
+            "reason": (
+                "gmail scope is missing — the creator should reconnect "
+                "Gmail and tick the Gmail box on the picker"
+            ),
+        }
+    except google_gmail.GmailError:
+        return {
+            "available": False,
+            "reason": "gmail api failed — try again later",
+        }
+    return {
+        "available": True,
+        "thread_id": thread.thread_id,
+        "snippet": thread.snippet,
+        "is_unread": thread.is_unread,
+        "messages": [
+            {
+                "message_id": m.message_id,
+                "from": m.from_,
+                "to": m.to,
+                "subject": m.subject,
+                "snippet": m.snippet,
+                "body_text": m.body_text,
+                "internal_date": m.internal_date,
+                "is_unread": m.is_unread,
+            }
+            for m in thread.messages
+        ],
+    }
 
 
 def _as_tool_list(value: Any) -> list[str]:

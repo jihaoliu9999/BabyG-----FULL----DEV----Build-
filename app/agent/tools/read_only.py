@@ -152,6 +152,82 @@ def read_creator_directory(user_id: str, *, limit: int = 6) -> list[dict[str, An
     ]
 
 
+def read_dm_thread(
+    user_id: str,
+    *,
+    peer_id: str,
+    limit: int = 30,
+) -> dict[str, Any]:
+    """Full DM history between the creator and one peer, oldest first.
+    Empty result shape when the thread does not exist or the caller is
+    not a participant."""
+    peer_id = (peer_id or "").strip()
+    if not peer_id:
+        return {"peer_id": None, "peer_name": None, "messages": []}
+    thread = dms.get_thread_between(user_id, peer_id)
+    if not thread:
+        return {"peer_id": peer_id, "peer_name": None, "messages": []}
+    messages = dms.list_messages(
+        str(thread["id"]),
+        participant_id=user_id,
+        limit=_bounded_limit(limit, default=30, maximum=100),
+    )
+    peer = (profiles.get_creators_by_ids([peer_id]) or {}).get(peer_id) or {}
+    return {
+        "peer_id": peer_id,
+        "peer_name": peer.get("full_name"),
+        "messages": [
+            {
+                "id": m.get("id"),
+                "sender_id": m.get("sender_id"),
+                "body": m.get("body"),
+                "created_at": m.get("created_at"),
+                "direction": (
+                    "outgoing" if str(m.get("sender_id")) == str(user_id) else "incoming"
+                ),
+            }
+            for m in messages
+        ],
+    }
+
+
+def read_recent_decisions(user_id: str, *, limit: int = 10) -> list[dict[str, Any]]:
+    """Recent decisions babyg logged for the creator, newest first."""
+    rows = babyg_memory.read(
+        "decisions",
+        user_id,
+        limit=_bounded_limit(limit, default=10, maximum=50),
+    )
+    return [
+        {
+            "id": row.get("id"),
+            "kind": row.get("kind"),
+            "summary": row.get("summary"),
+            "deal_id": row.get("deal_id"),
+            "created_at": row.get("created_at"),
+        }
+        for row in rows
+    ]
+
+
+def read_voice_samples(user_id: str, *, limit: int = 10) -> list[dict[str, Any]]:
+    """Saved writing samples so drafts can match the creator's voice."""
+    rows = babyg_memory.read(
+        "voice_samples",
+        user_id,
+        limit=_bounded_limit(limit, default=10, maximum=50),
+    )
+    return [
+        {
+            "id": row.get("id"),
+            "sample": row.get("sample") or row.get("body"),
+            "channel": row.get("channel"),
+            "created_at": row.get("created_at"),
+        }
+        for row in rows
+    ]
+
+
 def read_relationship_notes(
     user_id: str,
     *,

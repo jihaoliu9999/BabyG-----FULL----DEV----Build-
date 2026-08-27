@@ -4357,3 +4357,122 @@ def test_read_relationship_notes_dispatch_forwards_filters(monkeypatch) -> None:
         "kind": "payment_reliability",
         "limit": 5,
     }
+
+
+# ---------------------------------------------------------------------------
+# Phase 9: tool expansion — dispatch wiring for the new read/memory tools.
+# ---------------------------------------------------------------------------
+
+
+def test_phase9_tools_registered_and_prompted() -> None:
+    names = {t["name"] for t in bot_service.prompts.BOT_TOOL_DEFINITIONS}
+    for tool in (
+        "read_dm_thread",
+        "read_email_thread",
+        "read_recent_decisions",
+        "read_voice_samples",
+        "remember",
+    ):
+        assert tool in names, f"{tool} missing from BOT_TOOL_DEFINITIONS"
+    p = bot_service.prompts.babyg_system_prompt()
+    for tool in (
+        "read_dm_thread",
+        "read_email_thread",
+        "read_recent_decisions",
+        "read_voice_samples",
+        "remember",
+    ):
+        assert tool in p, f"{tool} missing from system prompt guidance"
+
+
+def test_read_dm_thread_dispatch_forwards_peer_id(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+    monkeypatch.setattr(
+        bot_service.read_only,
+        "read_dm_thread",
+        lambda user_id, *, peer_id, limit=30:
+            captured.update({"peer_id": peer_id, "limit": limit}) or {
+                "peer_id": peer_id, "peer_name": "Peer", "messages": [],
+            },
+    )
+    result = bot_service._execute_read_tool(
+        user_id=_CREATOR_UUID,
+        name="read_dm_thread",
+        tool_input={"peer_id": "peer-1", "limit": 5},
+    )
+    assert result["ok"] is True
+    assert captured == {"peer_id": "peer-1", "limit": 5}
+
+
+def test_read_recent_decisions_dispatch(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+    monkeypatch.setattr(
+        bot_service.read_only,
+        "read_recent_decisions",
+        lambda user_id, *, limit=10:
+            captured.update({"limit": limit}) or [{"id": "d1"}],
+    )
+    result = bot_service._execute_read_tool(
+        user_id=_CREATOR_UUID,
+        name="read_recent_decisions",
+        tool_input={"limit": 3},
+    )
+    assert result["ok"] is True
+    assert result["content"] == [{"id": "d1"}]
+    assert captured == {"limit": 3}
+
+
+def test_read_voice_samples_dispatch(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+    monkeypatch.setattr(
+        bot_service.read_only,
+        "read_voice_samples",
+        lambda user_id, *, limit=10:
+            captured.update({"limit": limit}) or [{"id": "v1"}],
+    )
+    result = bot_service._execute_read_tool(
+        user_id=_CREATOR_UUID,
+        name="read_voice_samples",
+        tool_input={},
+    )
+    assert result["ok"] is True
+    assert captured == {"limit": 10}
+
+
+def test_remember_dispatch_routes_to_memory_write(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+    monkeypatch.setattr(
+        bot_service.memory_write,
+        "remember",
+        lambda user_id, tool_input:
+            captured.update({"user_id": user_id, "tool_input": tool_input})
+            or {"ok": True, "kind": "decisions", "id": "n1"},
+    )
+    result = bot_service._execute_read_tool(
+        user_id=_CREATOR_UUID,
+        name="remember",
+        tool_input={"kind": "decisions", "summary": "note"},
+    )
+    assert result["ok"] is True
+    assert result["content"]["ok"] is True
+    assert captured["user_id"] == _CREATOR_UUID
+
+
+def test_read_email_thread_requires_thread_id(monkeypatch) -> None:
+    """No thread_id → refuses with available=False before touching any
+    Gmail plumbing. Preserves the token / connection code from firing."""
+    def _no_touch(*a, **kw):
+        pytest.fail("must not call gmail without a thread_id")
+    monkeypatch.setattr(
+        bot_service.google_calendar, "is_configured", _no_touch
+    )
+    result = bot_service._execute_read_tool(
+        user_id=_CREATOR_UUID,
+        name="read_email_thread",
+        tool_input={},
+    )
+    assert result["ok"] is True
+    assert result["content"] == {
+        "available": False,
+        "reason": "thread_id is required",
+    }
