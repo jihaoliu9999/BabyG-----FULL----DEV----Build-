@@ -19,6 +19,18 @@
 (function () {
   "use strict";
 
+  // Promote non-blocking Google Fonts on every page (creator, brand,
+  // operator, auth, landing). base.html ships the fonts link with
+  // media="print" so first paint isn't blocked on the network round-
+  // trip; here we flip it to media="all" once boost.js parses. Runs
+  // BEFORE the creator-only early-return below so all roles benefit.
+  try {
+    var _webfont = document.querySelector("link[data-webfont-swap]");
+    if (_webfont) _webfont.media = "all";
+  } catch (_e) {
+    /* harmless — proceed to normal boot */
+  }
+
   var root = document.body;
   if (!root || root.className.indexOf("is-creator-app") === -1) return;
   if (!window.history || !window.fetch || !window.DOMParser) return;

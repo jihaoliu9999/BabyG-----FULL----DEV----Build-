@@ -13,11 +13,36 @@
   <title>{% block title %}babyg{% endblock %}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  {# Google Fonts loaded non-blocking. The `media="print"` trick tells the
+     browser to fetch the CSS but not apply it, so first paint doesn't wait
+     on the font network round-trip. boost.js promotes it to `media="all"`
+     on load — CSP-safe (no inline onload). Users with JS disabled get the
+     noscript fallback below. #}
+  <link data-webfont-swap rel="stylesheet" media="print"
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" />
+  <noscript>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" />
+  </noscript>
   {% if request is defined and request.url.path != '/' %}
   <link rel="stylesheet" href="{{ asset_url('css/babyg-design/styles.css') }}" />
   {% endif %}
   <link rel="stylesheet" href="{{ asset_url('css/app.css') }}" />
+  {# rel=prefetch on the top nav destinations. Browsers fetch these in
+     idle time so the FIRST click into a role's shell is close to instant.
+     Same-origin only, GET-only routes — never a POST/mutating URL. #}
+  {% set _cp = request.url.path if request is defined else '' %}
+  {% if _cp.startswith('/creator') %}
+  <link rel="prefetch" href="/creator/discover" as="document" />
+  <link rel="prefetch" href="/creator/bot" as="document" />
+  <link rel="prefetch" href="/creator/dm" as="document" />
+  <link rel="prefetch" href="/creator/profile/settings" as="document" />
+  {% elif _cp.startswith('/brand') %}
+  <link rel="prefetch" href="/brand" as="document" />
+  <link rel="prefetch" href="/brand/discover" as="document" />
+  <link rel="prefetch" href="/brand/profile" as="document" />
+  {% elif _cp.startswith('/operator') %}
+  <link rel="prefetch" href="/operator" as="document" />
+  {% endif %}
   {% block head_extra %}{% endblock %}
 </head>
 {% set cp = request.url.path if request is defined else "" %}
@@ -100,12 +125,15 @@
     <!-- MAIN COLUMN -->
     <main class="app-main" id="main-content">
       <div class="app-bg-watermarks" aria-hidden="true">
-        <img class="app-bg-mark m1" src="/static/assets/logo-bg.png" alt="" />
-        <img class="app-bg-mark m2" src="/static/assets/logo-bg.png" alt="" />
-        <img class="app-bg-mark m3" src="/static/assets/logo-bg.png" alt="" />
-        <img class="app-bg-mark m4" src="/static/assets/logo-bg.png" alt="" />
-        <img class="app-bg-mark m5" src="/static/assets/logo-bg.png" alt="" />
-        <img class="app-bg-mark m6" src="/static/assets/logo-bg.png" alt="" />
+        {# Watermarks are decorative. `decoding=async` lets the browser
+           decode off the main thread; `fetchpriority=low` deprioritizes
+           the network fetch so first paint isn't blocked on a 273KB PNG. #}
+        <img class="app-bg-mark m1" src="/static/assets/logo-bg.png" alt="" decoding="async" fetchpriority="low" />
+        <img class="app-bg-mark m2" src="/static/assets/logo-bg.png" alt="" decoding="async" fetchpriority="low" />
+        <img class="app-bg-mark m3" src="/static/assets/logo-bg.png" alt="" decoding="async" fetchpriority="low" />
+        <img class="app-bg-mark m4" src="/static/assets/logo-bg.png" alt="" decoding="async" fetchpriority="low" />
+        <img class="app-bg-mark m5" src="/static/assets/logo-bg.png" alt="" decoding="async" fetchpriority="low" />
+        <img class="app-bg-mark m6" src="/static/assets/logo-bg.png" alt="" decoding="async" fetchpriority="low" />
       </div>
       {% if not cp.startswith('/creator/bot') and not is_dm %}
       {% include "_partials/creator_mobile_header.html" %}
@@ -144,10 +172,10 @@
   </header>
   <main class="app-main brand-main" id="main-content">
     <div class="app-bg-watermarks" aria-hidden="true">
-      <img class="app-bg-mark m1" src="/static/assets/logo-bg.png" alt="" />
-      <img class="app-bg-mark m2" src="/static/assets/logo-bg.png" alt="" />
-      <img class="app-bg-mark m3" src="/static/assets/logo-bg.png" alt="" />
-      <img class="app-bg-mark m4" src="/static/assets/logo-bg.png" alt="" />
+      <img class="app-bg-mark m1" src="/static/assets/logo-bg.png" alt="" decoding="async" fetchpriority="low" />
+      <img class="app-bg-mark m2" src="/static/assets/logo-bg.png" alt="" decoding="async" fetchpriority="low" />
+      <img class="app-bg-mark m3" src="/static/assets/logo-bg.png" alt="" decoding="async" fetchpriority="low" />
+      <img class="app-bg-mark m4" src="/static/assets/logo-bg.png" alt="" decoding="async" fetchpriority="low" />
     </div>
     <div id="view">
       <div class="view">
