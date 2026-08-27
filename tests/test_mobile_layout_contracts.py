@@ -232,7 +232,7 @@ def test_creator_home_shortcuts_fit_mobile_labels() -> None:
         ".is-creator-app .creator-home-shortcut {", 1
     )[1].split("}", 1)[0]
     shortcut_mobile_rule = APP_CSS.split(
-        ".is-creator-app .creator-home-shortcuts { grid-template-columns: repeat(2, minmax(0, 1fr)) !important;",
+        ".is-creator-app .creator-home-shortcuts { grid-template-columns: repeat(3, minmax(0, 1fr)) !important;",
         1,
     )[1].split("@media (max-width: 420px)", 1)[0]
     label_rule = APP_CSS.split(
@@ -242,11 +242,15 @@ def test_creator_home_shortcuts_fit_mobile_labels() -> None:
     assert "max-height" not in shortcut_rule
     assert "min-width: 0" in shortcut_rule
     assert (
-        "grid-template-columns: repeat(2, minmax(0, 1fr)) !important"
+        "grid-template-columns: repeat(3, minmax(0, 1fr)) !important"
         in APP_CSS
     )
     assert "min-height: 62px !important" in shortcut_mobile_rule
     assert "overflow-wrap: anywhere" in label_rule
+    assert 'class="creator-home-shortcut sc-babyg"' not in DASHBOARD_TEMPLATE
+    assert "<span>ask babyg</span>" not in DASHBOARD_TEMPLATE
+    assert 'href="/creator/bot" class="creator-home-shortcut' not in DASHBOARD_TEMPLATE
+    assert "<span>check dms</span>" in DASHBOARD_TEMPLATE
     assert "<span>browse discover</span>" in DASHBOARD_TEMPLATE
     assert "<span>my connections</span>" in DASHBOARD_TEMPLATE
 
