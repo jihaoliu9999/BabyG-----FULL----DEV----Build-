@@ -314,6 +314,8 @@ def test_creator_dm_list_renders(client, world):
     assert " is-dm " in r.text
     assert 'class="app-topbar"' not in r.text
     assert 'class="mobile-header"' not in r.text
+    assert "ask babyg to read" not in r.text
+    assert 'action="/creator/dm/c-2/brief"' not in r.text
 
 
 def test_creator_dm_list_search_filters_by_peer(client, world):

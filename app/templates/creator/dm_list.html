@@ -58,13 +58,6 @@
           {% if unread %}<span class="dm-inbox-count-dot">{{ unread }}</span>{% endif %}
         </span>
       </a>
-      {# Action row — every thread gets at least one chip so no row
-         ever renders naked.
-           * brief + reply_options → real coral chips, tap = jump to
-             thread with draft pre-filled.
-           * no brief → single ghost "ask babyg to read" chip. Posts
-             to the brief endpoint with next=/creator/dm so the user
-             stays on the inbox and the brief lands next render. #}
       {% if b and b.reply_options %}
       <div class="dm-inbox-chips" aria-label="babyg suggested replies">
         {% for reply in b.reply_options[:3] %}
@@ -76,14 +69,6 @@
         </a>
         {% endfor %}
       </div>
-      {% else %}
-      <form method="post" action="/creator/dm/{{ t.peer_id }}/brief" class="dm-inbox-chips">
-        {% include "_partials/csrf.html" %}
-        <input type="hidden" name="next" value="/creator/dm" />
-        <button type="submit" class="dm-inbox-chip dm-inbox-chip-ghost">
-          <span>ask babyg to read</span>
-        </button>
-      </form>
       {% endif %}
     </li>
     {% endfor %}
