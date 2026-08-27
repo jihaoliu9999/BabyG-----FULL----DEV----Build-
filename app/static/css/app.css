@@ -7519,7 +7519,15 @@ hr.hairline {
     var(--bg-sunken);
 }
 :where(.is-auth-app, .is-onboarding-app) :is(.auth-bg-watermarks, .onb-bg-watermarks) { display: none; }
-:where(.is-auth-app, .is-get-started-app) .auth-pane {
+/* Sign-in v3: the card frame is gone. The pane now floats on the
+   ambient background so the page reads as a single considered
+   moment — mark, one line, one field, one button — instead of a
+   boxed form dropped into a lot of empty space. Legal moves to the
+   viewport's true bottom via the parent .auth-page grid.
+
+   Legacy .is-get-started-app pages still get the card via the split
+   selector below so onboarding flows are unaffected. */
+.is-get-started-app .auth-pane {
   width: min(calc(100% - 32px), 520px);
   padding: clamp(24px, 7vw, 42px);
   border: 1px solid var(--hairline);
@@ -7527,38 +7535,133 @@ hr.hairline {
   background: linear-gradient(145deg, rgba(255,255,255,.035), transparent 44%), var(--surface-1);
   box-shadow: var(--shadow-raised);
 }
-.is-auth-app .auth-page { min-height: 100dvh; padding: max(24px, env(safe-area-inset-top)) 0 max(24px, env(safe-area-inset-bottom)); }
+.is-auth-app .auth-page {
+  min-height: 100dvh;
+  padding: max(24px, env(safe-area-inset-top)) 0 max(24px, env(safe-area-inset-bottom));
+  /* Give the legal strip its own row at the very bottom of the
+     viewport so the sign-in stack lands optically centered instead
+     of being pushed up by an attached legal footer. */
+  display: grid;
+  grid-template-rows: 1fr auto;
+  place-items: center;
+  gap: 32px;
+}
 .is-auth-app .auth-title,
 .is-get-started-app .display { font-size: clamp(38px, 10vw, 56px); font-weight: 600; letter-spacing: -.05em; }
-.is-auth-app .auth-form input { min-height: 52px; padding: 0 16px; border-radius: var(--radius-md); background: var(--surface-2); border-color: var(--hairline-strong); font-size: 15px; }
-.is-auth-app .auth-form .btn { min-height: 52px; font-size: 15px; letter-spacing: -.005em; }
-/* Sign-in pane rhythm. Flex column with a single gap enforces even
-   spacing between every element — no CSS-margin cascade fighting
-   between .auth-pane h1 defaults, .auth-title overrides, and the
-   .is-auth-app scope. All internal margins zeroed. Font sizes trimmed
-   so nothing dominates. */
+/* No card. The pane is a plain flex column that hugs its contents,
+   living directly on the ambient background. Width is capped so the
+   input + button don't stretch to unusable lengths on wide screens. */
 .is-auth-app .auth-pane {
-  /* 100vw (not 100%) so the width is anchored to the viewport, not to
-     the parent grid track — the parent uses display:grid;place-items:center
-     which produces an intrinsic-sized track that lets calc(100% - 32px)
-     resolve to something wider than the viewport on narrow screens. */
-  width: min(calc(100vw - 32px), 460px);
-  max-width: 460px;
-  padding: 40px 36px;
+  width: min(calc(100vw - 32px), 380px);
+  max-width: 380px;
+  padding: 0;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 24px;
+  gap: 18px;
+  text-align: center;
 }
 .is-auth-app .auth-pane > *,
 .is-auth-app .auth-pane .brand-lockup { margin: 0; }
-.is-auth-app .auth-logo-row { justify-content: center; }
-.is-auth-app .auth-logo-row .brand-lockup { gap: 12px; }
-.is-auth-app .auth-logo-row .brand-mark { width: 64px; height: 64px; flex-basis: 64px; border-radius: 16px; margin: 0 auto; }
-.is-auth-app .auth-logo-row .logo-text { font-size: 26px; letter-spacing: -.02em; }
-.is-auth-app .auth-title { font-size: 34px; font-weight: 600; letter-spacing: -.04em; line-height: 1; text-align: center; }
-.is-auth-app .auth-sub { font-size: 14.5px; line-height: 1.5; max-width: 320px; text-align: center; margin-left: auto; margin-right: auto; margin-top: -16px; color: var(--ink-mid); }
+/* Mark. Sits alone above the title with a subtle coral halo so it
+   feels lit from within instead of pasted on. */
+.is-auth-app .auth-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 6px;
+  border-radius: 16px;
+  background: var(--surface-1);
+  box-shadow: 0 10px 40px rgba(255, 77, 109, 0.22), inset 0 0 0 1px var(--hairline);
+  transition: transform 200ms ease, box-shadow 200ms ease;
+}
+.is-auth-app .auth-mark:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 48px rgba(255, 77, 109, 0.32), inset 0 0 0 1px var(--hairline-strong);
+}
+.is-auth-app .auth-mark img { width: 34px; height: 34px; display: block; }
+/* Title tuned smaller. The sign-in page has no other content
+   competing for attention, so 30px is enough presence. */
+.is-auth-app .auth-title {
+  font-size: 30px;
+  font-weight: 600;
+  letter-spacing: -.03em;
+  line-height: 1.1;
+  text-align: center;
+  color: var(--ink);
+}
+.is-auth-app .auth-sub {
+  font-size: 14.5px;
+  line-height: 1.5;
+  max-width: 320px;
+  text-align: center;
+  margin: -8px auto 4px;
+  color: var(--ink-mid);
+}
+/* Form: single input + full-width button, tight rhythm. */
 .is-auth-app .auth-form { width: 100%; gap: 10px; }
+.is-auth-app .auth-form input {
+  width: 100%;
+  min-height: 54px;
+  padding: 0 18px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 14px;
+  background: var(--surface-1);
+  color: var(--ink);
+  font-size: 15px;
+  text-align: left;
+  transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+}
+.is-auth-app .auth-form input::placeholder { color: var(--ink-faint); }
+.is-auth-app .auth-form input:focus {
+  border-color: rgba(255, 77, 109, 0.55);
+  background: var(--surface-2);
+  box-shadow: 0 0 0 3px rgba(255, 77, 109, 0.12);
+  outline: none;
+}
+.is-auth-app .auth-form .btn {
+  width: 100%;
+  min-height: 54px;
+  padding: 0 20px;
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -.005em;
+  gap: 0;
+}
+/* Error + hint banners stay inside the flex column so the vertical
+   rhythm keeps holding once they appear. */
+.is-auth-app .auth-error,
+.is-auth-app .auth-hint {
+  margin: 0;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 13px;
+  text-align: left;
+}
+/* Legal strip lives at the viewport bottom now, not attached to the
+   pane. Mono, dim, generous letter-spacing — reads as chrome, not
+   another action. */
+.is-auth-app .auth-legal {
+  align-self: end;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 20px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: .14em;
+  color: var(--ink-faint);
+}
+.is-auth-app .auth-legal a { color: var(--ink-dim); }
+.is-auth-app .auth-legal a:hover { color: var(--ink-mid); }
+.is-auth-app .auth-legal .sep { color: var(--ink-faint); }
+/* Old-style .legal-meta-strip fallback stays for pages still using it. */
 .is-auth-app .legal-meta-strip { padding: 0; font-size: 10px; letter-spacing: 0.15em; gap: 4px 12px; max-width: 100%; }
 
 /* Narrow mobile — dial the pane in so it doesn't feel cramped when the

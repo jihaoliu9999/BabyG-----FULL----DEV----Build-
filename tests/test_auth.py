@@ -245,11 +245,13 @@ def test_landing_redirects_signed_in_users(client: TestClient) -> None:
 
 
 def test_login_form_renders(client: TestClient) -> None:
-    """One sign-in page for everyone — copy no longer role-branded."""
+    """One sign-in page for everyone. Copy no longer role-branded."""
     r = client.get("/auth/login?role=creator")
     assert r.status_code == 200
-    assert "sign in." in r.text
-    assert "we'll email you a sign-in link" in r.text
+    # v3 dropped the trailing period on the title and rewrote the sub
+    # to lead with the action ("enter your email...").
+    assert "sign in" in r.text
+    assert "one-tap sign-in link" in r.text
 
 
 def test_login_form_still_carries_role_from_query(client: TestClient) -> None:
