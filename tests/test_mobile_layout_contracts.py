@@ -67,6 +67,41 @@ def test_bot_composer_uses_single_visible_textbox() -> None:
     assert "min-width: 0" in textarea_rule
 
 
+def test_dm_composers_use_single_visible_textbox() -> None:
+    legacy_box_rule = APP_CSS.split(
+        ".is-creator-app .dm-composer .box {", 1
+    )[1].split("}", 1)[0]
+    legacy_input_rule = APP_CSS.split(
+        ".is-creator-app .dm-screen .dm-composer input,", 1
+    )[1].split("}", 1)[0]
+    thread_box_rule = APP_CSS.split(".dm-thread-composer-box {", 1)[1].split(
+        "}", 1
+    )[0]
+    thread_input_rule = APP_CSS.split(".dm-thread-composer-box input {", 1)[
+        1
+    ].split("}", 1)[0]
+    thread_send_rule = APP_CSS.split(".dm-thread-composer-send {", 1)[1].split(
+        "}", 1
+    )[0]
+
+    for box_rule in (legacy_box_rule, thread_box_rule):
+        assert "background: transparent" in box_rule
+        assert "border: 0" in box_rule
+        assert "border-radius: 0" in box_rule
+        assert "box-shadow: none" in box_rule
+
+    for input_rule in (legacy_input_rule, thread_input_rule):
+        assert "background: var(--surface-2)" in input_rule
+        assert "border: 1px solid var(--hairline-strong)" in input_rule
+        assert "border-radius: 16px" in input_rule
+        assert "font-size: 16px" in input_rule
+        assert "min-width: 0" in input_rule
+        assert "min-height: 44px" in input_rule
+
+    assert "width: 44px" in thread_send_rule
+    assert "flex: 0 0 44px" in thread_send_rule
+
+
 def test_bot_prompt_chips_start_prompt_on_tap() -> None:
     chip_handler = BOT_JS.split("// Suggested-prompt chips.", 1)[1].split(
         "// Inline chips under any bot message", 1
@@ -164,7 +199,7 @@ def test_dm_thread_composer_sits_close_to_bottom_tabbar() -> None:
     assert "min-height: 0" in status_rule
     assert "overflow: hidden" in status_rule
     assert "height: 18px" in visible_status_rule
-    assert "min-height: 48px" in box_rule
+    assert "min-height: 44px" in box_rule
     assert "font-size: 16px" in input_rule
     assert "min-width: 0" in input_rule
 
