@@ -1148,19 +1148,42 @@ def _build_prompt_context(
 
 
 def _format_now(*, user_now_iso: str | None, user_tz: str | None) -> str | None:
-    """Human-friendly 'Tuesday, Aug 19, 2026 · 1:47pm' from best source."""
+    """Human-friendly 'Tuesday, Aug 19, 2026 · 1:47pm' from best source.
+
+    bot.js sends ``new Date().toISOString()`` which is ALWAYS UTC, plus
+    ``Intl.DateTimeFormat().resolvedOptions().timeZone`` (e.g.
+    "America/Los_Angeles"). The UTC datetime must be converted into the
+    user's tz before formatting — otherwise a creator in LA at 8:30pm
+    local (03:30 UTC next day) would see babyg say "Wed Aug 27" when
+    their wall clock reads "Tue Aug 26". Failing to convert was the
+    "babyg is a day ahead" hallucination.
+    """
     from datetime import UTC, datetime  # local import — only needed here
 
     dt: datetime | None = None
-    tz_label = user_tz or "UTC"
+    tz_label = "UTC"
     if user_now_iso:
         try:
             dt = datetime.fromisoformat(user_now_iso.replace("Z", "+00:00"))
         except ValueError:
             dt = None
     if dt is None:
+        # No device stamp (or malformed) — server UTC with a UTC label.
+        # We intentionally do NOT try to reinterpret it in `user_tz`:
+        # if the paired ISO was garbage, we don't trust the tz string
+        # from the same submission either.
         dt = datetime.now(UTC)
-        tz_label = "UTC"
+    elif user_tz:
+        # Shift the tz-aware datetime into the user's wall-clock zone
+        # so strftime reads the day/hour the user actually sees on
+        # their device. Bad tz strings keep the UTC label truthful.
+        try:
+            from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+            dt = dt.astimezone(ZoneInfo(user_tz))
+            tz_label = user_tz
+        except (ZoneInfoNotFoundError, ValueError):
+            pass  # keep UTC label + whatever zone dt already carries
     stamp = dt.strftime("%A, %b %-d, %Y · %-I:%M%p").lower()
     return f"{stamp} ({tz_label})"
 
