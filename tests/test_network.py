@@ -562,11 +562,17 @@ def test_connections_page_groups_correctly(client, world):
     assert "my connections" in text
     assert "Accepted Friend" in text
     assert "Incoming Request" in text
-    assert "Outgoing Request" in text
+    # Sent requests live behind the sent tab now — the 'all' view
+    # no longer spills the outgoing list at the bottom of the page.
+    assert "Outgoing Request" not in text
     assert "connected" in text
     # accept / decline buttons appear in the incoming row
     assert "accept" in text
     assert "decline" in text
+
+    sent = client.get("/creator/connections?filter=sent")
+    assert sent.status_code == 200
+    assert "Outgoing Request" in sent.text
 
 
 def test_respond_accept_only_by_addressee(client, world):

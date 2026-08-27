@@ -152,21 +152,19 @@
     </ul>
   {% endif %}
 
-  {% if active_filter in ('all', 'sent') %}
+  {# Sent requests only render on the sent tab. The 'all' view no
+     longer spills the sent list under the received section — the tab
+     itself already carries the count, and stacking the same list at
+     the bottom made the 'all' page feel like a dumping ground. #}
+  {% if active_filter == 'sent' %}
     {% if outgoing %}
-    {% if active_filter == 'all' %}
-    <div class="conn-section-head">
-      <span class="eyebrow">sent</span>
-      <span class="n">{{ outgoing|length }}</span>
-    </div>
-    {% endif %}
     <ul class="conn-list" role="list">
       {% for c in outgoing %}
       {% set peer = peers.get(c.peer_id) %}
       {{ conn_row(c, peer, 'outgoing', 'creator') }}
       {% endfor %}
     </ul>
-    {% elif active_filter == 'sent' %}
+    {% else %}
     <div class="conn-empty">
       <span class="mono">nothing pending.</span>
       <p>connection requests you send will show up here.</p>
