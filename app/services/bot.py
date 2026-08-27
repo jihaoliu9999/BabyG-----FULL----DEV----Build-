@@ -345,6 +345,7 @@ def handle_creator_message(
     )
 
     # Observability: classify the turn's outcome and record. Never raises.
+    _observed_response_type: Literal["text", "pending_action"]
     if pending_action is not None:
         recorder.note_action_proposal_staged(
             str(pending_action.get("action_type") or "unknown")
