@@ -11546,38 +11546,75 @@ hr.hairline {
   width: 5px; height: 5px; border-radius: 50%;
   background: transparent;
 }
+/* Composer pill — one clean surface. Input + send sit inside a
+   single dark pill. Focus is a subtle coral border, no browser outline,
+   no gradient artifact ("scroll line") behind the send button. */
 .dm-thread-composer-box {
-  display: flex; gap: 8px; align-items: center;
-  background: linear-gradient(180deg, rgba(255,255,255,.045), rgba(255,255,255,.02));
-  border: 1px solid rgba(255,255,255,.07);
-  border-radius: 24px;
+  display: flex; align-items: center; gap: 0;
+  background: rgba(255,255,255,.04);
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 26px;
   min-height: 48px;
-  padding: 5px 5px 5px 14px;
+  padding: 4px 4px 4px 16px;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.dm-thread-composer-box:focus-within {
+  border-color: rgba(255,77,109,.42);
+  box-shadow: 0 0 0 3px rgba(255,77,109,.10);
 }
 .dm-thread-composer-box input {
   flex: 1;
   min-width: 0;
   background: transparent;
-  border: none;
-  outline: none;
+  border: 0;
+  outline: 0;
+  box-shadow: none;
+  -webkit-appearance: none;
+  appearance: none;
   color: var(--ink);
   font: inherit;
-  font-size: 16px;
-  padding: 6px 0;
+  font-size: 16px;   /* 16px avoids iOS zoom on focus */
+  padding: 6px 10px 6px 0;
   min-height: 34px;
+}
+.dm-thread-composer-box input:focus,
+.dm-thread-composer-box input:focus-visible {
+  outline: 0;
+  box-shadow: none;
 }
 .dm-thread-composer-box input::placeholder { color: var(--ink-dim); }
 .dm-thread-composer-send {
   width: 40px; height: 40px;
   border-radius: 50%;
-  background: var(--lime,#ff4d6d);
-  border: none;
+  background: var(--accent, #ff4d6d);
+  border: 0;
   display: grid; place-items: center;
-  color: white;
+  color: #fff;
   cursor: pointer;
   flex: 0 0 40px;
+  transition: background-color .15s ease, transform .12s ease;
 }
-.dm-thread-composer-send svg { width: 16px; height: 16px; }
+.dm-thread-composer-send:hover { background: var(--accent-hover, #e8455f); }
+.dm-thread-composer-send:active { transform: scale(.94); }
+.dm-thread-composer-send svg {
+  width: 18px; height: 18px;
+  display: block;
+  stroke-width: 2.4;
+  stroke: currentColor;
+  fill: none;
+}
+
+/* Hide the mobile tabbar the moment the DM composer input is focused
+   (keyboard is up). Uses :has() so we don't need any JS — supported in
+   every Chromium 105+ / Safari 15.4+ / Firefox 121+. Falls back to
+   showing the tabbar on older browsers, which is fine. */
+body:has(.dm-thread-composer-box input:focus) .app-tabbar,
+body:has(.dm-thread-composer-box input:focus) .creator-tabbar {
+  transform: translateY(100%);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform .2s ease, opacity .15s ease;
+}
 
 /* Risk-level pill colors — keep the semantic palette for the strip
    pill so alerts stay visually distinct without shouting on every
