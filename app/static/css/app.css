@@ -2868,12 +2868,25 @@ select.profile-detail-input {
 .is-dm-thread .app-main { padding-bottom: 0; }
 .is-dm-thread #view {
   height: calc(100dvh - var(--tabbar-h) - env(safe-area-inset-bottom, 0px));
+  height: calc(var(--dm-visual-viewport-height, 100dvh) - var(--tabbar-h) - env(safe-area-inset-bottom, 0px));
   display: flex; flex-direction: column;
   overflow: hidden;
   overscroll-behavior: contain;
 }
 @media (min-width: 1000px) {
-  .is-dm-thread #view { height: 100dvh; }
+  .is-dm-thread #view { height: 100dvh; height: var(--dm-visual-viewport-height, 100dvh); }
+}
+@media (max-width: 999px) {
+  .is-dm-thread.dm-keyboard-open #view {
+    height: 100dvh;
+    height: var(--dm-visual-viewport-height, 100dvh);
+  }
+  body.is-dm-thread.dm-keyboard-open {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    overflow: hidden;
+  }
 }
 .is-dm-thread #view > .view {
   display: flex;
@@ -7944,6 +7957,11 @@ hr.hairline {
 @media (min-width: 768px) and (max-width: 999px) {
   .is-creator-app.is-dm-thread #view {
     height: calc(100dvh - var(--tabbar-h) - 12px - env(safe-area-inset-bottom, 0px));
+    height: calc(var(--dm-visual-viewport-height, 100dvh) - var(--tabbar-h) - 12px - env(safe-area-inset-bottom, 0px));
+  }
+  .is-creator-app.is-dm-thread.dm-keyboard-open #view {
+    height: 100dvh;
+    height: var(--dm-visual-viewport-height, 100dvh);
   }
 }
 .is-creator-app .dm-thread-report {
@@ -11544,6 +11562,12 @@ hr.hairline {
   border-top: 1px solid var(--hairline);
   backdrop-filter: blur(20px);
 }
+@media (max-width: 999px) {
+  .is-dm-thread.dm-keyboard-open .dm-thread-composer {
+    padding-top: 6px;
+    padding-bottom: 2px;
+  }
+}
 .dm-thread-composer-status {
   display: flex; align-items: center; gap: 6px;
   font-family: var(--mono);
@@ -11633,7 +11657,9 @@ hr.hairline {
    (keyboard is up). Uses :has() so we don't need any JS — supported in
    every Chromium 105+ / Safari 15.4+ / Firefox 121+. Falls back to
    showing the tabbar on older browsers, which is fine. */
+body.dm-keyboard-open .app-tabbar,
 body:has(.dm-thread-composer-box input:focus) .app-tabbar,
+body.dm-keyboard-open .creator-tabbar,
 body:has(.dm-thread-composer-box input:focus) .creator-tabbar {
   transform: translateY(100%);
   opacity: 0;
