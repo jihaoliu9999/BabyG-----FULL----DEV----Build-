@@ -1,10 +1,10 @@
-# Optional / future dependencies. Add to requirements.txt (or include via -r)
-# only once the corresponding code lands in app/.
+# --- NOT the production install file. ---
+# Railway installs from `requirements.txt` (see Procfile / railway.json /
+# .github/workflows/ci.yml). This file lists optional / future dependencies
+# staged for Phase 2/3 work. Move a line up to `requirements.txt` only once
+# the corresponding code has actually landed in `app/`.
 
 -r requirements.txt
-
-# --- Anthropic Claude (AI assistant / agent) ---
-anthropic==0.39.0
 
 # --- Background jobs (Celery worker + Beat scheduler) ---
 celery==5.4.0
