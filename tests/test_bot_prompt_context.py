@@ -123,3 +123,62 @@ def test_prompt_survives_malformed_iso(monkeypatch, stub_bot_writes):
     assert "today:" in prompt
     # Malformed iso → UTC fallback label wins over the client tz.
     assert "(utc)" in prompt.lower()
+
+
+# ---------------------------------------------------------------------------
+# Timezone conversion — regression tests for the "babyg is a day ahead" bug
+# where bot.js sent `new Date().toISOString()` (always UTC) and the server
+# formatted the UTC wall-clock while labeling it with the user's tz string,
+# so a creator in LA at 8:30 PM PDT saw babyg claim it was the next day.
+# ---------------------------------------------------------------------------
+
+
+def test_utc_iso_from_device_is_converted_into_user_tz(
+    monkeypatch, stub_bot_writes
+):
+    """The core hallucination: bot.js sends the UTC-normalized form
+    (`2026-08-27T03:30:00Z`) with tz `America/Los_Angeles`. The prompt
+    must reflect the LA wall clock (Wed Aug 26, 8:30 pm), NOT the UTC
+    calendar (Thu Aug 27, 3:30 am)."""
+    prompt = _capture_prompt(
+        monkeypatch,
+        user_now_iso="2026-08-27T03:30:00Z",
+        user_tz="America/Los_Angeles",
+    )
+    assert "wednesday" in prompt
+    assert "aug 26, 2026" in prompt
+    assert "8:30pm" in prompt
+    assert "america/los_angeles" in prompt.lower()
+    # Regression: the UTC calendar day must NOT leak into the prompt.
+    assert "thursday" not in prompt
+    assert "aug 27, 2026" not in prompt
+
+
+def test_utc_iso_with_bad_tz_string_falls_back_to_utc_label(
+    monkeypatch, stub_bot_writes
+):
+    """Client sent a valid UTC ISO but a garbage tz string. We keep
+    the (UTC) label rather than mislabeling and never raise."""
+    prompt = _capture_prompt(
+        monkeypatch,
+        user_now_iso="2026-08-27T03:30:00Z",
+        user_tz="Not/AZone",
+    )
+    assert "today:" in prompt
+    assert "(utc)" in prompt.lower()
+
+
+def test_offset_iso_still_reads_local_wall_clock(
+    monkeypatch, stub_bot_writes
+):
+    """When the client sends an ISO with an explicit offset (older
+    clients did this), converting into user_tz must NOT double-shift.
+    2026-08-19 13:47 -04:00 in America/New_York is still 1:47 pm."""
+    prompt = _capture_prompt(
+        monkeypatch,
+        user_now_iso="2026-08-19T13:47:00-04:00",
+        user_tz="America/New_York",
+    )
+    assert "wednesday" in prompt
+    assert "aug 19, 2026" in prompt
+    assert "1:47pm" in prompt
