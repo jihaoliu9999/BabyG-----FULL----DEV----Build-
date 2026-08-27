@@ -68,16 +68,28 @@ def test_bot_composer_uses_single_visible_textbox() -> None:
     textarea_rule = APP_CSS.split(
         ".is-creator-app.is-chat .bot-composer textarea,", 1
     )[1].split("}", 1)[0]
+    send_rule = APP_CSS.split(
+        ".is-creator-app.is-chat .bot-composer .send {", 1
+    )[1].split("}", 1)[0]
+    send_icon_rule = APP_CSS.split(
+        ".is-creator-app.is-chat .bot-composer .send svg {", 1
+    )[1].split("}", 1)[0]
 
     assert "background: transparent" in box_rule
     assert "border: 0" in box_rule
     assert "border-radius: 0" in box_rule
     assert "box-shadow: none" in box_rule
-    assert "background: var(--surface-2)" in textarea_rule
-    assert "border: 1px solid var(--hairline-strong)" in textarea_rule
-    assert "border-radius: 14px" in textarea_rule
+    assert "background: linear-gradient" in textarea_rule
+    assert "border: 1px solid rgba(255,255,255,.12)" in textarea_rule
+    assert "border-radius: 16px" in textarea_rule
     assert "font-size: 16px" in textarea_rule
     assert "min-width: 0" in textarea_rule
+    assert "min-height: 48px" in textarea_rule
+    assert "width: 48px" in send_rule
+    assert "height: 48px" in send_rule
+    assert "flex: 0 0 48px" in send_rule
+    assert "place-items: center" in send_rule
+    assert "transform: translateX(1px)" in send_icon_rule
 
 
 def test_dm_composers_use_single_visible_textbox() -> None:
