@@ -46,7 +46,18 @@ def test_mobile_controls_keep_ios_safe_font_size() -> None:
     assert "textarea, select) { font-size: 16px; }" in APP_CSS
     assert ".bot-composer textarea" in APP_CSS
     composer_rule = APP_CSS.split(".bot-composer textarea {", 1)[1].split("}", 1)[0]
+    conn_search_rule = APP_CSS.split(".conn-search input,", 1)[1].split("}", 1)[0]
+    opportunity_input_rule = APP_CSS.split(".op-new-field input,\n.op-new-field textarea {", 1)[
+        1
+    ].split("}", 1)[0]
+    settings_input_rule = APP_CSS.split(
+        ".is-creator-app .settings-clean-shell .settings-field input,", 1
+    )[1].split("}", 1)[0]
+
     assert "font-size: 16px" in composer_rule
+    assert "font-size: 16px" in conn_search_rule
+    assert "font-size: 16px" in opportunity_input_rule
+    assert "font-size: 16px" in settings_input_rule
 
 
 def test_bot_composer_uses_single_visible_textbox() -> None:
@@ -172,6 +183,7 @@ def test_creator_tabbar_items_are_centered_on_mobile() -> None:
     assert "justify-items: stretch" in rule
     assert "width: 100%" in item_rule
     assert "max-width: none" in item_rule
+    assert "letter-spacing: 0" in item_rule
 
 
 def test_dm_thread_composer_sits_close_to_bottom_tabbar() -> None:
@@ -210,7 +222,8 @@ def test_creator_settings_work_links_do_not_overlap_labels() -> None:
         ".is-creator-app .profile-fidelity-settings-card > a {", 1
     )[1].split("}", 1)[0]
 
-    assert "grid-template-columns: minmax(66px, max-content) minmax(0, 1fr) auto" in rule
+    assert "grid-template-columns: minmax(64px, 88px) minmax(0, 1fr) auto" in rule
+    assert "max-content" not in rule
     assert "34px minmax(0, 1fr)" not in rule
 
 
@@ -369,9 +382,69 @@ def test_babyg_guide_is_tap_friendly_and_replaces_old_dm_prompts() -> None:
     menu_summary_rule = APP_CSS.split(
         ".dm-thread-menu > summary {", 1
     )[1].split("}", 1)[0]
-    assert "34px" in menu_summary_rule  # tap target
+    assert "44px" in menu_summary_rule  # tap target
     assert "data-brief-refresh" in DM_THREAD_TEMPLATE
     assert "ask babyg" in DM_THREAD_TEMPLATE
     assert "dm-brief-prompt" not in DM_THREAD_TEMPLATE
     assert "ask babyg about this message" not in DM_THREAD_TEMPLATE
     assert "ask babyg to re-check" not in DM_THREAD_TEMPLATE
+
+
+def test_mobile_secondary_actions_are_tap_friendly() -> None:
+    """Frequent mobile actions should not collapse into tiny controls."""
+    dm_inbox_chip_rule = APP_CSS.split(".dm-inbox-chip {", 1)[1].split("}", 1)[0]
+    dm_thread_chip_rule = APP_CSS.split(".dm-thread-chip {", 1)[1].split("}", 1)[0]
+    bot_chip_rule = APP_CSS.split(".bot-prompt-chip {", 1)[1].split("}", 1)[0]
+    thread_back_rule = APP_CSS.split(
+        ".dm-thread-back,\n.dm-thread-menu > summary {", 1
+    )[1].split("}", 1)[0]
+    conn_button_rule = APP_CSS.split(".conn-btn {", 1)[1].split("}", 1)[0]
+    conn_icon_rule = APP_CSS.split(".conn-btn.icon {", 1)[1].split("}", 1)[0]
+    legacy_send_rule = APP_CSS.split(".dm-screen .dm-composer .send {", 1)[
+        1
+    ].split("}", 1)[0]
+    home_link_rule = APP_CSS.split(".is-creator-app .creator-home-link {", 1)[
+        1
+    ].split("}", 1)[0]
+    needs_chip_rule = APP_CSS.split(".is-creator-app .creator-needs-chip {", 1)[
+        1
+    ].split("}", 1)[0]
+    section_link_rule = APP_CSS.split(
+        ".is-creator-app .creator-section-head > a {", 1
+    )[1].split("}", 1)[0]
+
+    assert "min-height: 40px" in dm_inbox_chip_rule
+    assert "min-height: 40px" in dm_thread_chip_rule
+    assert "min-height: 44px" in bot_chip_rule
+    assert "width: 44px" in thread_back_rule
+    assert "height: 44px" in thread_back_rule
+    assert "min-height: 44px" in conn_button_rule
+    assert "width: 44px" in conn_icon_rule
+    assert "height: 44px" in conn_icon_rule
+    assert "width: 44px" in legacy_send_rule
+    assert "flex: 0 0 44px" in legacy_send_rule
+    assert "min-height: 44px" in home_link_rule
+    assert "min-height: 40px" in needs_chip_rule
+    assert "min-height: 44px" in section_link_rule
+
+
+def test_creator_mobile_typography_is_not_visually_squeezed() -> None:
+    """Core creator app labels use normal tracking on mobile."""
+    checked_selectors = (
+        ".is-creator-app .creator-tabbar a {",
+        ".is-creator-app .discover-head h1 {",
+        ".is-creator-app .creator-screen-title h1 {",
+        ".is-creator-app .creator-home-hero h1 {",
+        ".is-creator-app .profile-fidelity-title h1 {",
+        ".is-creator-app .profile-fidelity-copy h2 {",
+        ".dm-inbox-name {",
+        ".bot-hero h1 {",
+        ".conn-page-head h1 {",
+        ".conn-name {",
+    )
+
+    for selector in checked_selectors:
+        rule = APP_CSS.split(selector, 1)[1].split("}", 1)[0]
+        assert "letter-spacing: 0" in rule
+        assert "letter-spacing: -" not in rule
+        assert "font-size: clamp" not in rule
