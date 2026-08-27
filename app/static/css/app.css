@@ -2442,6 +2442,13 @@ select.profile-detail-input {
 }
 .is-chat .bot-screen { flex: 1; min-height: 0; }
 .is-chat .bot-messages { min-height: 0; }
+/* Composer glitches to the middle of the screen on iOS Safari when
+   the flex chain from #view -> .view -> .bot-screen doesn't fully
+   stretch on first paint (the address-bar/dvh recompute race).
+   `margin-top: auto` on the composer forces it to occupy all leftover
+   space above itself regardless of whether the parent stretched, so
+   the input always sits pinned above the tabbar. */
+.is-chat .bot-composer { margin-top: auto; }
 .is-chat #view > .view {
   display: flex;
   flex-direction: column;
@@ -10063,9 +10070,12 @@ hr.hairline {
   box-shadow: 0 12px 28px rgba(255,77,109,.34), inset 0 1px rgba(255,255,255,.28);
 }
 .is-creator-app.is-chat .bot-composer .send svg {
-  width: 19px;
-  height: 19px;
+  width: 22px;
+  height: 22px;
   display: block;
+  /* The paper-plane path is balanced along the horizontal axis at
+     y=12 in its viewBox, but the visible mass tips left, so a 1px
+     nudge right lands the icon optically centered in the pill. */
   transform: translateX(1px);
 }
 .is-creator-app.is-chat .bot-composer .send:focus-visible {
