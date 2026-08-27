@@ -160,13 +160,18 @@
   </section>
   {% endif %}
 
-  {# Home shortcuts stay focused on navigation. The babyg chat entry remains
-     in the main tabbar and inside DM thread tools, not as a home tile. #}
+  {# 4 shortcuts — 2x2 on mobile, 1x4 on desktop. post-opportunity swapped
+     for my connections since posting is already a chip on the discover tab
+     strip and the rolodex isn't reachable from any sidebar tab. #}
   <section class="creator-home-section">
     <div class="creator-home-shortcuts">
       <a href="/creator/dm" class="creator-home-shortcut sc-dm">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
         <span>check dms</span>
+      </a>
+      <a href="/creator/bot" class="creator-home-shortcut sc-babyg">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+        <span>ask babyg</span>
       </a>
       <a href="/creator/discover" class="creator-home-shortcut sc-discover">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>

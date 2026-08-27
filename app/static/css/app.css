@@ -11085,12 +11085,8 @@ hr.hairline {
   line-height: 1;
 }
 
-/* Action row on every DM row. Indented past the avatar so chips
-   align with the preview text above them. Renders in two flavors:
-     .dm-inbox-chips (form or ul of chips) — babyg-suggested replies.
-     .dm-inbox-chip-ghost — fallback "ask babyg to read" when no
-       brief exists yet. Same shape, muted color, click to fire the
-       brief endpoint (form POST). */
+/* Suggested reply row on DM rows. Indented past the avatar so chips
+   align with the preview text above them. */
 .dm-inbox-chips {
   display: flex; flex-wrap: wrap; gap: 6px;
   /* left = row padding (20) + avatar (48) + column gap (14) */
@@ -11124,22 +11120,9 @@ hr.hairline {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   max-width: 220px;
 }
-.dm-inbox-chip-ghost {
-  color: var(--ink-mid);
-  border-color: var(--hairline-strong);
-  background: transparent;
-}
-.dm-inbox-chip-ghost:hover {
-  color: var(--ink);
-  border-color: var(--ink-mid);
-  background: var(--surface-2);
-}
 @media (max-width: 640px) {
   /* Narrow screens: keep the row compact — chips scroll horizontally,
-     first 2 visible, extras still reachable inside the thread. Use
-     sibling-count over nth-child so hidden <input> children inside a
-     form-wrapped chip row (csrf token, next hint) don't get counted
-     — that was hiding the ghost "ask babyg to read" button. */
+     first 2 visible, extras still reachable inside the thread. */
   .dm-inbox-chips {
     flex-wrap: nowrap;
     overflow-x: auto;
@@ -12018,15 +12001,15 @@ body:has(.dm-thread-composer-box input:focus) .creator-tabbar {
   overflow-wrap: anywhere;
 }
 
-/* jump-to shortcuts — three focused navigation tiles.
+/* jump-to shortcuts — 4-tile grid. 1×4 on desktop, 2×2 on phones.
    Each shortcut gets a per-action color tint on its icon so the row
-   reads as a system, not three identical chips.
+   reads as a system, not four identical chips.
    `!important` on the layout props defends against any legacy sibling
    selectors (nested grid, previous CSS caches) trying to stretch or
    re-flow these tiles into tall squares. */
 .is-creator-app .creator-home-shortcuts {
   display: grid !important;
-  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
   gap: 8px !important;
   align-items: stretch;
   max-width: 100%;
@@ -12065,13 +12048,14 @@ body:has(.dm-thread-composer-box input:focus) .creator-tabbar {
   flex: 0 0 auto;
 }
 .is-creator-app .creator-home-shortcut.sc-dm svg          { color: #a4d0ff; }
+.is-creator-app .creator-home-shortcut.sc-babyg svg       { color: #ffc07a; }
 .is-creator-app .creator-home-shortcut.sc-discover svg    { color: var(--lime, #c6ff3d); }
 .is-creator-app .creator-home-shortcut.sc-connections svg { color: var(--accent); }
 
 @media (max-width: 640px) {
   .is-creator-app .creator-matched { grid-template-columns: 1fr; }
   .is-creator-app .creator-today-event { grid-template-columns: 92px minmax(0, 1fr) auto; gap: 10px; padding-inline: 12px; }
-  .is-creator-app .creator-home-shortcuts { grid-template-columns: repeat(3, minmax(0, 1fr)) !important; gap: 8px !important; }
+  .is-creator-app .creator-home-shortcuts { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 10px !important; }
   .is-creator-app .creator-home-shortcut { min-height: 62px !important; padding: 12px; border-radius: 14px; font-size: 13px; font-weight: 650; }
   .is-creator-app .creator-home-shortcut svg { width: 17px; height: 17px; flex-basis: 17px; }
 }
