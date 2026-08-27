@@ -242,3 +242,220 @@ def test_bot_module_export_smoketest():
     list_messages), this test fails clearly."""
     assert callable(bot_module.create_message)
     assert callable(bot_module.list_messages)
+
+
+# ---------------------------------------------------------------------------
+# Phase 8: deal-derived nudge sources. Every candidate must dedupe by
+# nudge_key so the same event never surfaces twice, including across
+# repeat visits within the same day.
+# ---------------------------------------------------------------------------
+
+
+def _silence_other_sources(monkeypatch):
+    """Zero out sources we're not exercising so a test's assertion is
+    exact. Phase 5/6/7 helpers each read their own tables; without a
+    fake supabase behind them they'd swallow the exception and return
+    [] anyway, but explicit is calmer."""
+    for name in (
+        "_match_nudges",
+        "_booking_nudges",
+        "_connection_accepted_nudges",
+        "_event_soon_nudges",
+        "_pending_action_nudges",
+        "_hot_drop_nudges",
+    ):
+        monkeypatch.setattr(bot_nudges, name, lambda _uid: [])
+
+
+def test_ghosted_deal_surfaces_a_nudge(monkeypatch, stub_inserts) -> None:
+    _silence_other_sources(monkeypatch)
+    monkeypatch.setattr(
+        bot_nudges.babyg_memory, "list_drafts", lambda _uid, **kw: []
+    )
+    monkeypatch.setattr(
+        bot_nudges.babyg_deals,
+        "list_deals",
+        lambda _uid, stage=None, **kw: (
+            [{"id": "d1", "brand_name": "Vans", "stage": "stale_or_ghosted"}]
+            if stage == "stale_or_ghosted"
+            else []
+        ),
+    )
+    inserted = bot_nudges.generate_pending("u-1")
+    assert len(inserted) == 1
+    msg = stub_inserts["inserted"][0]
+    assert msg["tool_calls"]["kind"] == "nudge"
+    assert msg["tool_calls"]["nudge_category"] == "deal_ghosted"
+    assert "Vans" in msg["content"]
+    # Chips include a draft-follow-up primary.
+    chips = msg["tool_calls"]["chips"]
+    assert chips[0]["primary"] is True
+    assert "follow up" in chips[0]["label"]
+
+
+def test_ghosted_deal_dedupes_within_same_day(monkeypatch, stub_inserts) -> None:
+    """Second call in the same day surfaces zero new nudges — the same
+    deal on the same day maps to the same nudge_key."""
+    _silence_other_sources(monkeypatch)
+    monkeypatch.setattr(
+        bot_nudges.babyg_memory, "list_drafts", lambda _uid, **kw: []
+    )
+    monkeypatch.setattr(
+        bot_nudges.babyg_deals,
+        "list_deals",
+        lambda _uid, stage=None, **kw: (
+            [{"id": "d1", "brand_name": "Vans", "stage": "stale_or_ghosted"}]
+            if stage == "stale_or_ghosted"
+            else []
+        ),
+    )
+    first = bot_nudges.generate_pending("u-1")
+    second = bot_nudges.generate_pending("u-1")
+    assert len(first) == 1
+    assert len(second) == 0
+
+
+def test_late_payment_nudge_reports_amount(monkeypatch, stub_inserts) -> None:
+    _silence_other_sources(monkeypatch)
+    monkeypatch.setattr(
+        bot_nudges.babyg_memory, "list_drafts", lambda _uid, **kw: []
+    )
+    monkeypatch.setattr(
+        bot_nudges.babyg_deals,
+        "list_deals",
+        lambda _uid, stage=None, **kw: (
+            [
+                {
+                    "id": "d2",
+                    "brand_name": "Olipop",
+                    "stage": "payment_pending",
+                    "agreed_amount_cents": 200000,
+                    "paid_amount_cents": None,
+                }
+            ]
+            if stage == "payment_pending"
+            else []
+        ),
+    )
+    bot_nudges.generate_pending("u-1")
+    msg = stub_inserts["inserted"][0]
+    assert msg["tool_calls"]["nudge_category"] == "deal_payment_pending"
+    # Amount in dollars appears in the content so the creator sees the
+    # stakes without opening the deal.
+    assert "$2,000" in msg["content"]
+    assert "Olipop" in msg["content"]
+
+
+def test_late_payment_nudge_skips_fully_paid_deals(monkeypatch, stub_inserts) -> None:
+    """If paid_amount already covers agreed_amount, don't nag; the
+    stage flip just hasn't caught up yet."""
+    _silence_other_sources(monkeypatch)
+    monkeypatch.setattr(
+        bot_nudges.babyg_memory, "list_drafts", lambda _uid, **kw: []
+    )
+    monkeypatch.setattr(
+        bot_nudges.babyg_deals,
+        "list_deals",
+        lambda _uid, stage=None, **kw: (
+            [
+                {
+                    "id": "d3",
+                    "brand_name": "Olipop",
+                    "stage": "payment_pending",
+                    "agreed_amount_cents": 200000,
+                    "paid_amount_cents": 200000,
+                }
+            ]
+            if stage == "payment_pending"
+            else []
+        ),
+    )
+    inserted = bot_nudges.generate_pending("u-1")
+    assert inserted == []
+
+
+def test_stale_draft_surfaces_a_nudge(monkeypatch, stub_inserts) -> None:
+    _silence_other_sources(monkeypatch)
+    monkeypatch.setattr(
+        bot_nudges.babyg_deals, "list_deals", lambda _uid, **kw: []
+    )
+    monkeypatch.setattr(
+        bot_nudges.babyg_memory,
+        "list_drafts",
+        lambda _uid, **kw: [
+            {
+                "id": "dr1",
+                "subject": "re: collab",
+                "to_addr": "team@vans.example",
+                "status": "stale",
+            }
+        ],
+    )
+    inserted = bot_nudges.generate_pending("u-1")
+    assert len(inserted) == 1
+    msg = stub_inserts["inserted"][0]
+    assert msg["tool_calls"]["nudge_category"] == "draft_stale"
+    assert "re: collab" in msg["content"]
+    chips = msg["tool_calls"]["chips"]
+    assert any("discard" in c["label"] for c in chips)
+
+
+def test_no_duplicate_across_repeat_visits(monkeypatch, stub_inserts) -> None:
+    """Phase 8 requirement: no duplicate nudges across surfaces for
+    the same underlying event. A repeat call to generate_pending must
+    surface zero new items when the previous run already inserted the
+    nudge."""
+    _silence_other_sources(monkeypatch)
+    monkeypatch.setattr(
+        bot_nudges.babyg_memory,
+        "list_drafts",
+        lambda _uid, **kw: [{"id": "dr1", "subject": "hi", "to_addr": "a@b"}],
+    )
+    monkeypatch.setattr(
+        bot_nudges.babyg_deals,
+        "list_deals",
+        lambda _uid, stage=None, **kw: (
+            [{"id": "dg1", "brand_name": "Vans", "stage": "stale_or_ghosted"}]
+            if stage == "stale_or_ghosted"
+            else (
+                [
+                    {
+                        "id": "dp1",
+                        "brand_name": "Olipop",
+                        "stage": "payment_pending",
+                        "agreed_amount_cents": 100000,
+                    }
+                ]
+                if stage == "payment_pending"
+                else []
+            )
+        ),
+    )
+    first = bot_nudges.generate_pending("u-1")
+    second = bot_nudges.generate_pending("u-1")
+    assert len(first) == 3
+    # Same-day repeat visit surfaces nothing new.
+    assert len(second) == 0
+
+
+def test_deal_nudges_capped_per_turn(monkeypatch, stub_inserts) -> None:
+    """A creator with a big pipeline doesn't get flooded on one turn.
+    The cap is _MAX_DEAL_NUDGES; anything past it waits for the next
+    visit. Given the daily dedupe key, that overflow surfaces tomorrow."""
+    _silence_other_sources(monkeypatch)
+    monkeypatch.setattr(
+        bot_nudges.babyg_memory, "list_drafts", lambda _uid, **kw: []
+    )
+    many_ghosted = [
+        {"id": f"d{i}", "brand_name": f"Brand{i}", "stage": "stale_or_ghosted"}
+        for i in range(10)
+    ]
+    monkeypatch.setattr(
+        bot_nudges.babyg_deals,
+        "list_deals",
+        lambda _uid, stage=None, **kw: (
+            many_ghosted if stage == "stale_or_ghosted" else []
+        ),
+    )
+    inserted = bot_nudges.generate_pending("u-1")
+    assert len(inserted) == bot_nudges._MAX_DEAL_NUDGES
