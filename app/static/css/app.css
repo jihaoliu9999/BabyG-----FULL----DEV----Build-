@@ -8025,12 +8025,21 @@ hr.hairline {
 .is-creator-app .settings-group { padding: clamp(18px, 5vw, 24px); }
 .is-creator-app .settings-row { min-height: 56px; }
 
-/* Creator home composition from the reference kit. */
+/* Creator home composition from the reference kit.
+   `align-content: start` locks grid rows to the top — without it, on
+   tall viewports (iPad, desktop) the `.ambient-page min-height` was
+   stretching the grid and the shortcuts row got dragged to the bottom
+   with the previous rows ballooning. */
 .is-creator-app .creator-home {
   max-width: 760px;
   display: grid;
+  grid-auto-rows: min-content;
+  align-content: start;
   gap: 24px;
   padding-bottom: 32px;
+}
+.is-creator-app .creator-home > .creator-home-section {
+  align-self: start;
 }
 .is-creator-app .creator-home-hero {
   display: flex;
@@ -12017,6 +12026,7 @@ body:has(.dm-thread-composer-box input:focus) .creator-tabbar {
 .is-creator-app .creator-home-shortcut {
   min-width: 0;
   min-height: 56px !important;
+  align-self: start !important;
   display: flex !important;
   flex-direction: row !important;
   align-items: center !important;
@@ -12031,6 +12041,19 @@ body:has(.dm-thread-composer-box input:focus) .creator-tabbar {
   font-weight: 500;
   text-decoration: none;
   transition: background-color 140ms ease, border-color 140ms ease;
+}
+.is-creator-app .creator-home-shortcuts {
+  align-content: start;
+  align-items: start;
+}
+/* Desktop + tablet: cap tile height so tall viewports (iPad, Mac) can't
+   stretch shortcuts into square boxes. Mobile has its own min-height:62
+   rule further down that overrides this cap on phones — the media
+   query below only fires above the phone breakpoint. */
+@media (min-width: 641px) {
+  .is-creator-app .creator-home-shortcut {
+    height: 56px !important;
+  }
 }
 .is-creator-app .creator-home-shortcut span {
   min-width: 0;
