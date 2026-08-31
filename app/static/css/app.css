@@ -10255,7 +10255,7 @@ hr.hairline {
 .dm-inbox-search {
   flex: 1 1 0%;
   width: auto;
-  max-width: calc(100% - 54px);
+  max-width: 100%;
   position: relative;
   display: block;
   height: 44px;
@@ -10312,25 +10312,6 @@ hr.hairline {
   -webkit-appearance: none;
 }
 .dm-inbox-search input::placeholder { color: var(--ink-dim); }
-.dm-inbox-compose {
-  flex: 0 0 44px;
-  width: 44px; height: 44px;
-  min-width: 44px;
-  display: grid; place-items: center;
-  color: var(--ink-mid);
-  background: transparent;
-  border: 1px solid var(--hairline);
-  border-radius: 999px;
-  text-decoration: none;
-  transition: color .15s ease, border-color .15s ease, background .15s ease;
-  margin-left: 0;
-}
-.dm-inbox-compose:hover {
-  color: var(--ink);
-  border-color: var(--hairline-strong);
-  background: var(--surface-2);
-}
-.dm-inbox-compose svg { width: 14px; height: 14px; }
 .dm-inbox-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .dm-inbox-row {
   border-bottom: 1px solid var(--hairline);
@@ -10468,7 +10449,6 @@ hr.hairline {
   .dm-inbox-topbar { padding: calc(max(52px, env(safe-area-inset-top, 0px)) + 18px) 14px 10px; gap: 10px; }
   .dm-inbox-tag { font-size: 10px; letter-spacing: .14em; }
   .dm-inbox-search { min-height: 44px; height: 44px; }
-  .dm-inbox-compose { width: 44px; height: 44px; flex-basis: 44px; }
   .dm-inbox-link { padding: 14px 14px 4px; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 12px; }
   .dm-inbox-row:not(:has(.dm-inbox-chips)) .dm-inbox-link { padding-bottom: 14px; }
   .dm-inbox-avatar { width: 44px; height: 44px; }

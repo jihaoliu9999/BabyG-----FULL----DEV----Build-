@@ -310,7 +310,8 @@ def test_creator_dm_list_renders(client, world):
     assert 'class="dm-inbox-search"' in r.text
     assert "data-dm-search" in r.text
     assert 'placeholder="Search conversations"' in r.text
-    assert 'href="/creator/network"' in r.text
+    # DM inbox has no compose "+" button — the search bar is the whole row.
+    assert 'class="dm-inbox-compose"' not in r.text
     assert " is-dm " in r.text
     assert 'class="app-topbar"' not in r.text
     assert 'class="mobile-header"' not in r.text
