@@ -163,7 +163,6 @@ def test_creator_dm_search_toolbar_is_mobile_safe() -> None:
     input_rule = APP_CSS.split(
         ".is-creator-app .dm-inbox-search input,", 1
     )[1].split("}", 1)[0]
-    action_rule = APP_CSS.split(".dm-inbox-compose {", 1)[1].split("}", 1)[0]
 
     assert "display: flex" in toolbar_rule
     assert "align-items: center" in toolbar_rule
@@ -181,8 +180,8 @@ def test_creator_dm_search_toolbar_is_mobile_safe() -> None:
     assert "background: var(--surface-1)" in input_rule
     assert "border: 1px solid var(--hairline)" in input_rule
     assert "border-radius: 999px" in input_rule
-    assert "flex: 0 0 44px" in action_rule
-    assert "min-width: 44px" in action_rule
+    # DM inbox: no compose "+" button — the row is search-only now.
+    assert ".dm-inbox-compose" not in APP_CSS
 
 
 def test_discover_filters_open_as_bounded_mobile_sheet() -> None:

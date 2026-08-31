@@ -10,9 +10,6 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
       <input id="creator-dm-search" type="search" name="q" value="{{ dm_query|default('') }}" autocomplete="off" data-dm-search placeholder="Search conversations" />
     </form>
-    <a href="/creator/network" class="dm-inbox-compose" aria-label="start a new conversation" title="new">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-    </a>
   </div>
 
   {% if threads %}
