@@ -139,16 +139,15 @@ def test_bot_prompt_chips_start_prompt_on_tap() -> None:
         "// Inline chips under any bot message", 1
     )[0]
 
-    # Composer v2 pattern: the chip strip re-renders every turn, so
-    # the handler is now bound via delegation on the stable composer
-    # element. Fresh chips inherit the handler without rebinding.
-    # data-chip-submit="1" chips (verb chips off the pending-action
-    # path) auto-submit; every other chip fills the composer and lets
-    # the creator edit before send.
+    # Composer v3 pattern: the chip strip re-renders every turn, so
+    # the handler is bound via delegation on the stable composer
+    # element (fresh chips inherit the handler without rebinding).
+    # EVERY chip now auto-submits on tap — chips are "run this now"
+    # verbs, not text prefills. Waiting for a second tap on send
+    # made them feel decorative.
     assert "if (inFlight) return" in chip_handler
     assert "textarea.value = text" in chip_handler
     assert 'textarea.dispatchEvent(new Event("input", { bubbles: true }))' in chip_handler
-    assert 'chip.getAttribute("data-chip-submit")' in chip_handler
     assert "composer.requestSubmit()" in chip_handler
     # No .remove() call: swapChipStrip in applyPartial replaces the
     # element, so the handler must never blow away its own binding.

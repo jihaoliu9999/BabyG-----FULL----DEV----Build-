@@ -58,11 +58,22 @@
   };
 
   // Initial load: land on the newest message, robustly.
+  // 1. Turn off the browser's built-in scroll restoration so a back-
+  //    navigate doesn't yank us to the top after we've pinned.
+  // 2. Fire pinToBottom at every practical hook: script init, window
+  //    load, fonts ready, plus two timed fallbacks (60ms and 250ms)
+  //    to catch late image loads / late chip strip mounts. The op is
+  //    idempotent so re-firing is free.
+  if ("scrollRestoration" in history) {
+    history.scrollRestoration = "manual";
+  }
   pinToBottom();
   window.addEventListener("load", pinToBottom);
   if (document.fonts && document.fonts.ready) {
     document.fonts.ready.then(pinToBottom);
   }
+  setTimeout(pinToBottom, 60);
+  setTimeout(pinToBottom, 250);
 
   const setBusy = (busy) => {
     inFlight = busy;
@@ -375,12 +386,12 @@
 
   // Suggested-prompt chips. The strip re-renders every turn, so bind
   // via delegation on the composer (which is stable) — a fresh chip
-  // element gets the handler for free. One tap fills the composer
-  // and submits the same form path as the send button.
+  // element gets the handler for free.
   //
-  // Chips carrying data-chip-submit="1" (verb chips off the pending-
-  // action path, e.g. "looks good, send it") submit immediately. All
-  // others fill the composer and let the creator edit before send.
+  // Every chip auto-submits on tap. A chip is a "run this now" verb
+  // like "check my week" or "draft a counter to vans"; filling the
+  // composer and waiting for the creator to hit send made the chips
+  // feel decorative. Now one tap = manager performs the action.
   composer.addEventListener("click", (e) => {
     const chip = e.target.closest("[data-bot-prompt]");
     if (!chip) return;
@@ -390,11 +401,7 @@
     if (!text) return;
     textarea.value = text;
     textarea.dispatchEvent(new Event("input", { bubbles: true }));
-    if (chip.getAttribute("data-chip-submit") === "1") {
-      composer.requestSubmit();
-    } else {
-      textarea.focus();
-    }
+    composer.requestSubmit();
   });
 
   // Inline chips under any bot message (nudges + assistant turns).
