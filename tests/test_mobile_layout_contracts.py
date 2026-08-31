@@ -245,7 +245,9 @@ def test_creator_tabbar_items_are_centered_on_mobile() -> None:
     assert "repeat(6" not in rule
     assert "justify-items: stretch" in rule
     assert "align-items: center" in rule
-    assert "min-height: 76px" in rule
+    # Compact v3: tabbar shrank from 76 -> 60 so it stops dominating
+    # the mobile viewport.
+    assert "min-height: 60px" in rule
     assert "border-radius: 0" in rule
     assert "calc(env(safe-area-inset-bottom, 0px) - 20px)" in rule
     assert "width: 100%" in item_rule
