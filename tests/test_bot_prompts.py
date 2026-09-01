@@ -52,9 +52,14 @@ def test_recent_peer_uses_first_name_lowercased() -> None:
 
 
 def test_missing_or_blank_peer_skips_the_chip() -> None:
+    """No peer name -> no "draft a follow-up to <peer>" chip. Other
+    pencil-icon chips from the rotating pool (drafts, content) are
+    still fair game."""
     for empty in (None, "", "   "):
         prompts = compute_prompts(recent_dm_peer_name=empty)
-        assert not any(p["icon"] == "pencil" for p in prompts)
+        assert not any(
+            p["text"].startswith("draft a follow-up to") for p in prompts
+        )
 
 
 def test_all_context_present_returns_four_chips_max() -> None:

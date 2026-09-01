@@ -40,25 +40,26 @@ _ICON_CALENDAR = "calendar"
 
 _MAX_CHIPS = 4
 
-# Rotating pool of general prompts. When live signals don't fill 4
-# slots we backfill from here — but with rotation so the creator
-# doesn't see the same two chips on every open. The rotation index
-# is derived from the current hour so a burst of opens within one
-# hour stays consistent (good UX), and the pool refreshes as the
-# day moves. Every entry is a real manager question, not filler.
+# Rotating pool of concrete manager questions. Each one maps to a
+# real tool call the ai can act on (read_my_dms, read_my_deals,
+# read_my_drafts, read_my_calendar, read_my_gmail). No vague
+# "what's my next move" / "read me the room" filler — every chip
+# is something a creator would actually tap. Rotation is keyed to
+# the current UTC hour so a burst of opens stays consistent while
+# the set refreshes across the day.
 _ROTATING_PROMPTS: list[BotPrompt] = [
-    {"text": "what needs me today?", "icon": _ICON_CLOCK},
-    {"text": "what's on my plate this week?", "icon": _ICON_CALENDAR},
-    {"text": "where are we on the pipeline?", "icon": _ICON_MESSAGE},
-    {"text": "any deals gone quiet?", "icon": _ICON_CLOCK},
-    {"text": "catch me up on today", "icon": _ICON_CLOCK},
-    {"text": "what should i post this week?", "icon": _ICON_PENCIL},
-    {"text": "any drafts i never sent?", "icon": _ICON_PENCIL},
-    {"text": "what's my next move?", "icon": _ICON_CALENDAR},
-    {"text": "recap the last 48 hours", "icon": _ICON_CLOCK},
-    {"text": "who owes me a reply?", "icon": _ICON_MESSAGE},
-    {"text": "what brand should i chase next?", "icon": _ICON_MESSAGE},
-    {"text": "read me the room", "icon": _ICON_CLOCK},
+    {"text": "who needs a reply today?", "icon": _ICON_MESSAGE},
+    {"text": "what deals are quiet?", "icon": _ICON_CLOCK},
+    {"text": "any brands owe me money?", "icon": _ICON_CLOCK},
+    {"text": "pull up my open drafts", "icon": _ICON_PENCIL},
+    {"text": "what's on my calendar today?", "icon": _ICON_CALENDAR},
+    {"text": "who paid me recently?", "icon": _ICON_CLOCK},
+    {"text": "any unread dms i missed?", "icon": _ICON_MESSAGE},
+    {"text": "show me my pipeline", "icon": _ICON_MESSAGE},
+    {"text": "what should i post today?", "icon": _ICON_PENCIL},
+    {"text": "any old drafts worth sending?", "icon": _ICON_PENCIL},
+    {"text": "who's ghosting me?", "icon": _ICON_MESSAGE},
+    {"text": "check my gmail for brand replies", "icon": _ICON_MESSAGE},
 ]
 
 
