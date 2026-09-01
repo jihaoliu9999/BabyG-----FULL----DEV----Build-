@@ -62,19 +62,6 @@
   <div class="dm-thread-messages-wrap">
     {% if messages %}
       {% include "_partials/dm_thread_messages.html" %}
-      {# No brief yet — offer to have babyg read the thread. Renders as
-         a quiet dashed strip below the last group so sparse threads
-         (1-2 messages, no brief yet) don't feel dead. The "ask babyg"
-         button posts to the same endpoint as the ⋯ menu option. #}
-      {% if not brief %}
-      <div class="dm-thread-brief-empty">
-        <span>no brief yet — babyg can read the thread and suggest a reply.</span>
-        <form method="post" action="/creator/dm/{{ peer_id }}/brief" data-brief-refresh>
-          {% include "_partials/csrf.html" %}
-          <button type="submit" class="dm-thread-brief-empty-ask" data-ask-babyg{% if not brief_message_id %} disabled aria-disabled="true"{% endif %}>ask babyg</button>
-        </form>
-      </div>
-      {% endif %}
     {% else %}
       <div class="dm-thread-empty">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
