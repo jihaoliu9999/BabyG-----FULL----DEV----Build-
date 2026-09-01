@@ -1,17 +1,32 @@
-"""Bot chat empty-state chip prompts — evergreen chips always show;
-context chips only appear when there's real data behind them."""
+"""Bot chat composer chip prompts — v3.
+
+On a cold open the strip fills with 4 rotating manager questions
+from _ROTATING_PROMPTS so the creator never sees the same two chips
+on every visit. Live signals (unread DMs, pending action, brand
+mentioned in the last assistant turn) still take priority; the
+rotating pool only backfills the empty slots."""
 
 from __future__ import annotations
 
+import pytest
+
+from app.services import bot_prompts as bp
 from app.services.bot_prompts import compute_prompts
 
 
-def test_no_context_returns_two_evergreens() -> None:
+@pytest.fixture(autouse=True)
+def _stable_hour_offset(monkeypatch):
+    """Pin the rotation offset to 0 so cold-open tests are deterministic.
+    The rotation itself is exercised in its own test below."""
+    monkeypatch.setattr(bp, "_hour_offset", lambda: 0)
+
+
+def test_no_context_returns_four_rotating_chips() -> None:
     prompts = compute_prompts()
-    assert len(prompts) == 2
+    assert len(prompts) == 4
     texts = [p["text"] for p in prompts]
-    assert "what needs me today?" in texts
-    assert "check my week" in texts
+    # With the fixture pinning offset=0 the first four pool entries land.
+    assert texts == [p["text"] for p in bp._ROTATING_PROMPTS[:4]]
 
 
 def test_unread_dms_singular_grammar() -> None:
@@ -48,10 +63,12 @@ def test_all_context_present_returns_four_chips_max() -> None:
         recent_dm_peer_name="Zoe Eschman",
     )
     assert len(prompts) == 4
+    # First two slots are the concrete signals; the last two backfill
+    # from the rotating pool (offset pinned to 0 in the fixture).
     assert prompts[0]["text"].startswith("summarize my 3")
     assert prompts[1]["text"] == "draft a follow-up to zoe"
-    assert prompts[2]["text"] == "what needs me today?"
-    assert prompts[3]["text"] == "check my week"
+    assert prompts[2]["text"] == bp._ROTATING_PROMPTS[0]["text"]
+    assert prompts[3]["text"] == bp._ROTATING_PROMPTS[1]["text"]
 
 
 def test_prompts_never_exceed_max_four() -> None:
@@ -184,15 +201,17 @@ def test_legacy_kwargs_still_work_without_snapshot() -> None:
     texts = [p["text"] for p in prompts]
     assert "summarize my 2 unread dms" in texts
     assert "draft a follow-up to anna" in texts
-    assert "what needs me today?" in texts
-    assert "check my week" in texts
+    # Remaining two slots come from the rotating pool.
+    assert texts[2] == bp._ROTATING_PROMPTS[0]["text"]
+    assert texts[3] == bp._ROTATING_PROMPTS[1]["text"]
 
 
-def test_empty_snapshot_falls_back_to_evergreens() -> None:
+def test_empty_snapshot_falls_back_to_rotating_pool() -> None:
     prompts = compute_prompts(snapshot=_snapshot())
+    # Empty snapshot + no messages = cold open; the rotating pool fills
+    # all 4 slots (offset pinned to 0 by the fixture).
     assert [p["text"] for p in prompts] == [
-        "what needs me today?",
-        "check my week",
+        p["text"] for p in bp._ROTATING_PROMPTS[:4]
     ]
 
 
@@ -209,12 +228,32 @@ def _msg(role, content, **tc):
     return row
 
 
-def test_evergreens_only_fire_on_cold_open() -> None:
-    """Empty thread: fall through to the two evergreens.
-    Thread with a real user turn: evergreens must not appear."""
+def test_rotating_pool_only_fires_on_cold_open() -> None:
+    """Empty thread: rotating pool backfills all 4 slots.
+    Thread with a real user turn: pool must NOT appear — we rely on
+    live signals instead."""
     cold = compute_prompts(messages=[])
-    assert [p["text"] for p in cold] == ["what needs me today?", "check my week"]
+    assert [p["text"] for p in cold] == [
+        p["text"] for p in bp._ROTATING_PROMPTS[:4]
+    ]
 
+
+def test_hour_offset_rotates_the_pool(monkeypatch) -> None:
+    """Same hour: identical chip set. Different hour: rotated set.
+    Guarantees the creator does not see the same 4 chips forever."""
+    monkeypatch.setattr(bp, "_hour_offset", lambda: 0)
+    a = [p["text"] for p in compute_prompts()]
+    monkeypatch.setattr(bp, "_hour_offset", lambda: 4)
+    b = [p["text"] for p in compute_prompts()]
+    assert a != b
+    # Rotation is a stable cyclic shift, not a random shuffle.
+    pool = [p["text"] for p in bp._ROTATING_PROMPTS]
+    assert b == pool[4:8]
+
+
+def test_rotating_pool_suppressed_once_conversation_has_substance() -> None:
+    """Once the thread carries a real user turn we rely on live
+    signals only — the rotating pool must not backfill."""
     live = compute_prompts(
         messages=[
             _msg("user", "hey"),
@@ -222,8 +261,8 @@ def test_evergreens_only_fire_on_cold_open() -> None:
         ]
     )
     texts = [p["text"] for p in live]
-    assert "what needs me today?" not in texts
-    assert "check my week" not in texts
+    for pool_entry in bp._ROTATING_PROMPTS:
+        assert pool_entry["text"] not in texts
 
 
 def test_pending_action_collapses_row_to_verb_chips() -> None:
@@ -338,11 +377,13 @@ def test_brand_hint_falls_back_when_domain_is_generic() -> None:
 def test_helpers_do_not_crash_on_missing_fields() -> None:
     """The helper is defensive against messages missing tool_calls or
     role. Prod data is messy. Malformed inputs get treated as if
-    there were no user turn (cold-open behavior), so evergreens fill."""
+    there were no user turn (cold-open behavior), so the rotating
+    pool fills all 4 slots."""
+    expected = [p["text"] for p in bp._ROTATING_PROMPTS[:4]]
     got = compute_prompts(messages=[{"content": "hi"}])
-    assert [p["text"] for p in got] == ["what needs me today?", "check my week"]
+    assert [p["text"] for p in got] == expected
     got = compute_prompts(messages=[{"role": "assistant"}])
-    assert [p["text"] for p in got] == ["what needs me today?", "check my week"]
+    assert [p["text"] for p in got] == expected
 
 
 def test_day_word_is_not_treated_as_brand() -> None:

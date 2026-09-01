@@ -14,6 +14,7 @@ text lands in the composer textarea, the user still taps send.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Any, TypedDict
 
 
@@ -38,6 +39,27 @@ _ICON_CLOCK = "clock"
 _ICON_CALENDAR = "calendar"
 
 _MAX_CHIPS = 4
+
+# Rotating pool of general prompts. When live signals don't fill 4
+# slots we backfill from here — but with rotation so the creator
+# doesn't see the same two chips on every open. The rotation index
+# is derived from the current hour so a burst of opens within one
+# hour stays consistent (good UX), and the pool refreshes as the
+# day moves. Every entry is a real manager question, not filler.
+_ROTATING_PROMPTS: list[BotPrompt] = [
+    {"text": "what needs me today?", "icon": _ICON_CLOCK},
+    {"text": "what's on my plate this week?", "icon": _ICON_CALENDAR},
+    {"text": "where are we on the pipeline?", "icon": _ICON_MESSAGE},
+    {"text": "any deals gone quiet?", "icon": _ICON_CLOCK},
+    {"text": "catch me up on today", "icon": _ICON_CLOCK},
+    {"text": "what should i post this week?", "icon": _ICON_PENCIL},
+    {"text": "any drafts i never sent?", "icon": _ICON_PENCIL},
+    {"text": "what's my next move?", "icon": _ICON_CALENDAR},
+    {"text": "recap the last 48 hours", "icon": _ICON_CLOCK},
+    {"text": "who owes me a reply?", "icon": _ICON_MESSAGE},
+    {"text": "what brand should i chase next?", "icon": _ICON_MESSAGE},
+    {"text": "read me the room", "icon": _ICON_CLOCK},
+]
 
 
 def _first_name(full_name: str | None) -> str | None:
@@ -204,14 +226,17 @@ def compute_prompts(
             "icon": _ICON_CLOCK,
         })
 
-    # ---- 8. evergreens — cold open only ----
+    # ---- 8. rotating backfill — always aim for 4 fresh chips ----
     #
-    # Once the thread has real content, evergreens crowd out the
-    # signal we just derived from the conversation. On a genuine cold
-    # open (no user turns yet) they guarantee the row is never empty.
+    # Whatever real signals fired above, the strip should never open
+    # with fewer than 4 chips (or with the SAME 2 evergreens every
+    # visit — the creator called that out as noise). Once we know
+    # what's already in the prompts list, we backfill from a rotating
+    # pool of manager questions. The rotation offset is the current
+    # hour so a same-hour reopen stays consistent, and the pool
+    # refreshes as the day moves.
     if not _has_user_turn(msgs):
-        prompts.append({"text": "what needs me today?", "icon": _ICON_CLOCK})
-        prompts.append({"text": "check my week", "icon": _ICON_CALENDAR})
+        prompts.extend(_rotating_backfill(offset=_hour_offset()))
 
     # Dedupe by text so the same suggestion doesn't slot twice from
     # different signals (e.g. accepted peer == latest DM peer).
@@ -341,3 +366,23 @@ def _extract_brand_from_text(text: str) -> str | None:
             continue
         return token.lower()
     return None
+
+
+def _hour_offset() -> int:
+    """Rotation index derived from the current UTC hour. Same hour
+    yields the same offset (so a burst of opens stays visually
+    consistent), a new hour rotates the pool so chips refresh across
+    the day. Isolated as a helper so tests can monkeypatch it."""
+    return datetime.now(UTC).hour
+
+
+def _rotating_backfill(*, offset: int) -> list[BotPrompt]:
+    """Return the pool rotated by `offset`. Callers upstream dedupe
+    against already-inserted signal chips and then trim to _MAX_CHIPS,
+    so we can safely return the full pool and let the dedupe cap take
+    care of the rest."""
+    pool = _ROTATING_PROMPTS
+    if not pool:
+        return []
+    o = offset % len(pool)
+    return list(pool[o:]) + list(pool[:o])

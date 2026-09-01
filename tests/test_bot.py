@@ -115,9 +115,9 @@ def test_bot_page_renders_history(monkeypatch, client: TestClient) -> None:
 def test_bot_page_renders_prompt_chips_on_empty_thread(
     monkeypatch, client: TestClient
 ) -> None:
-    """Empty message history triggers the suggested-prompt chip row above
-    the composer. Evergreen chips always render; context chips wait for
-    data (see tests/test_bot_prompts.py for the pool logic)."""
+    """Empty message history triggers the composer chip row. Composer
+    v3 backfills 4 chips from a rotating pool so the creator never
+    sees the same two evergreens on every open."""
     _signed_in(client, role="creator")
     monkeypatch.setattr(
         creator_routes.profiles,
@@ -134,11 +134,14 @@ def test_bot_page_renders_prompt_chips_on_empty_thread(
 
     assert response.status_code == 200
     assert 'class="bot-prompt-chips"' in response.text
-    # Evergreens always present.
-    assert "what needs me today?" in response.text
-    assert "check my week" in response.text
-    # data-bot-prompt attribute carries the one-tap prompt payload.
-    assert 'data-bot-prompt="what needs me today?"' in response.text
+    # At least one chip from the rotating pool must appear regardless
+    # of the current hour. Any pool entry works.
+    from app.services import bot_prompts as bp
+    assert any(
+        p["text"] in response.text for p in bp._ROTATING_PROMPTS
+    )
+    # data-bot-prompt attribute carries the tap payload.
+    assert "data-bot-prompt=" in response.text
 
 
 def test_bot_page_prompt_chips_pull_real_user_context(
