@@ -57,7 +57,14 @@
   }
 
   function pinToLatest() {
-    var lists = document.querySelectorAll(".bot-messages, .dm-messages");
+    // The DM thread's actual scroll container is `.dm-thread-messages-wrap`
+    // (the `<ol class="dm-messages">` inside it isn't the overflow ancestor).
+    // Bot chat's scroller is `.bot-messages`. Operator abuse review keeps
+    // its default top-anchored scroll — operators need the oldest context
+    // first — so `.dm-messages` alone is deliberately not in the selector.
+    var lists = document.querySelectorAll(
+      ".bot-messages, .dm-thread-messages-wrap"
+    );
     lists.forEach(function (list) {
       // Keep scrolling local to the message list. scrollIntoView() can move
       // the entire document on iOS and leave the app shell vertically offset.
