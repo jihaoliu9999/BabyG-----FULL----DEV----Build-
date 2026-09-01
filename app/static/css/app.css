@@ -2402,11 +2402,18 @@ select.profile-detail-input {
      --keyboard-inset is set by bot.js from window.visualViewport — it's
      visual viewport height is published by bot.js so keyboard and browser
      chrome transitions do not leave a blank band around the composer. */
-  height: calc(100dvh - var(--tabbar-h) - env(safe-area-inset-bottom, 0px));
-  height: calc(var(--visual-viewport-height, 100dvh) - var(--tabbar-h) - env(safe-area-inset-bottom, 0px));
+  --chat-tabbar-clearance: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px));
+  height: calc(100dvh - var(--chat-tabbar-clearance));
+  height: calc(var(--visual-viewport-height, 100dvh) - var(--chat-tabbar-clearance));
   display: flex; flex-direction: column;
   overflow: hidden;
   overscroll-behavior: contain;
+}
+.is-creator-app.is-chat #view {
+  /* Creator chat uses the compact creator tabbar, not the older 86px
+     product tabbar reservation. This keeps the composer docked close
+     to the nav without overlapping the iPhone home indicator area. */
+  --chat-tabbar-clearance: max(60px, calc(36px + env(safe-area-inset-bottom, 0px)));
 }
 @media (min-width: 1000px) {
   .is-chat #view { height: 100dvh; height: var(--visual-viewport-height, 100dvh); }
@@ -10026,6 +10033,9 @@ hr.hairline {
 /* Bot composer: keep the textarea as the only visible input surface.
    The .box wrapper is layout-only so generic form-control styles cannot
    create the stacked text-box effect seen on mobile. */
+body.is-creator-app.is-chat:not(.chat-keyboard-open) .bot-composer {
+  padding-bottom: 8px;
+}
 .is-creator-app.is-chat .bot-composer .box,
 .is-creator-app.is-chat .bot-composer .box:focus-within {
   display: flex;
