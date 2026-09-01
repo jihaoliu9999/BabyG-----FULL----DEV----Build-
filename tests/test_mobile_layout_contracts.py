@@ -37,6 +37,27 @@ def test_chat_uses_actual_visual_viewport_height() -> None:
     assert "54px - env(safe-area-inset-top" not in APP_CSS
 
 
+def test_creator_chat_reserves_compact_tabbar_clearance() -> None:
+    chat_view_rule = APP_CSS.split(".is-chat #view {", 1)[1].split("}", 1)[0]
+    creator_view_rule = APP_CSS.split(".is-creator-app.is-chat #view {", 1)[
+        1
+    ].split("}", 1)[0]
+    idle_composer_rule = APP_CSS.split(
+        "body.is-creator-app.is-chat:not(.chat-keyboard-open) .bot-composer {", 1
+    )[1].split("}", 1)[0]
+
+    assert (
+        "--chat-tabbar-clearance: calc(var(--tabbar-h) + "
+        "env(safe-area-inset-bottom, 0px))"
+    ) in chat_view_rule
+    assert "var(--chat-tabbar-clearance)" in chat_view_rule
+    assert (
+        "--chat-tabbar-clearance: max(60px, calc(36px + "
+        "env(safe-area-inset-bottom, 0px)))"
+    ) in creator_view_rule
+    assert "padding-bottom: 8px" in idle_composer_rule
+
+
 def test_message_pinning_does_not_scroll_the_document() -> None:
     pin_function = MOTION_JS.split("function pinToLatest()", 1)[1].split(
         "function bindAutogrow()", 1
