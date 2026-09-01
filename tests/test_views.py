@@ -100,6 +100,51 @@ def test_view_recorded_on_network_profile_open(client, world):
     assert ("c-1", "c-2") in world.recorded
 
 
+def test_network_profile_shows_verified_follower_count_when_available(
+    client, world, monkeypatch
+):
+    """Phase D — when the peer has a snapshot on file, render the
+    exact follower number (comma-formatted) + a "verified" hint
+    instead of the self-reported range."""
+    from app.services import instagram_metrics
+
+    _signed_in(client, role="creator", user_id="c-1")
+    _add_creator(world, user_id="c-1")
+    _add_creator(world, user_id="c-2")
+    monkeypatch.setattr(
+        instagram_metrics, "verified_follower_count", lambda uid: 12345
+    )
+
+    r = client.get("/creator/network/c-2")
+    assert r.status_code == 200
+    assert "12,345" in r.text
+    assert "verified" in r.text.lower()
+    # Self-reported "10-50k" range must NOT appear when verified wins.
+    assert "10-50k" not in r.text
+
+
+def test_network_profile_falls_back_to_range_when_no_snapshot(
+    client, world, monkeypatch
+):
+    """Phase D fallback — no snapshot means the template shows the
+    self-reported range untouched. Never lies about a follower number
+    it doesn't have."""
+    from app.services import instagram_metrics
+
+    _signed_in(client, role="creator", user_id="c-1")
+    _add_creator(world, user_id="c-1")
+    _add_creator(world, user_id="c-2")
+    monkeypatch.setattr(
+        instagram_metrics, "verified_follower_count", lambda uid: None
+    )
+
+    r = client.get("/creator/network/c-2")
+    assert r.status_code == 200
+    assert "10-50k" in r.text
+    # No "verified" badge without a snapshot.
+    assert "verified" not in r.text.lower()
+
+
 def test_views_page_basic_tier_shows_upgrade_prompt(client, world):
     _signed_in(client, role="creator", user_id="c-1")
     _add_creator(world, user_id="c-1", tier="basic")

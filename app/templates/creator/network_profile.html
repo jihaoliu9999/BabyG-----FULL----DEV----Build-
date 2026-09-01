@@ -57,7 +57,13 @@
   <span class="mono" style="display:block;margin-bottom:10px;">profile</span>
   <div class="kv-list" style="margin-bottom:18px;">
     <div class="row"><span class="l">location</span><span class="v">{{ peer.location_label or 'location not set' }}</span></div>
-    <div class="row"><span class="l">followers</span><span class="v">{{ peer.follower_range or 'not set' }}</span></div>
+    <div class="row"><span class="l">followers</span><span class="v">
+      {%- if verified_followers is defined and verified_followers is not none -%}
+      {{ '{:,}'.format(verified_followers) }} <span class="mono" style="color:var(--ink-dim);font-size:10px;letter-spacing:0.16em;margin-left:6px;">verified</span>
+      {%- else -%}
+      {{ peer.follower_range or 'not set' }}
+      {%- endif -%}
+    </span></div>
   </div>
 
   {% if peer.niches %}

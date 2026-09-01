@@ -104,6 +104,53 @@ def performance_view(
     return PerformanceView(rows=rows, instagram_status=ig_status)
 
 
+def instagram_account_snapshot(user_id: str) -> tuple[dict[str, int | None], str]:
+    """Return (snapshot, status) for the creator's current IG account
+    metrics.
+
+    Snapshot keys: ACCOUNT_TOTAL_FIELDS + ACCOUNT_INSIGHT_METRICS
+    (followers_count, follows_count, media_count, reach, impressions,
+    profile_views). Any missing/failed field is None so partial reads
+    still render.
+
+    Status mirrors _instagram_rows_with_status so callers can render
+    the same "not configured / not connected / temporarily unavailable"
+    banners without a second decision surface.
+    """
+    empty: dict[str, int | None] = dict.fromkeys(
+        instagram_meta.ACCOUNT_TOTAL_FIELDS
+        + instagram_meta.ACCOUNT_INSIGHT_METRICS
+    )
+    try:
+        if not instagram_meta.is_configured():
+            return empty, IG_STATUS_NOT_CONFIGURED
+        connection = oauth_connections.get_instagram_connection(user_id)
+        if not connection:
+            return empty, IG_STATUS_NOT_CONNECTED
+        ig_user_id = oauth_connections.instagram_account_id(connection)
+        if not ig_user_id:
+            return empty, IG_STATUS_ERROR
+        token = oauth_connections.access_token_for_instagram(user_id)
+        if not token:
+            return empty, IG_STATUS_ERROR
+    except Exception:
+        logger.exception("instagram account snapshot precheck failed: %s", user_id)
+        return empty, IG_STATUS_ERROR
+
+    try:
+        snapshot = instagram_meta.get_account_snapshot(
+            token, ig_user_id=ig_user_id
+        )
+    except instagram_meta.InstagramError:
+        return empty, IG_STATUS_ERROR
+    except Exception:
+        logger.exception(
+            "instagram get_account_snapshot unexpected failure: %s", user_id
+        )
+        return empty, IG_STATUS_ERROR
+    return snapshot, IG_STATUS_OK
+
+
 def has_instagram_data(user_id: str) -> bool:
     """True when the creator has a saved IG connection AND the
     integration is configured. The template uses this to swap the
