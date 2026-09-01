@@ -218,6 +218,23 @@
       </div>
     </details>
 
+    {# 5b · sign out — sits between assistant and delete-account so
+       the last two rows on the settings page are the two "leave"
+       actions (soft leave, then hard leave). POST because logout
+       mutates session state. #}
+    <section class="settings-group settings-card" id="sign-out">
+      <form class="settings-form" method="post" action="/auth/logout">
+        {% include "_partials/csrf.html" %}
+        <div class="settings-header">
+          <h2>sign out</h2>
+          <p>ends this session on this device. your data stays exactly where it is; sign back in anytime.</p>
+        </div>
+        <div class="settings-actions">
+          <button class="btn btn-ghost btn-sm" type="submit">sign out</button>
+        </div>
+      </form>
+    </section>
+
     {# 6 · delete account — always last. #}
     <section class="settings-group settings-card settings-danger" id="delete-account">
       <div class="settings-header">
