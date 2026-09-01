@@ -356,6 +356,101 @@ def test_graph_get_maps_http_error(monkeypatch):
         instagram_meta.get_user_media("TOKEN", ig_user_id="ig-1")
 
 
+# ---------------------------------------------------------------------------
+# get_account_snapshot — Phase B
+# ---------------------------------------------------------------------------
+
+
+def test_get_account_snapshot_combines_totals_and_insights(monkeypatch):
+    """Two Graph calls: /{ig_user_id} for totals + /{ig_user_id}/insights
+    for daily metrics. Both parsed into one flat dict; the insights
+    "last day" wins over earlier days in the values array."""
+    calls: list[tuple[str, dict]] = []
+
+    def _get(url, params=None, timeout=None):
+        calls.append((url, dict(params or {})))
+        if url.endswith("/ig-42/insights"):
+            return _ok_response(
+                {
+                    "data": [
+                        {
+                            "name": "reach",
+                            "values": [
+                                {"value": 900},   # older day
+                                {"value": 1100},  # freshest day → wins
+                            ],
+                        },
+                        {"name": "profile_views", "values": [{"value": 55}]},
+                        # `impressions` deliberately absent → None
+                    ]
+                }
+            )
+        return _ok_response(
+            {
+                "followers_count": 12340,
+                "follows_count": 210,
+                "media_count": 87,
+            }
+        )
+
+    monkeypatch.setattr(httpx, "get", _get)
+    snap = instagram_meta.get_account_snapshot("TOKEN", ig_user_id="ig-42")
+    assert snap["followers_count"] == 12340
+    assert snap["follows_count"] == 210
+    assert snap["media_count"] == 87
+    assert snap["reach"] == 1100
+    assert snap["profile_views"] == 55
+    assert snap["impressions"] is None
+    # Two calls fired: totals then insights.
+    assert calls[0][0].endswith("/ig-42")
+    assert calls[1][0].endswith("/ig-42/insights")
+    assert calls[1][1]["period"] == "day"
+
+
+def test_get_account_snapshot_survives_totals_failure(monkeypatch):
+    """A failure on the totals call must NOT nuke the insights call;
+    partial data is what the caller renders."""
+
+    def _get(url, params=None, timeout=None):
+        if url.endswith("/insights"):
+            return _ok_response(
+                {"data": [{"name": "reach", "values": [{"value": 500}]}]}
+            )
+        return _err_response(500)
+
+    monkeypatch.setattr(httpx, "get", _get)
+    snap = instagram_meta.get_account_snapshot("TOKEN", ig_user_id="ig-42")
+    assert snap["followers_count"] is None  # totals call failed
+    assert snap["reach"] == 500  # insights call still landed
+
+
+def test_get_account_snapshot_survives_insights_failure(monkeypatch):
+    """And the inverse — totals land, insights fail."""
+
+    def _get(url, params=None, timeout=None):
+        if url.endswith("/insights"):
+            return _err_response(500)
+        return _ok_response({"followers_count": 9999, "follows_count": 5})
+
+    monkeypatch.setattr(httpx, "get", _get)
+    snap = instagram_meta.get_account_snapshot("TOKEN", ig_user_id="ig-42")
+    assert snap["followers_count"] == 9999
+    assert snap["follows_count"] == 5
+    assert snap["reach"] is None
+    assert snap["impressions"] is None
+    assert snap["profile_views"] is None
+
+
+def test_account_snapshot_reads_only_scope_tools(monkeypatch):
+    """Belt-and-braces: the module must not have gained a write tool
+    while we were wiring account insights. If a future edit adds
+    e.g. content_publish, this test flags it before the tokens reach
+    users."""
+    forbidden = {"content_publish", "manage_comments", "manage_messages"}
+    for scope in instagram_meta.SCOPES:
+        assert scope not in forbidden, scope
+
+
 def test_graph_get_maps_non_json_response(monkeypatch):
     class _Resp:
         status_code = 200

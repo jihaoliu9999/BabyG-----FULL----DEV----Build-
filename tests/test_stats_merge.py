@@ -475,3 +475,86 @@ def test_combined_performance_still_returns_list(monkeypatch):
     result = stats_merge.combined_performance("creator-1")
     assert isinstance(result, list)
     assert all(isinstance(r, stats_merge.StatsRow) for r in result)
+
+
+# ---------------------------------------------------------------------------
+# instagram_account_snapshot — Phase B wrapper
+# ---------------------------------------------------------------------------
+
+
+def _empty_snapshot() -> dict[str, int | None]:
+    return dict.fromkeys(
+        instagram_meta.ACCOUNT_TOTAL_FIELDS
+        + instagram_meta.ACCOUNT_INSIGHT_METRICS
+    )
+
+
+def test_account_snapshot_status_not_configured(monkeypatch):
+    monkeypatch.setattr(instagram_meta, "is_configured", lambda: False)
+    snap, status = stats_merge.instagram_account_snapshot("creator-1")
+    assert snap == _empty_snapshot()
+    assert status == stats_merge.IG_STATUS_NOT_CONFIGURED
+
+
+def test_account_snapshot_status_not_connected(monkeypatch):
+    monkeypatch.setattr(instagram_meta, "is_configured", lambda: True)
+    monkeypatch.setattr(
+        oauth_connections, "get_instagram_connection", lambda _u: None
+    )
+    snap, status = stats_merge.instagram_account_snapshot("creator-1")
+    assert snap == _empty_snapshot()
+    assert status == stats_merge.IG_STATUS_NOT_CONNECTED
+
+
+def test_account_snapshot_ok_flows_through(monkeypatch):
+    monkeypatch.setattr(instagram_meta, "is_configured", lambda: True)
+    monkeypatch.setattr(
+        oauth_connections,
+        "get_instagram_connection",
+        lambda _u: {"provider_account_id": "ig-1"},
+    )
+    monkeypatch.setattr(
+        oauth_connections, "instagram_account_id", lambda _c: "ig-1"
+    )
+    monkeypatch.setattr(
+        oauth_connections, "access_token_for_instagram", lambda _u: "TOKEN"
+    )
+    monkeypatch.setattr(
+        instagram_meta,
+        "get_account_snapshot",
+        lambda token, **kw: {
+            "followers_count": 5432,
+            "follows_count": 210,
+            "media_count": 88,
+            "reach": 1200,
+            "impressions": 1800,
+            "profile_views": 40,
+        },
+    )
+    snap, status = stats_merge.instagram_account_snapshot("creator-1")
+    assert status == stats_merge.IG_STATUS_OK
+    assert snap["followers_count"] == 5432
+    assert snap["reach"] == 1200
+
+
+def test_account_snapshot_graph_error_becomes_status_error(monkeypatch):
+    monkeypatch.setattr(instagram_meta, "is_configured", lambda: True)
+    monkeypatch.setattr(
+        oauth_connections,
+        "get_instagram_connection",
+        lambda _u: {"provider_account_id": "ig-1"},
+    )
+    monkeypatch.setattr(
+        oauth_connections, "instagram_account_id", lambda _c: "ig-1"
+    )
+    monkeypatch.setattr(
+        oauth_connections, "access_token_for_instagram", lambda _u: "TOKEN"
+    )
+
+    def _boom(token, **kw):
+        raise instagram_meta.InstagramError("graph 503")
+
+    monkeypatch.setattr(instagram_meta, "get_account_snapshot", _boom)
+    snap, status = stats_merge.instagram_account_snapshot("creator-1")
+    assert status == stats_merge.IG_STATUS_ERROR
+    assert snap == _empty_snapshot()

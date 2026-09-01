@@ -1404,6 +1404,16 @@ async def network_profile(
         action_type="opened_profile",
     )
 
+    # Verified follower count comes from the latest daily Instagram
+    # snapshot the peer's connection has produced. None when the peer
+    # hasn't connected Instagram or no snapshot has been taken yet —
+    # the template falls back to the self-reported range in that case.
+    try:
+        from app.services import instagram_metrics as _ig_metrics
+        verified_followers = _ig_metrics.verified_follower_count(peer_user_id)
+    except Exception:
+        verified_followers = None
+
     return templates.TemplateResponse(
         request,
         "creator/network_profile.html",
@@ -1412,6 +1422,7 @@ async def network_profile(
             "peer_id": peer_user_id,
             "connection": connection,
             "state": _connection_state(connection, me_id=session["user_id"]),
+            "verified_followers": verified_followers,
         },
     )
 

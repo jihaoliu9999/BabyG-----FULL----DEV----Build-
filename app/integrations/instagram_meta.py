@@ -73,6 +73,24 @@ INSIGHT_METRICS: Final[tuple[str, ...]] = (
     "reach",
     "saved",
 )
+# Account-level daily insights. Split from INSIGHT_METRICS because Meta
+# scopes these to the /{ig_user_id}/insights endpoint (period=day), not
+# the per-media /{media_id}/insights endpoint. Kept short + stable to
+# avoid churn as Meta deprecates individual metrics across API versions.
+ACCOUNT_INSIGHT_METRICS: Final[tuple[str, ...]] = (
+    "reach",
+    "impressions",
+    "profile_views",
+)
+# Account totals live on /me?fields=... instead of /insights. followers_count
+# from /me is the current total; period=day on /insights would give daily
+# NEW followers which is a different number. We surface totals here because
+# growth is computed by lag over the daily-snapshot table in Phase C.
+ACCOUNT_TOTAL_FIELDS: Final[tuple[str, ...]] = (
+    "followers_count",
+    "follows_count",
+    "media_count",
+)
 
 # Account types Instagram returns from /me?fields=account_type.
 # Only the first two pass eligibility.
@@ -297,6 +315,70 @@ def get_media_insights(access_token: str, *, media_id: str) -> dict[str, int | N
         if not isinstance(first, dict):
             continue
         out[name] = _int_or_none(first.get("value"))
+    return out
+
+
+def get_account_snapshot(
+    access_token: str, *, ig_user_id: str
+) -> dict[str, int | None]:
+    """Point-in-time account snapshot.
+
+    Combines two Graph calls:
+      - GET /{ig_user_id}?fields=followers_count,follows_count,media_count
+        → current totals (stable across Meta API versions).
+      - GET /{ig_user_id}/insights?metric=reach,impressions,profile_views&period=day
+        → the latest day of processed insights (last full day per Meta).
+
+    Returns one flat dict keyed by ACCOUNT_TOTAL_FIELDS +
+    ACCOUNT_INSIGHT_METRICS. Any individual field that Meta refuses or
+    returns malformed is surfaced as None so the caller can render
+    partial data instead of a hard error; the two Graph calls are
+    isolated so a failure on one does not blank the other.
+    """
+    out: dict[str, int | None] = dict.fromkeys(
+        ACCOUNT_TOTAL_FIELDS + ACCOUNT_INSIGHT_METRICS
+    )
+
+    try:
+        totals = _graph_get(
+            f"/{ig_user_id}",
+            access_token,
+            params={"fields": ",".join(ACCOUNT_TOTAL_FIELDS)},
+        )
+    except InstagramError:
+        totals = {}
+    for field in ACCOUNT_TOTAL_FIELDS:
+        out[field] = _int_or_none(totals.get(field))
+
+    try:
+        insights = _graph_get(
+            f"/{ig_user_id}/insights",
+            access_token,
+            params={
+                "metric": ",".join(ACCOUNT_INSIGHT_METRICS),
+                "period": "day",
+            },
+        )
+    except InstagramError:
+        return out
+    rows = insights.get("data") if isinstance(insights, dict) else None
+    if not isinstance(rows, list):
+        return out
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        name = str(row.get("name") or "")
+        if name not in ACCOUNT_INSIGHT_METRICS:
+            continue
+        values = row.get("values")
+        if not isinstance(values, list) or not values:
+            continue
+        # Meta returns one value per day in period=day, chronological.
+        # The last entry is the freshest fully-processed day.
+        last = values[-1]
+        if not isinstance(last, dict):
+            continue
+        out[name] = _int_or_none(last.get("value"))
     return out
 
 
