@@ -9300,6 +9300,29 @@ hr.hairline {
   padding: 18px 0;
   border-top: 1px solid rgba(245,241,232,.09);
 }
+/* Static explainer inside a settings-check row — used by the sign-in
+   disclosure to describe the auto-sign-in behavior without needing a
+   toggle. Sentence-case, not mono, since it's copy not a control. */
+.is-creator-app .settings-toggle-static {
+  display: grid;
+  gap: 4px;
+}
+.is-creator-app .settings-toggle-static strong {
+  color: var(--ink);
+  font-weight: 600;
+  font-size: 13.5px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.is-creator-app .settings-toggle-static span {
+  color: var(--ink-mid);
+  font-family: var(--sans);
+  font-size: 13px;
+  line-height: 1.5;
+  letter-spacing: 0;
+  text-transform: none;
+  padding: 0;
+}
 .is-creator-app .settings-clean-shell .settings-card-head + .settings-field,
 .is-creator-app .settings-clean-shell .settings-card-head + .settings-check,
 .is-creator-app .settings-clean-shell .settings-flash + .settings-field {

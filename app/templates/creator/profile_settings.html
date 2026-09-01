@@ -218,22 +218,32 @@
       </div>
     </details>
 
-    {# 5b · sign out — sits between assistant and delete-account so
-       the last two rows on the settings page are the two "leave"
-       actions (soft leave, then hard leave). POST because logout
-       mutates session state. #}
-    <section class="settings-group settings-card" id="sign-out">
-      <form class="settings-form" method="post" action="/auth/logout">
-        {% include "_partials/csrf.html" %}
-        <div class="settings-header">
-          <h2>sign out</h2>
-          <p>ends this session on this device. your data stays exactly where it is; sign back in anytime.</p>
+    {# 5b · sign in — collapsible box matching the assistant /
+       integrations pattern. Holds the auto-sign-in explainer + the
+       sign-out button. Sits between assistant and delete-account so
+       the last two rows read as "soft leave / hard leave". #}
+    <details class="settings-group settings-card settings-disclosure" id="sign-in">
+      <summary>
+        <span class="settings-disclosure-copy">
+          <strong class="settings-disclosure-title">sign in</strong>
+        </span>
+        <span class="settings-disclosure-icon" aria-hidden="true"></span>
+      </summary>
+      <div class="settings-disclosure-body">
+        <div class="settings-check">
+          <div class="settings-toggle-static">
+            <strong>auto sign-in is on</strong>
+            <span>you stay signed in on this device for 30 days. next time you open babyg you land straight on your home.</span>
+          </div>
         </div>
-        <div class="settings-actions">
-          <button class="btn btn-ghost btn-sm" type="submit">sign out</button>
-        </div>
-      </form>
-    </section>
+        <form class="settings-form settings-disclosure-form" method="post" action="/auth/logout">
+          {% include "_partials/csrf.html" %}
+          <div class="settings-actions">
+            <button class="btn btn-ghost btn-sm" type="submit">sign out of this device</button>
+          </div>
+        </form>
+      </div>
+    </details>
 
     {# 6 · delete account — always last. #}
     <section class="settings-group settings-card settings-danger" id="delete-account">

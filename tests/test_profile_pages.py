@@ -898,8 +898,9 @@ def test_creator_profile_settings_page_renders(monkeypatch, client: TestClient) 
     assert 'action="/creator/profile/deals"' in response.text
     assert 'id="deal-preferences"' in response.text
     assert "account controls" not in response.text
-    # sign-out row sits between the assistant section and delete-account.
-    assert 'id="sign-out"' in response.text
+    # Sign-in disclosure sits between assistant and delete-account
+    # and carries the sign-out form inside its body.
+    assert 'id="sign-in"' in response.text
     assert 'action="/auth/logout"' in response.text
 
 
