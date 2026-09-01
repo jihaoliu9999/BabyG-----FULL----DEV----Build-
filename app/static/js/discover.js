@@ -137,6 +137,11 @@
   var dragStart = null;
   cards.forEach(function (card) {
     card.addEventListener("pointerdown", function (event) {
+      // Ignore drags while a previous swipe is animating out or when this
+      // card isn't the visible one — otherwise a rapid tap on a fresh
+      // card while its predecessor is still leaving fires two swipes and
+      // the transform state gets stuck mid-animation.
+      if (busy || card !== currentCard()) return;
       if (event.target.closest("button, a, input")) return;
       dragStart = { x: event.clientX, pointerId: event.pointerId };
       card.setPointerCapture(event.pointerId);
@@ -152,11 +157,28 @@
       var delta = event.clientX - dragStart.x;
       dragStart = null;
       card.classList.remove("is-dragging");
-      card.style.transform = "";
-      if (Math.abs(delta) < 80) return;
+      if (Math.abs(delta) < 80) {
+        // Below threshold: spring the card back to center via the base
+        // 0.2s transition (already restored by dropping is-dragging).
+        card.style.transform = "";
+        return;
+      }
       var selector = delta > 0 ? '[data-swipe-form="primary"]' : '[data-swipe-form="passed"]';
       var form = root.querySelector(selector);
-      if (form) form.requestSubmit();
+      if (!form) {
+        card.style.transform = "";
+        return;
+      }
+      // Above threshold: continue the animation from where the finger
+      // left off. Reset-then-animate causes a one-frame snap back to
+      // center before the CSS is-leaving-* class kicks in ("glitchy"
+      // rebound). Setting the leaving transform inline lets the base
+      // transition ride from the drag position straight off-screen.
+      var dir = delta > 0 ? 1 : -1;
+      card.style.transform =
+        "translateX(" + (dir * 115) + "%) rotate(" + (dir * 7) + "deg)";
+      card.style.opacity = "0";
+      form.requestSubmit();
     });
     card.addEventListener("pointercancel", function () {
       dragStart = null;
