@@ -58,7 +58,6 @@ _ROTATING_PROMPTS: list[BotPrompt] = [
     {"text": "show me my pipeline", "icon": _ICON_MESSAGE},
     {"text": "what should i post today?", "icon": _ICON_PENCIL},
     {"text": "any old drafts worth sending?", "icon": _ICON_PENCIL},
-    {"text": "who's ghosting me?", "icon": _ICON_MESSAGE},
     {"text": "check my gmail for brand replies", "icon": _ICON_MESSAGE},
 ]
 
