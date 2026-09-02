@@ -27,8 +27,8 @@
     <p class="kv-prose" style="white-space:pre-wrap;">{{ listing.description }}</p>
     <dl class="kv">
       {% if listing.compensation_text %}<dt>Comp</dt><dd>{{ listing.compensation_text }}</dd>{% endif %}
-      {% if listing.deadline %}<dt>Deadline</dt><dd>{{ listing.deadline }}</dd>{% endif %}
-      <dt>Posted</dt><dd>{{ listing.created_at }}</dd>
+      {% if listing.deadline %}<dt>Deadline</dt><dd>{{ listing.deadline|short_date }}</dd>{% endif %}
+      <dt>Posted</dt><dd>{{ listing.created_at|short_dt }}</dd>
     </dl>
   </section>
 

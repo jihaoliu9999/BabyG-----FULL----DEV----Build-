@@ -53,7 +53,7 @@
         <div class="creator-needs-body">
           <span class="creator-needs-title">confirm {{ _next_confirm.title }}</span>
           <span class="creator-needs-sub">
-            {% if _next_confirm.starts_at %}{{ _next_confirm.starts_at[:16].replace('T', ' · ') }}{% else %}time to be confirmed{% endif %}{% if _next_confirm.venue_name %} · {{ _next_confirm.venue_name }}{% endif %}
+            {% if _next_confirm.starts_at %}{{ _next_confirm.starts_at|short_dt }}{% else %}time to be confirmed{% endif %}{% if _next_confirm.venue_name %} · {{ _next_confirm.venue_name }}{% endif %}
           </span>
         </div>
         <div class="creator-needs-actions">
@@ -100,7 +100,7 @@
       <div class="creator-today-events">
         {% for ev in upcoming_bookings[:3] %}
         <a class="creator-today-event" href="/creator/calendar{% if ev.id %}/{{ ev.id }}{% endif %}">
-          <span class="creator-today-event-time">{{ ev.starts_at[:16].replace('T', ' · ') if ev.starts_at else 'tbd' }}</span>
+          <span class="creator-today-event-time">{{ ev.starts_at|short_dt if ev.starts_at else 'tbd' }}</span>
           <span class="creator-today-event-body"><strong>{{ ev.title }}</strong>{% if ev.venue_name %}<small>{{ ev.venue_name }}</small>{% endif %}</span>
           <span aria-hidden="true">›</span>
         </a>
@@ -144,7 +144,7 @@
         <span class="creator-match-body">
           <span class="creator-match-title">{{ m.title }}</span>
           {% if m.card_kind == 'opportunity' and m.deadline %}
-          <span class="creator-match-line">closes {{ m.deadline[:10] }}{% if m.location_label %} · {{ m.location_label }}{% endif %}</span>
+          <span class="creator-match-line">closes {{ m.deadline|short_date }}{% if m.location_label %} · {{ m.location_label }}{% endif %}</span>
           {% elif m.subtitle %}
           <span class="creator-match-line">{{ m.subtitle }}{% if m.location_label %} · {{ m.location_label }}{% endif %}</span>
           {% elif m.location_label %}

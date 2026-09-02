@@ -72,9 +72,9 @@
           <div style="color:var(--danger);font-weight:500;">confirming will create this Google Calendar event.</div>
           {% endif %}
           <div><strong style="color:var(--ink);font-weight:500;">title</strong> {{ m.tool_calls.payload.title }}</div>
-          <div><strong style="color:var(--ink);font-weight:500;">starts</strong> {{ m.tool_calls.payload.starts_at }}</div>
+          <div><strong style="color:var(--ink);font-weight:500;">starts</strong> {{ m.tool_calls.payload.starts_at|short_dt }}</div>
           {% if m.tool_calls.payload.ends_at %}
-          <div><strong style="color:var(--ink);font-weight:500;">ends</strong> {{ m.tool_calls.payload.ends_at }}</div>
+          <div><strong style="color:var(--ink);font-weight:500;">ends</strong> {{ m.tool_calls.payload.ends_at|short_dt }}</div>
           {% endif %}
           {% if m.tool_calls.payload.location %}
           <div><strong style="color:var(--ink);font-weight:500;">location</strong> {{ m.tool_calls.payload.location }}</div>

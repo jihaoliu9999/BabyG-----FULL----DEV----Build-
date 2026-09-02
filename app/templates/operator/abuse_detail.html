@@ -22,7 +22,7 @@
     <dl class="kv">
       <dt>Reporter</dt><dd>{{ report.reporter_id }}</dd>
       <dt>Target ID</dt><dd>{{ report.target_id }}</dd>
-      <dt>Submitted</dt><dd>{{ report.created_at }}</dd>
+      <dt>Submitted</dt><dd>{{ report.created_at|short_dt }}</dd>
       {% if report.reviewed_at %}
       <dt>Reviewed</dt><dd>{{ report.reviewed_at }}</dd>
       <dt>Reviewer</dt><dd>{{ report.reviewed_by }}</dd>

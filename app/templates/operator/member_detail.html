@@ -19,7 +19,7 @@
       <dt>User ID</dt><dd>{{ member.id }}</dd>
       <dt>Active</dt><dd>{{ "yes" if member.is_active else "no" }}</dd>
       <dt>Last seen</dt><dd>{{ member.last_seen_at or "-" }}</dd>
-      <dt>Joined</dt><dd>{{ member.created_at }}</dd>
+      <dt>Joined</dt><dd>{{ member.created_at|short_dt }}</dd>
     </dl>
   </section>
 
