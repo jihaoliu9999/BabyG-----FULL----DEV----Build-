@@ -410,6 +410,7 @@ def test_run_all_returns_report_per_sweep(store: _FakeStore) -> None:
         "sweep_stale_drafts",
         "sweep_ghosted_deals",
         "sweep_gmail_briefs",
+        "sweep_dm_briefs",
     }
 
 
@@ -640,3 +641,230 @@ def test_brandish_sender_heuristic() -> None:
     assert bot_jobs._reply_subject("collab") == "re: collab"
     assert bot_jobs._reply_subject("Re: collab") == "Re: collab"
     assert bot_jobs._reply_subject("") == "re:"
+
+
+# ---------------------------------------------------------------------------
+# sweep_dm_briefs — background DM briefing per Phase 7
+# ---------------------------------------------------------------------------
+
+
+_PEER = "00000000-0000-0000-0000-000000000020"
+
+
+def _seed_dm(
+    store: _FakeStore,
+    *,
+    message_id: str,
+    thread_id: str,
+    sender_id: str,
+    body: str,
+    created_at: datetime,
+) -> None:
+    store.rows.setdefault("dm_messages", []).append(
+        {
+            "id": message_id,
+            "thread_id": thread_id,
+            "sender_id": sender_id,
+            "body": body,
+            "created_at": created_at.isoformat(),
+        }
+    )
+
+
+def _seed_thread(
+    store: _FakeStore,
+    *,
+    thread_id: str,
+    creator_id: str,
+    peer_id: str,
+) -> None:
+    store.rows.setdefault("dm_threads", []).append(
+        {
+            "id": thread_id,
+            "participant_a_id": creator_id,
+            "participant_b_id": peer_id,
+        }
+    )
+
+
+def _install_dm_stubs(monkeypatch, *, brief_result):
+    """Stub the dm_briefs + profiles + bot.create_message surface so
+    the sweep runs against pure data + fakes."""
+    generated: list[dict] = []
+    inserted_nudges: list[dict] = []
+
+    def _needs_brief(body, *, is_first_from_sender=False, force=False):
+        # Any body containing "brand", "collab", "$" is "serious" for
+        # test purposes; matches the real filter's intent.
+        norm = (body or "").lower()
+        return any(kw in norm for kw in ("brand", "collab", "$", "rate"))
+
+    def _get_or_generate(
+        *, thread_id, message, recipient_id, recipient_role="creator", **_kw
+    ):
+        generated.append({
+            "thread_id": thread_id,
+            "message_id": message.get("id"),
+            "recipient_id": recipient_id,
+        })
+        return brief_result
+
+    monkeypatch.setattr(bot_jobs.dm_briefs, "needs_brief", _needs_brief)
+    monkeypatch.setattr(bot_jobs.dm_briefs, "get_or_generate_brief", _get_or_generate)
+    monkeypatch.setattr(
+        bot_jobs.profiles,
+        "get_creators_by_ids",
+        lambda ids: {ids[0]: {"full_name": "Anna Reyes"}} if ids else {},
+    )
+
+    def _create_message(**kwargs):
+        inserted_nudges.append(kwargs)
+        return f"msg-{len(inserted_nudges)}"
+
+    monkeypatch.setattr(bot_jobs.bot, "create_message", _create_message)
+    return {"generated": generated, "nudges": inserted_nudges}
+
+
+def test_sweep_dm_briefs_nudges_on_watch_or_alert(monkeypatch, store: _FakeStore) -> None:
+    now = datetime(2027, 1, 1, 12, tzinfo=UTC)
+    _seed_thread(store, thread_id="t1", creator_id=_CREATOR, peer_id=_PEER)
+    _seed_dm(
+        store,
+        message_id="m1",
+        thread_id="t1",
+        sender_id=_PEER,
+        body="hey want to collab on a brand campaign?",
+        created_at=now - timedelta(minutes=30),
+    )
+    brief = {
+        "message_id": "m1",
+        "risk_level": "watch",
+        "summary": "peer is proposing a brand collab, no numbers yet.",
+    }
+    captured = _install_dm_stubs(monkeypatch, brief_result=brief)
+
+    report = bot_jobs.sweep_dm_briefs(now=now)
+
+    assert report.scanned == 1
+    assert report.changed == 1
+    assert len(captured["generated"]) == 1
+    assert len(captured["nudges"]) == 1
+    nudge = captured["nudges"][0]
+    assert nudge["user_id"] == _CREATOR
+    assert "anna" in nudge["content"].lower()
+    assert nudge["tool_calls"]["kind"] == "nudge"
+    assert nudge["tool_calls"]["nudge_category"] == "dm_watch"
+    assert nudge["tool_calls"]["source"] == "sweep_dm_briefs"
+    chips = nudge["tool_calls"]["chips"]
+    assert any(c["kind"] == "nav" for c in chips)
+    assert any(c["kind"] == "fill" for c in chips)
+
+
+def test_sweep_dm_briefs_skips_safe_briefs(monkeypatch, store: _FakeStore) -> None:
+    """A brief with risk_level=safe is generated but doesn't nudge —
+    creator sees it in-line on the DM page, not spammed into chat."""
+    now = datetime(2027, 1, 1, 12, tzinfo=UTC)
+    _seed_thread(store, thread_id="t1", creator_id=_CREATOR, peer_id=_PEER)
+    _seed_dm(
+        store,
+        message_id="m1",
+        thread_id="t1",
+        sender_id=_PEER,
+        body="thoughts on the brand pitch?",
+        created_at=now - timedelta(minutes=30),
+    )
+    captured = _install_dm_stubs(
+        monkeypatch, brief_result={"message_id": "m1", "risk_level": "safe"}
+    )
+    report = bot_jobs.sweep_dm_briefs(now=now)
+    assert report.scanned == 1
+    assert report.changed == 0
+    assert captured["nudges"] == []
+
+
+def test_sweep_dm_briefs_skips_non_serious_bodies(monkeypatch, store: _FakeStore) -> None:
+    """Tiny acks / low-signal bodies never brief. Cost guard."""
+    now = datetime(2027, 1, 1, 12, tzinfo=UTC)
+    _seed_thread(store, thread_id="t1", creator_id=_CREATOR, peer_id=_PEER)
+    _seed_dm(
+        store,
+        message_id="m1",
+        thread_id="t1",
+        sender_id=_PEER,
+        body="ty",
+        created_at=now - timedelta(minutes=30),
+    )
+    captured = _install_dm_stubs(monkeypatch, brief_result=None)
+    report = bot_jobs.sweep_dm_briefs(now=now)
+    assert report.changed == 0
+    assert captured["generated"] == []
+    assert captured["nudges"] == []
+
+
+def test_sweep_dm_briefs_dedupes_across_runs(monkeypatch, store: _FakeStore) -> None:
+    now = datetime(2027, 1, 1, 12, tzinfo=UTC)
+    _seed_thread(store, thread_id="t1", creator_id=_CREATOR, peer_id=_PEER)
+    _seed_dm(
+        store,
+        message_id="m1",
+        thread_id="t1",
+        sender_id=_PEER,
+        body="collab?",
+        created_at=now - timedelta(minutes=30),
+    )
+    brief = {"message_id": "m1", "risk_level": "alert", "summary": "brand ask"}
+    captured = _install_dm_stubs(monkeypatch, brief_result=brief)
+
+    first = bot_jobs.sweep_dm_briefs(now=now)
+    second = bot_jobs.sweep_dm_briefs(now=now)
+
+    assert first.changed == 1
+    assert second.changed == 0
+    assert second.skipped_already_ran == 1
+    assert len(captured["nudges"]) == 1
+
+
+def test_sweep_dm_briefs_caps_per_creator(monkeypatch, store: _FakeStore) -> None:
+    """A busy inbox can't fan out unlimited nudges into one creator's
+    bot thread in a single sweep."""
+    now = datetime(2027, 1, 1, 12, tzinfo=UTC)
+    _seed_thread(store, thread_id="t1", creator_id=_CREATOR, peer_id=_PEER)
+    for i in range(10):
+        _seed_dm(
+            store,
+            message_id=f"m{i}",
+            thread_id="t1",
+            sender_id=_PEER,
+            body=f"brand question {i}",
+            created_at=now - timedelta(minutes=30 + i),
+        )
+    captured = _install_dm_stubs(
+        monkeypatch,
+        brief_result={"message_id": "?", "risk_level": "watch", "summary": "s"},
+    )
+    report = bot_jobs.sweep_dm_briefs(now=now)
+    assert report.changed == bot_jobs.MAX_DM_BRIEFS_PER_CREATOR_PER_SWEEP
+    assert len(captured["nudges"]) == bot_jobs.MAX_DM_BRIEFS_PER_CREATOR_PER_SWEEP
+
+
+def test_sweep_dm_briefs_recipient_resolution(monkeypatch, store: _FakeStore) -> None:
+    """The recipient is the OTHER participant in the thread — not the
+    sender. Regression guard against swapping the two ids."""
+    now = datetime(2027, 1, 1, 12, tzinfo=UTC)
+    # Thread is (creator, peer). Message from peer → creator is recipient.
+    _seed_thread(store, thread_id="t1", creator_id=_CREATOR, peer_id=_PEER)
+    _seed_dm(
+        store,
+        message_id="m1",
+        thread_id="t1",
+        sender_id=_PEER,
+        body="hey about that brand thing",
+        created_at=now - timedelta(minutes=15),
+    )
+    captured = _install_dm_stubs(
+        monkeypatch,
+        brief_result={"message_id": "m1", "risk_level": "watch", "summary": "s"},
+    )
+    bot_jobs.sweep_dm_briefs(now=now)
+    assert captured["generated"][0]["recipient_id"] == _CREATOR
+    assert captured["nudges"][0]["user_id"] == _CREATOR

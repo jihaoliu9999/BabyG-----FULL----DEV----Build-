@@ -35,6 +35,7 @@ from app.services import (
     babyg_memory,
     babyg_relations,
     bot,
+    dm_briefs,
     oauth_connections,
     profiles,
 )
@@ -610,13 +611,262 @@ def _drop_gmail_nudge(
         logger.info("sweep_gmail_briefs.nudge_insert_failed", exc_info=True)
 
 
+# --- Sweep: dm briefs ------------------------------------------------------
+#
+# Phase 7 spec: "dm_briefs.py runs in the background instead of blocking
+# DM page load." This sweep is the implementation. Every 5 minutes:
+#   1. pull recent inbound DM messages
+#   2. resolve each to its recipient (via dm_threads join)
+#   3. filter to "serious" bodies via dm_briefs.needs_brief (deal / money /
+#      meetup / first-from-sender)
+#   4. call dm_briefs.get_or_generate_brief — idempotent per message_id
+#   5. if the brief flags watch/alert, drop a nudge into the recipient's
+#      bot thread so they see it next time they open babyg
+#
+# No auto-staged action_proposal on this path today: dm-send is not a
+# staged action_type (unlike gmail.create_draft). The nudge chip
+# "draft a reply to <peer>" falls through to the normal bot chat
+# drafting loop when the creator taps it.
+#
+# Dedupe key: dm_brief_nudge:<message_id> so a re-run of the same
+# window never inserts two nudges for one message. dm_briefs itself
+# already dedupes brief GENERATION per message_id.
+#
+# Cost budget: dm_briefs.needs_brief filters aggressively and the
+# module's own dm_brief_auto_limiter throttles Claude calls per
+# (creator, thread). Sweep adds MAX_DM_BRIEFS_PER_CREATOR_PER_SWEEP
+# on top as a belt-and-suspenders cap.
+#
+# Failure modes:
+#   * dm_messages query fails       -> record_failure, sweep aborts clean
+#   * dm_threads query fails        -> record_failure, sweep aborts clean
+#   * brief generation raises       -> per-item failure, sweep continues
+#   * brief.risk_level = safe       -> mark_ran outcome="skipped", no nudge
+#   * bot.create_message fails      -> log, do not record success (retry next run)
+#
+# Runbook:
+#   bot_job_runs   scoped to job_name='sweep_dm_briefs' logs every
+#                  processed message (outcome + dedupe_key)
+#   bot_job_failures shows per-item exceptions with the dedupe_key so
+#                  a specific message can be replayed by deleting its
+#                  bot_job_runs row and re-running the sweep
+
+DM_SWEEP_LOOKBACK_HOURS = 2
+MAX_DM_MESSAGES_PER_SWEEP = 200
+MAX_DM_BRIEFS_PER_CREATOR_PER_SWEEP = 4
+
+
+def sweep_dm_briefs(*, now: datetime | None = None) -> SweepReport:
+    """Background DM briefing per Phase 7. See module docstring above
+    for data flow, cost budget, failure modes, and runbook."""
+    report = SweepReport(job_name="sweep_dm_briefs")
+    cutoff = (now or datetime.now(UTC)) - timedelta(hours=DM_SWEEP_LOOKBACK_HOURS)
+    try:
+        recent = list(
+            _service()
+            .table("dm_messages")
+            .select("id, thread_id, sender_id, body, created_at")
+            .gte("created_at", cutoff.isoformat())
+            .order("created_at", desc=True)
+            .limit(MAX_DM_MESSAGES_PER_SWEEP)
+            .execute()
+            .data
+            or []
+        )
+    except Exception as exc:
+        record_failure("sweep_dm_briefs", exc)
+        report.failed += 1
+        return report
+    if not recent:
+        return report
+    thread_ids = list(
+        {str(m.get("thread_id") or "") for m in recent if m.get("thread_id")}
+    )
+    if not thread_ids:
+        return report
+    try:
+        threads = list(
+            _service()
+            .table("dm_threads")
+            .select("id, participant_a_id, participant_b_id")
+            .in_("id", thread_ids)
+            .execute()
+            .data
+            or []
+        )
+    except Exception as exc:
+        record_failure("sweep_dm_briefs", exc)
+        report.failed += 1
+        return report
+    thread_by_id = {str(t.get("id")): t for t in threads}
+    per_creator: dict[str, int] = {}
+    peer_name_cache: dict[str, str] = {}
+    for msg in recent:
+        report.scanned += 1
+        message_id = str(msg.get("id") or "")
+        thread_id = str(msg.get("thread_id") or "")
+        sender_id = str(msg.get("sender_id") or "")
+        body = str(msg.get("body") or "")
+        if not (message_id and thread_id and sender_id and body):
+            continue
+        t = thread_by_id.get(thread_id)
+        if not t:
+            continue
+        a_id = str(t.get("participant_a_id") or "")
+        b_id = str(t.get("participant_b_id") or "")
+        if sender_id == a_id:
+            recipient_id = b_id
+        elif sender_id == b_id:
+            recipient_id = a_id
+        else:
+            continue
+        if not recipient_id or recipient_id == sender_id:
+            continue
+        if per_creator.get(recipient_id, 0) >= MAX_DM_BRIEFS_PER_CREATOR_PER_SWEEP:
+            continue
+        dedupe_key = f"dm_brief_nudge:{message_id}"
+        if already_ran("sweep_dm_briefs", dedupe_key):
+            report.skipped_already_ran += 1
+            continue
+        if not dm_briefs.needs_brief(body):
+            mark_ran(
+                "sweep_dm_briefs",
+                dedupe_key,
+                outcome="skipped",
+                target_user_id=recipient_id,
+                detail={"reason": "not_serious"},
+            )
+            continue
+        try:
+            brief = dm_briefs.get_or_generate_brief(
+                thread_id=thread_id,
+                message={"id": message_id, "body": body},
+                recipient_id=recipient_id,
+                recipient_role="creator",
+            )
+        except Exception as exc:
+            record_failure(
+                "sweep_dm_briefs",
+                exc,
+                dedupe_key=dedupe_key,
+                target_user_id=recipient_id,
+            )
+            report.failed += 1
+            continue
+        if not brief:
+            mark_ran(
+                "sweep_dm_briefs",
+                dedupe_key,
+                outcome="skipped",
+                target_user_id=recipient_id,
+                detail={"reason": "no_brief"},
+            )
+            continue
+        risk = str(brief.get("risk_level") or "safe").lower()
+        if risk not in {"watch", "alert"}:
+            mark_ran(
+                "sweep_dm_briefs",
+                dedupe_key,
+                outcome="skipped",
+                target_user_id=recipient_id,
+                detail={"risk_level": risk},
+            )
+            continue
+        peer_first = peer_name_cache.get(sender_id)
+        if peer_first is None:
+            try:
+                peer_row = (
+                    profiles.get_creators_by_ids([sender_id]) or {}
+                ).get(sender_id) or {}
+                full = str(peer_row.get("full_name") or "").strip()
+                peer_first = full.split(" ", 1)[0].lower() if full else ""
+            except Exception:
+                peer_first = ""
+            peer_name_cache[sender_id] = peer_first
+        _drop_dm_brief_nudge(
+            recipient_id=recipient_id,
+            brief=brief,
+            sender_id=sender_id,
+            peer_first_name=peer_first or "someone",
+            risk=risk,
+        )
+        mark_ran(
+            "sweep_dm_briefs",
+            dedupe_key,
+            target_user_id=recipient_id,
+            detail={
+                "thread_id": thread_id,
+                "message_id": message_id,
+                "risk_level": risk,
+            },
+        )
+        per_creator[recipient_id] = per_creator.get(recipient_id, 0) + 1
+        report.changed += 1
+    return report
+
+
+def _drop_dm_brief_nudge(
+    *,
+    recipient_id: str,
+    brief: dict[str, Any],
+    sender_id: str,
+    peer_first_name: str,
+    risk: str,
+) -> None:
+    """Insert a proactive nudge into the recipient's bot thread. Uses
+    the same `kind=nudge` shape as bot_nudges so the two paths render
+    consistently and the dedupe layer over there sees it."""
+    summary = str(brief.get("summary") or "").strip()
+    label = "needs a decision" if risk == "alert" else "worth a look"
+    body_line = summary[:280] if summary else "babyg flagged it while you were away."
+    content = (
+        f"**{peer_first_name}** just dm'd you — babyg says it {label}. "
+        f"{body_line}"
+    )
+    message_id = str(brief.get("message_id") or "")
+    nudge_key = f"dm_brief_nudge:{message_id}"
+    tool_calls = {
+        "kind": "nudge",
+        "nudge_key": nudge_key,
+        "nudge_category": f"dm_{risk}",
+        "chips": [
+            {
+                "kind": "nav",
+                "label": f"open the dm from {peer_first_name}",
+                "href": f"/creator/dm/{sender_id}",
+            },
+            {
+                "kind": "fill",
+                "label": "draft a reply",
+                "text": f"draft a reply to the dm from {peer_first_name}",
+                "primary": True,
+            },
+        ],
+        "source": "sweep_dm_briefs",
+    }
+    try:
+        bot.create_message(
+            user_id=recipient_id,
+            role="assistant",
+            content=content,
+            tool_calls=tool_calls,
+        )
+    except Exception:
+        logger.info("sweep_dm_briefs.nudge_insert_failed", exc_info=True)
+
+
 # --- Sweep runner ----------------------------------------------------------
 
 
 def run_all(*, now: datetime | None = None) -> list[SweepReport]:
     """Run every registered sweep in order. Returns their reports.
     Called by scripts/run_babyg_sweeps.py from Railway cron."""
-    sweeps = [sweep_stale_drafts, sweep_ghosted_deals, sweep_gmail_briefs]
+    sweeps = [
+        sweep_stale_drafts,
+        sweep_ghosted_deals,
+        sweep_gmail_briefs,
+        sweep_dm_briefs,
+    ]
     reports: list[SweepReport] = []
     for sweep in sweeps:
         try:
