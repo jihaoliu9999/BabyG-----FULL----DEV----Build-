@@ -224,3 +224,104 @@ def test_provider_permission_checks_google_scopes(monkeypatch) -> None:
     assert missing.ok is False
     assert missing.reason == "missing_required_scope"
     assert missing.missing_scopes == (action_proposals.GMAIL_MODIFY_SCOPE,)
+
+
+def _fake_execute_pending(rows):
+    """Build a fake supabase client that returns `rows` from the pending list query."""
+    class _Result:
+        data = rows
+
+    class _Query:
+        def select(self, *args, **kwargs): return self
+        def eq(self, *args, **kwargs): return self
+        def order(self, *args, **kwargs): return self
+        def limit(self, *args, **kwargs): return self
+        def execute(self): return _Result()
+
+    class _Table:
+        def table(self, name): return _Query()
+
+    return _Table()
+
+
+def test_list_pending_for_user_returns_fresh_rows(monkeypatch) -> None:
+    from datetime import UTC, datetime, timedelta
+
+    future = (datetime.now(UTC) + timedelta(minutes=30)).isoformat()
+    past = (datetime.now(UTC) - timedelta(minutes=1)).isoformat()
+    rows = [
+        {"id": "a", "status": "pending", "expires_at": future, "action_type": "gmail.create_draft", "preview": {}},
+        {"id": "b", "status": "pending", "expires_at": past, "action_type": "gmail.create_draft", "preview": {}},
+        {"id": "c", "status": "pending", "expires_at": None, "action_type": "babyg.create_booking", "preview": {}},
+    ]
+    monkeypatch.setattr(
+        action_proposals.supabase_client,
+        "get_service_client",
+        lambda: _fake_execute_pending(rows),
+    )
+    result = action_proposals.list_pending_for_user(user_id="creator-1", limit=10)
+    ids = [r["id"] for r in result]
+    assert "a" in ids
+    assert "c" in ids
+    assert "b" not in ids  # expired proposal is filtered out
+
+
+def test_list_pending_for_user_clamps_limit(monkeypatch) -> None:
+    captured: dict = {}
+
+    class _Result:
+        def __init__(self):
+            self.data: list = []
+
+    class _Query:
+        def select(self, *args, **kwargs): return self
+        def eq(self, *args, **kwargs): return self
+        def order(self, *args, **kwargs): return self
+        def limit(self, n):
+            captured["limit"] = n
+            return self
+        def execute(self): return _Result()
+
+    class _Table:
+        def table(self, name): return _Query()
+
+    monkeypatch.setattr(
+        action_proposals.supabase_client,
+        "get_service_client",
+        lambda: _Table(),
+    )
+    action_proposals.list_pending_for_user(user_id="creator-1", limit=999)
+    assert captured["limit"] == 50
+    action_proposals.list_pending_for_user(user_id="creator-1", limit=0)
+    assert captured["limit"] == 1
+
+
+def test_count_pending_for_user(monkeypatch) -> None:
+    monkeypatch.setattr(
+        action_proposals,
+        "list_pending_for_user",
+        lambda **kwargs: [{"id": "a"}, {"id": "b"}, {"id": "c"}],
+    )
+    assert action_proposals.count_pending_for_user(user_id="creator-1") == 3
+
+
+def test_list_pending_for_user_swallows_api_error(monkeypatch) -> None:
+    from postgrest.exceptions import APIError as PostgrestAPIError
+
+    class _Query:
+        def select(self, *args, **kwargs): return self
+        def eq(self, *args, **kwargs): return self
+        def order(self, *args, **kwargs): return self
+        def limit(self, *args, **kwargs): return self
+        def execute(self):
+            raise PostgrestAPIError({"message": "boom"})
+
+    class _Table:
+        def table(self, name): return _Query()
+
+    monkeypatch.setattr(
+        action_proposals.supabase_client,
+        "get_service_client",
+        lambda: _Table(),
+    )
+    assert action_proposals.list_pending_for_user(user_id="creator-1") == []

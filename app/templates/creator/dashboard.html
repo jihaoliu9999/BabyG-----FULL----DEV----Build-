@@ -16,10 +16,41 @@
   {# needs you: verb-first task rows — only when there's actually something #}
   {% set _next_confirm = upcoming_bookings[0] if upcoming_bookings else None %}
   {% set _alerts_n = unread_notifs|length %}
-  {% if pending_connections or _next_confirm or _alerts_n %}
+  {% set _pending_actions = pending_actions or [] %}
+  {% if pending_connections or _next_confirm or _alerts_n or _pending_actions %}
   <section class="creator-home-section">
     <div class="creator-home-section-head"><h2>needs you</h2></div>
     <div class="creator-needs">
+
+      {# babyg-staged action proposals (gmail drafts, calendar events, dms).
+         each row links to /creator/bot — the thread is the authority on
+         approval, home is a shortcut in. limited to 3 so the rail stays
+         scannable; the rest live in the thread. #}
+      {% for a in _pending_actions[:3] %}
+      {% set _preview = a.preview or {} %}
+      {% set _title = _preview.title or _preview.subject or _preview.headline or a.action_type %}
+      {% set _sub = _preview.body or _preview.summary or _preview.detail or a.action_type|replace('.', ' · ') %}
+      <a class="creator-needs-row actionable" href="/creator/bot#action-{{ a.id }}">
+        <span class="creator-needs-glyph" aria-hidden="true">
+          {% if 'gmail' in a.action_type %}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>
+          {% elif 'calendar' in a.action_type %}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+          {% elif 'instagram' in a.action_type or 'dm' in a.action_type %}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          {% else %}
+          <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="6"/></svg>
+          {% endif %}
+        </span>
+        <div class="creator-needs-body">
+          <span class="creator-needs-title">{{ _title|string|truncate(56, true, '…') }}</span>
+          <span class="creator-needs-sub">{{ _sub|string|truncate(72, true, '…') }}</span>
+        </div>
+        <div class="creator-needs-actions">
+          <span class="creator-needs-chip">review</span>
+        </div>
+      </a>
+      {% endfor %}
 
       {% for c in pending_connections[:2] %}
       {% set peer = c.peer or {} %}

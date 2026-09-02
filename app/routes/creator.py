@@ -35,6 +35,7 @@ from app.core.url_guard import http_url_or_none
 from app.deps import require_role
 from app.integrations import google_calendar, instagram_meta
 from app.services import (
+    action_proposals,
     audit,
     babyg_awareness,
     bookings,
@@ -191,13 +192,27 @@ async def dashboard(
     except Exception:
         matched_picks = []
 
+    # Pending babyg-staged actions (gmail drafts, calendar events, dms
+    # queued by a sweep or a bot turn). Confirmation still happens in
+    # /creator/bot so each row on home is a link back to the thread —
+    # never a direct approve button, because approval writes to an
+    # external provider and we want the same audit trail every time.
+    try:
+        pending_actions = action_proposals.list_pending_for_user(
+            user_id=session["user_id"], limit=6
+        )
+    except Exception:
+        pending_actions = []
+
     # "N things need you today" summary count: connections + confirm
-    # bookings + non-DM notifications. DMs deliberately excluded so
-    # the number matches what's shown in "needs you" below.
+    # bookings + non-DM notifications + pending action proposals. DMs
+    # deliberately excluded so the number matches what's shown in
+    # "needs you" below.
     needs_count = (
         len(pending_connections)
         + (1 if upcoming_bookings else 0)
         + non_dm_unread_total
+        + len(pending_actions)
     )
 
     first_name = (profile.get("full_name") or "creator").split(" ")[0].lower()
@@ -218,6 +233,7 @@ async def dashboard(
             "active_category": category if category in intel.CATEGORIES else None,
             "unread_notifs": unread_notifs,
             "pending_connections": pending_connections,
+            "pending_actions": pending_actions,
             "upcoming_bookings": upcoming_bookings,
             "matched_picks": matched_picks,
             "needs_count": needs_count,

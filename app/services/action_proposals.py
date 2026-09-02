@@ -174,6 +174,40 @@ def get_for_user(*, proposal_id: str, user_id: str) -> dict[str, Any] | None:
     return rows[0] if rows else None
 
 
+def list_pending_for_user(*, user_id: str, limit: int = 10) -> list[dict[str, Any]]:
+    """Non-expired pending proposals for the home surface.
+
+    Expired rows never survive `confirm_proposal` (it flips them to
+    expired first), but they can still sit at status='pending' in the
+    table until a creator touches them. Filter client-side so a stale
+    Gmail draft doesn't clutter the home rail — the confirm path is
+    the authority on state transitions, this is a read.
+    """
+    capped = max(1, min(int(limit), 50))
+    try:
+        result = (
+            supabase_client.get_service_client()
+            .table("action_proposals")
+            .select("id,action_type,action_category,provider,preview,expires_at,created_at,source_message_id")
+            .eq("user_id", user_id)
+            .eq("status", "pending")
+            .order("created_at", desc=True)
+            .limit(capped)
+            .execute()
+        )
+    except PostgrestAPIError:
+        logger.exception("action proposal list failed: %s", user_id)
+        return []
+    rows = list(getattr(result, "data", None) or [])
+    fresh = [r for r in rows if not _is_expired(r)]
+    return fresh
+
+
+def count_pending_for_user(*, user_id: str) -> int:
+    """Fast count for tab badges / needs_count summary."""
+    return len(list_pending_for_user(user_id=user_id, limit=50))
+
+
 def confirm_proposal(*, proposal_id: str, user_id: str) -> bool:
     """Creator approval step. Moves pending -> confirmed exactly once."""
     row = get_for_user(proposal_id=proposal_id, user_id=user_id)
