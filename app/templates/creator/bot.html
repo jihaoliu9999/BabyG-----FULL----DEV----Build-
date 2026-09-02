@@ -14,23 +14,21 @@
       <span class="creator-screen-lockup-label">ai manager</span>
     </div>
   </header>
-  {% if not messages %}<div class="bot-hero">
-    <div class="head">
-      <div style="position:relative;">
-        <span class="bot-hero-mark" aria-hidden="true">
-          <img src="/static/assets/logo-bg.png" alt="" />
-        </span>
-        <span style="right:-2px;bottom:-2px;position:absolute;width:11px;height:11px;border-radius:50%;background:var(--lime);border:2px solid var(--obsidian);box-shadow:0 0 6px var(--lime);display:block;"></span>
-      </div>
-      <div>
-        <h1 style="margin-top:6px;">What are we working on today?</h1>
-      </div>
+  {% if not messages %}
+  <div class="bot-hero">
+    <div class="bot-hero-head">
+      <span class="bot-hero-mark bot-hero-mark-live" aria-hidden="true">
+        <img src="/static/assets/logo-bg.png" alt="" />
+      </span>
+      <h1 class="bot-hero-title">{{ daily_greeting.morning if daily_greeting else "hey" }}</h1>
+      <p class="bot-hero-sub">what can i handle for you?</p>
     </div>
-  </div>{% endif %}
+  </div>
+  {% endif %}
 
   <div data-bot-error-slot>
   {% if error %}
-  <div class="bot-banner bot-banner-error" style="margin:0 24px 12px;padding:12px 16px;background:rgba(255,77,109,0.1);border:1px solid var(--lime);border-radius:12px;color:var(--lime);font-size:13px;">{{ error }}</div>
+  <div class="bot-banner bot-banner-error" data-bot-banner>{{ error }}</div>
   {% endif %}
   </div>
 

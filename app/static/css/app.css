@@ -2585,14 +2585,74 @@ select.profile-detail-input {
   padding-top: 12px;
   padding-bottom: 10px;
 }
-.is-chat.chat-keyboard-open .bot-hero h1 {
+.is-chat.chat-keyboard-open .bot-hero h1,
+.is-chat.chat-keyboard-open .bot-hero-title {
   font-size: 20px;
   letter-spacing: 0;
 }
-.is-chat.chat-keyboard-open .bot-hero .head { margin-bottom: 0; }
+.is-chat.chat-keyboard-open .bot-hero .head,
+.is-chat.chat-keyboard-open .bot-hero-head { margin-bottom: 0; }
 .bot-hero .head {
   display: flex; align-items: center; gap: 12px;
   margin-bottom: 14px;
+}
+/* Hero v2: mark + personal greeting stacked, with the live-dot as a
+   pseudo-element on the mark so we don't need an inline-styled
+   sibling span for it. */
+.bot-hero-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.bot-hero-mark-live { position: relative; }
+.bot-hero-mark-live::after {
+  content: "";
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--lime);
+  border: 2px solid var(--obsidian);
+  box-shadow: 0 0 6px var(--lime);
+}
+.bot-hero-title {
+  font-size: 22px;
+  margin: 0;
+  line-height: 1.1;
+  letter-spacing: 0;
+  color: var(--ink);
+  text-transform: lowercase;
+  font-weight: 600;
+}
+/* Bot error banner — was carrying its style attribute inline. Pulled
+   into a class so strict-CSP flavors (and future style-src tightening)
+   don't strip the visuals. */
+.bot-banner-error {
+  margin: 0 24px 12px;
+  padding: 12px 16px;
+  background: rgba(255, 77, 109, 0.1);
+  border: 1px solid var(--lime);
+  border-radius: 12px;
+  color: var(--lime);
+  font-size: 13px;
+}
+.bot-hero-sub {
+  margin: 0 0 0 auto;
+  color: var(--ink-mid);
+  font-size: 13px;
+  text-align: right;
+}
+@media (max-width: 520px) {
+  .bot-hero-sub {
+    margin-left: 0;
+    margin-top: 2px;
+    text-align: left;
+    flex-basis: 100%;
+  }
+  .bot-hero-head { flex-wrap: wrap; }
 }
 .is-creator-app.is-chat .creator-babyg-topbar .creator-screen-mark,
 .bot-hero-mark {

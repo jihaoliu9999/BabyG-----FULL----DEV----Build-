@@ -268,6 +268,12 @@ async def bot_chat(
         messages=messages,
     )
 
+    # Personal greeting for the empty-state hero. Same helper the
+    # dashboard uses, so a creator gets the same "morning, garrett"
+    # tone on both surfaces.
+    first_name = (profile.get("full_name") or "creator").split(" ")[0].lower()
+    daily_greeting = greetings.pick_daily(session["user_id"], first_name)
+
     return templates.TemplateResponse(
         request,
         "creator/bot.html",
@@ -276,6 +282,7 @@ async def bot_chat(
             "messages": messages,
             "error": None,
             "bot_prompts": prompts,
+            "daily_greeting": daily_greeting,
         },
     )
 

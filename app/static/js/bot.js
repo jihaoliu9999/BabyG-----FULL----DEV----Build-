@@ -124,10 +124,10 @@
 
   const showInlineError = (text) => {
     if (!errorSlot) return;
+    // Styles live in app.css under .bot-banner-error — no inline
+    // style attr so a strict style-src CSP doesn't strip them.
     errorSlot.innerHTML =
-      '<div class="bot-banner bot-banner-error" data-bot-banner ' +
-      'style="margin:0 24px 12px;padding:12px 16px;background:rgba(255,77,109,0.1);' +
-      'border:1px solid var(--lime);border-radius:12px;color:var(--lime);font-size:13px;">' +
+      '<div class="bot-banner bot-banner-error" data-bot-banner>' +
       escapeHtml(text) +
       "</div>";
   };
