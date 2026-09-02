@@ -49,23 +49,52 @@ def asset_url(path: str) -> str:
     return f"/static/{clean}?v={digest}"
 
 
-def _short_dt(value):
-    """Render a Postgres ISO timestamptz as `YYYY-MM-DD HH:MM`.
+_MONTH_ABBR = (
+    "jan", "feb", "mar", "apr", "may", "jun",
+    "jul", "aug", "sep", "oct", "nov", "dec",
+)
 
-    Templates were doing `m.created_at[:16]|replace("T", " ")` everywhere,
-    which silently mis-renders if the driver ever returns a different
-    shape. Centralizing the format here means one place to fix.
+
+def _short_dt(value):
+    """Render a Postgres ISO timestamptz as `Mon D, YYYY · h:MMam`.
+
+    Human date + 12-hour time. Nobody reads `2026-09-02 14:00` fast
+    when it says `sep 2, 2026 · 2:00pm`. Falls back to the raw string
+    if parsing fails so an unexpected shape still renders something.
     """
     if not value:
         return ""
-    s = str(value)
-    return s[:16].replace("T", " ")
+    raw = str(value)
+    # Grab the first 16 chars — enough for YYYY-MM-DDTHH:MM regardless
+    # of trailing tz suffix. If the shape isn't ISO, we return raw.
+    try:
+        date_part, _, time_part = raw[:16].replace("T", " ").partition(" ")
+        y, m, d = date_part.split("-")
+        month = _MONTH_ABBR[int(m) - 1]
+        date_out = f"{month} {int(d)}, {y}"
+        if not time_part:
+            return date_out
+        hh, mm = time_part.split(":")
+        hour = int(hh)
+        suffix = "am" if hour < 12 else "pm"
+        hour = hour % 12 or 12
+        return f"{date_out} · {hour}:{mm}{suffix}"
+    except (ValueError, IndexError):
+        return raw
 
 
 def _short_date(value):
+    """Render a date (or leading date portion of an ISO timestamp) as
+    `Mon D, YYYY`. e.g. `sep 2, 2026`."""
     if not value:
         return ""
-    return str(value)[:10]
+    raw = str(value)
+    try:
+        y, m, d = raw[:10].split("-")
+        month = _MONTH_ABBR[int(m) - 1]
+        return f"{month} {int(d)}, {y}"
+    except (ValueError, IndexError):
+        return raw
 
 
 def _safe_url(value):

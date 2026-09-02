@@ -3,35 +3,46 @@
 {% block title %}{{ booking.title }} — babyg{% endblock %}
 
 {% block content %}
-<div class="wrap">
-  <a href="/creator/calendar" class="back-link">← calendar</a>
-
-  <div style="margin-bottom:20px;">
-    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
-      <span class="badge badge-muted">{{ booking.type }}</span>
-      <span class="badge badge-muted">{{ booking.status }}</span>
+<section class="cal-detail" data-cal-detail>
+  <header class="cal-detail-head">
+    <a href="/creator/calendar" class="cal-detail-back" aria-label="back to calendar">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+      <span>calendar</span>
+    </a>
+    <div class="cal-detail-tags">
+      <span class="cal-detail-tag">{{ booking.type }}</span>
+      <span class="cal-detail-tag cal-detail-tag-{{ booking.status }}">{{ booking.status }}</span>
     </div>
-    <h1 class="detail-title" style="margin:0;">{{ booking.title }}</h1>
-  </div>
+  </header>
 
-  <span class="mono" style="display:block;margin-bottom:8px;">details</span>
-  <div class="kv-list" style="margin-bottom:22px;">
-    <div class="row"><span class="l">starts</span><span class="v">{{ booking.starts_at|short_dt }}</span></div>
-    {% if booking.ends_at %}<div class="row"><span class="l">ends</span><span class="v">{{ booking.ends_at|short_dt }}</span></div>{% endif %}
-    {% if booking.venue_name %}<div class="row"><span class="l">venue</span><span class="v">{{ booking.venue_name }}</span></div>{% endif %}
-  </div>
+  <h1 class="cal-detail-title">{{ booking.title }}</h1>
+
+  <dl class="cal-detail-facts">
+    <div>
+      <dt>when</dt>
+      <dd>{{ booking.starts_at|short_date }}{% if booking.ends_at and booking.ends_at|short_date != booking.starts_at|short_date %} → {{ booking.ends_at|short_date }}{% endif %}</dd>
+    </div>
+    {% if booking.venue_name %}
+    <div>
+      <dt>where</dt>
+      <dd>{{ booking.venue_name }}</dd>
+    </div>
+    {% endif %}
+  </dl>
 
   {% if booking.notes %}
-  <span class="mono" style="display:block;margin-bottom:8px;">notes</span>
-  <p style="color:var(--ink-mid);font-size:14.5px;line-height:1.55;margin:0 0 22px;">{{ booking.notes }}</p>
+  <div class="cal-detail-notes">
+    <span class="cal-detail-label">notes</span>
+    <p>{{ booking.notes }}</p>
+  </div>
   {% endif %}
 
-  <div style="display:flex;gap:8px;flex-wrap:wrap;">
+  <div class="cal-detail-actions">
     <a href="/creator/calendar/{{ booking.id }}/edit" class="btn btn-ghost btn-sm">edit</a>
     <form method="post" action="/creator/calendar/{{ booking.id }}/cancel">
       {% include "_partials/csrf.html" %}
-      <button type="submit" class="btn btn-ghost btn-sm">cancel booking</button>
+      <button type="submit" class="btn btn-ghost btn-sm cal-detail-cancel">cancel booking</button>
     </form>
   </div>
-</div>
+</section>
 {% endblock %}

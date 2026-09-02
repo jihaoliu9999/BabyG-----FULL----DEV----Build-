@@ -40,7 +40,7 @@
   --display-track: -0.045em;
   --display-weight: 500;
 
-  --tabbar-h: 60px;
+  --tabbar-h: 54px;
   --topbar-h: 64px;
   --sidebar-w: 240px;
 }
@@ -6805,8 +6805,8 @@ hr.hairline {
    icons, smaller labels, tighter padding, smaller babyg bubble —
    so the row lands at ~60px + safe-area. */
 .is-creator-app .creator-tabbar {
-  min-height: 60px;
-  padding: 4px max(12px, env(safe-area-inset-right, 0px)) max(4px, calc(env(safe-area-inset-bottom, 0px) - 20px)) max(12px, env(safe-area-inset-left, 0px));
+  min-height: 54px;
+  padding: 2px max(12px, env(safe-area-inset-right, 0px)) max(2px, calc(env(safe-area-inset-bottom, 0px) - 22px)) max(12px, env(safe-area-inset-left, 0px));
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
   align-items: center;
@@ -6822,8 +6822,8 @@ hr.hairline {
   width: 100%;
   max-width: none;
   min-width: 0;
-  min-height: 52px;
-  gap: 3px;
+  min-height: 46px;
+  gap: 2px;
   padding: 2px 2px 0;
   color: rgba(153,149,158,.95);
   font-size: 10px;
@@ -10057,7 +10057,11 @@ hr.hairline {
    The .box wrapper is layout-only so generic form-control styles cannot
    create the stacked text-box effect seen on mobile. */
 body.is-creator-app.is-chat:not(.chat-keyboard-open) .bot-composer {
-  padding-bottom: 8px;
+  /* A touch of breathing room above the tabbar so the composer
+     doesn't feel sandwiched against it. Not enough to open a blank
+     band — just enough for the pill to feel like it's floating. */
+  padding-top: 10px;
+  padding-bottom: 12px;
 }
 .is-creator-app.is-chat .bot-composer .box,
 .is-creator-app.is-chat .bot-composer .box:focus-within {
@@ -10522,7 +10526,11 @@ body.is-creator-app.is-chat:not(.chat-keyboard-open) .bot-composer {
 }
 .dm-thread-head {
   display: flex; align-items: center; gap: 10px;
-  padding: 10px 14px;
+  /* iOS notch / status bar was clipping the peer name on mobile
+     because the sticky header sat at top:0 with no safe-area
+     padding. env(safe-area-inset-top) reserves the notch band so
+     the name never lands behind the clock. */
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) 14px 10px;
   border-bottom: 1px solid var(--hairline);
   min-height: 56px;
   position: sticky; top: 0;
@@ -10712,9 +10720,15 @@ body.is-creator-app.is-chat:not(.chat-keyboard-open) .bot-composer {
   box-shadow: inset 0 1px 0 rgba(255,255,255,.02), 0 4px 14px rgba(0,0,0,.18);
 }
 .dm-message-mine .dm-message-body {
-  background: var(--surface-2);
-  border: 1px solid var(--hairline);
+  /* Sent bubbles get a soft coral wash so the direction reads at a
+     glance. Same 18px radius as incoming but with a tighter tail
+     corner on the right. Subtle inner highlight for depth without
+     shouting. */
+  color: #fff;
+  background: linear-gradient(180deg, #ff5f80 0%, #ff4d6d 100%);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-bottom-right-radius: 4px;
+  box-shadow: 0 4px 14px rgba(255, 77, 109, 0.18), inset 0 1px rgba(255, 255, 255, 0.14);
 }
 .dm-message-meta {
   font-family: var(--mono);
@@ -11533,6 +11547,117 @@ body:has(.dm-thread-composer-box input:focus) .creator-tabbar {
 }
 .op-new-submit:hover { background: var(--accent-hover, #e8455f); }
 .op-new-submit:active { transform: scale(.99); }
+
+/* Calendar detail page — booking view. Replaces the old inline-styled
+   .kv-list dump with a clean vertical stack: back nav, tag pills,
+   title, two-line fact list, notes, actions. */
+.cal-detail {
+  width: min(100%, 640px);
+  margin: 0 auto;
+  padding: 12px 16px calc(var(--tabbar-h, 54px) + env(safe-area-inset-bottom) + 24px);
+  display: grid; gap: 18px;
+}
+.cal-detail-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px;
+}
+.cal-detail-back {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px 6px 8px;
+  color: var(--ink-mid);
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  text-decoration: none;
+  font-size: 13px;
+  transition: color 140ms ease, background-color 140ms ease, border-color 140ms ease;
+}
+.cal-detail-back:hover { color: var(--ink); border-color: var(--hairline-strong); }
+.cal-detail-back svg { width: 14px; height: 14px; }
+.cal-detail-tags { display: inline-flex; gap: 6px; flex-wrap: wrap; }
+.cal-detail-tag {
+  display: inline-flex; align-items: center;
+  padding: 5px 10px;
+  color: var(--ink-mid);
+  background: var(--surface-2);
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: .1em;
+  text-transform: lowercase;
+}
+.cal-detail-tag-confirmed {
+  color: #6ee2a2;
+  border-color: rgba(110, 226, 162, 0.25);
+  background: rgba(110, 226, 162, 0.08);
+}
+.cal-detail-tag-cancelled {
+  color: var(--ink-dim);
+  text-decoration: line-through;
+}
+.cal-detail-title {
+  margin: 0;
+  font-size: clamp(22px, 5vw, 28px);
+  font-weight: 600;
+  letter-spacing: -.02em;
+  line-height: 1.15;
+  color: var(--ink);
+  text-wrap: balance;
+}
+.cal-detail-facts {
+  margin: 0;
+  padding: 0;
+  display: grid; gap: 12px;
+  border-top: 1px solid var(--hairline);
+  padding-top: 14px;
+}
+.cal-detail-facts > div {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 12px;
+  align-items: baseline;
+}
+.cal-detail-facts dt {
+  margin: 0;
+  color: var(--ink-dim);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+.cal-detail-facts dd {
+  margin: 0;
+  color: var(--ink);
+  font-size: 14.5px;
+  line-height: 1.4;
+}
+.cal-detail-notes {
+  display: grid; gap: 6px;
+  border-top: 1px solid var(--hairline);
+  padding-top: 14px;
+}
+.cal-detail-label {
+  color: var(--ink-dim);
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+.cal-detail-notes p {
+  margin: 0;
+  color: var(--ink);
+  font-size: 14.5px;
+  line-height: 1.55;
+}
+.cal-detail-actions {
+  display: inline-flex; gap: 8px; flex-wrap: wrap;
+  border-top: 1px solid var(--hairline);
+  padding-top: 14px;
+}
+.cal-detail-actions form { margin: 0; }
+.cal-detail-cancel { color: var(--accent-text); }
+.cal-detail-cancel:hover { color: var(--accent); background: rgba(255,77,109,.06); }
 
 /* ============================================================
  * The Creator Card — one shape, two contexts.

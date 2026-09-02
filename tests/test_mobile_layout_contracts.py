@@ -55,7 +55,7 @@ def test_creator_chat_reserves_compact_tabbar_clearance() -> None:
         "--chat-tabbar-clearance: max(60px, calc(36px + "
         "env(safe-area-inset-bottom, 0px)))"
     ) in creator_view_rule
-    assert "padding-bottom: 8px" in idle_composer_rule
+    assert "padding-bottom: 12px" in idle_composer_rule
 
 
 def test_message_pinning_does_not_scroll_the_document() -> None:
@@ -300,11 +300,11 @@ def test_creator_tabbar_items_are_centered_on_mobile() -> None:
     assert "repeat(6" not in rule
     assert "justify-items: stretch" in rule
     assert "align-items: center" in rule
-    # Compact v3: tabbar shrank from 76 -> 60 so it stops dominating
-    # the mobile viewport.
-    assert "min-height: 60px" in rule
+    # Compact v3.1: tabbar trimmed another 6px to 54 so the composer
+    # above it stops feeling cramped.
+    assert "min-height: 54px" in rule
     assert "border-radius: 0" in rule
-    assert "calc(env(safe-area-inset-bottom, 0px) - 20px)" in rule
+    assert "calc(env(safe-area-inset-bottom, 0px) - 22px)" in rule
     assert "width: 100%" in item_rule
     assert "max-width: none" in item_rule
     assert "letter-spacing: 0" in item_rule
