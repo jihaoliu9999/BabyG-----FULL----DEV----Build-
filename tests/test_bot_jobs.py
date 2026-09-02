@@ -1024,3 +1024,159 @@ def test_ig_outlier_none_when_no_data() -> None:
     assert bot_jobs._ig_outlier({
         f: None for f in ("followers_count", "reach", "impressions", "follows_count", "media_count", "profile_views")
     }) is None
+
+
+# ---------------------------------------------------------------------------
+# sweep_ig_metrics — per-post viral outlier detection
+# ---------------------------------------------------------------------------
+
+
+def _make_media(mid, likes, comments=0, caption=""):
+    class _M:
+        pass
+
+    m = _M()
+    m.media_id = mid
+    m.caption = caption
+    m.media_type = "REELS"
+    m.permalink = f"https://instagram.com/p/{mid}"
+    m.timestamp = "2027-01-05T12:00:00Z"
+    m.like_count = likes
+    m.comments_count = comments
+    return m
+
+
+def _install_ig_post_stubs(monkeypatch, *, media_rows, insights_map=None):
+    """Stub the Meta + oauth surface for the per-post outlier path.
+    `insights_map` is {media_id: {metric: value}}; missing entries mean
+    the sweep falls back to raw likes+comments."""
+    from app.integrations import instagram_meta as ig
+
+    monkeypatch.setattr(ig, "is_configured", lambda: True)
+    monkeypatch.setattr(
+        bot_jobs.oauth_connections,
+        "get_instagram_connection",
+        lambda uid: {"user_id": uid, "access_token": "tok"},
+    )
+    monkeypatch.setattr(
+        bot_jobs.oauth_connections,
+        "instagram_account_id",
+        lambda conn: "17841000000000000",
+    )
+    monkeypatch.setattr(
+        bot_jobs.oauth_connections,
+        "access_token_for_instagram",
+        lambda uid: "tok",
+    )
+    monkeypatch.setattr(
+        ig, "get_user_media", lambda tok, ig_user_id, limit: media_rows
+    )
+    insights_map = insights_map or {}
+    monkeypatch.setattr(
+        ig,
+        "get_media_insights",
+        lambda tok, media_id: insights_map.get(media_id, {}),
+    )
+
+
+def test_ig_post_outlier_flags_viral_post(monkeypatch, store: _FakeStore) -> None:
+    """A creator with 5 recent posts averaging ~100 engagement and one
+    post at ~500 should trigger a viral-post nudge at ratio >= 2x."""
+    media = [
+        _make_media(f"m{i}", likes=100, comments=0)
+        for i in range(4)
+    ] + [_make_media("viral", likes=500, comments=20, caption="how i shot this reel")]
+    _install_ig_post_stubs(monkeypatch, media_rows=media)
+
+    result = bot_jobs._ig_post_outlier(_CREATOR)
+
+    assert result is not None
+    assert result["media_id"] == "viral"
+    assert result["ratio"] >= bot_jobs.IG_POST_OUTLIER_MULTIPLIER
+    assert "how i shot this reel" in result["caption"]
+
+
+def test_ig_post_outlier_none_when_not_enough_posts(monkeypatch, store: _FakeStore) -> None:
+    """Fewer than IG_POST_MIN_FOR_BASELINE posts on file -> can't build
+    a meaningful median -> no nudge."""
+    media = [_make_media(f"m{i}", likes=100) for i in range(2)]
+    _install_ig_post_stubs(monkeypatch, media_rows=media)
+    assert bot_jobs._ig_post_outlier(_CREATOR) is None
+
+
+def test_ig_post_outlier_none_when_all_posts_similar(monkeypatch, store: _FakeStore) -> None:
+    """A steady creator's week doesn't fire the viral-post nudge."""
+    media = [_make_media(f"m{i}", likes=100 + i) for i in range(6)]
+    _install_ig_post_stubs(monkeypatch, media_rows=media)
+    assert bot_jobs._ig_post_outlier(_CREATOR) is None
+
+
+def test_ig_post_outlier_uses_reach_when_available(monkeypatch, store: _FakeStore) -> None:
+    """When reach is present, engagement rate = (likes+comments+engagement)/reach.
+    A post with 10 likes on 20 reach beats a post with 200 likes on 10000 reach."""
+    media = [
+        _make_media("small_but_high_rate", likes=10, comments=2),
+        _make_media("big_but_low_rate_1", likes=200, comments=5),
+        _make_media("big_but_low_rate_2", likes=210, comments=5),
+        _make_media("big_but_low_rate_3", likes=220, comments=5),
+        _make_media("big_but_low_rate_4", likes=230, comments=5),
+    ]
+    insights = {
+        "small_but_high_rate": {"reach": 20, "engagement": 3},
+        "big_but_low_rate_1": {"reach": 10_000, "engagement": 10},
+        "big_but_low_rate_2": {"reach": 10_000, "engagement": 10},
+        "big_but_low_rate_3": {"reach": 10_000, "engagement": 10},
+        "big_but_low_rate_4": {"reach": 10_000, "engagement": 10},
+    }
+    _install_ig_post_stubs(monkeypatch, media_rows=media, insights_map=insights)
+    result = bot_jobs._ig_post_outlier(_CREATOR)
+    assert result is not None
+    assert result["media_id"] == "small_but_high_rate"
+
+
+def test_sweep_ig_metrics_fires_viral_post_nudge(monkeypatch, store: _FakeStore) -> None:
+    """End-to-end: sweep runs, per-post pass finds a viral post, drops
+    an ig_viral_post nudge alongside (or instead of) the account
+    outlier nudge."""
+    now = datetime(2027, 1, 5, tzinfo=UTC)
+    # Account-level flat, so only the per-post nudge should fire.
+    ig_stub_capture = _install_ig_stubs(
+        monkeypatch,
+        snapshot={"user_id": _CREATOR, "followers_count": 1000},
+        deltas={f: None for f in ("followers_count", "reach", "impressions", "follows_count", "media_count", "profile_views")},
+    )
+    media = [
+        _make_media(f"m{i}", likes=100) for i in range(4)
+    ] + [_make_media("viral", likes=800, comments=25, caption="behind the scenes")]
+    _install_ig_post_stubs(monkeypatch, media_rows=media)
+
+    report = bot_jobs.sweep_ig_metrics(now=now)
+
+    assert report.changed == 1
+    nudges = ig_stub_capture["nudges"]
+    assert len(nudges) == 1
+    n = nudges[0]
+    assert n["tool_calls"]["nudge_category"] == "ig_viral_post"
+    assert n["tool_calls"]["source"] == "sweep_ig_metrics"
+    chips = n["tool_calls"]["chips"]
+    assert any("plan a follow-up" in c.get("label", "") for c in chips)
+    assert any(c.get("kind") == "nav" for c in chips)
+
+
+def test_sweep_ig_metrics_viral_dedupes_across_runs(monkeypatch, store: _FakeStore) -> None:
+    now = datetime(2027, 1, 5, tzinfo=UTC)
+    _install_ig_stubs(
+        monkeypatch,
+        snapshot={"user_id": _CREATOR, "followers_count": 1000},
+        deltas={f: None for f in ("followers_count", "reach", "impressions", "follows_count", "media_count", "profile_views")},
+    )
+    media = [_make_media(f"m{i}", likes=100) for i in range(4)] + [
+        _make_media("viral", likes=800)
+    ]
+    _install_ig_post_stubs(monkeypatch, media_rows=media)
+
+    first = bot_jobs.sweep_ig_metrics(now=now)
+    second = bot_jobs.sweep_ig_metrics(now=now)
+
+    assert first.changed == 1
+    assert second.changed == 0

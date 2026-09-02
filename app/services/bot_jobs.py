@@ -905,6 +905,16 @@ FOLLOWER_SPIKE_THRESHOLD = 50
 FOLLOWER_DROP_THRESHOLD = -20
 REACH_SPIKE_MULTIPLIER = 2.0
 
+# Per-post outlier detection tunables. A post is a "viral"
+# outlier when its engagement rate beats the median of the creator's
+# recent posts by this multiplier. Median-relative so a small
+# account with 200 avg engagement isn't drowned out by a large
+# account's baseline. Only fires if the creator has enough posts
+# for the median to mean anything.
+IG_POST_LOOKBACK = 10
+IG_POST_MIN_FOR_BASELINE = 5
+IG_POST_OUTLIER_MULTIPLIER = 2.0
+
 
 def sweep_ig_metrics(*, now: datetime | None = None) -> SweepReport:
     """Daily IG snapshot + outlier nudge. See module docstring above
@@ -961,7 +971,22 @@ def sweep_ig_metrics(*, now: datetime | None = None) -> SweepReport:
             )
             continue
         outlier = _ig_outlier(deltas)
-        if outlier is None:
+        if outlier is not None:
+            _drop_ig_outlier_nudge(
+                creator_id=creator_id,
+                outlier=outlier,
+                deltas=deltas,
+                day=day,
+            )
+            mark_ran(
+                "sweep_ig_metrics",
+                snap_dedupe,
+                outcome="ok",
+                target_user_id=creator_id,
+                detail={"outlier": outlier["kind"]},
+            )
+            report.changed += 1
+        else:
             mark_ran(
                 "sweep_ig_metrics",
                 snap_dedupe,
@@ -969,22 +994,174 @@ def sweep_ig_metrics(*, now: datetime | None = None) -> SweepReport:
                 target_user_id=creator_id,
                 detail={"reason": "no_outlier"},
             )
+        # Per-post outlier pass: independent from account-level, its own
+        # dedupe key so a viral-post nudge can co-exist with an
+        # account-level nudge on the same day (the two say different
+        # things and creators want both).
+        post_dedupe = f"ig_post_outlier:{creator_id}:{day}"
+        if already_ran("sweep_ig_metrics", post_dedupe):
             continue
-        _drop_ig_outlier_nudge(
-            creator_id=creator_id,
-            outlier=outlier,
-            deltas=deltas,
-            day=day,
-        )
+        try:
+            viral = _ig_post_outlier(creator_id)
+        except Exception as exc:
+            record_failure(
+                "sweep_ig_metrics",
+                exc,
+                dedupe_key=post_dedupe,
+                target_user_id=creator_id,
+            )
+            report.failed += 1
+            continue
+        if viral is None:
+            mark_ran(
+                "sweep_ig_metrics",
+                post_dedupe,
+                outcome="skipped",
+                target_user_id=creator_id,
+                detail={"reason": "no_viral_post"},
+            )
+            continue
+        _drop_ig_viral_post_nudge(creator_id=creator_id, viral=viral, day=day)
         mark_ran(
             "sweep_ig_metrics",
-            snap_dedupe,
+            post_dedupe,
             outcome="ok",
             target_user_id=creator_id,
-            detail={"outlier": outlier["kind"]},
+            detail={"media_id": viral.get("media_id"), "ratio": viral.get("ratio")},
         )
         report.changed += 1
     return report
+
+
+def _ig_post_outlier(creator_id: str) -> dict[str, Any] | None:
+    """Pull the creator's recent IG posts and return the one whose
+    engagement rate beats the rolling median of the batch by
+    IG_POST_OUTLIER_MULTIPLIER. Returns None when there's not enough
+    data (fewer than IG_POST_MIN_FOR_BASELINE posts) or nothing
+    stands out. Uses live Meta API — no persistence here.
+
+    Engagement rate = (likes + comments) / max(reach, 1). Reach is
+    the honest denominator when insights are available. When reach
+    is missing (older or story posts), we fall back to likes+comments
+    as the numerator with 1 as denominator so the ratio still
+    ranks posts by absolute engagement even if scale differs across
+    creators.
+    """
+    from app.integrations import instagram_meta as ig
+
+    if not ig.is_configured():
+        return None
+    connection = oauth_connections.get_instagram_connection(creator_id)
+    if not connection:
+        return None
+    ig_user_id = oauth_connections.instagram_account_id(connection)
+    if not ig_user_id:
+        return None
+    token = oauth_connections.access_token_for_instagram(creator_id)
+    if not token:
+        return None
+    try:
+        media_rows = ig.get_user_media(token, ig_user_id=ig_user_id, limit=IG_POST_LOOKBACK)
+    except Exception:
+        logger.info("sweep_ig_metrics.get_user_media_failed", exc_info=True)
+        return None
+    if len(media_rows) < IG_POST_MIN_FOR_BASELINE:
+        return None
+    scored: list[dict[str, Any]] = []
+    for media in media_rows:
+        insights: dict[str, int | None] = {}
+        try:
+            insights = ig.get_media_insights(token, media_id=media.media_id) or {}
+        except Exception:
+            logger.info(
+                "sweep_ig_metrics.get_media_insights_failed media=%s",
+                media.media_id,
+                exc_info=True,
+            )
+        likes = int(media.like_count or 0)
+        comments = int(media.comments_count or 0)
+        reach = insights.get("reach")
+        engagement = insights.get("engagement")
+        # Prefer the engagement-metric denominator (reach) so a small
+        # audience isn't penalized against a big one.
+        if isinstance(reach, int) and reach > 0:
+            rate = (likes + comments + int(engagement or 0)) / reach
+        else:
+            # No reach available: rank by raw engagement volume.
+            rate = float(likes + comments)
+        scored.append(
+            {
+                "media_id": media.media_id,
+                "caption": (media.caption or "")[:120],
+                "permalink": media.permalink,
+                "rate": rate,
+            }
+        )
+    if len(scored) < IG_POST_MIN_FOR_BASELINE:
+        return None
+    top = max(scored, key=lambda r: r["rate"])
+    rest = [r["rate"] for r in scored if r["media_id"] != top["media_id"]]
+    if not rest:
+        return None
+    rest_sorted = sorted(rest)
+    mid = len(rest_sorted) // 2
+    median = (
+        rest_sorted[mid]
+        if len(rest_sorted) % 2 == 1
+        else (rest_sorted[mid - 1] + rest_sorted[mid]) / 2
+    )
+    if median <= 0:
+        return None
+    ratio = top["rate"] / median
+    if ratio < IG_POST_OUTLIER_MULTIPLIER:
+        return None
+    return {
+        "media_id": top["media_id"],
+        "caption": top["caption"],
+        "permalink": top["permalink"],
+        "ratio": round(ratio, 2),
+    }
+
+
+def _drop_ig_viral_post_nudge(
+    *, creator_id: str, viral: dict[str, Any], day: str
+) -> None:
+    caption = (viral.get("caption") or "").strip()
+    hook = f'"{caption[:60]}..."' if caption else "your top post"
+    ratio = viral.get("ratio") or 0
+    content = (
+        f"{hook} is doing **{ratio:.1f}x** your recent average on instagram. "
+        "want to plan a follow-up while it's hot?"
+    )
+    chips: list[dict[str, Any]] = [
+        {
+            "kind": "fill",
+            "label": "plan a follow-up",
+            "text": "plan a follow-up post while my top instagram post is still hot",
+            "primary": True,
+        },
+    ]
+    permalink = viral.get("permalink")
+    if permalink:
+        chips.append({"kind": "nav", "label": "open the post", "href": permalink})
+    tool_calls = {
+        "kind": "nudge",
+        "nudge_key": f"ig_post_outlier:{creator_id}:{viral.get('media_id')}:{day}",
+        "nudge_category": "ig_viral_post",
+        "chips": chips,
+        "source": "sweep_ig_metrics",
+    }
+    try:
+        bot.create_message(
+            user_id=creator_id,
+            role="assistant",
+            content=content,
+            tool_calls=tool_calls,
+        )
+    except Exception:
+        logger.info(
+            "sweep_ig_metrics.viral_nudge_insert_failed", exc_info=True
+        )
 
 
 def _ig_outlier(deltas: dict[str, int | None]) -> dict[str, Any] | None:
