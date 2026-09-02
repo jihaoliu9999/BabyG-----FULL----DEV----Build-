@@ -406,7 +406,11 @@ def test_ghosted_sweep_idempotent_same_day(store: _FakeStore) -> None:
 def test_run_all_returns_report_per_sweep(store: _FakeStore) -> None:
     reports = bot_jobs.run_all()
     names = {r.job_name for r in reports}
-    assert names == {"sweep_stale_drafts", "sweep_ghosted_deals"}
+    assert names == {
+        "sweep_stale_drafts",
+        "sweep_ghosted_deals",
+        "sweep_gmail_briefs",
+    }
 
 
 def test_run_all_records_failure_when_a_sweep_crashes(monkeypatch, store: _FakeStore) -> None:
@@ -420,3 +424,219 @@ def test_run_all_records_failure_when_a_sweep_crashes(monkeypatch, store: _FakeS
     assert stale[0].failed == 1
     failures = store.rows.get("bot_job_failures") or []
     assert any(f["exception_class"] == "RuntimeError" for f in failures)
+
+
+# ---------------------------------------------------------------------------
+# sweep_gmail_briefs — proactive drafter
+# ---------------------------------------------------------------------------
+
+
+def _fake_gmail_thread(*, thread_id, message_id, from_, subject, body, unread=True):
+    """Build a minimal fake object matching google_gmail.GmailThread /
+    GmailMessage duck-typing so we don't have to import the real
+    dataclasses in tests."""
+
+    class _Msg:
+        pass
+
+    m = _Msg()
+    m.message_id = message_id
+    m.from_ = from_
+    m.to = "creator@babyg.example"
+    m.subject = subject
+    m.snippet = body[:120]
+    m.body_text = body
+    m.internal_date = "2027-01-01T10:00:00Z"
+    m.is_unread = unread
+
+    class _Thread:
+        pass
+
+    t = _Thread()
+    t.thread_id = thread_id
+    t.snippet = body[:120]
+    t.is_unread = unread
+    t.messages = [m]
+    return t
+
+
+def _install_gmail_stubs(monkeypatch, *, threads, drafts=None):
+    """Wire the bot_jobs helpers we need for the sweep in isolation."""
+    monkeypatch.setattr(
+        bot_jobs.google_calendar, "is_configured", lambda: True
+    )
+    monkeypatch.setattr(
+        bot_jobs.google_calendar,
+        "has_gmail_compose_scope",
+        lambda scopes: True,
+    )
+    monkeypatch.setattr(
+        bot_jobs.oauth_connections,
+        "list_creators_with_google_scope",
+        lambda predicate, limit=200: [
+            {"user_id": _CREATOR, "scopes": ["gmail"]}
+        ],
+    )
+    monkeypatch.setattr(
+        bot_jobs.oauth_connections,
+        "access_token_for_google",
+        lambda uid: "tok",
+    )
+    monkeypatch.setattr(
+        bot_jobs.google_gmail, "list_recent_threads", lambda tok, limit=5: threads
+    )
+    monkeypatch.setattr(
+        bot_jobs.babyg_relations,
+        "thread_touchpoint",
+        lambda *a, **kw: {"id": "deal-1"},
+    )
+    monkeypatch.setattr(
+        bot_jobs, "_draft_gmail_reply",
+        lambda **kw: (drafts or {}).get(kw.get("brand"), "hey, thanks for the note. what's the timing?"),
+    )
+    proposals: list[dict] = []
+
+    def _create_proposal(**kwargs):
+        row = {"id": f"prop-{len(proposals) + 1}", **kwargs}
+        proposals.append(row)
+        return row
+
+    monkeypatch.setattr(
+        bot_jobs.action_proposals, "create_proposal", _create_proposal
+    )
+    inserted_nudges: list[dict] = []
+
+    def _create_message(**kwargs):
+        inserted_nudges.append(kwargs)
+        return f"msg-{len(inserted_nudges)}"
+
+    monkeypatch.setattr(bot_jobs.bot, "create_message", _create_message)
+    return {"proposals": proposals, "nudges": inserted_nudges}
+
+
+def test_sweep_gmail_briefs_stages_draft_for_brand_reply(monkeypatch, store: _FakeStore) -> None:
+    threads = [
+        _fake_gmail_thread(
+            thread_id="t1",
+            message_id="m1",
+            from_="team@vans.example",
+            subject="collab timing",
+            body="hey, are you free late september for the summer campaign?",
+        )
+    ]
+    captured = _install_gmail_stubs(monkeypatch, threads=threads)
+
+    report = bot_jobs.sweep_gmail_briefs()
+
+    assert report.scanned == 1
+    assert report.changed == 1
+    assert len(captured["proposals"]) == 1
+    prop = captured["proposals"][0]
+    assert prop["action_type"] == "gmail.create_draft"
+    assert prop["payload"]["to"] == "team@vans.example"
+    assert prop["payload"]["thread_id"] == "t1"
+    assert prop["payload"]["subject"].startswith("re:")
+    assert len(captured["nudges"]) == 1
+    nudge = captured["nudges"][0]
+    assert "vans" in nudge["content"].lower()
+    assert nudge["tool_calls"]["proposal_id"] == "prop-1"
+    assert nudge["tool_calls"]["source"] == "sweep_gmail_briefs"
+
+
+def test_sweep_gmail_briefs_dedupes_same_message(monkeypatch, store: _FakeStore) -> None:
+    """Second run over the same unread thread must not double-stage.
+    The dedupe key is thread_id + latest message_id."""
+    threads = [
+        _fake_gmail_thread(
+            thread_id="t1",
+            message_id="m1",
+            from_="team@vans.example",
+            subject="collab",
+            body="want to work together?",
+        )
+    ]
+    captured = _install_gmail_stubs(monkeypatch, threads=threads)
+
+    first = bot_jobs.sweep_gmail_briefs()
+    second = bot_jobs.sweep_gmail_briefs()
+
+    assert first.changed == 1
+    assert second.changed == 0
+    assert second.skipped_already_ran == 1
+    assert len(captured["proposals"]) == 1
+    assert len(captured["nudges"]) == 1
+
+
+def test_sweep_gmail_briefs_skips_personal_domains(monkeypatch, store: _FakeStore) -> None:
+    """Replies from anna@gmail.com etc. are not brand deals and must
+    not generate an auto-draft."""
+    threads = [
+        _fake_gmail_thread(
+            thread_id="t1",
+            message_id="m1",
+            from_="anna@gmail.com",
+            subject="hey",
+            body="whats up",
+        )
+    ]
+    captured = _install_gmail_stubs(monkeypatch, threads=threads)
+
+    report = bot_jobs.sweep_gmail_briefs()
+
+    assert report.scanned == 1
+    assert report.changed == 0
+    assert captured["proposals"] == []
+    assert captured["nudges"] == []
+
+
+def test_sweep_gmail_briefs_skips_already_read_threads(monkeypatch, store: _FakeStore) -> None:
+    threads = [
+        _fake_gmail_thread(
+            thread_id="t1",
+            message_id="m1",
+            from_="team@vans.example",
+            subject="collab",
+            body="body",
+            unread=False,
+        )
+    ]
+    captured = _install_gmail_stubs(monkeypatch, threads=threads)
+    report = bot_jobs.sweep_gmail_briefs()
+    assert report.changed == 0
+    assert captured["proposals"] == []
+
+
+def test_sweep_gmail_briefs_caps_drafts_per_creator(monkeypatch, store: _FakeStore) -> None:
+    """A busy inbox can't fan out unlimited drafts in one sweep."""
+    threads = [
+        _fake_gmail_thread(
+            thread_id=f"t{i}",
+            message_id=f"m{i}",
+            from_=f"team{i}@brand{i}.example",
+            subject="hey",
+            body="body",
+        )
+        for i in range(10)
+    ]
+    _install_gmail_stubs(monkeypatch, threads=threads)
+    report = bot_jobs.sweep_gmail_briefs()
+    assert report.changed == bot_jobs.MAX_GMAIL_DRAFTS_PER_CREATOR_PER_SWEEP
+
+
+def test_brandish_sender_heuristic() -> None:
+    """Pure-function guardrail — bookmark the exact list of personal
+    domains that must never trigger auto-drafts."""
+    assert bot_jobs._is_brandish_sender("team@vans.example") is True
+    assert bot_jobs._is_brandish_sender("noreply@olipop.co") is True
+    for personal in (
+        "anna@gmail.com",
+        "friend@outlook.com",
+        "cousin@icloud.com",
+        "pal@proton.me",
+        "self@yahoo.com",
+    ):
+        assert bot_jobs._is_brandish_sender(personal) is False, personal
+    assert bot_jobs._brand_from_email("team@vans.example") == "vans"
+    assert bot_jobs._reply_subject("collab") == "re: collab"
+    assert bot_jobs._reply_subject("Re: collab") == "Re: collab"
+    assert bot_jobs._reply_subject("") == "re:"

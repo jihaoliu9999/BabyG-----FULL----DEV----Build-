@@ -28,7 +28,16 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from app.core import supabase_client
-from app.services import babyg_deals, babyg_memory
+from app.integrations import anthropic_client, google_calendar, google_gmail
+from app.services import (
+    action_proposals,
+    babyg_deals,
+    babyg_memory,
+    babyg_relations,
+    bot,
+    oauth_connections,
+    profiles,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -308,13 +317,306 @@ def sweep_ghosted_deals(*, now: datetime | None = None) -> SweepReport:
     return report
 
 
+# --- Sweep: gmail briefs ---------------------------------------------------
+#
+# For every creator with Gmail connected + a fresh unread inbound thread
+# from a brand-ish sender, thread a touchpoint onto the matching deal,
+# draft a reply via Claude, stage it as a gmail.create_draft action
+# proposal, and drop a nudge into the bot thread. The creator confirms
+# the action card to save the draft to their Gmail drafts folder — we
+# never send. This is the "babyg is watching" behavior turned on.
+
+# Cap fan-out per sweep so a runaway user base can't blast Claude spend.
+MAX_GMAIL_CREATORS_PER_SWEEP = 100
+MAX_GMAIL_DRAFTS_PER_CREATOR_PER_SWEEP = 3
+GMAIL_SWEEP_THREAD_LIMIT = 8
+
+# Personal-mail providers whose local-part is what identifies the
+# sender, not the domain. Mirrors _brand_hint_from_action in
+# bot_prompts.py so brand extraction is consistent across surfaces.
+_PERSONAL_MAIL_DOMAINS: frozenset[str] = frozenset({
+    "gmail", "outlook", "hotmail", "yahoo", "icloud",
+    "proton", "protonmail", "aol", "live", "me", "msn", "mail",
+})
+
+
+def sweep_gmail_briefs(*, now: datetime | None = None) -> SweepReport:
+    """Scan every Gmail-connected creator's recent threads and stage a
+    draft reply for each fresh brand-ish inbound. Dedupe key
+    `gmail_thread:<thread_id>:<latest_message_id>` guarantees the same
+    message never generates two drafts."""
+    report = SweepReport(job_name="sweep_gmail_briefs")
+    if not google_calendar.is_configured():
+        return report
+    creators = oauth_connections.list_creators_with_google_scope(
+        google_calendar.has_gmail_compose_scope,
+        limit=MAX_GMAIL_CREATORS_PER_SWEEP,
+    )
+    for row in creators:
+        creator_id = row["user_id"]
+        if not creator_id:
+            continue
+        try:
+            token = oauth_connections.access_token_for_google(creator_id)
+        except Exception as exc:
+            record_failure("sweep_gmail_briefs", exc, target_user_id=creator_id)
+            report.failed += 1
+            continue
+        if not token:
+            continue
+        try:
+            threads = google_gmail.list_recent_threads(
+                token, limit=GMAIL_SWEEP_THREAD_LIMIT
+            )
+        except google_gmail.GmailError as exc:
+            record_failure("sweep_gmail_briefs", exc, target_user_id=creator_id)
+            report.failed += 1
+            continue
+        drafted = 0
+        for thread in threads:
+            report.scanned += 1
+            if drafted >= MAX_GMAIL_DRAFTS_PER_CREATOR_PER_SWEEP:
+                break
+            if not thread.messages:
+                continue
+            latest = thread.messages[-1]
+            if not latest.is_unread:
+                continue
+            sender_email = _clean_email(latest.from_)
+            if not sender_email:
+                continue
+            if not _is_brandish_sender(sender_email):
+                continue
+            dedupe_key = (
+                f"gmail_thread:{thread.thread_id}:{latest.message_id}"
+            )
+            if already_ran("sweep_gmail_briefs", dedupe_key):
+                report.skipped_already_ran += 1
+                continue
+            brand = _brand_from_email(sender_email)
+            try:
+                babyg_relations.thread_touchpoint(
+                    creator_id,
+                    kind="email_message",
+                    direction="inbound",
+                    summary=(latest.subject or "")[:200] or None,
+                    brand_name=brand,
+                    email=sender_email,
+                )
+            except Exception:
+                logger.info(
+                    "sweep_gmail_briefs.thread_touchpoint_failed",
+                    exc_info=True,
+                )
+            try:
+                body = _draft_gmail_reply(
+                    creator_id=creator_id, thread=thread, brand=brand
+                )
+            except Exception as exc:
+                record_failure(
+                    "sweep_gmail_briefs",
+                    exc,
+                    dedupe_key=dedupe_key,
+                    target_user_id=creator_id,
+                )
+                report.failed += 1
+                continue
+            if not body:
+                mark_ran(
+                    "sweep_gmail_briefs",
+                    dedupe_key,
+                    outcome="skipped",
+                    target_user_id=creator_id,
+                    detail={"reason": "no_draft"},
+                )
+                continue
+            reply_subject = _reply_subject(latest.subject)
+            payload = {
+                "to": sender_email,
+                "subject": reply_subject,
+                "body": body,
+                "thread_id": thread.thread_id,
+            }
+            try:
+                proposal = action_proposals.create_proposal(
+                    user_id=creator_id,
+                    action_type="gmail.create_draft",
+                    payload=payload,
+                    preview={
+                        "title": f"draft reply to {brand}",
+                        "to": sender_email,
+                        "subject": reply_subject,
+                        "body": body,
+                        "thread_id": thread.thread_id,
+                    },
+                    idempotency_key=dedupe_key,
+                )
+            except Exception as exc:
+                record_failure(
+                    "sweep_gmail_briefs",
+                    exc,
+                    dedupe_key=dedupe_key,
+                    target_user_id=creator_id,
+                )
+                report.failed += 1
+                continue
+            if not proposal:
+                continue
+            _drop_gmail_nudge(
+                creator_id=creator_id,
+                proposal=proposal,
+                sender_email=sender_email,
+                brand=brand,
+                subject=latest.subject,
+            )
+            mark_ran(
+                "sweep_gmail_briefs",
+                dedupe_key,
+                target_user_id=creator_id,
+                detail={
+                    "thread_id": thread.thread_id,
+                    "proposal_id": str(proposal.get("id") or ""),
+                    "brand": brand,
+                },
+            )
+            drafted += 1
+            report.changed += 1
+    return report
+
+
+def _clean_email(raw: str | None) -> str | None:
+    """Extract just the email address from a Gmail `From` header value
+    (which may look like `"Anna <anna@brand.example>"` or a bare address)."""
+    if not raw:
+        return None
+    text = str(raw).strip()
+    if "<" in text and ">" in text:
+        start = text.rfind("<") + 1
+        end = text.rfind(">")
+        text = text[start:end]
+    text = text.strip().lower()
+    if "@" not in text:
+        return None
+    return text
+
+
+def _is_brandish_sender(email: str) -> bool:
+    _, _, domain = email.partition("@")
+    root = domain.split(".", 1)[0]
+    return bool(root) and root not in _PERSONAL_MAIL_DOMAINS
+
+
+def _brand_from_email(email: str) -> str:
+    _, _, domain = email.partition("@")
+    root = domain.split(".", 1)[0] or ""
+    return root
+
+
+def _reply_subject(subject: str | None) -> str:
+    s = (subject or "").strip()
+    if not s:
+        return "re:"
+    if s.lower().startswith("re:"):
+        return s
+    return f"re: {s}"
+
+
+def _draft_gmail_reply(
+    *, creator_id: str, thread, brand: str
+) -> str | None:
+    """Ask Claude for a short reply body in the creator's voice.
+    Bounded max_tokens keeps cost predictable. Returns the reply body
+    text, or None if drafting failed / produced nothing usable."""
+    profile = profiles.get_creator_profile(creator_id) or {}
+    first_name = str(profile.get("full_name") or "").split(" ")[0].strip() or "the creator"
+    thread_lines: list[str] = []
+    for m in thread.messages[-4:]:
+        who = "brand" if _is_brandish_sender(_clean_email(m.from_) or "") else first_name
+        body = (m.body_text or m.snippet or "").strip()
+        if not body:
+            continue
+        thread_lines.append(f"{who}: {body[:800]}")
+    if not thread_lines:
+        return None
+    system_prompt = (
+        "you are babyg, the creator's ai manager. draft a SHORT reply "
+        f"from {first_name} to {brand}. rules: lowercase, no em dashes, "
+        "no emojis, no exclamation points, no 'as an ai', tight and "
+        "human. do NOT invent numbers or commitments. if the brand asked "
+        "a specific question and the answer isn't in the thread, ask "
+        "back for the missing detail instead of guessing. output ONLY "
+        "the reply body, no subject line, no signature, no explanation."
+    )
+    messages = [
+        {
+            "role": "user",
+            "content": (
+                f"here is the thread with {brand}:\n\n"
+                + "\n\n".join(thread_lines)
+                + "\n\ndraft the next reply."
+            ),
+        }
+    ]
+    try:
+        response = anthropic_client.complete_chat(
+            system_prompt=system_prompt,
+            messages=messages,
+            max_tokens=400,
+        )
+    except (anthropic_client.ClaudeNotConfiguredError, anthropic_client.ClaudeCallError):
+        logger.info("sweep_gmail_briefs.draft_call_failed", exc_info=True)
+        return None
+    text = (response.text or "").strip()
+    if not text or len(text) < 10:
+        return None
+    return text
+
+
+def _drop_gmail_nudge(
+    *,
+    creator_id: str,
+    proposal: dict[str, Any],
+    sender_email: str,
+    brand: str,
+    subject: str | None,
+) -> None:
+    """Insert a proposed_action assistant message that points at the
+    freshly-staged action_proposal so the creator sees it next time
+    they open babyg."""
+    subject_line = (subject or "").strip() or "your recent gmail thread"
+    content = (
+        f"**{brand}** replied about *{subject_line}*. "
+        "i staged a draft reply. confirm the card to save it to your "
+        "Gmail drafts, or ask me to rewrite it."
+    )
+    tool_calls = {
+        "kind": "proposed_action",
+        "status": "pending",
+        "action_type": "gmail.create_draft",
+        "proposal_id": str(proposal.get("id") or ""),
+        "payload": proposal.get("payload") or {},
+        "preview": proposal.get("preview") or {},
+        "result": None,
+        "source": "sweep_gmail_briefs",
+    }
+    try:
+        bot.create_message(
+            user_id=creator_id,
+            role="assistant",
+            content=content,
+            tool_calls=tool_calls,
+        )
+    except Exception:
+        logger.info("sweep_gmail_briefs.nudge_insert_failed", exc_info=True)
+
+
 # --- Sweep runner ----------------------------------------------------------
 
 
 def run_all(*, now: datetime | None = None) -> list[SweepReport]:
     """Run every registered sweep in order. Returns their reports.
     Called by scripts/run_babyg_sweeps.py from Railway cron."""
-    sweeps = [sweep_stale_drafts, sweep_ghosted_deals]
+    sweeps = [sweep_stale_drafts, sweep_ghosted_deals, sweep_gmail_briefs]
     reports: list[SweepReport] = []
     for sweep in sweeps:
         try:

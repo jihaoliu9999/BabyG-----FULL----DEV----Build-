@@ -162,6 +162,43 @@ def google_gmail_send_connected(connection: dict[str, Any] | None) -> bool:
     return google_calendar.has_gmail_send_scope(google_connection_scopes(connection))
 
 
+def list_creators_with_google_scope(
+    predicate,
+    *,
+    limit: int = 200,
+) -> list[dict[str, Any]]:
+    """Return every google-connected row whose scopes satisfy `predicate`.
+
+    Used by background sweeps to iterate creators that have the right
+    scope granted (e.g. gmail read for the Gmail sweep). Predicate is
+    called with the connection row's scopes list; returning True keeps
+    the row. Best-effort — a Supabase failure returns []. Bounded by
+    `limit` so a runaway sweep can't fan out on the whole user table.
+    """
+    try:
+        result = (
+            supabase_client.get_service_client()
+            .table("oauth_connections")
+            .select("user_id, scopes")
+            .eq("provider", PROVIDER_GOOGLE)
+            .limit(max(1, min(int(limit or 200), 1000)))
+            .execute()
+        )
+    except PostgrestAPIError:
+        logger.exception("google connection batch lookup failed")
+        return []
+    rows = getattr(result, "data", None) or []
+    kept: list[dict[str, Any]] = []
+    for row in rows:
+        scopes = _clean_scopes(row.get("scopes"))
+        try:
+            if predicate(scopes):
+                kept.append({"user_id": str(row.get("user_id") or ""), "scopes": scopes})
+        except Exception:
+            logger.exception("google scope predicate raised")
+    return kept
+
+
 def google_service_scopes(service: str) -> list[str]:
     if service == GOOGLE_SERVICE_CALENDAR:
         return [google_calendar.CALENDAR_SCOPE]
