@@ -411,6 +411,7 @@ def test_run_all_returns_report_per_sweep(store: _FakeStore) -> None:
         "sweep_ghosted_deals",
         "sweep_gmail_briefs",
         "sweep_dm_briefs",
+        "sweep_ig_metrics",
     }
 
 
@@ -868,3 +869,158 @@ def test_sweep_dm_briefs_recipient_resolution(monkeypatch, store: _FakeStore) ->
     bot_jobs.sweep_dm_briefs(now=now)
     assert captured["generated"][0]["recipient_id"] == _CREATOR
     assert captured["nudges"][0]["user_id"] == _CREATOR
+
+
+# ---------------------------------------------------------------------------
+# sweep_ig_metrics — daily IG snapshot + outlier nudge
+# ---------------------------------------------------------------------------
+
+
+def _install_ig_stubs(monkeypatch, *, snapshot, deltas):
+    """Wire oauth + instagram_metrics + bot.create_message stubs for
+    the IG sweep. `snapshot` is what snapshot_daily returns; `deltas`
+    is what growth_over returns."""
+    monkeypatch.setattr(
+        bot_jobs.oauth_connections,
+        "list_creators_with_instagram",
+        lambda limit=200: [_CREATOR],
+    )
+    monkeypatch.setattr(
+        bot_jobs.instagram_metrics, "snapshot_daily", lambda uid: snapshot
+    )
+    monkeypatch.setattr(
+        bot_jobs.instagram_metrics, "growth_over", lambda uid, days=7: deltas
+    )
+    inserted: list[dict] = []
+
+    def _create_message(**kwargs):
+        inserted.append(kwargs)
+        return f"msg-{len(inserted)}"
+
+    monkeypatch.setattr(bot_jobs.bot, "create_message", _create_message)
+    return {"nudges": inserted}
+
+
+def test_sweep_ig_metrics_nudges_on_follower_spike(monkeypatch, store: _FakeStore) -> None:
+    now = datetime(2027, 1, 5, tzinfo=UTC)
+    captured = _install_ig_stubs(
+        monkeypatch,
+        snapshot={"user_id": _CREATOR, "followers_count": 1200},
+        deltas={
+            "followers_count": bot_jobs.FOLLOWER_SPIKE_THRESHOLD + 5,
+            "follows_count": 0,
+            "media_count": 0,
+            "reach": None,
+            "impressions": None,
+            "profile_views": None,
+        },
+    )
+    report = bot_jobs.sweep_ig_metrics(now=now)
+    assert report.scanned == 1
+    assert report.changed == 1
+    assert len(captured["nudges"]) == 1
+    n = captured["nudges"][0]
+    assert n["tool_calls"]["nudge_category"] == "ig_growth"
+    assert n["tool_calls"]["source"] == "sweep_ig_metrics"
+    assert "followers" in n["content"].lower()
+
+
+def test_sweep_ig_metrics_nudges_on_follower_drop(monkeypatch, store: _FakeStore) -> None:
+    now = datetime(2027, 1, 5, tzinfo=UTC)
+    captured = _install_ig_stubs(
+        monkeypatch,
+        snapshot={"user_id": _CREATOR, "followers_count": 1200},
+        deltas={
+            "followers_count": bot_jobs.FOLLOWER_DROP_THRESHOLD - 5,
+            "follows_count": 0,
+            "media_count": 0,
+            "reach": None,
+            "impressions": None,
+            "profile_views": None,
+        },
+    )
+    report = bot_jobs.sweep_ig_metrics(now=now)
+    assert report.changed == 1
+    assert captured["nudges"][0]["tool_calls"]["nudge_category"] == "ig_drop"
+
+
+def test_sweep_ig_metrics_no_nudge_on_flat_week(monkeypatch, store: _FakeStore) -> None:
+    """A quiet week with no outliers must not nudge — the manager who
+    cries wolf gets muted."""
+    now = datetime(2027, 1, 5, tzinfo=UTC)
+    captured = _install_ig_stubs(
+        monkeypatch,
+        snapshot={"user_id": _CREATOR, "followers_count": 1200},
+        deltas={
+            "followers_count": 5,  # under spike threshold
+            "follows_count": 1,
+            "media_count": 0,
+            "reach": 40,  # comfortably under reach-spike threshold
+            "impressions": 200,
+            "profile_views": 3,
+        },
+    )
+    report = bot_jobs.sweep_ig_metrics(now=now)
+    assert report.scanned == 1
+    assert report.changed == 0
+    assert captured["nudges"] == []
+
+
+def test_sweep_ig_metrics_no_snapshot_no_nudge(monkeypatch, store: _FakeStore) -> None:
+    """No connection / expired token -> snapshot_daily returns None;
+    the sweep should skip cleanly, not fail or nudge."""
+    now = datetime(2027, 1, 5, tzinfo=UTC)
+    captured = _install_ig_stubs(
+        monkeypatch,
+        snapshot=None,
+        deltas={},
+    )
+    report = bot_jobs.sweep_ig_metrics(now=now)
+    assert report.scanned == 1
+    assert report.changed == 0
+    assert captured["nudges"] == []
+
+
+def test_sweep_ig_metrics_dedupes_same_day(monkeypatch, store: _FakeStore) -> None:
+    now = datetime(2027, 1, 5, tzinfo=UTC)
+    captured = _install_ig_stubs(
+        monkeypatch,
+        snapshot={"user_id": _CREATOR, "followers_count": 1200},
+        deltas={
+            "followers_count": bot_jobs.FOLLOWER_SPIKE_THRESHOLD + 10,
+            "follows_count": 0,
+            "media_count": 0,
+            "reach": None,
+            "impressions": None,
+            "profile_views": None,
+        },
+    )
+    first = bot_jobs.sweep_ig_metrics(now=now)
+    second = bot_jobs.sweep_ig_metrics(now=now)
+    assert first.changed == 1
+    assert second.changed == 0
+    assert second.skipped_already_ran == 1
+    assert len(captured["nudges"]) == 1
+
+
+def test_ig_outlier_priority_drop_over_spike() -> None:
+    """If followers drop hard AND reach spikes on the same week, we
+    nudge on the drop (bigger safety signal), not the growth."""
+    outlier = bot_jobs._ig_outlier({
+        "followers_count": bot_jobs.FOLLOWER_DROP_THRESHOLD - 100,
+        "reach": 10_000,
+        "follows_count": None,
+        "media_count": None,
+        "impressions": None,
+        "profile_views": None,
+    })
+    assert outlier is not None
+    assert outlier["kind"] == "ig_drop"
+
+
+def test_ig_outlier_none_when_no_data() -> None:
+    """First-run creator with a single snapshot -> growth_over returns
+    all Nones -> outlier is None -> no nudge."""
+    assert bot_jobs._ig_outlier({
+        f: None for f in ("followers_count", "reach", "impressions", "follows_count", "media_count", "profile_views")
+    }) is None

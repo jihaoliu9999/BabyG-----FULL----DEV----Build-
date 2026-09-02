@@ -393,6 +393,27 @@ def get_instagram_connection(user_id: str) -> dict[str, Any] | None:
     return rows[0] if rows else None
 
 
+def list_creators_with_instagram(limit: int = 200) -> list[str]:
+    """Return every user_id with an Instagram connection on file. Used
+    by the daily IG sweep to iterate creators whose account should be
+    snapshotted. Bounded by `limit` so a runaway sweep can't fan out
+    on the whole user table."""
+    try:
+        result = (
+            supabase_client.get_service_client()
+            .table("oauth_connections")
+            .select("user_id")
+            .eq("provider", PROVIDER_INSTAGRAM)
+            .limit(max(1, min(int(limit or 200), 1000)))
+            .execute()
+        )
+    except PostgrestAPIError:
+        logger.exception("instagram batch lookup failed")
+        return []
+    rows = getattr(result, "data", None) or []
+    return [str(row.get("user_id") or "") for row in rows if row.get("user_id")]
+
+
 def save_instagram_connection(
     user_id: str,
     token_response: dict[str, Any],

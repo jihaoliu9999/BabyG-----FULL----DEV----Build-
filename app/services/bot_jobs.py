@@ -36,6 +36,7 @@ from app.services import (
     babyg_relations,
     bot,
     dm_briefs,
+    instagram_metrics,
     oauth_connections,
     profiles,
 )
@@ -855,6 +856,213 @@ def _drop_dm_brief_nudge(
         logger.info("sweep_dm_briefs.nudge_insert_failed", exc_info=True)
 
 
+# --- Sweep: instagram metrics ----------------------------------------------
+#
+# Daily snapshot + delta detection. The plumbing this rides on is
+# already in place:
+#   * instagram_metrics.snapshot_daily(uid) pulls Meta insights and
+#     upserts one row per (user_id, day). Idempotent per day at the DB
+#     level via the unique index — a re-run of the same slot no-ops.
+#   * instagram_metrics.growth_over(uid, days=N) computes the delta
+#     from the earliest-in-window snapshot to the latest.
+#
+# The sweep's job is to iterate connected creators, drive
+# snapshot_daily, then read the 7d delta and nudge on outliers. No
+# Claude call — this is a pure delta detector, so it's cheap.
+#
+# Outlier signals (kept conservative; a manager who cries wolf gets
+# muted):
+#   * follower delta over 7d >= FOLLOWER_SPIKE_THRESHOLD (+N followers)
+#   * follower delta over 7d <= FOLLOWER_DROP_THRESHOLD (-N followers)
+#   * reach 7d delta > REACH_SPIKE_MULTIPLIER x the 7d-before baseline
+#
+# Nudge is `kind=nudge` with `nudge_category=ig_growth` /
+# `ig_drop` / `ig_reach` — matches the bot_nudges convention so the
+# strip renders consistently.
+#
+# Cost budget:
+#   * Meta Graph API: ~3 calls per creator (business account resolve
+#     + insights + account fields). Cap at 60 creators/day. Well
+#     under any per-app rate window.
+#   * No Anthropic calls anywhere in this sweep.
+#
+# Failure modes:
+#   * IG connection missing / token expired -> snapshot_daily returns
+#     None, sweep continues silently. Reconnect is a UI concern.
+#   * Not enough history (< 2 snapshots) -> growth_over returns Nones,
+#     we skip outlier detection (no false nudges on day one).
+#   * Nudge insert fails -> log, don't mark_ran so retry picks it up.
+#
+# Runbook:
+#   bot_job_runs where job_name='sweep_ig_metrics' -> per-creator
+#     outcome (ok / skipped(no_snapshot|no_delta|no_outlier)). Grep
+#     for a specific user_id to audit their pipeline.
+#   bot_job_failures where job_name='sweep_ig_metrics' -> IG API or
+#     upsert exceptions with the creator's dedupe_key.
+
+MAX_IG_CREATORS_PER_SWEEP = 100
+FOLLOWER_SPIKE_THRESHOLD = 50
+FOLLOWER_DROP_THRESHOLD = -20
+REACH_SPIKE_MULTIPLIER = 2.0
+
+
+def sweep_ig_metrics(*, now: datetime | None = None) -> SweepReport:
+    """Daily IG snapshot + outlier nudge. See module docstring above
+    for data flow, cost budget, failure modes, and runbook."""
+    report = SweepReport(job_name="sweep_ig_metrics")
+    day = (now or datetime.now(UTC)).strftime("%Y%m%d")
+    creator_ids = oauth_connections.list_creators_with_instagram(
+        limit=MAX_IG_CREATORS_PER_SWEEP
+    )
+    for creator_id in creator_ids:
+        if not creator_id:
+            continue
+        report.scanned += 1
+        snap_dedupe = f"ig_snapshot:{creator_id}:{day}"
+        if already_ran("sweep_ig_metrics", snap_dedupe):
+            report.skipped_already_ran += 1
+            continue
+        try:
+            snapshot = instagram_metrics.snapshot_daily(creator_id)
+        except Exception as exc:
+            record_failure(
+                "sweep_ig_metrics",
+                exc,
+                dedupe_key=snap_dedupe,
+                target_user_id=creator_id,
+            )
+            report.failed += 1
+            continue
+        if snapshot is None:
+            mark_ran(
+                "sweep_ig_metrics",
+                snap_dedupe,
+                outcome="skipped",
+                target_user_id=creator_id,
+                detail={"reason": "no_snapshot"},
+            )
+            continue
+        try:
+            deltas = instagram_metrics.growth_over(creator_id, days=7)
+        except Exception as exc:
+            record_failure(
+                "sweep_ig_metrics",
+                exc,
+                dedupe_key=snap_dedupe,
+                target_user_id=creator_id,
+            )
+            report.failed += 1
+            mark_ran(
+                "sweep_ig_metrics",
+                snap_dedupe,
+                outcome="ok",
+                target_user_id=creator_id,
+                detail={"reason": "snapshot_ok_delta_failed"},
+            )
+            continue
+        outlier = _ig_outlier(deltas)
+        if outlier is None:
+            mark_ran(
+                "sweep_ig_metrics",
+                snap_dedupe,
+                outcome="ok",
+                target_user_id=creator_id,
+                detail={"reason": "no_outlier"},
+            )
+            continue
+        _drop_ig_outlier_nudge(
+            creator_id=creator_id,
+            outlier=outlier,
+            deltas=deltas,
+            day=day,
+        )
+        mark_ran(
+            "sweep_ig_metrics",
+            snap_dedupe,
+            outcome="ok",
+            target_user_id=creator_id,
+            detail={"outlier": outlier["kind"]},
+        )
+        report.changed += 1
+    return report
+
+
+def _ig_outlier(deltas: dict[str, int | None]) -> dict[str, Any] | None:
+    """Convert a 7d delta dict into a single outlier signal (or None).
+    Only one nudge per creator per day even if multiple metrics move;
+    priority: follower drop > follower spike > reach spike."""
+    followers = deltas.get("followers_count")
+    if followers is not None and followers <= FOLLOWER_DROP_THRESHOLD:
+        return {"kind": "ig_drop", "metric": "followers", "value": followers}
+    if followers is not None and followers >= FOLLOWER_SPIKE_THRESHOLD:
+        return {"kind": "ig_growth", "metric": "followers", "value": followers}
+    reach = deltas.get("reach")
+    if (
+        reach is not None
+        and reach > 0
+        and reach >= int(FOLLOWER_SPIKE_THRESHOLD * REACH_SPIKE_MULTIPLIER)
+    ):
+        return {"kind": "ig_reach", "metric": "reach", "value": reach}
+    return None
+
+
+def _drop_ig_outlier_nudge(
+    *,
+    creator_id: str,
+    outlier: dict[str, Any],
+    deltas: dict[str, int | None],
+    day: str,
+) -> None:
+    kind = outlier["kind"]
+    value = int(outlier.get("value") or 0)
+    if kind == "ig_growth":
+        content = (
+            f"you picked up **{value:+,} followers** this week on "
+            "instagram. want to break down which post drove it?"
+        )
+        primary_text = "break down what drove the follower spike this week"
+    elif kind == "ig_drop":
+        content = (
+            f"heads up: instagram followers are down **{value:+,}** "
+            "over the last 7 days. want to look at what shifted?"
+        )
+        primary_text = "look at what caused the follower drop this week"
+    else:
+        content = (
+            f"instagram reach jumped **{value:+,}** this week. "
+            "one of your posts is popping — want a quick recap?"
+        )
+        primary_text = "recap this week's instagram reach spike"
+    tool_calls = {
+        "kind": "nudge",
+        "nudge_key": f"ig_metrics:{creator_id}:{kind}:{day}",
+        "nudge_category": kind,
+        "chips": [
+            {
+                "kind": "fill",
+                "label": "break it down",
+                "text": primary_text,
+                "primary": True,
+            },
+            {
+                "kind": "nav",
+                "label": "open performance",
+                "href": "/creator/performance",
+            },
+        ],
+        "source": "sweep_ig_metrics",
+    }
+    try:
+        bot.create_message(
+            user_id=creator_id,
+            role="assistant",
+            content=content,
+            tool_calls=tool_calls,
+        )
+    except Exception:
+        logger.info("sweep_ig_metrics.nudge_insert_failed", exc_info=True)
+
+
 # --- Sweep runner ----------------------------------------------------------
 
 
@@ -866,6 +1074,7 @@ def run_all(*, now: datetime | None = None) -> list[SweepReport]:
         sweep_ghosted_deals,
         sweep_gmail_briefs,
         sweep_dm_briefs,
+        sweep_ig_metrics,
     ]
     reports: list[SweepReport] = []
     for sweep in sweeps:
