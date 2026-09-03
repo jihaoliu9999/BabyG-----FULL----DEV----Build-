@@ -327,6 +327,99 @@ def _dm_day_sep(value):
     return parsed.strftime("%b %-d, %Y").lower()
 
 
+def _cached_state_int(request, attr: str):
+    """Read an int from request.state, tolerating MagicMock and missing state.
+
+    We can't just `hasattr(request.state, attr)` because a MagicMock
+    (used in a few tests that render partials directly) returns True
+    for every attribute lookup. Explicitly check for an int in the
+    attribute's __dict__ so only real writes count as cache hits.
+    """
+    state = getattr(request, "state", None)
+    if state is None:
+        return None
+    stash = getattr(state, "__dict__", None)
+    if not isinstance(stash, dict):
+        return None
+    value = stash.get(attr)
+    return value if isinstance(value, int) else None
+
+
+def _store_state_int(request, attr: str, value: int) -> None:
+    state = getattr(request, "state", None)
+    if state is None:
+        return
+    import contextlib
+
+    with contextlib.suppress(Exception):
+        setattr(state, attr, int(value))
+
+
+def _pending_action_count(request) -> int:
+    """Number of pending babyg action proposals waiting on this creator.
+
+    Used by creator_tabbar.html to render a badge on the babyg tab so a
+    creator sees "N drafts babyg wants you to review" without opening
+    chat. Cached on request.state so the tabbar doesn't hit supabase
+    a second time when a page also queries pending actions itself
+    (e.g. the home dashboard's "needs you" rail).
+
+    Returns 0 for anon, brand, and operator sessions — the badge only
+    makes sense for a signed-in creator.
+    """
+    from app.core.security import read_session
+
+    cached = _cached_state_int(request, "pending_action_count")
+    if cached is not None:
+        return cached
+
+    resolved = 0
+    try:
+        session = read_session(request)
+        if session and session.get("role") == "creator":
+            from app.services import action_proposals
+
+            resolved = int(
+                action_proposals.count_pending_for_user(
+                    user_id=session["user_id"]
+                )
+                or 0
+            )
+    except Exception:
+        resolved = 0
+
+    _store_state_int(request, "pending_action_count", resolved)
+    return resolved
+
+
+def _unread_dm_count(request) -> int:
+    """Unread DM count for the current creator, cached per request.
+
+    Mirrors the brand-side value that brand.py already passes to its
+    tabbar. Making it a template global means the creator tabbar picks
+    it up on every page without every creator route having to thread
+    unread_dms into its template context.
+    """
+    from app.core.security import read_session
+
+    cached = _cached_state_int(request, "unread_dm_count")
+    if cached is not None:
+        return cached
+
+    resolved = 0
+    try:
+        session = read_session(request)
+        if session and session.get("role") == "creator":
+            from app.services import dms
+
+            resolved = int(dms.unread_count_for_user(session["user_id"]) or 0)
+    except Exception:
+        resolved = 0
+
+    _store_state_int(request, "unread_dm_count", resolved)
+    return resolved
+
+
 templates.env.filters["short_dt"] = _short_dt
 templates.env.filters["short_date"] = _short_date
 templates.env.filters["safe_url"] = _safe_url
@@ -337,6 +430,8 @@ templates.env.filters["dm_day_sep"] = _dm_day_sep
 templates.env.globals["asset_url"] = asset_url
 templates.env.globals["current_role"] = _current_role
 templates.env.globals["current_profile"] = _current_profile
+templates.env.globals["pending_action_count"] = _pending_action_count
+templates.env.globals["unread_dm_count"] = _unread_dm_count
 
 # Lazy-import to avoid a circular: csrf.py imports from app.config which is
 # safe, but app.core.security imports app.config too and we don't want any
