@@ -34,11 +34,25 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import sys
 
 from app.services import bot_jobs
 
 logger = logging.getLogger("run_babyg_sweeps")
+
+
+def _agent_loop_enabled() -> bool:
+    """The background agent loop is opt-in per env until we're
+    confident it's producing value. Set BABYG_AGENT_LOOP_ENABLED=1
+    on Railway to turn it on; leave unset for cron slots that
+    should stay in the pure-sweep behavior."""
+    return os.environ.get("BABYG_AGENT_LOOP_ENABLED", "").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
 
 
 def _configure_logging() -> None:
@@ -117,7 +131,48 @@ def main(argv: list[str] | None = None) -> int:
             ),
             flush=True,
         )
+
+    # After the heuristic sweeps, fire the reasoning agent loop for
+    # every active creator. Opt-in per env; leaving BABYG_AGENT_LOOP_ENABLED
+    # unset preserves today's pure-heuristic behavior. The agent has
+    # its own cost cap ($0.10/creator/day default) and its own rate
+    # cap on nudges (4/hr), so double-writing between sweeps and agent
+    # is bounded on both sides.
+    if _agent_loop_enabled() and _agent_loop_selected(args.filter):
+        try:
+            from app.services import babyg_agent_loop
+
+            cycle_results = babyg_agent_loop.run_for_all_creators()
+        except Exception:
+            logger.exception("run_babyg_sweeps.agent_loop_crashed")
+            cycle_results = []
+        by_status: dict[str, int] = {}
+        for r in cycle_results:
+            by_status[r.get("status", "unknown")] = (
+                by_status.get(r.get("status", "unknown"), 0) + 1
+            )
+        print(
+            json.dumps(
+                {
+                    "job": "babyg_agent_loop",
+                    "creators": len(cycle_results),
+                    "by_status": by_status,
+                }
+            ),
+            flush=True,
+        )
     return 0
+
+
+def _agent_loop_selected(filter_arg: str) -> bool:
+    """Honor --filter for the agent loop too: no filter runs it,
+    a filter that mentions 'agent' runs it, anything else skips it.
+    Lets an operator debug just the agent with
+    `python scripts/run_babyg_sweeps.py --filter agent`."""
+    text = (filter_arg or "").strip().lower()
+    if not text:
+        return True
+    return "agent" in text
 
 
 if __name__ == "__main__":

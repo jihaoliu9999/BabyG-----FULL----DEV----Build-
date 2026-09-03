@@ -14,6 +14,7 @@ frequent runs are safe — they just no-op faster.
 | `sweep_gmail_briefs` | every 15 min | draft replies to fresh brand mail, stage as `gmail.create_draft` action proposals |
 | `sweep_dm_briefs` | every 5 min | brief inbound on-site DMs, nudge on watch/alert |
 | `sweep_ig_metrics` | daily | snapshot IG account metrics, nudge on outliers |
+| `babyg_agent_loop` | every 5 min *(opt-in)* | after the heuristic sweeps, run the reasoning agent per active creator — pre-filter, LLM step with write tools, memory update, cycle-trace record |
 
 The recommended combined cadence: run every 5 min with no
 `--filter`. The daily/6-hourly sweeps dedupe per (day) internally,
@@ -39,6 +40,20 @@ and exit as `skipped_already_ran`.
    Gmail sweep skips drafting without `ANTHROPIC_API_KEY`, IG sweep
    skips without `instagram_meta.is_configured()`.
 
+   **Agent loop** (optional): set `BABYG_AGENT_LOOP_ENABLED=1` in
+   the env group to turn on the reasoning agent per creator per
+   cycle. Additional knobs:
+   - `BABYG_AGENT_MODEL` (default `claude-haiku-4-5-20251001`).
+     override to run the loop on a bigger model.
+   - `BABYG_AGENT_DAILY_CAP_USD` (default `0.10`). per-creator
+     per-day dollar cap on agent token spend. once crossed, the
+     next cycle short-circuits with status `skipped_over_cap`
+     until midnight UTC.
+   Every fired cycle writes one row to `agent_cycles` (audit
+   trail) and increments `agent_daily_spend` (budget rollup),
+   even skipped/failed cycles. Read those tables to know what
+   the agent is actually doing.
+
    **Sentry** (optional): set `SENTRY_DSN` in the shared env group
    and per-item sweep failures (already written to
    `bot_job_failures`) also ship to Sentry with tags
@@ -55,6 +70,7 @@ and exit as `skipped_already_ran`.
 ```
 python scripts/run_babyg_sweeps.py --filter ig
 python scripts/run_babyg_sweeps.py --filter gmail,dm
+python scripts/run_babyg_sweeps.py --filter agent   # runs the agent loop only
 ```
 
 Filter is a comma-separated substring match on `SweepReport.job_name`
