@@ -10,6 +10,7 @@
   {% set deals_flash = request.query_params.get('deals') %}
   {% set privacy_flash = request.query_params.get('privacy') %}
   {% set babyg_flash = request.query_params.get('babyg') %}
+  {% set memory_flash = request.query_params.get('memory') %}
   {% set profile_flash =
        request.query_params.get('photo')
        or request.query_params.get('chips')
@@ -242,6 +243,57 @@
             <button class="btn btn-lime btn-sm" type="submit">save</button>
           </div>
         </form>
+      </div>
+    </details>
+
+    {# 5a2 · what babyg knows — user-visible rolling summary the
+       agent maintains. editable inline; history is a scannable
+       transcript of past versions so the creator can always audit
+       what babyg thinks it knows and why. #}
+    <details class="settings-group settings-card settings-disclosure" id="babyg-memory" {% if memory_flash %}open{% endif %}>
+      <summary>
+        <span class="settings-disclosure-copy">
+          <strong class="settings-disclosure-title">what babyg knows</strong>
+        </span>
+        <span class="settings-disclosure-icon" aria-hidden="true"></span>
+      </summary>
+      <div class="settings-disclosure-body">
+        <form class="settings-form settings-disclosure-form" method="post" action="/creator/profile/babyg-memory">
+          {% include "_partials/csrf.html" %}
+          {% if memory_flash == 'ok' %}<div class="settings-flash settings-flash-ok">saved.</div>
+          {% elif memory_flash == 'save_failed' %}<div class="settings-flash">couldn't save. try again.</div>
+          {% endif %}
+          <p class="settings-hint">babyg maintains this as it learns about you. edit anything that's wrong or add things it should know. changes go into a transcript below so you can always see how this evolved.</p>
+          <div class="settings-field">
+            <label for="memory_summary">memory</label>
+            <textarea id="memory_summary"
+                      name="memory_summary"
+                      rows="8"
+                      maxlength="{{ agent_memory_max_chars }}"
+                      placeholder="babyg hasn't written any memory yet. it will start filling this in as it watches your dms, brand mail, and posts.">{{ agent_memory.summary if agent_memory else '' }}</textarea>
+            {% if agent_memory and agent_memory.updated_at %}
+            <p class="settings-help">last updated {{ agent_memory.updated_at|human_ago }} by {{ agent_memory.updated_by or 'agent' }} (v{{ agent_memory.version }})</p>
+            {% endif %}
+          </div>
+          <div class="settings-actions">
+            <button class="btn btn-lime btn-sm" type="submit">save</button>
+          </div>
+        </form>
+
+        {% if agent_memory_history %}
+        <div class="settings-subhead">history</div>
+        <ul class="settings-memory-history">
+          {% for h in agent_memory_history %}
+          <li class="settings-memory-history-row">
+            <div class="settings-memory-history-head">
+              <strong>v{{ h.version }}</strong>
+              <span>{{ h.updated_by }} · {{ h.created_at|human_ago }}</span>
+            </div>
+            {% if h.change_reason %}<p class="settings-help">{{ h.change_reason }}</p>{% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+        {% endif %}
       </div>
     </details>
 

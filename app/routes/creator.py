@@ -36,6 +36,7 @@ from app.deps import require_role
 from app.integrations import google_calendar, instagram_meta
 from app.services import (
     action_proposals,
+    agent_memory,
     audit,
     babyg_awareness,
     bookings,
@@ -691,6 +692,17 @@ async def profile_settings_page(
         )
     except Exception:
         instagram_connected = False
+    # Agent memory + recent history for the "what babyg knows" panel.
+    # Both degrade to empty on supabase failure — the panel just
+    # renders an empty textarea + "no history yet".
+    try:
+        memory_row = agent_memory.load(session["user_id"]) or {}
+    except Exception:
+        memory_row = {}
+    try:
+        memory_history = agent_memory.history(session["user_id"], limit=10)
+    except Exception:
+        memory_history = []
     return templates.TemplateResponse(
         request,
         "creator/profile_settings.html",
@@ -708,7 +720,35 @@ async def profile_settings_page(
             "google_configured": google_calendar.is_configured(),
             "instagram_configured": instagram_configured,
             "instagram_connected": instagram_connected,
+            "agent_memory": memory_row,
+            "agent_memory_history": memory_history,
+            "agent_memory_max_chars": agent_memory.SUMMARY_MAX_CHARS,
         },
+    )
+
+
+@router.post("/creator/profile/babyg-memory")
+async def profile_babyg_memory_update(
+    memory_summary: str = Form(""),
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    """Persist a user edit of the babyg memory summary. Every edit
+    creates a new version and appends to history."""
+    profile = profiles.get_creator_profile(session["user_id"]) or {}
+    if not profile.get("onboarding_completed_at"):
+        return RedirectResponse("/onboarding/creator", status_code=302)
+    result = agent_memory.save(
+        session["user_id"],
+        memory_summary,
+        updated_by="user",
+        change_reason="edited from settings",
+    )
+    if result is None:
+        return RedirectResponse(
+            "/creator/profile/settings?memory=save_failed", status_code=303
+        )
+    return RedirectResponse(
+        "/creator/profile/settings?memory=ok", status_code=303
     )
 
 
