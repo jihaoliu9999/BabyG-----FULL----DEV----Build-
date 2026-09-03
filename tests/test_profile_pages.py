@@ -768,6 +768,14 @@ def test_profile_babyg_update_saves_all_fields(
         "babyg_risk_tolerance": "cautious",
         "babyg_auto_brief_dms": True,
         "babyg_email_assistance": True,
+        # Autonomy checkboxes not sent -> all false. Preserves the
+        # "missing checkbox means unchecked" contract this route has
+        # always honored; internal_actions in particular starts life
+        # true via the migration default but flips off if the user
+        # explicitly unchecks it and saves.
+        "babyg_agent_internal_actions": False,
+        "babyg_agent_gmail_auto_send": False,
+        "babyg_agent_calendar_holds": False,
     }
 
 

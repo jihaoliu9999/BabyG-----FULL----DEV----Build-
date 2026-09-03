@@ -622,12 +622,17 @@ async def profile_babyg_update(
     babyg_risk_tolerance: str = Form(""),
     babyg_auto_brief_dms: str = Form(""),
     babyg_email_assistance: str = Form(""),
+    babyg_agent_internal_actions: str = Form(""),
+    babyg_agent_gmail_auto_send: str = Form(""),
+    babyg_agent_calendar_holds: str = Form(""),
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
-    """Update the babyg-behavior section — tone, risk tolerance, and
-    the two opt-in toggles (auto-brief DMs, email assistance). The
-    booleans accept any HTML-form-truthy value ("on", "true", "1") so
-    a missing checkbox cleanly maps to false."""
+    """Update the babyg-behavior section — tone, risk tolerance, the
+    two legacy opt-in toggles (auto-brief DMs, email assistance), and
+    the three agent-autonomy toggles that gate what the background
+    agent may do on the creator's behalf without a per-action tap.
+    Booleans accept any HTML-form-truthy value ("on", "true", "1")
+    so a missing checkbox cleanly maps to false."""
     profile = profiles.get_creator_profile(session["user_id"]) or {}
     if not profile.get("onboarding_completed_at"):
         return RedirectResponse("/onboarding/creator", status_code=302)
@@ -641,6 +646,11 @@ async def profile_babyg_update(
         payload["babyg_risk_tolerance"] = risk
     payload["babyg_auto_brief_dms"] = _form_bool(babyg_auto_brief_dms)
     payload["babyg_email_assistance"] = _form_bool(babyg_email_assistance)
+    payload["babyg_agent_internal_actions"] = _form_bool(
+        babyg_agent_internal_actions
+    )
+    payload["babyg_agent_gmail_auto_send"] = _form_bool(babyg_agent_gmail_auto_send)
+    payload["babyg_agent_calendar_holds"] = _form_bool(babyg_agent_calendar_holds)
     if not profiles.update_creator_profile(session["user_id"], payload):
         return RedirectResponse(
             "/creator/profile/settings?babyg=save_failed", status_code=303

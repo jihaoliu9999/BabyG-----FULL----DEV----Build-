@@ -4414,6 +4414,20 @@ hr.hairline {
   cursor: pointer;
 }
 .settings-help { color: var(--ink-dim); font-size: 12.5px; margin: 2px 0 0; }
+.settings-hint {
+  color: var(--ink-dim);
+  font-size: 12.5px;
+  margin: 4px 0 6px;
+  line-height: 1.45;
+}
+.settings-subhead {
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+  margin: 14px 0 2px;
+  font-weight: 600;
+}
 .settings-actions { display: flex; justify-content: flex-end; margin-top: 4px; }
 .settings-flash {
   font-size: 12.5px;
