@@ -178,6 +178,21 @@ def record_failure(
         logger.warning(
             "bot_jobs.record_failure_write_failed job=%s", job_name, exc_info=True
         )
+    # Ship to Sentry too so an on-call gets a real alert rather than
+    # having to grep bot_job_failures. No-op when SENTRY_DSN is empty.
+    try:
+        from app.core.sentry_init import capture_exception
+
+        tags: dict[str, str] = {"job": job_name}
+        if dedupe_key:
+            tags["dedupe_key"] = dedupe_key
+        if target_user_id:
+            tags["target_user_id"] = target_user_id
+        capture_exception(exc, **tags)
+    except Exception:
+        logger.warning(
+            "bot_jobs.record_failure_sentry_failed job=%s", job_name, exc_info=True
+        )
 
 
 # --- Sweep: stale drafts ---------------------------------------------------

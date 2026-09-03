@@ -39,6 +39,17 @@ and exit as `skipped_already_ran`.
    Gmail sweep skips drafting without `ANTHROPIC_API_KEY`, IG sweep
    skips without `instagram_meta.is_configured()`.
 
+   **Sentry** (optional): set `SENTRY_DSN` in the shared env group
+   and per-item sweep failures (already written to
+   `bot_job_failures`) also ship to Sentry with tags
+   `job=<sweep_name>`, `dedupe_key=<...>`, `target_user_id=<...>`.
+   Empty DSN = no-op, no import cost. Optional tuning:
+   `SENTRY_TRACES_SAMPLE_RATE` (default 0), `SENTRY_PROFILES_SAMPLE_RATE`
+   (default 0), `SENTRY_SEND_DEFAULT_PII` (default false — a
+   before_send scrubber also strips the session cookie and
+   Authorization header, so even a mis-flipped PII toggle can't leak
+   the two most sensitive values).
+
 ## Running one sweep only (backfill or debug)
 
 ```

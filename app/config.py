@@ -52,6 +52,16 @@ class Settings(BaseSettings):
         "https://www.googleapis.com/auth/calendar.events"
     )
 
+    # Sentry — application-side error + light performance capture. Empty
+    # DSN means the integration no-ops (sentry_init.configure_sentry
+    # returns early), so dev boots and tests run without any network
+    # calls to Sentry. Traces sample rate defaults to 0 so we ship only
+    # unhandled exceptions until we're sure we want to pay for spans.
+    sentry_dsn: str = ""
+    sentry_traces_sample_rate: float = 0.0
+    sentry_profiles_sample_rate: float = 0.0
+    sentry_send_default_pii: bool = False
+
     # Tavily — web search tool the babyg agent loop uses when current
     # public info (events, venue openings, brand news) is needed.
     # Empty key = tool is unavailable; the bot routes around it.

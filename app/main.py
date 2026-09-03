@@ -41,6 +41,12 @@ def create_app() -> FastAPI:
     _assert_session_secret(settings)
     _assert_app_url(settings)
     _configure_logging(settings)
+    # Sentry MUST be initialized before the FastAPI app is constructed
+    # so the SDK's FastAPI integration attaches to the app's exception
+    # middleware. No-ops when SENTRY_DSN is empty.
+    from app.core.sentry_init import configure_sentry
+
+    configure_sentry(settings)
     # Surface migration drift between repo files and the Supabase
     # registry. Logs WARN on drift by default; fails the boot when
     # STRICT_MIGRATION_CHECK=1. Skipped in env=dev. Never crashes on

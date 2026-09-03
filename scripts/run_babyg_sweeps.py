@@ -48,6 +48,18 @@ def _configure_logging() -> None:
     )
 
 
+def _configure_sentry() -> None:
+    """Init Sentry so per-item failures raised inside a sweep ship to
+    the same project as web errors. No-ops when SENTRY_DSN is empty."""
+    try:
+        from app.config import get_settings
+        from app.core.sentry_init import configure_sentry
+
+        configure_sentry(get_settings())
+    except Exception:
+        logger.exception("run_babyg_sweeps.sentry_init_failed")
+
+
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Run babyg background sweeps.")
     parser.add_argument(
@@ -70,6 +82,7 @@ def _select_sweeps(all_sweeps, filter_arg: str):
 
 def main(argv: list[str] | None = None) -> int:
     _configure_logging()
+    _configure_sentry()
     args = _parse_args(argv)
     all_sweeps = [
         bot_jobs.sweep_stale_drafts,

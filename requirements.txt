@@ -26,3 +26,9 @@ pillow==11.0.0
 
 # --- AI assistant / agent ---
 anthropic==0.39.0
+
+# --- Observability ---
+# Optional at runtime — sentry_init.py no-ops when SENTRY_DSN is empty,
+# so removing this line degrades gracefully (errors just don't ship).
+sentry-sdk[fastapi]==2.19.0
+
