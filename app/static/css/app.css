@@ -3305,6 +3305,40 @@ select.profile-detail-input {
   color: var(--ink-mid);
   backdrop-filter: blur(14px);
 }
+.performance-platform-tabs {
+  width: min(100%, 520px);
+  min-height: 42px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: rgba(255,255,255,.025);
+}
+.performance-platform-tabs a {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-dim);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color 140ms ease, background-color 140ms ease, box-shadow 140ms ease;
+}
+.performance-platform-tabs a:hover {
+  color: var(--ink-mid);
+  background: rgba(255,255,255,.035);
+}
+.performance-platform-tabs a.is-active {
+  color: var(--ink);
+  background: rgba(255,77,109,.16);
+  box-shadow: inset 0 0 0 1px rgba(255,77,109,.28);
+}
 .performance-alert {
   margin-bottom: 18px;
   padding: 14px 16px;
@@ -11171,8 +11205,7 @@ body:has(.dm-thread-composer-box input:focus) .creator-tabbar {
     linear-gradient(145deg, rgba(255,77,109,.08), transparent 36%),
     var(--surface-1);
   box-shadow: var(--shadow-card);
-  text-decoration: none;
-  transition: border-color 160ms ease, background-color 160ms ease, transform 140ms ease;
+  transition: border-color 160ms ease, background-color 160ms ease;
 }
 .is-creator-app .creator-social-card:hover {
   border-color: rgba(255,77,109,.28);
@@ -11180,7 +11213,6 @@ body:has(.dm-thread-composer-box input:focus) .creator-tabbar {
     linear-gradient(145deg, rgba(255,77,109,.1), transparent 38%),
     var(--surface-2);
 }
-.is-creator-app .creator-social-card:active { transform: scale(.995); }
 .is-creator-app .creator-social-card-head {
   min-width: 0;
   display: grid;
@@ -11199,7 +11231,7 @@ body:has(.dm-thread-composer-box input:focus) .creator-tabbar {
   border-radius: 999px;
   background: rgba(255,255,255,.025);
 }
-.is-creator-app .creator-social-tabs span {
+.is-creator-app .creator-social-tabs a {
   min-width: 0;
   display: inline-flex;
   align-items: center;
@@ -11211,13 +11243,19 @@ body:has(.dm-thread-composer-box input:focus) .creator-tabbar {
   font-weight: 650;
   line-height: 1;
   white-space: nowrap;
+  text-decoration: none;
+  transition: color 140ms ease, background-color 140ms ease, box-shadow 140ms ease;
 }
 .is-creator-app .creator-social-tabs .is-active {
   color: var(--ink);
   background: rgba(255,77,109,.16);
   box-shadow: inset 0 0 0 1px rgba(255,77,109,.28);
 }
-.is-creator-app .creator-social-status {
+.is-creator-app .creator-social-tabs a:not(.is-active):hover {
+  color: var(--ink-mid);
+  background: rgba(255,255,255,.035);
+}
+.is-creator-app .creator-social-action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -11231,6 +11269,19 @@ body:has(.dm-thread-composer-box input:focus) .creator-tabbar {
   font-weight: 700;
   line-height: 1;
   white-space: nowrap;
+  text-decoration: none;
+  transition: color 140ms ease, border-color 140ms ease, background-color 140ms ease;
+}
+.is-creator-app a.creator-social-action:hover {
+  color: var(--ink);
+  border-color: rgba(255,77,109,.4);
+  background: rgba(255,77,109,.13);
+}
+.is-creator-app .creator-social-action.is-disabled {
+  color: var(--ink-dim);
+  border-color: var(--hairline);
+  background: rgba(255,255,255,.025);
+  cursor: default;
 }
 .is-creator-app .creator-social-main {
   min-width: 0;

@@ -76,6 +76,12 @@ CATEGORY_LABELS = {
     "alert": "Alert",
 }
 
+SOCIAL_ANALYTICS_PLATFORMS = {
+    "instagram": "Instagram",
+    "tiktok": "TikTok",
+    "youtube": "YouTube",
+}
+
 PROFILE_CHIP_OPTIONS = {
     "niches": {
         "field": "niches",
@@ -140,8 +146,53 @@ def _calendar_preview_days(today: date | None = None) -> list[dict[str, Any]]:
     ]
 
 
-def _home_social_analytics(view: stats_merge.PerformanceView) -> dict[str, Any]:
+def _active_social_platform(value: str | None) -> str:
+    platform = str(value or "instagram").strip().lower()
+    if platform not in SOCIAL_ANALYTICS_PLATFORMS:
+        return "instagram"
+    return platform
+
+
+def _home_social_analytics(
+    view: stats_merge.PerformanceView, *, active_platform: str = "instagram"
+) -> dict[str, Any]:
     """Compact, honest social signal preview for Creator Home."""
+    active_platform = _active_social_platform(active_platform)
+    platform_label = SOCIAL_ANALYTICS_PLATFORMS[active_platform]
+    platforms = [
+        {
+            "key": key,
+            "label": label.lower(),
+            "href": "/creator" if key == "instagram" else f"/creator?social_platform={key}",
+            "active": key == active_platform,
+        }
+        for key, label in SOCIAL_ANALYTICS_PLATFORMS.items()
+    ]
+
+    if active_platform != "instagram":
+        platform_lower = platform_label.lower()
+        return {
+            "active_platform": active_platform,
+            "analytics_href": f"/creator/performance?platform={active_platform}",
+            "platforms": platforms,
+            "status": stats_merge.IG_STATUS_NOT_CONNECTED,
+            "action_label": f"connect {platform_lower}",
+            "action_href": None,
+            "action_disabled": True,
+            "has_data": False,
+            "post_count": 0,
+            "top_value": "0",
+            "top_label": "top post signal",
+            "top_title": None,
+            "metrics": [],
+            "trend": [],
+            "empty_title": f"{platform_label} analytics are not connected yet.",
+            "empty_body": (
+                f"When {platform_label} support is ready, live views, saves, "
+                "comments, and post momentum will show here."
+            ),
+        }
+
     ig_rows = [
         row
         for row in view.rows
@@ -166,16 +217,26 @@ def _home_social_analytics(view: stats_merge.PerformanceView) -> dict[str, Any]:
     ]
     top_row = max(ig_rows, key=_home_social_row_value, default=None)
     top_value = _home_social_row_value(top_row)
-    status_copy = {
-        stats_merge.IG_STATUS_OK: "live instagram",
-        stats_merge.IG_STATUS_ERROR: "instagram paused",
+    action_href = {
+        stats_merge.IG_STATUS_OK: "/creator/performance?platform=instagram",
+        stats_merge.IG_STATUS_ERROR: "/creator/profile/settings",
+        stats_merge.IG_STATUS_NOT_CONNECTED: "/creator/instagram/connect?next=/creator",
+    }.get(view.instagram_status)
+    action_label = {
+        stats_merge.IG_STATUS_OK: "open instagram",
+        stats_merge.IG_STATUS_ERROR: "reconnect instagram",
         stats_merge.IG_STATUS_NOT_CONNECTED: "connect instagram",
-        stats_merge.IG_STATUS_NOT_CONFIGURED: "manual only",
-    }.get(view.instagram_status, "manual only")
+        stats_merge.IG_STATUS_NOT_CONFIGURED: "connect later",
+    }.get(view.instagram_status, "connect instagram")
 
     return {
+        "active_platform": active_platform,
+        "analytics_href": "/creator/performance?platform=instagram",
+        "platforms": platforms,
         "status": view.instagram_status,
-        "status_copy": status_copy,
+        "action_label": action_label,
+        "action_href": action_href,
+        "action_disabled": action_href is None,
         "has_data": bool(ig_rows),
         "post_count": len(ig_rows),
         "top_value": _format_compact_count(top_value),
@@ -183,6 +244,18 @@ def _home_social_analytics(view: stats_merge.PerformanceView) -> dict[str, Any]:
         "top_title": top_row.title if top_row else None,
         "metrics": metrics,
         "trend": trend,
+        "empty_title": (
+            "instagram is paused."
+            if view.instagram_status == stats_merge.IG_STATUS_ERROR
+            else (
+                "connect instagram for live signals."
+                if view.instagram_status == stats_merge.IG_STATUS_NOT_CONNECTED
+                else "social signals will land here."
+            )
+        ),
+        "empty_body": (
+            "Reach, saves, comments, and post momentum will show once live data is available."
+        ),
     }
 
 
@@ -221,6 +294,7 @@ def _format_compact_count(value: int) -> str:
 async def dashboard(
     request: Request,
     category: str | None = Query(None),
+    social_platform: str | None = Query(None),
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
     profile = profiles.get_creator_profile_cached(session["user_id"], request) or {}
@@ -362,7 +436,10 @@ async def dashboard(
             "calendar_days": _calendar_preview_days(),
             "daily_greeting": daily_greeting,
             "overnight_recap": overnight_recap,
-            "social_analytics": _home_social_analytics(performance_view),
+            "social_analytics": _home_social_analytics(
+                performance_view,
+                active_platform=_active_social_platform(social_platform),
+            ),
         },
     )
 
@@ -2904,9 +2981,11 @@ async def receipts_create(
 @router.get("/creator/performance", response_class=HTMLResponse)
 async def performance_list(
     request: Request,
+    platform: str | None = Query(None),
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
     user_id = session["user_id"]
+    active_platform = _active_social_platform(platform)
     view = stats_merge.performance_view(user_id)
     # `instagram_status` is the single source of truth for the
     # page-foot copy + the "temporarily unavailable" banner.
@@ -2914,8 +2993,19 @@ async def performance_list(
         request,
         "creator/performance_list.html",
         {
-            "rows": view.rows,
+            "rows": view.rows if active_platform == "instagram" else [],
             "instagram_status": view.instagram_status,
+            "active_platform": active_platform,
+            "platform_label": SOCIAL_ANALYTICS_PLATFORMS[active_platform],
+            "performance_platforms": [
+                {
+                    "key": key,
+                    "label": label.lower(),
+                    "href": f"/creator/performance?platform={key}",
+                    "active": key == active_platform,
+                }
+                for key, label in SOCIAL_ANALYTICS_PLATFORMS.items()
+            ],
         },
     )
 

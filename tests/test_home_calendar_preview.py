@@ -200,8 +200,31 @@ def test_home_renders_social_analytics_connect_state(
     assert r.status_code == 200
     assert "social analytics" in r.text
     assert "connect instagram for live signals" in r.text.lower()
-    assert 'href="/creator/performance"' in r.text
+    assert 'href="/creator?social_platform=tiktok"' in r.text
+    assert 'href="/creator?social_platform=youtube"' in r.text
+    assert 'href="/creator/instagram/connect?next=/creator"' in r.text
+    assert 'href="/creator/performance?platform=instagram"' in r.text
     assert "top post signal" not in r.text
+
+
+def test_home_social_platform_tabs_change_action_without_dead_links(
+    client: TestClient, stub_dashboard
+) -> None:
+    _signed_in(client)
+    r = client.get("/creator?social_platform=tiktok")
+    assert r.status_code == 200
+    assert 'aria-current="true">tiktok</a>' in r.text
+    assert "connect tiktok" in r.text.lower()
+    assert "tiktok analytics are not connected yet" in r.text.lower()
+    assert "/creator/tiktok/connect" not in r.text
+    assert "connect instagram for live signals" not in r.text.lower()
+
+    r = client.get("/creator?social_platform=youtube")
+    assert r.status_code == 200
+    assert 'aria-current="true">youtube</a>' in r.text
+    assert "connect youtube" in r.text.lower()
+    assert "youtube analytics are not connected yet" in r.text.lower()
+    assert "/creator/youtube/connect" not in r.text
 
 
 def test_home_renders_social_analytics_from_real_instagram_rows(
@@ -243,7 +266,7 @@ def test_home_renders_social_analytics_from_real_instagram_rows(
     )
     r = client.get("/creator")
     assert r.status_code == 200
-    assert "live instagram" in r.text
+    assert "open instagram" in r.text
     assert "top post signal" in r.text
     assert "Empire Social Lounge" in r.text
     assert "1.7k" in r.text

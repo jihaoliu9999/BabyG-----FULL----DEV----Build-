@@ -412,7 +412,10 @@ def test_creator_home_social_analytics_card_is_mobile_safe() -> None:
     assert "grid-template-columns: repeat(3, minmax(0, 1fr))" in tabs_rule
     assert "minmax(92px, .82fr) minmax(0, 1fr)" in main_rule
     assert "grid-template-columns: repeat(3, minmax(0, 1fr))" in metrics_rule
-    assert "creator-social-card" in DASHBOARD_TEMPLATE
+    assert '<div class="creator-social-card' in DASHBOARD_TEMPLATE
+    assert '<a href="/creator/performance"\n       class="creator-social-card' not in DASHBOARD_TEMPLATE
+    assert 'href="{{ platform.href }}"' in DASHBOARD_TEMPLATE
+    assert "creator-social-action" in DASHBOARD_TEMPLATE
     assert "social_analytics.has_data" in DASHBOARD_TEMPLATE
 
 

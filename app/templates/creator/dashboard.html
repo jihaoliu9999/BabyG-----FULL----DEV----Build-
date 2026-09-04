@@ -136,18 +136,23 @@
   <section class="creator-home-section creator-social-section">
     <div class="creator-home-section-head">
       <h2>social analytics</h2>
-      <a href="/creator/performance" class="creator-home-link">open analytics →</a>
+      <a href="{{ social_analytics.analytics_href }}" class="creator-home-link">open analytics →</a>
     </div>
-    <a href="/creator/performance"
-       class="creator-social-card {{ 'has-data' if social_analytics.has_data else 'is-empty' }}"
-       aria-label="open social analytics">
+    <div class="creator-social-card {{ 'has-data' if social_analytics.has_data else 'is-empty' }}"
+         aria-label="{{ social_analytics.active_platform }} social analytics preview">
       <div class="creator-social-card-head">
-        <div class="creator-social-tabs" aria-label="social platforms">
-          <span class="is-active">instagram</span>
-          <span>tiktok</span>
-          <span>youtube</span>
-        </div>
-        <span class="creator-social-status">{{ social_analytics.status_copy }}</span>
+        <nav class="creator-social-tabs" aria-label="social analytics platforms">
+          {% for platform in social_analytics.platforms %}
+          <a href="{{ platform.href }}"
+             class="{{ 'is-active' if platform.active }}"
+             {% if platform.active %}aria-current="true"{% endif %}>{{ platform.label }}</a>
+          {% endfor %}
+        </nav>
+        {% if social_analytics.action_href %}
+        <a class="creator-social-action" href="{{ social_analytics.action_href }}">{{ social_analytics.action_label }}</a>
+        {% else %}
+        <span class="creator-social-action is-disabled" aria-disabled="true">{{ social_analytics.action_label }}</span>
+        {% endif %}
       </div>
 
       {% if social_analytics.has_data %}
@@ -177,19 +182,11 @@
       {% endif %}
       {% else %}
       <div class="creator-social-empty">
-        <strong>
-          {% if social_analytics.status == 'error' %}
-          instagram is paused.
-          {% elif social_analytics.status == 'not_connected' %}
-          connect instagram for live signals.
-          {% else %}
-          social signals will land here.
-          {% endif %}
-        </strong>
-        <span>reach, saves, comments, and post momentum will show once live data is available.</span>
+        <strong>{{ social_analytics.empty_title }}</strong>
+        <span>{{ social_analytics.empty_body }}</span>
       </div>
       {% endif %}
-    </a>
+    </div>
   </section>
 
   {# today: 5-day strip + real bookings #}

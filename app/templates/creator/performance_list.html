@@ -61,6 +61,9 @@
       <h1>what is working.</h1>
     </div>
     <div class="performance-status mono">
+      {% if active_platform != 'instagram' %}
+        {{ platform_label }} not connected
+      {% else %}
       {% if instagram_status == 'ok' %}
         instagram synced
       {% elif instagram_status == 'error' %}
@@ -70,8 +73,17 @@
       {% else %}
         manual view
       {% endif %}
+      {% endif %}
     </div>
   </header>
+
+  <nav class="performance-platform-tabs" aria-label="performance platform">
+    {% for platform in performance_platforms %}
+    <a href="{{ platform.href }}"
+       class="{{ 'is-active' if platform.active }}"
+       {% if platform.active %}aria-current="true"{% endif %}>{{ platform.label }}</a>
+    {% endfor %}
+  </nav>
 
   {% if instagram_status == 'error' %}
   <div role="status" class="performance-alert">
@@ -256,12 +268,20 @@
   </div>
   {% else %}
   <div class="performance-empty">
+    {% if active_platform != 'instagram' %}
+    <span class="mono">{{ platform_label }} analytics not connected.</span>
+    <p>{{ platform_label }} live stats are not connected in babyg yet. Instagram is the only live social analytics integration today.</p>
+    {% else %}
     <span class="mono">no performance yet.</span>
     <p>connect instagram or add post receipts to start seeing signals.</p>
+    {% endif %}
   </div>
   {% endif %}
 
   <p class="performance-foot mono">
+    {% if active_platform != 'instagram' %}
+      {{ platform_label }} platform view · connection not available yet
+    {% else %}
     {% if instagram_status == 'ok' %}
       manual + instagram · live post stats merged
     {% elif instagram_status == 'error' %}
@@ -270,6 +290,7 @@
       manual entries · <a href="/creator/profile/settings" style="color:inherit;text-decoration:underline;">connect instagram</a> for live post stats
     {% else %}
       manual entries for now · auto-sync requires platform api access
+    {% endif %}
     {% endif %}
   </p>
 </div>

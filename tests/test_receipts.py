@@ -251,6 +251,38 @@ def test_performance_list_prompts_connect_when_configured_but_not_connected(
     assert "/creator/profile/settings" in r.text
 
 
+def test_performance_platform_query_shows_honest_non_instagram_state(
+    client, world, monkeypatch
+):
+    from app.services import stats_merge as merge_module
+
+    _signed_in(client, role="creator", user_id="c-1")
+    monkeypatch.setattr(
+        merge_module,
+        "performance_view",
+        lambda uid, **kw: merge_module.PerformanceView(
+            rows=[
+                merge_module.StatsRow(
+                    source="instagram",
+                    title="real instagram row",
+                    timestamp="2026-06-08T18:00:00+0000",
+                    permalink=None,
+                    metrics={"likes": 120},
+                    notes=None,
+                )
+            ],
+            instagram_status=merge_module.IG_STATUS_OK,
+        ),
+    )
+
+    r = client.get("/creator/performance?platform=tiktok")
+    assert r.status_code == 200
+    assert 'aria-current="true">tiktok</a>' in r.text
+    assert "tiktok analytics not connected" in r.text.lower()
+    assert "real instagram row" not in r.text
+    assert "/creator/tiktok/connect" not in r.text
+
+
 def test_performance_list_shows_unavailable_banner_on_error(
     client, world, monkeypatch
 ):
