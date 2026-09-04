@@ -234,7 +234,6 @@ def world(monkeypatch) -> FakeWorld:
     # ----- intel (creator dashboard) -----
     from app.services import intel as intel_module
     monkeypatch.setattr(intel_module, "feed_for_creator", lambda **kw: [])
-    monkeypatch.setattr(intel_module, "feedback_for_user", lambda uid, ids: {})
 
     return w
 

@@ -24,7 +24,6 @@ CATEGORIES = ["venue", "trend", "brand", "collab", "alert"]
 CONFIDENCES = ["low", "medium", "high"]
 STATUSES = ["draft", "scheduled", "active", "expired", "archived"]
 TIERS = ["basic", "pro", "vip"]
-FEEDBACK_SIGNALS = ["useful", "not_useful", "acted_on"]
 
 
 # -----------------------------------------------------------------------------
@@ -66,44 +65,6 @@ def feed_for_creator(
         for row in rows
         if _matches_creator(row, creator_niches=creator_niches, tier=tier)
     ]
-
-
-def feedback_for_user(
-    user_id: str, intel_post_ids: list[str]
-) -> dict[str, str]:
-    """Return {intel_post_id: signal} for the given user across these posts."""
-    if not intel_post_ids:
-        return {}
-    try:
-        result = (
-            supabase_client.get_service_client()
-            .table("intel_feedback")
-            .select("intel_post_id, signal")
-            .eq("user_id", user_id)
-            .in_("intel_post_id", intel_post_ids)
-            .execute()
-        )
-    except PostgrestAPIError:
-        logger.exception("intel feedback lookup failed for %s", user_id)
-        return {}
-    rows = getattr(result, "data", None) or []
-    return {str(r["intel_post_id"]): str(r["signal"]) for r in rows}
-
-
-def record_feedback(*, user_id: str, intel_post_id: str, signal: str) -> bool:
-    if signal not in FEEDBACK_SIGNALS:
-        return False
-    try:
-        supabase_client.get_service_client().table("intel_feedback").upsert(
-            {"user_id": user_id, "intel_post_id": intel_post_id, "signal": signal},
-            on_conflict="intel_post_id,user_id",
-        ).execute()
-    except PostgrestAPIError:
-        logger.exception(
-            "intel feedback upsert failed: user=%s post=%s", user_id, intel_post_id
-        )
-        return False
-    return True
 
 
 # -----------------------------------------------------------------------------

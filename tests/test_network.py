@@ -267,7 +267,6 @@ def world(monkeypatch) -> FakeWorld:
 
     # ----- intel + abuse quiet -----
     monkeypatch.setattr(intel_module, "feed_for_creator", lambda **kw: [])
-    monkeypatch.setattr(intel_module, "feedback_for_user", lambda uid, ids: {})
     monkeypatch.setattr(abuse_module, "count_pending", lambda: 0)
 
     # Step 10: profile views recorded on every network/{peer} GET.

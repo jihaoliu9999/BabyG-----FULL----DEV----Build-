@@ -51,7 +51,6 @@ def world(monkeypatch) -> FakeWorld:
     monkeypatch.setattr(notifications_module, "unread_count", lambda uid: 0)
     monkeypatch.setattr(dms_module, "unread_count_for_user", lambda uid: 0)
     monkeypatch.setattr(intel_module, "feed_for_creator", lambda **kw: [])
-    monkeypatch.setattr(intel_module, "feedback_for_user", lambda uid, ids: {})
     monkeypatch.setattr(abuse_module, "count_pending", lambda: 0)
     return w
 

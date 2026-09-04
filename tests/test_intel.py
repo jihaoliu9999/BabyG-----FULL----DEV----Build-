@@ -37,7 +37,6 @@ from app.services import profiles as profiles_module
 class FakeIntelStore:
     def __init__(self) -> None:
         self.posts: dict[str, dict[str, Any]] = {}
-        self.feedback: dict[tuple[str, str], str] = {}     # (user, post) -> signal
         self.last_create_payload: dict[str, Any] | None = None
         self.last_update_payload: dict[str, Any] | None = None
 
@@ -88,20 +87,6 @@ def store(monkeypatch) -> FakeIntelStore:
         out.sort(key=lambda p: p["valid_from"], reverse=True)
         return out
 
-    def _feedback_for_user(uid, post_ids):
-        out = {}
-        for pid in post_ids:
-            sig = s.feedback.get((uid, pid))
-            if sig:
-                out[pid] = sig
-        return out
-
-    def _record_feedback(*, user_id, intel_post_id, signal):
-        if signal not in intel_module.FEEDBACK_SIGNALS:
-            return False
-        s.feedback[(user_id, intel_post_id)] = signal
-        return True
-
     def _list_for_operator(*, status=None, limit=100):
         rows = list(s.posts.values())
         if status:
@@ -139,8 +124,6 @@ def store(monkeypatch) -> FakeIntelStore:
         return out
 
     monkeypatch.setattr(intel_module, "feed_for_creator", _feed)
-    monkeypatch.setattr(intel_module, "feedback_for_user", _feedback_for_user)
-    monkeypatch.setattr(intel_module, "record_feedback", _record_feedback)
     monkeypatch.setattr(intel_module, "list_for_operator", _list_for_operator)
     monkeypatch.setattr(intel_module, "get_intel_post", _get_intel_post)
     monkeypatch.setattr(intel_module, "create_intel_post", _create_intel_post)
@@ -437,38 +420,6 @@ def test_feed_redirects_to_onboarding_when_creator_not_onboarded(
 # -----------------------------------------------------------------------------
 # Feedback
 # -----------------------------------------------------------------------------
-
-
-def test_feedback_records_and_redirects(client, store, fake_creator):
-    _signed_in(client, role="creator")
-    p = store.add_post(title="Try this venue")
-    r = client.post(
-        f"/creator/intel/{p['id']}/feedback", data={"signal": "useful"}
-    )
-    assert r.status_code == 303
-    assert r.headers["location"] == "/creator"
-    assert store.feedback[("u-1", p["id"])] == "useful"
-
-    r2 = client.get("/creator")
-    assert r2.status_code == 200
-    assert "feedback-btn-active" not in r2.text
-
-
-def test_feedback_rejects_unknown_signal(client, store, fake_creator):
-    _signed_in(client, role="creator")
-    p = store.add_post()
-    r = client.post(
-        f"/creator/intel/{p['id']}/feedback", data={"signal": "garbage"}
-    )
-    assert r.status_code == 400
-
-
-def test_feedback_requires_creator_role(client, store):
-    _signed_in(client, role="operator")
-    r = client.post(
-        "/creator/intel/abc/feedback", data={"signal": "useful"}
-    )
-    assert r.status_code == 403
 
 
 # -----------------------------------------------------------------------------

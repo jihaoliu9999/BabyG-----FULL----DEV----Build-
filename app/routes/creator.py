@@ -135,8 +135,6 @@ async def dashboard(
         tier=profile.get("tier") or "basic",
         category=category if category in intel.CATEGORIES else None,
     )
-    post_ids = [str(p["id"]) for p in posts]
-    feedback_map = intel.feedback_for_user(session["user_id"], post_ids)
 
     # "needs you" surfaces non-DM notifications only. DM alerts get their
     # own /creator/dm page; duplicating them here made the home feel
@@ -229,7 +227,6 @@ async def dashboard(
             "profile": profile,
             "profile_initial": profile_initial,
             "posts": posts,
-            "feedback_map": feedback_map,
             "categories": list(CATEGORY_LABELS.items()),
             "active_category": category if category in intel.CATEGORIES else None,
             "unread_notifs": unread_notifs,
@@ -423,19 +420,6 @@ async def bot_action_cancel(
     if _is_ajax(request):
         return _bot_messages_partial(request, session["user_id"])
     return RedirectResponse("/creator/bot", status_code=303)
-
-
-@router.post("/creator/intel/{post_id}/feedback")
-async def submit_feedback(
-    post_id: str,
-    signal: str = Form(...),
-    session: SessionPayload = Depends(require_role("creator")),
-) -> Response:
-    if not intel.record_feedback(
-        user_id=session["user_id"], intel_post_id=post_id, signal=signal
-    ):
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
-    return RedirectResponse("/creator", status_code=303)
 
 
 # -----------------------------------------------------------------------------
