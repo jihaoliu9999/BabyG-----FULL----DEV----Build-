@@ -239,3 +239,194 @@ def test_count_recent_agent_nudges_survives_supabase_error(monkeypatch) -> None:
     assert agent_writes._count_recent_agent_nudges(
         "c1", now=datetime(2026, 9, 3, tzinfo=UTC)
     ) == 0
+
+
+# ---- gmail_auto_reply ------------------------------------------------
+
+
+def test_gmail_auto_reply_autonomy_denied(monkeypatch) -> None:
+    _stub_autonomy(monkeypatch, {"gmail_auto_reply": False})
+    out = agent_writes.gmail_auto_reply(
+        "c1",
+        thread_id="t1",
+        to="brand@example.com",
+        subject="Re: booking",
+        body="received, will review.",
+    )
+    assert out == {
+        "ok": False,
+        "reason": "autonomy_denied",
+        "action": "gmail_auto_reply",
+    }
+
+
+def test_gmail_auto_reply_unsafe_content_blocked(monkeypatch) -> None:
+    _stub_autonomy(monkeypatch, {"gmail_auto_reply": True})
+    monkeypatch.setattr(
+        agent_writes.oauth_connections,
+        "access_token_for_google",
+        lambda uid: "token",
+    )
+    sent = {}
+    monkeypatch.setattr(
+        agent_writes.google_gmail,
+        "send_message",
+        lambda *a, **kw: sent.update(called=True) or "should_not_send",
+    )
+    # Committal language must be caught by the classifier BEFORE the send call.
+    out = agent_writes.gmail_auto_reply(
+        "c1",
+        thread_id="t1",
+        to="brand@example.com",
+        subject="Re: booking",
+        body="i'll take that meeting friday.",
+    )
+    assert out["ok"] is False
+    assert out["reason"] == "unsafe_content"
+    assert sent == {}  # send was never called
+
+
+def test_gmail_auto_reply_no_token(monkeypatch) -> None:
+    _stub_autonomy(monkeypatch, {"gmail_auto_reply": True})
+    monkeypatch.setattr(
+        agent_writes.oauth_connections, "access_token_for_google", lambda uid: None
+    )
+    out = agent_writes.gmail_auto_reply(
+        "c1",
+        thread_id="t1",
+        to="brand@example.com",
+        subject="Re: booking",
+        body="received, will review.",
+    )
+    assert out == {"ok": False, "reason": "no_gmail_token"}
+
+
+def test_gmail_auto_reply_success(monkeypatch) -> None:
+    _stub_autonomy(monkeypatch, {"gmail_auto_reply": True})
+    monkeypatch.setattr(
+        agent_writes.oauth_connections,
+        "access_token_for_google",
+        lambda uid: "tok",
+    )
+    captured = {}
+
+    def _send(token, to, subject, body, thread_id):
+        captured.update(token=token, to=to, subject=subject, body=body, thread_id=thread_id)
+        return "gmail-msg-42"
+
+    monkeypatch.setattr(agent_writes.google_gmail, "send_message", _send)
+    out = agent_writes.gmail_auto_reply(
+        "c1",
+        thread_id="t1",
+        to="brand@example.com",
+        subject="Re: booking",
+        body="thanks, not a fit right now.",
+    )
+    assert out["ok"] is True
+    assert out["message_id"] == "gmail-msg-42"
+    assert captured["thread_id"] == "t1"
+
+
+def test_gmail_auto_reply_send_failure_returns_reason(monkeypatch) -> None:
+    _stub_autonomy(monkeypatch, {"gmail_auto_reply": True})
+    monkeypatch.setattr(
+        agent_writes.oauth_connections,
+        "access_token_for_google",
+        lambda uid: "tok",
+    )
+
+    def _boom(*a, **kw):
+        raise agent_writes.google_gmail.GmailError("gmail down")
+
+    monkeypatch.setattr(agent_writes.google_gmail, "send_message", _boom)
+    out = agent_writes.gmail_auto_reply(
+        "c1",
+        thread_id="t1",
+        to="brand@example.com",
+        subject="Re: booking",
+        body="received, will review.",
+    )
+    assert out["ok"] is False
+    assert out["reason"] == "gmail_send_failed"
+
+
+# ---- calendar_create_hold -------------------------------------------
+
+
+def test_calendar_create_hold_autonomy_denied(monkeypatch) -> None:
+    _stub_autonomy(monkeypatch, {"calendar_create_hold": False})
+    out = agent_writes.calendar_create_hold(
+        "c1",
+        title="hold: brand X call",
+        starts_at="2026-09-04T15:00:00Z",
+        ends_at="2026-09-04T15:30:00Z",
+    )
+    assert out == {
+        "ok": False,
+        "reason": "autonomy_denied",
+        "action": "calendar_create_hold",
+    }
+
+
+def test_calendar_create_hold_no_token(monkeypatch) -> None:
+    _stub_autonomy(monkeypatch, {"calendar_create_hold": True})
+    monkeypatch.setattr(
+        agent_writes.oauth_connections, "access_token_for_google", lambda uid: None
+    )
+    out = agent_writes.calendar_create_hold(
+        "c1",
+        title="hold: brand X call",
+        starts_at="2026-09-04T15:00:00Z",
+        ends_at="2026-09-04T15:30:00Z",
+    )
+    assert out == {"ok": False, "reason": "no_calendar_token"}
+
+
+def test_calendar_create_hold_success_uses_private_opaque(monkeypatch) -> None:
+    _stub_autonomy(monkeypatch, {"calendar_create_hold": True})
+    monkeypatch.setattr(
+        agent_writes.oauth_connections,
+        "access_token_for_google",
+        lambda uid: "tok",
+    )
+    captured = {}
+
+    def _insert(token, **kwargs):
+        captured.update(kwargs)
+        return "evt-1"
+
+    monkeypatch.setattr(agent_writes.google_calendar, "create_primary_event", _insert)
+    out = agent_writes.calendar_create_hold(
+        "c1",
+        title="hold: brand X call",
+        starts_at="2026-09-04T15:00:00Z",
+        ends_at="2026-09-04T15:30:00Z",
+        notes="brand X wants a wed 2pm chat",
+    )
+    assert out == {"ok": True, "event_id": "evt-1"}
+    # Load-bearing: the agent uses private+opaque so the hold is
+    # invisible to shared viewers but blocks time as busy.
+    assert captured["visibility"] == "private"
+    assert captured["transparency"] == "opaque"
+
+
+def test_calendar_create_hold_insert_failure(monkeypatch) -> None:
+    _stub_autonomy(monkeypatch, {"calendar_create_hold": True})
+    monkeypatch.setattr(
+        agent_writes.oauth_connections,
+        "access_token_for_google",
+        lambda uid: "tok",
+    )
+
+    def _boom(*a, **kw):
+        raise agent_writes.google_calendar.GoogleCalendarError("gcal 500")
+
+    monkeypatch.setattr(agent_writes.google_calendar, "create_primary_event", _boom)
+    out = agent_writes.calendar_create_hold(
+        "c1",
+        title="hold",
+        starts_at="2026-09-04T15:00:00Z",
+        ends_at="2026-09-04T15:30:00Z",
+    )
+    assert out["ok"] is False
+    assert out["reason"] == "calendar_insert_failed"

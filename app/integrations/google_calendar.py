@@ -246,12 +246,21 @@ def create_primary_event(
     ends_at: str | None = None,
     notes: str | None = None,
     location: str | None = None,
+    visibility: str | None = None,
+    transparency: str | None = None,
 ) -> str:
     """Create one Google Calendar event. Returns the Google event id.
 
     Must only be called by an approved action executor after explicit
     creator confirmation. This does not delete, update, invite guests,
     book restaurants, collect payment, or create paid reservations.
+
+    Optional visibility/transparency default to Google's own defaults
+    when omitted. The babyg agent uses
+    visibility='private' + transparency='opaque' for autonomous
+    holds — invisible to anyone else the creator shares their calendar
+    with, and busy-blocking so the creator's other tooling sees the
+    time reserved.
     """
     summary = " ".join(str(title or "").split())[:140]
     start = _clean_datetime(starts_at)
@@ -269,6 +278,10 @@ def create_primary_event(
         payload["description"] = description
     if venue:
         payload["location"] = venue
+    if visibility in ("default", "public", "private", "confidential"):
+        payload["visibility"] = visibility
+    if transparency in ("opaque", "transparent"):
+        payload["transparency"] = transparency
 
     headers = {
         "Authorization": f"Bearer {access_token}",

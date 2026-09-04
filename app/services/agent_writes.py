@@ -36,7 +36,16 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from app.core import supabase_client
-from app.services import agent_autonomy, agent_memory, babyg_deals, babyg_memory, bot
+from app.integrations import google_calendar, google_gmail
+from app.services import (
+    agent_autonomy,
+    agent_memory,
+    agent_safety,
+    babyg_deals,
+    babyg_memory,
+    bot,
+    oauth_connections,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -149,6 +158,124 @@ def mark_draft_stale(
     if not ok:
         return {"ok": False, "reason": "write_failed"}
     return {"ok": True, "draft_id": draft_id}
+
+
+def gmail_auto_reply(
+    user_id: str,
+    *,
+    thread_id: str,
+    to: str,
+    subject: str,
+    body: str,
+    profile: dict | None = None,
+) -> dict[str, Any]:
+    """Send one gmail reply autonomously. Requires GMAIL_AUTO_SEND
+    autonomy AND passes agent_safety.is_gmail_reply_safe.
+
+    Double-gated: autonomy setting says "allowed at all"; safety
+    classifier says "this specific message is boring enough to trust."
+    A creator with GMAIL_AUTO_SEND=True still gets refusals on any
+    reply that mentions money, urls, phone numbers, committal language,
+    or is missing a thread_id (no first-touch sends, ever).
+    """
+    if not agent_autonomy.agent_can(user_id, "gmail_auto_reply", profile=profile):
+        return {
+            "ok": False,
+            "reason": "autonomy_denied",
+            "action": "gmail_auto_reply",
+        }
+    safe, safety_reason = agent_safety.is_gmail_reply_safe(
+        thread_id=thread_id, subject=subject, body=body
+    )
+    if not safe:
+        return {"ok": False, "reason": "unsafe_content", "detail": safety_reason}
+    try:
+        token = oauth_connections.access_token_for_google(user_id)
+    except Exception:
+        logger.exception("agent_writes.gmail_auto_reply.token_failed user=%s", user_id)
+        return {"ok": False, "reason": "token_lookup_failed"}
+    if not token:
+        return {"ok": False, "reason": "no_gmail_token"}
+    try:
+        message_id = google_gmail.send_message(
+            token,
+            to=to,
+            subject=subject,
+            body=body,
+            thread_id=thread_id,
+        )
+    except google_gmail.GmailError as exc:
+        logger.warning(
+            "agent_writes.gmail_auto_reply.send_failed user=%s error=%s",
+            user_id,
+            exc,
+        )
+        return {"ok": False, "reason": "gmail_send_failed", "detail": str(exc)[:200]}
+    except Exception:
+        logger.exception("agent_writes.gmail_auto_reply.send_crashed user=%s", user_id)
+        return {"ok": False, "reason": "gmail_send_failed"}
+    return {
+        "ok": True,
+        "message_id": message_id,
+        "kind": agent_safety.classify_reply(body),
+    }
+
+
+def calendar_create_hold(
+    user_id: str,
+    *,
+    title: str,
+    starts_at: str,
+    ends_at: str,
+    notes: str | None = None,
+    profile: dict | None = None,
+) -> dict[str, Any]:
+    """Put a HOLD event on the creator's own google calendar. Requires
+    CALENDAR_HOLDS autonomy.
+
+    HOLD semantics: visibility=private (invisible to anyone the
+    creator shares their calendar with), transparency=opaque (blocks
+    time as busy so other tooling sees the reservation). Never invites
+    external attendees — that requires an explicit per-action tap.
+    """
+    if not agent_autonomy.agent_can(user_id, "calendar_create_hold", profile=profile):
+        return {
+            "ok": False,
+            "reason": "autonomy_denied",
+            "action": "calendar_create_hold",
+        }
+    try:
+        token = oauth_connections.access_token_for_google(user_id)
+    except Exception:
+        logger.exception(
+            "agent_writes.calendar_create_hold.token_failed user=%s", user_id
+        )
+        return {"ok": False, "reason": "token_lookup_failed"}
+    if not token:
+        return {"ok": False, "reason": "no_calendar_token"}
+    try:
+        event_id = google_calendar.create_primary_event(
+            token,
+            title=title,
+            starts_at=starts_at,
+            ends_at=ends_at,
+            notes=notes,
+            visibility="private",
+            transparency="opaque",
+        )
+    except google_calendar.GoogleCalendarError as exc:
+        logger.warning(
+            "agent_writes.calendar_create_hold.insert_failed user=%s error=%s",
+            user_id,
+            exc,
+        )
+        return {"ok": False, "reason": "calendar_insert_failed", "detail": str(exc)[:200]}
+    except Exception:
+        logger.exception(
+            "agent_writes.calendar_create_hold.crashed user=%s", user_id
+        )
+        return {"ok": False, "reason": "calendar_insert_failed"}
+    return {"ok": True, "event_id": event_id}
 
 
 def _count_recent_agent_nudges(

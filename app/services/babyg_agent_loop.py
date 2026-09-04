@@ -247,6 +247,48 @@ def _tool_definitions() -> list[dict[str, Any]]:
                 "required": ["draft_id"],
             },
         },
+        {
+            "name": "gmail_auto_reply",
+            "description": (
+                "Send a short reply into an EXISTING gmail thread on the "
+                "creator's behalf without waiting for approval. Only use "
+                "for obviously safe replies: acknowledging a booking, "
+                "politely declining an off-brand pitch, saying 'received, "
+                "will review'. Requires the GMAIL_AUTO_SEND autonomy setting; "
+                "the server also refuses unsafe patterns (money, urls, "
+                "phone numbers, committal language, first-touch sends)."
+            ),
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "thread_id": {"type": "string"},
+                    "to": {"type": "string"},
+                    "subject": {"type": "string"},
+                    "body": {"type": "string"},
+                },
+                "required": ["thread_id", "to", "subject", "body"],
+            },
+        },
+        {
+            "name": "calendar_create_hold",
+            "description": (
+                "Put a private HOLD on the creator's own google calendar to "
+                "reserve time for a proposed call or commitment. Never sends "
+                "invites to external attendees; the hold is invisible to "
+                "anyone the creator shares their calendar with. Requires the "
+                "CALENDAR_HOLDS autonomy setting."
+            ),
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "title": {"type": "string"},
+                    "starts_at": {"type": "string"},
+                    "ends_at": {"type": "string"},
+                    "notes": {"type": "string"},
+                },
+                "required": ["title", "starts_at", "ends_at"],
+            },
+        },
     ]
 
 
@@ -272,6 +314,22 @@ _TOOL_DISPATCH = {
     "mark_draft_stale": lambda user_id, args, profile: agent_writes.mark_draft_stale(
         user_id,
         str(args.get("draft_id") or ""),
+        profile=profile,
+    ),
+    "gmail_auto_reply": lambda user_id, args, profile: agent_writes.gmail_auto_reply(
+        user_id,
+        thread_id=str(args.get("thread_id") or "").strip(),
+        to=str(args.get("to") or "").strip(),
+        subject=str(args.get("subject") or "").strip(),
+        body=str(args.get("body") or "").strip(),
+        profile=profile,
+    ),
+    "calendar_create_hold": lambda user_id, args, profile: agent_writes.calendar_create_hold(
+        user_id,
+        title=str(args.get("title") or "").strip(),
+        starts_at=str(args.get("starts_at") or "").strip(),
+        ends_at=str(args.get("ends_at") or "").strip(),
+        notes=str(args.get("notes") or "").strip() or None,
         profile=profile,
     ),
 }
