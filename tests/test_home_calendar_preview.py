@@ -49,6 +49,9 @@ from app.services import (
 from app.services import (
     profiles as profiles_module,
 )
+from app.services import (
+    stats_merge as stats_merge_module,
+)
 
 
 @pytest.fixture()
@@ -80,6 +83,10 @@ def stub_dashboard(monkeypatch):
         "profile": _profile(),
         "bookings": [],
         "calendar_connected": False,
+        "performance_view": stats_merge_module.PerformanceView(
+            rows=[],
+            instagram_status=stats_merge_module.IG_STATUS_NOT_CONNECTED,
+        ),
     }
     monkeypatch.setattr(
         profiles_module, "get_creator_profile", lambda uid: state["profile"]
@@ -101,6 +108,11 @@ def stub_dashboard(monkeypatch):
     monkeypatch.setattr(
         oauth_module, "google_calendar_connected",
         lambda conn: bool(conn),
+    )
+    monkeypatch.setattr(
+        stats_merge_module,
+        "performance_view",
+        lambda uid, **kw: state["performance_view"],
     )
     return state
 
@@ -178,6 +190,65 @@ def test_home_renders_quiet_empty_state_when_connected_but_no_events(
     assert r.status_code == 200
     assert "nothing on the books" in r.text.lower()
     assert "connect calendar" not in r.text.lower()
+
+
+def test_home_renders_social_analytics_connect_state(
+    client: TestClient, stub_dashboard
+) -> None:
+    _signed_in(client)
+    r = client.get("/creator")
+    assert r.status_code == 200
+    assert "social analytics" in r.text
+    assert "connect instagram for live signals" in r.text.lower()
+    assert 'href="/creator/performance"' in r.text
+    assert "top post signal" not in r.text
+
+
+def test_home_renders_social_analytics_from_real_instagram_rows(
+    client: TestClient, stub_dashboard
+) -> None:
+    _signed_in(client)
+    stub_dashboard["performance_view"] = stats_merge_module.PerformanceView(
+        rows=[
+            stats_merge_module.StatsRow(
+                source=stats_merge_module.SOURCE_INSTAGRAM,
+                title="Empire Social Lounge",
+                timestamp="2026-06-20T12:00:00+0000",
+                permalink="https://www.instagram.com/p/one",
+                metrics={
+                    "likes": 88,
+                    "comments": 7,
+                    "reach": 1200,
+                    "engagement": 140,
+                    "saved": 19,
+                },
+                notes=None,
+            ),
+            stats_merge_module.StatsRow(
+                source=stats_merge_module.SOURCE_INSTAGRAM,
+                title="Swan dinner recap",
+                timestamp="2026-06-18T12:00:00+0000",
+                permalink="https://www.instagram.com/p/two",
+                metrics={
+                    "likes": 40,
+                    "comments": 3,
+                    "reach": 500,
+                    "engagement": 62,
+                    "saved": 8,
+                },
+                notes=None,
+            ),
+        ],
+        instagram_status=stats_merge_module.IG_STATUS_OK,
+    )
+    r = client.get("/creator")
+    assert r.status_code == 200
+    assert "live instagram" in r.text
+    assert "top post signal" in r.text
+    assert "Empire Social Lounge" in r.text
+    assert "1.7k" in r.text
+    assert "saves" in r.text
+    assert "comments" in r.text
 
 
 def test_home_caps_upcoming_preview_to_three_items(

@@ -390,6 +390,32 @@ def test_creator_home_shortcuts_fit_mobile_labels() -> None:
     assert "<span>my connections</span>" in DASHBOARD_TEMPLATE
 
 
+def test_creator_home_social_analytics_card_is_mobile_safe() -> None:
+    card_rule = APP_CSS.split(
+        ".is-creator-app .creator-social-card {", 1
+    )[1].split("}", 1)[0]
+    head_rule = APP_CSS.split(
+        ".is-creator-app .creator-social-card-head {", 1
+    )[1].split("}", 1)[0]
+    tabs_rule = APP_CSS.split(
+        ".is-creator-app .creator-social-tabs {", 1
+    )[1].split("}", 1)[0]
+    main_rule = APP_CSS.split(
+        ".is-creator-app .creator-social-main {", 1
+    )[1].split("}", 1)[0]
+    metrics_rule = APP_CSS.split(
+        ".is-creator-app .creator-social-metrics {", 1
+    )[1].split("}", 1)[0]
+
+    assert "min-width: 0" in card_rule
+    assert "grid-template-columns: minmax(0, 1fr) auto" in head_rule
+    assert "grid-template-columns: repeat(3, minmax(0, 1fr))" in tabs_rule
+    assert "minmax(92px, .82fr) minmax(0, 1fr)" in main_rule
+    assert "grid-template-columns: repeat(3, minmax(0, 1fr))" in metrics_rule
+    assert "creator-social-card" in DASHBOARD_TEMPLATE
+    assert "social_analytics.has_data" in DASHBOARD_TEMPLATE
+
+
 def test_hidden_brand_topbar_does_not_reserve_mobile_space() -> None:
     assert ".is-brand-shell .brand-main" in APP_CSS
     assert "padding-top: max(18px, env(safe-area-inset-top, 0px))" in APP_CSS
