@@ -146,7 +146,7 @@ async def dashboard(
     category: str | None = Query(None),
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
-    profile = profiles.get_creator_profile(session["user_id"]) or {}
+    profile = profiles.get_creator_profile_cached(session["user_id"], request) or {}
     if not profile.get("onboarding_completed_at"):
         return RedirectResponse("/onboarding/creator", status_code=302)
 
@@ -284,7 +284,7 @@ async def bot_chat(
     request: Request,
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
-    profile = profiles.get_creator_profile(session["user_id"]) or {}
+    profile = profiles.get_creator_profile_cached(session["user_id"], request) or {}
     if not profile.get("onboarding_completed_at"):
         return RedirectResponse("/onboarding/creator", status_code=302)
 
@@ -398,7 +398,7 @@ async def bot_send(
     user_tz: str | None = Form(default=None),
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
-    profile = profiles.get_creator_profile(session["user_id"]) or {}
+    profile = profiles.get_creator_profile_cached(session["user_id"], request) or {}
     if not profile.get("onboarding_completed_at"):
         return RedirectResponse("/onboarding/creator", status_code=302)
 
@@ -469,7 +469,7 @@ async def profile_page(
     request: Request,
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
-    raw_profile = profiles.get_creator_profile(session["user_id"]) or {}
+    raw_profile = profiles.get_creator_profile_cached(session["user_id"], request) or {}
     if not raw_profile.get("onboarding_completed_at"):
         return RedirectResponse("/onboarding/creator", status_code=302)
     profile = {
@@ -499,7 +499,7 @@ async def profile_chips_update(
     request: Request,
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
-    profile = profiles.get_creator_profile(session["user_id"]) or {}
+    profile = profiles.get_creator_profile_cached(session["user_id"], request) or {}
     if not profile.get("onboarding_completed_at"):
         return RedirectResponse("/onboarding/creator", status_code=302)
 
@@ -541,7 +541,7 @@ async def profile_location_update(
     request: Request,
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
-    profile = profiles.get_creator_profile(session["user_id"]) or {}
+    profile = profiles.get_creator_profile_cached(session["user_id"], request) or {}
     if not profile.get("onboarding_completed_at"):
         return RedirectResponse("/onboarding/creator", status_code=302)
 
@@ -693,7 +693,7 @@ async def profile_settings_page(
     request: Request,
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
-    raw_profile = profiles.get_creator_profile(session["user_id"]) or {}
+    raw_profile = profiles.get_creator_profile_cached(session["user_id"], request) or {}
     if not raw_profile.get("onboarding_completed_at"):
         return RedirectResponse("/onboarding/creator", status_code=302)
     profile = {**raw_profile, "location_label": profiles.safe_location_label(raw_profile)}
@@ -861,7 +861,7 @@ async def profile_photo_upload(
             "/creator/profile?photo=storage_failed", status_code=303
         )
 
-    current_profile = profiles.get_creator_profile(session["user_id"]) or {}
+    current_profile = profiles.get_creator_profile_cached(session["user_id"], request) or {}
     old_url = current_profile.get("profile_photo_url")
     if not profiles.update_creator_profile(
         session["user_id"], {"profile_photo_url": url}
@@ -883,7 +883,7 @@ async def profile_photo_delete(
 ) -> Response:
     # Clear the DB column first (source of truth for "no photo"), then
     # best-effort remove the storage object.
-    current_profile = profiles.get_creator_profile(session["user_id"]) or {}
+    current_profile = profiles.get_creator_profile_cached(session["user_id"], request) or {}
     profiles.update_creator_profile(
         session["user_id"], {"profile_photo_url": None}
     )
@@ -1057,12 +1057,18 @@ async def dm_thread(
     )
     dms.mark_thread_read_for(str(thread["id"]), reader_id=session["user_id"])
 
-    # Private babyg brief for the latest INCOMING message (best-effort:
-    # auto-generates only for "serious" messages, never blocks the render,
-    # and stays invisible to the other party). Manual refresh lives at
-    # POST /creator/dm/{peer}/brief ("ask babyg").
+    # Private babyg brief for the latest INCOMING message. GET only reads
+    # what the background sweep (bot_jobs.sweep_dm_briefs, every 5 min)
+    # has already produced — no synchronous Claude call on the render
+    # path (which cost 2-8s p99 on a fresh thread). The manual "ask
+    # babyg" tap at POST /creator/dm/{peer}/brief still generates on
+    # demand.
     brief, brief_message_id = _latest_incoming_brief(
-        thread=thread, messages=messages, me_id=session["user_id"], peer=peer
+        thread=thread,
+        messages=messages,
+        me_id=session["user_id"],
+        peer=peer,
+        generate=False,
     )
     return templates.TemplateResponse(
         request,
@@ -1081,17 +1087,33 @@ async def dm_thread(
 
 
 def _latest_incoming_brief(
-    *, thread: dict, messages: list[dict], me_id: str, peer: dict, force: bool = False
+    *,
+    thread: dict,
+    messages: list[dict],
+    me_id: str,
+    peer: dict,
+    force: bool = False,
+    generate: bool = True,
 ) -> tuple[dict | None, str | None]:
     """Return (brief, message_id) for the most recent message the peer
     sent (incoming to me). Best-effort; auto-generation is gated to
     serious messages inside the service. Returns (None, msg_id) when
-    there's an incoming message but no brief yet."""
+    there's an incoming message but no brief yet.
+
+    ``generate=False`` — read-only lookup, never call the model. Used
+    by the DM GET path so the render is never blocked on a Claude call;
+    the background sweep is the only auto-generation site now."""
     incoming = [m for m in messages if str(m.get("sender_id")) != me_id]
     if not incoming:
         return None, None
     latest = incoming[-1]
     message_id = str(latest.get("id") or "")
+    if not generate:
+        try:
+            brief = dm_briefs.get_brief_for_message(message_id, recipient_id=me_id)
+        except Exception:
+            brief = None
+        return brief, (message_id or None)
     sender_public = profiles.public_creator(peer) or {}
     me_full = profiles.get_creator_profile(me_id)
     recipient_public = profiles.public_creator(me_full) or {}
@@ -1769,7 +1791,7 @@ async def views_list(
     request: Request,
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
-    profile = profiles.get_creator_profile(session["user_id"]) or {}
+    profile = profiles.get_creator_profile_cached(session["user_id"], request) or {}
     if not profile.get("onboarding_completed_at"):
         return RedirectResponse("/onboarding/creator", status_code=302)
 

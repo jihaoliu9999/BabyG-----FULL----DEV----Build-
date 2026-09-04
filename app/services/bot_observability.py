@@ -27,10 +27,13 @@ best-effort.
 
 from __future__ import annotations
 
+import atexit
 import hashlib
 import json
 import logging
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
@@ -38,6 +41,51 @@ from app.core import supabase_client
 from app.core.uuid_guard import safe_uuid
 
 logger = logging.getLogger(__name__)
+
+# The bot_turns insert on each turn costs ~30-80ms of supabase latency
+# on the hot path. Move it onto a small worker pool so `finish()` returns
+# immediately; the turn returns to the user without waiting on the write.
+# Observability is best-effort so a dropped write on shutdown is fine.
+_WRITE_POOL_SIZE = 2
+_executor: ThreadPoolExecutor | None = None
+_executor_lock = threading.Lock()
+_pending: set = set()
+_pending_lock = threading.Lock()
+
+
+def _get_executor() -> ThreadPoolExecutor:
+    global _executor
+    if _executor is None:
+        with _executor_lock:
+            if _executor is None:
+                _executor = ThreadPoolExecutor(
+                    max_workers=_WRITE_POOL_SIZE,
+                    thread_name_prefix="bot_obs",
+                )
+                atexit.register(_shutdown_executor)
+    return _executor
+
+
+def _shutdown_executor() -> None:
+    global _executor
+    if _executor is not None:
+        _executor.shutdown(wait=True, cancel_futures=False)
+        _executor = None
+
+
+def _flush_pending_writes(timeout: float | None = 2.0) -> None:
+    """Block until all queued bot_turns inserts have completed.
+
+    Not part of the request path — used by tests and process shutdown.
+    Returns silently if nothing is pending.
+    """
+    import contextlib
+
+    with _pending_lock:
+        futures = list(_pending)
+    for fut in futures:
+        with contextlib.suppress(Exception):
+            fut.result(timeout=timeout)
 
 ResponseType = Literal["text", "refusal", "pending_action", "error"]
 Role = Literal["creator", "brand", "operator"]
@@ -174,7 +222,7 @@ class TurnRecorder:
             "error_message": (error_message or None) if error_message else None,
             "feature_flags_snapshot": self.feature_flags_snapshot,
         }
-        _safe_insert(payload)
+        _enqueue_insert(payload)
 
 
 # ---- helpers --------------------------------------------------------------
@@ -208,6 +256,30 @@ def _safe_insert(payload: dict[str, Any]) -> None:
         # failure. Log at info so it lands in Railway logs but does not
         # look like a real error.
         logger.info("bot_observability.write_failed", exc_info=True)
+
+
+def _enqueue_insert(payload: dict[str, Any]) -> None:
+    """Submit the insert to the shared executor. Fire-and-forget: a
+    submit failure or a dead executor falls back to the synchronous
+    write so a shutting-down process still records what it can."""
+    try:
+        executor = _get_executor()
+        future = executor.submit(_safe_insert, payload)
+    except RuntimeError:
+        _safe_insert(payload)
+        return
+    except Exception:
+        logger.info("bot_observability.enqueue_failed", exc_info=True)
+        _safe_insert(payload)
+        return
+    with _pending_lock:
+        _pending.add(future)
+    future.add_done_callback(_drop_pending)
+
+
+def _drop_pending(future) -> None:
+    with _pending_lock:
+        _pending.discard(future)
 
 
 def spend_this_month(creator_id: str) -> dict[str, Any]:

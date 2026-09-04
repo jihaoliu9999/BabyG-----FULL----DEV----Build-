@@ -121,16 +121,23 @@ def _unread_dms(user_id: str) -> dict[str, Any]:
     peer_name: str | None = None
     try:
         threads = dms.list_threads_for_user(user_id) or []
-        for thread in threads:
-            peer_id = thread.get("peer_id")
-            if not peer_id:
+        peer_ids = [
+            str(t.get("peer_id")) for t in threads if t.get("peer_id")
+        ]
+        # One .in_() over all peers instead of N per-thread reads. We
+        # only need `full_name` from the public projection to pick copy
+        # for the awareness chip.
+        peers_by_id = (
+            profiles.get_creators_by_ids(peer_ids) if peer_ids else {}
+        )
+        for pid in peer_ids:
+            peer = peers_by_id.get(pid)
+            if not peer:
                 continue
-            peer = profiles.get_creator_profile(peer_id)
-            if peer:
-                name = (peer.get("full_name") or "").strip()
-                if name:
-                    peer_name = name
-                    break
+            name = (peer.get("full_name") or "").strip()
+            if name:
+                peer_name = name
+                break
     except Exception:
         peer_name = None
     return {"count": int(count or 0), "latest_peer_name": peer_name}
@@ -147,21 +154,30 @@ def _recent_connection_accepted(user_id: str) -> dict[str, Any] | None:
     except Exception:
         return None
     horizon = datetime.now(UTC) - timedelta(hours=72)
+    # Batch-fetch every candidate peer up-front so a run of stale rows
+    # doesn't trigger N per-row supabase reads on the way to the first
+    # eligible one.
+    candidates: list[tuple[dict, str]] = []
     for row in accepted[:5]:
         accepted_at = _parse_iso(row.get("accepted_at") or row.get("updated_at"))
         if accepted_at is None or accepted_at < horizon:
             continue
-        # The requester in the pair is us; the addressee is the peer who
-        # just accepted. Fall back to whichever id isn't ours.
         peer_id = row.get("addressee_id") if row.get("requester_id") == user_id else (
             row.get("requester_id") if row.get("addressee_id") == user_id else None
         )
         if not peer_id:
             continue
-        try:
-            peer = profiles.get_creator_profile(peer_id)
-        except Exception:
-            peer = None
+        candidates.append((row, str(peer_id)))
+    if not candidates:
+        return None
+    try:
+        peers_by_id = profiles.get_creators_by_ids(
+            [pid for _, pid in candidates]
+        )
+    except Exception:
+        peers_by_id = {}
+    for _row, peer_id in candidates:
+        peer = peers_by_id.get(peer_id)
         if not peer:
             continue
         return {
@@ -182,14 +198,17 @@ def _recent_incoming_connection(user_id: str) -> dict[str, Any] | None:
         incoming = network.list_incoming_pending(user_id) or []
     except Exception:
         return None
-    for row in incoming[:3]:
-        peer_id = row.get("requester_id")
-        if not peer_id:
-            continue
-        try:
-            peer = profiles.get_creator_profile(peer_id)
-        except Exception:
-            peer = None
+    peer_ids = [
+        str(row.get("requester_id")) for row in incoming[:3] if row.get("requester_id")
+    ]
+    if not peer_ids:
+        return None
+    try:
+        peers_by_id = profiles.get_creators_by_ids(peer_ids)
+    except Exception:
+        peers_by_id = {}
+    for peer_id in peer_ids:
+        peer = peers_by_id.get(peer_id)
         if not peer:
             continue
         return {

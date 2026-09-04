@@ -159,6 +159,12 @@ def test_bot_page_prompt_chips_pull_real_user_context(
         return {}
 
     monkeypatch.setattr(creator_routes.profiles, "get_creator_profile", _profile_lookup)
+    # Awareness snapshot batches peer name lookups via get_creators_by_ids.
+    monkeypatch.setattr(
+        creator_routes.profiles,
+        "get_creators_by_ids",
+        lambda ids: {uid: _profile_lookup(uid) for uid in ids},
+    )
     monkeypatch.setattr(creator_routes.bot, "list_messages", lambda uid: [])
     monkeypatch.setattr(creator_routes.dms, "unread_count_for_user", lambda uid: 3)
     monkeypatch.setattr(
@@ -3873,6 +3879,9 @@ def test_bot_observability_recorder_finish_idempotent(monkeypatch) -> None:
     )
     recorder.finish(response_type="text")
     recorder.finish(response_type="text")
+    # Writes now happen on a background worker (patch 3A). Wait for the
+    # single enqueued write to land before asserting.
+    bot_observability._flush_pending_writes(timeout=2.0)
     assert len(calls) == 1
 
 
