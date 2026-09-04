@@ -432,7 +432,10 @@ def test_profile_deals_update_saves_all_three_fields(
     )
 
     assert response.status_code == 303
-    assert response.headers["location"] == "/creator/profile?deals=ok"
+    assert (
+        response.headers["location"]
+        == "/creator/profile/settings?deals=ok#deal-preferences"
+    )
     # Whitespace is normalized + the row stores the squeezed form.
     assert saved["deal_min_rate_text"] == "$2.5k organic"
     assert saved["deal_usage_rights_default"] == "paid_with_usage"
@@ -554,6 +557,10 @@ def test_settings_page_renders_deals_section_with_existing_values(
     assert response.status_code == 200
     assert "deal preferences" in response.text.lower()
     assert 'action="/creator/profile/deals"' in response.text
+    assert (
+        '<details class="settings-group settings-card settings-disclosure '
+        'profile-deals" id="deal-preferences"'
+    ) in response.text
     assert 'value="$2.5k organic"' in response.text
     assert '<option value="paid_with_usage" selected' in response.text
     assert '<option value="regional"  selected' in response.text \
@@ -905,11 +912,60 @@ def test_creator_profile_settings_page_renders(monkeypatch, client: TestClient) 
     assert "not configured" in response.text
     assert 'action="/creator/profile/deals"' in response.text
     assert 'id="deal-preferences"' in response.text
+    assert (
+        '<details class="settings-group settings-card settings-disclosure '
+        'settings-danger" id="delete-account"'
+    ) in response.text
     assert "account controls" not in response.text
     # Sign-in disclosure sits between assistant and delete-account
     # and carries the sign-out form inside its body.
     assert 'id="sign-in"' in response.text
     assert 'action="/auth/logout"' in response.text
+
+
+def test_creator_profile_delete_confirm_reopens_delete_card(
+    monkeypatch, client: TestClient
+) -> None:
+    _signed_in(client, role="creator")
+    monkeypatch.setattr(creator_routes.profiles, "get_creator_profile", lambda uid: _profile())
+    monkeypatch.setattr(
+        creator_routes.oauth_connections,
+        "get_google_connection",
+        lambda uid: None,
+    )
+    monkeypatch.setattr(creator_routes.google_calendar, "is_configured", lambda: False)
+
+    response = client.get("/creator/profile/settings?delete=confirm")
+
+    assert response.status_code == 200
+    assert (
+        '<details class="settings-group settings-card settings-disclosure '
+        'settings-danger" id="delete-account" open>'
+    ) in response.text
+    assert "type <strong>delete</strong> in the box below to confirm." in response.text
+
+
+def test_creator_profile_delete_invalid_redirects_to_delete_card(
+    monkeypatch, client: TestClient
+) -> None:
+    _signed_in(client, role="creator")
+
+    def _fail_delete(user_id: str) -> None:
+        raise AssertionError("invalid confirmation must not delete the account")
+
+    monkeypatch.setattr(creator_routes.profiles, "delete_account", _fail_delete)
+
+    response = client.post(
+        "/creator/profile/delete",
+        data={"confirm": "nope"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert (
+        response.headers["location"]
+        == "/creator/profile/settings?delete=confirm#delete-account"
+    )
 
 
 def test_creator_profile_settings_google_states_are_scope_aware(

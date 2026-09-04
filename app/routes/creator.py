@@ -602,8 +602,13 @@ async def profile_deals_update(
     elif travel == "":
         payload["deal_travel_willingness"] = None
     if not profiles.update_creator_profile(session["user_id"], payload):
-        return RedirectResponse("/creator/profile?deals=save_failed", status_code=303)
-    return RedirectResponse("/creator/profile?deals=ok", status_code=303)
+        return RedirectResponse(
+            "/creator/profile/settings?deals=save_failed#deal-preferences",
+            status_code=303,
+        )
+    return RedirectResponse(
+        "/creator/profile/settings?deals=ok#deal-preferences", status_code=303
+    )
 
 
 @router.post("/creator/profile/privacy")
@@ -2476,7 +2481,8 @@ async def profile_delete(
     """
     if (confirm or "").strip().lower() != "delete":
         return RedirectResponse(
-            "/creator/profile/settings?delete=confirm", status_code=303
+            "/creator/profile/settings?delete=confirm#delete-account",
+            status_code=303,
         )
     profiles.delete_account(session["user_id"])
     response = RedirectResponse("/?deleted=1", status_code=303)
