@@ -145,7 +145,11 @@ def test_bot_composer_uses_single_visible_textbox() -> None:
     assert "border-radius: 16px" in textarea_rule
     assert "font-size: 16px" in textarea_rule
     assert "min-width: 0" in textarea_rule
-    assert "min-height: 48px" in textarea_rule
+    # Was 48px until the "chips + composer take up too much space on
+    # mobile" pass. The composer textarea + wrapping .box both shrunk
+    # to 40px to reclaim ~16px of vertical real estate on phone width;
+    # still well above the 16px iOS-zoom-trigger floor for the font.
+    assert "min-height: 40px" in textarea_rule
     assert "width: 48px" in send_rule
     assert "height: 48px" in send_rule
     assert "flex: 0 0 48px" in send_rule
@@ -633,7 +637,11 @@ def test_mobile_secondary_actions_are_tap_friendly() -> None:
 
     assert "min-height: 40px" in dm_inbox_chip_rule
     assert "min-height: 40px" in dm_thread_chip_rule
-    assert "min-height: 44px" in bot_chip_rule
+    # bot-prompt-chip was 44px; shrunk to 40px so the whole chip strip
+    # stops eating vertical space above the composer on mobile.
+    # (Mobile media queries shrink further to 34px / 32px — this rule
+    # is the desktop/base value.)
+    assert "min-height: 40px" in bot_chip_rule
     assert "width: 44px" in thread_back_rule
     assert "height: 44px" in thread_back_rule
     assert "min-height: 44px" in conn_button_rule
