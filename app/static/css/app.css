@@ -9734,6 +9734,25 @@ hr.hairline {
   border: 1px solid rgba(255, 77, 109, 0.28);
   background: rgba(255, 77, 109, 0.04);
 }
+.is-creator-app .settings-clean-shell .settings-card.settings-disclosure.settings-danger {
+  border-color: rgba(255, 77, 109, 0.28);
+  background:
+    radial-gradient(circle at 12% 0%, rgba(255,77,109,.10), transparent 34%),
+    rgba(17,17,17,.82);
+}
+.settings-danger .settings-disclosure-title {
+  color: var(--lime, #ff4d6d);
+}
+.settings-danger .settings-disclosure-body {
+  border-top-color: rgba(255, 77, 109, 0.20);
+}
+.settings-danger-copy {
+  margin: 0;
+  padding-top: 18px;
+  color: var(--text-secondary, #8a8a8a);
+  font-size: 13px;
+  line-height: 1.55;
+}
 .settings-danger .settings-header h2 {
   color: var(--lime, #ff4d6d);
 }
