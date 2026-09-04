@@ -9,6 +9,7 @@ in the full design but were removed when brand was deferred to v1.5
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 from datetime import date, datetime, timedelta
@@ -107,6 +108,24 @@ PROFILE_CHIP_OPTIONS = {
 PROFILE_PLATFORM_OPTIONS = ["Instagram", "TikTok"]
 
 
+async def _safe_call(fn, *args, _default=None, **kwargs):
+    """Run a sync service call on the shared threadpool and return
+    ``_default`` if it raises.
+
+    Every fan-out slot in the dashboard route used to be wrapped in a
+    per-call try/except that fell back to an empty list/dict/None.
+    Consolidating that here lets asyncio.gather run the whole batch
+    concurrently — a single flaky call still degrades gracefully, and
+    a batch of independent supabase reads finishes in the time of the
+    slowest one instead of the sum.
+    """
+    try:
+        return await asyncio.to_thread(fn, *args, **kwargs)
+    except Exception:
+        logger.exception("creator._safe_call.failed fn=%s", getattr(fn, "__name__", fn))
+        return _default
+
+
 def _calendar_preview_days(today: date | None = None) -> list[dict[str, Any]]:
     """Return the real five-day strip used by Creator Home."""
     start = today or date.today()
@@ -130,10 +149,61 @@ async def dashboard(
     if not profile.get("onboarding_completed_at"):
         return RedirectResponse("/onboarding/creator", status_code=302)
 
-    posts = intel.feed_for_creator(
-        niches=profile.get("niches") or [],
-        tier=profile.get("tier") or "basic",
-        category=category if category in intel.CATEGORIES else None,
+    # Every service call below hits supabase serially = 8-10 sequential
+    # round-trips = ~1-2s of dashboard latency on a warm container.
+    # Running them concurrently on the shared threadpool cuts that to
+    # ~one round-trip time (whichever is slowest). Every branch keeps
+    # its own try/except behavior via _safe_call so a flaky call still
+    # degrades to the same empty default, not a 500.
+    viewer_location_label = ", ".join(
+        p for p in (profile.get("location_city"), profile.get("location_region")) if p
+    ) or None
+    user_id = session["user_id"]
+
+    (
+        posts,
+        unread_notifs_all,
+        pending_connections,
+        upcoming_bookings,
+        google_connection,
+        matched_picks,
+        pending_actions_all,
+        unread_dm_n,
+    ) = await asyncio.gather(
+        _safe_call(
+            intel.feed_for_creator,
+            niches=profile.get("niches") or [],
+            tier=profile.get("tier") or "basic",
+            category=category if category in intel.CATEGORIES else None,
+            _default=[],
+        ),
+        _safe_call(notifications.list_unread, user_id, limit=8, _default=[]),
+        _safe_call(network.list_incoming_pending, user_id, _default=[]),
+        _safe_call(
+            bookings.list_for_user, user_id, horizon="upcoming", limit=4,
+            _default=[],
+        ),
+        _safe_call(oauth_connections.get_google_connection, user_id, _default=None),
+        _safe_call(
+            discover.list_cards,
+            viewer_id=user_id,
+            viewer_role="creator",
+            kind="all",
+            viewer_tags=list(profile.get("niches") or []),
+            viewer_location_label=viewer_location_label,
+            viewer_platform=profile.get("primary_platform"),
+            limit=3,
+            _default=[],
+        ),
+        # Bump the limit to 50 so a single fetch feeds both the "needs you"
+        # rail (first 6) and the pending_action_count template global (all
+        # non-expired). Stashing on request.state below lets the tabbar
+        # skip a second supabase call.
+        _safe_call(action_proposals.list_pending_for_user, user_id=user_id, limit=50, _default=[]),
+        # Pre-fetch the unread DM count too so the tabbar's
+        # unread_dm_count(request) global picks up the cached value
+        # instead of firing its own supabase query at render time.
+        _safe_call(dms.unread_count_for_user, user_id, _default=0),
     )
 
     # "needs you" surfaces non-DM notifications only. DM alerts get their
@@ -141,67 +211,25 @@ async def dashboard(
     # spammy and let a user tap into a thread from home instead of the
     # dedicated inbox. We keep the raw counts for the greeting summary
     # (so "3 things need you today" stays honest).
-    unread_notifs_all = notifications.list_unread(session["user_id"], limit=8)
     unread_notifs = [n for n in unread_notifs_all if n.get("kind") != "new_dm"]
     non_dm_unread_total = len(unread_notifs)
 
-    # Pending inbound connection requests power the accept/decline chips
-    # on the top rows — clearest "waiting on you" action after DMs.
-    try:
-        pending_connections = network.list_incoming_pending(session["user_id"])
-    except Exception:
-        pending_connections = []
+    calendar_connected = oauth_connections.google_calendar_connected(google_connection)
 
-    # Home becomes the daily command center: include a compact calendar
-    # preview so creators don't have to leave Home to see what's next.
-    # Each helper degrades to an empty/false default so a flaky Supabase
-    # or unconnected Google Calendar doesn't blank the dashboard.
+    # Prime the request-scoped cache the tabbar template globals read so
+    # they don't fire their own supabase calls. Both globals check
+    # request.state.__dict__ for a real int before falling through.
+    pending_action_count_int = len(pending_actions_all)
     try:
-        upcoming_bookings = bookings.list_for_user(
-            session["user_id"], horizon="upcoming", limit=4
-        )
+        request.state.pending_action_count = pending_action_count_int
+        request.state.unread_dm_count = int(unread_dm_n or 0)
     except Exception:
-        upcoming_bookings = []
-    try:
-        google_connection = oauth_connections.get_google_connection(
-            session["user_id"]
-        )
-        calendar_connected = oauth_connections.google_calendar_connected(
-            google_connection
-        )
-    except Exception:
-        calendar_connected = False
+        # Never fail a dashboard render because the cache-prime raised.
+        pass
 
-    # Matched picks — the babyg-curated discover feed, top 3 for home.
-    # Whatever the discover service already filters/prioritizes for this
-    # viewer flows through unchanged; this is just a smaller slice.
-    viewer_location_label = ", ".join(
-        p for p in (profile.get("location_city"), profile.get("location_region")) if p
-    ) or None
-    try:
-        matched_picks = discover.list_cards(
-            viewer_id=session["user_id"],
-            viewer_role="creator",
-            kind="all",
-            viewer_tags=list(profile.get("niches") or []),
-            viewer_location_label=viewer_location_label,
-            viewer_platform=profile.get("primary_platform"),
-            limit=3,
-        )
-    except Exception:
-        matched_picks = []
-
-    # Pending babyg-staged actions (gmail drafts, calendar events, dms
-    # queued by a sweep or a bot turn). Confirmation still happens in
-    # /creator/bot so each row on home is a link back to the thread —
-    # never a direct approve button, because approval writes to an
-    # external provider and we want the same audit trail every time.
-    try:
-        pending_actions = action_proposals.list_pending_for_user(
-            user_id=session["user_id"], limit=6
-        )
-    except Exception:
-        pending_actions = []
+    # Home rail shows the first 6 pending actions; the tab badge uses
+    # the full count.
+    pending_actions = pending_actions_all[:6]
 
     # "N things need you today" summary count: connections + confirm
     # bookings + non-DM notifications + pending action proposals. DMs
@@ -211,11 +239,11 @@ async def dashboard(
         len(pending_connections)
         + (1 if upcoming_bookings else 0)
         + non_dm_unread_total
-        + len(pending_actions)
+        + pending_action_count_int
     )
 
     first_name = (profile.get("full_name") or "creator").split(" ")[0].lower()
-    daily_greeting = greetings.pick_daily(session["user_id"], first_name)
+    daily_greeting = greetings.pick_daily(user_id, first_name)
     profile_initial = (
         (profile.get("full_name") or profile.get("instagram_handle") or "c")[:1].upper()
     )
