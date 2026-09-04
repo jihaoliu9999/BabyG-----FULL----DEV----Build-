@@ -211,7 +211,11 @@ def test_warns_on_drift_but_does_not_raise_by_default(
     _stub_local(monkeypatch, ["0001_init", "0002_missing"])
 
     with caplog.at_level("WARNING", logger="app.core.migration_check"):
-        mc.assert_migrations_applied(_StubSettings(env="production"))
+        thread = mc.assert_migrations_applied(_StubSettings(env="production"))
+        # Non-strict mode runs on a daemon thread now; wait for the
+        # log to actually land before asserting on caplog.
+        if thread is not None:
+            thread.join(timeout=5)
 
     warnings = [
         r.getMessage() for r in caplog.records if r.levelname == "WARNING"
@@ -264,7 +268,9 @@ def test_registry_extras_are_logged_at_info_not_warning(
     _stub_local(monkeypatch, ["0001_init"])
 
     with caplog.at_level("INFO", logger="app.core.migration_check"):
-        mc.assert_migrations_applied(_StubSettings(env="production"))
+        thread = mc.assert_migrations_applied(_StubSettings(env="production"))
+        if thread is not None:
+            thread.join(timeout=5)
 
     info_msgs = [r.getMessage() for r in caplog.records if r.levelname == "INFO"]
     assert any("one-off repairs" in m for m in info_msgs)

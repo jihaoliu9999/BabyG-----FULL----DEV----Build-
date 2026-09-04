@@ -133,17 +133,48 @@ def check_migration_drift(
     )
 
 
-def assert_migrations_applied(settings) -> None:
+def assert_migrations_applied(settings):
     """Boot-time guard. Mirrors the ``_assert_session_secret`` /
     ``_assert_app_url`` pattern in ``app/main.py``.
 
     Skips entirely in ``env=dev`` because contributors run without a
-    Supabase service-role key. In every other env it surfaces drift —
-    WARN by default, hard fail when ``settings.strict_migration_check``
-    is true.
+    Supabase service-role key. Returns ``None`` in that case.
+
+    In strict mode (``settings.strict_migration_check`` truthy), runs
+    inline and blocks boot — that's what "strict" means; a mis-deploy
+    should never start serving requests. Returns ``None``.
+
+    In non-strict mode (the default in production too), fires the RPC
+    on a background thread so container boot never waits on Supabase.
+    The check still logs WARN if drift is found — an operator watching
+    the deploy log sees the same signal, just a few hundred ms after
+    the app started accepting requests instead of during boot. Returns
+    the ``threading.Thread`` so tests / debug callers can join it.
     """
     if settings.env == "dev":
-        return
+        return None
+    if settings.strict_migration_check:
+        _run_and_report(settings)
+        return None
+    # Non-strict: fire-and-forget on a daemon thread so we don't couple
+    # container boot to Supabase reachability. Daemon so the process
+    # can still exit cleanly if the RPC never returns.
+    import threading
+
+    thread = threading.Thread(
+        target=_run_and_report,
+        args=(settings,),
+        name="migration-check",
+        daemon=True,
+    )
+    thread.start()
+    return thread
+
+
+def _run_and_report(settings) -> None:
+    """The actual drift check + log/raise dance. Extracted so the
+    strict path can call it inline and the non-strict path can run
+    it on a background thread."""
     result = check_migration_drift()
     if not result.available:
         logger.info(
