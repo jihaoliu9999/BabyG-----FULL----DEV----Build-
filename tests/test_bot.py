@@ -3879,6 +3879,9 @@ def test_bot_observability_recorder_finish_idempotent(monkeypatch) -> None:
     )
     recorder.finish(response_type="text")
     recorder.finish(response_type="text")
+    # Writes now happen on a background worker (patch 3A). Wait for the
+    # single enqueued write to land before asserting.
+    bot_observability._flush_pending_writes(timeout=2.0)
     assert len(calls) == 1
 
 
