@@ -98,12 +98,18 @@ def test_bot_page_renders_history(monkeypatch, client: TestClient) -> None:
     assert '/static/js/bot.js' in response.text
     assert "Need a caption" in response.text
     assert "Drafting it." in response.text
-    # Composer v2: evergreens only fire on a genuine cold open. This
-    # fixture has a real user turn, so evergreen chips are suppressed;
-    # signal-driven chips (brand, pending action) don't fit either, so
-    # the strip is absent for this fixture. That is the whole point:
-    # once the thread has substance, show signal or nothing.
+    # Active conversations get generated topic chips, not cold-open
+    # evergreens.
     assert 'data-bot-prompt="what needs me today?"' not in response.text
+    assert any(
+        f'data-bot-prompt="{text}"' in response.text
+        for text in (
+            "turn this into a post plan",
+            "write the caption",
+            "shape it for reels",
+            "make a content angle",
+        )
+    )
     # The chat header no longer carries the "babyg guide" shortcut or the
     # "private" pill — it's just the logo/name lockup now. The composer
     # form still posts to /creator/bot.
@@ -115,9 +121,7 @@ def test_bot_page_renders_history(monkeypatch, client: TestClient) -> None:
 def test_bot_page_renders_prompt_chips_on_empty_thread(
     monkeypatch, client: TestClient
 ) -> None:
-    """Empty message history triggers the composer chip row. Composer
-    v3 backfills 4 chips from a rotating pool so the creator never
-    sees the same two evergreens on every open."""
+    """Empty message history triggers three rotating composer chips."""
     _signed_in(client, role="creator")
     monkeypatch.setattr(
         creator_routes.profiles,
