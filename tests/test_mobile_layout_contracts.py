@@ -384,10 +384,11 @@ def test_creator_home_shortcuts_fit_mobile_labels() -> None:
     )
     assert "min-height: 62px !important" in shortcut_mobile_rule
     assert "overflow-wrap: anywhere" in label_rule
-    assert "<span>check dms</span>" in DASHBOARD_TEMPLATE
-    assert "<span>ask babyg</span>" in DASHBOARD_TEMPLATE
-    assert "<span>browse discover</span>" in DASHBOARD_TEMPLATE
-    assert "<span>my connections</span>" in DASHBOARD_TEMPLATE
+    assert "home_shortcuts or [" in DASHBOARD_TEMPLATE
+    assert "class=\"creator-home-shortcut sc-{{ shortcut.slot }}\"" in DASHBOARD_TEMPLATE
+    assert "href=\"{{ shortcut.href }}\"" in DASHBOARD_TEMPLATE
+    assert "<span>{{ shortcut.label }}</span>" in DASHBOARD_TEMPLATE
+    assert "'slot': 'babyg', 'href': '/creator/bot', 'label': 'ask babyg'" in DASHBOARD_TEMPLATE
 
 
 def test_creator_home_social_analytics_card_is_mobile_safe() -> None:
