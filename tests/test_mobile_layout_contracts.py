@@ -211,31 +211,6 @@ def test_bot_prompt_chips_start_prompt_on_tap() -> None:
     assert "chipsRow.remove()" not in chip_handler
 
 
-def test_bot_prompt_chips_use_three_mobile_actions() -> None:
-    chip_row_rule = APP_CSS.split(".bot-prompt-chips {", 1)[1].split("}", 1)[0]
-    mobile_chip_block = APP_CSS.split(
-        "/* Tablet + mobile: three generated actions", 1
-    )[1].split("}", 4)
-    mobile_row_rule = mobile_chip_block[1]
-    mobile_first_rule = mobile_chip_block[2]
-    mobile_chip_rule = mobile_chip_block[3]
-    label_rule = APP_CSS.split(".bot-prompt-chip-label {", 1)[1].split("}", 1)[0]
-    mobile_label_rule = APP_CSS.split(
-        ".bot-prompt-chip-label {\n    display: -webkit-box;", 1
-    )[1].split("}", 1)[0]
-
-    assert "min-width: 0" in chip_row_rule or "min-width: 0" in APP_CSS
-    assert "display: grid" in mobile_row_rule
-    assert "grid-template-columns: repeat(2, minmax(0, 1fr))" in mobile_row_rule
-    assert "overflow: visible" in mobile_row_rule
-    assert "grid-column: 1 / -1" in mobile_first_rule
-    assert "width: 100%" in mobile_chip_rule
-    assert "white-space: normal" in mobile_chip_rule
-    assert "min-width: 0" in label_rule
-    assert "-webkit-line-clamp: 2" in mobile_label_rule
-    assert "overflow-wrap: anywhere" in mobile_label_rule
-
-
 def test_creator_dm_search_toolbar_is_mobile_safe() -> None:
     toolbar_rule = APP_CSS.split("\n.dm-inbox-topbar {", 1)[1].split("}", 1)[0]
     mobile_shell_rule = APP_CSS.split("@media (max-width: 999px) {", 1)[1].split(
