@@ -18,19 +18,22 @@ from typing import Final
 from urllib.parse import unquote, urlparse
 from uuid import uuid4
 
-from PIL import Image, ImageOps, UnidentifiedImageError
-
 from app.core import supabase_client
 
 logger = logging.getLogger(__name__)
 
-# Pillow defaults MAX_IMAGE_PIXELS to ~89 MP and only emits a warning,
-# not an error, when an image exceeds it. A maliciously-crafted 5 MB
-# JPEG can decompress to roughly that size and force `ImageOps.fit` to
-# allocate hundreds of MB of RAM. Pin a stricter cap (~25 MP — well above
-# any legitimate phone camera) so Pillow raises `DecompressionBombError`
-# on bombs and the route surfaces a clean `?photo=corrupt` flash.
-Image.MAX_IMAGE_PIXELS = 25_000_000
+# PIL adds ~16ms to boot when imported at module load, and it's only
+# ever used by _normalize_to_square_jpeg. Import it inside that function
+# instead — every route boot pays the cost, but only photo-upload
+# requests trigger the actual import. Also lets us defer setting
+# Image.MAX_IMAGE_PIXELS (see the docstring inside the helper for
+# why the cap exists).
+
+# Pillow's decompression-bomb cap (~25 MP, well above any legitimate
+# phone camera). Set on first call inside _normalize_to_square_jpeg
+# since it needs the PIL module loaded. Idempotent — reassigning is
+# cheap.
+_MAX_IMAGE_PIXELS = 25_000_000
 
 BUCKET: Final = "profile-photos"
 # Raw upload cap, sized to match the Supabase bucket's own
@@ -155,7 +158,14 @@ def _normalize_to_square_jpeg(raw: bytes) -> bytes:
     Wrapping every Pillow call so we can return a single user-facing
     error from the route. EXIF orientation has to be applied before the
     crop or portrait photos come out sideways.
+
+    PIL is imported lazily here so an idle web worker never pays the
+    ~16ms Pillow import cost. First photo upload eats it, once per
+    process.
     """
+    from PIL import Image, ImageOps, UnidentifiedImageError
+
+    Image.MAX_IMAGE_PIXELS = _MAX_IMAGE_PIXELS
     try:
         with Image.open(io.BytesIO(raw)) as im:
             im = ImageOps.exif_transpose(im)
