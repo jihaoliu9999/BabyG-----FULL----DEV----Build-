@@ -38,6 +38,7 @@ from app.integrations import google_calendar, instagram_meta
 from app.services import (
     action_proposals,
     agent_memory,
+    agent_recap,
     audit,
     babyg_awareness,
     bookings,
@@ -206,6 +207,13 @@ async def dashboard(
         _safe_call(dms.unread_count_for_user, user_id, _default=0),
     )
 
+    # Overnight recap — "here's what babyg did while you were away".
+    # Fires four count(*) queries in parallel; returns None when the
+    # last 12h had zero activity so the template hides the whole card.
+    # Ships AFTER the primary gather so nothing else in the render
+    # blocks on it.
+    overnight_recap = await _safe_call(agent_recap.build, user_id, _default=None)
+
     # "needs you" surfaces non-DM notifications only. DM alerts get their
     # own /creator/dm page; duplicating them here made the home feel
     # spammy and let a user tap into a thread from home instead of the
@@ -266,6 +274,7 @@ async def dashboard(
             "calendar_connected": calendar_connected,
             "calendar_days": _calendar_preview_days(),
             "daily_greeting": daily_greeting,
+            "overnight_recap": overnight_recap,
         },
     )
 

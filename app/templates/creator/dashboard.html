@@ -13,6 +13,24 @@
         data-greet-night="{{ daily_greeting.night }}">{{ daily_greeting.afternoon }}</h1>
   </header>
 
+  {# overnight recap — "here's what babyg did while you were away".
+     Empty when the last 12h had zero agent activity; hidden entirely
+     rather than showing an empty state. #}
+  {% if overnight_recap and overnight_recap.headlines %}
+  <section class="creator-home-section">
+    <div class="creator-home-recap">
+      <div class="creator-home-recap-head">
+        <span class="creator-home-recap-eyebrow">while you were away</span>
+      </div>
+      <ul class="creator-home-recap-lines">
+        {% for line in overnight_recap.headlines %}
+        <li>{{ line }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+  </section>
+  {% endif %}
+
   {# needs you: verb-first task rows — only when there's actually something #}
   {% set _next_confirm = upcoming_bookings[0] if upcoming_bookings else None %}
   {% set _alerts_n = unread_notifs|length %}
