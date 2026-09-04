@@ -1057,12 +1057,18 @@ async def dm_thread(
     )
     dms.mark_thread_read_for(str(thread["id"]), reader_id=session["user_id"])
 
-    # Private babyg brief for the latest INCOMING message (best-effort:
-    # auto-generates only for "serious" messages, never blocks the render,
-    # and stays invisible to the other party). Manual refresh lives at
-    # POST /creator/dm/{peer}/brief ("ask babyg").
+    # Private babyg brief for the latest INCOMING message. GET only reads
+    # what the background sweep (bot_jobs.sweep_dm_briefs, every 5 min)
+    # has already produced — no synchronous Claude call on the render
+    # path (which cost 2-8s p99 on a fresh thread). The manual "ask
+    # babyg" tap at POST /creator/dm/{peer}/brief still generates on
+    # demand.
     brief, brief_message_id = _latest_incoming_brief(
-        thread=thread, messages=messages, me_id=session["user_id"], peer=peer
+        thread=thread,
+        messages=messages,
+        me_id=session["user_id"],
+        peer=peer,
+        generate=False,
     )
     return templates.TemplateResponse(
         request,
@@ -1081,17 +1087,33 @@ async def dm_thread(
 
 
 def _latest_incoming_brief(
-    *, thread: dict, messages: list[dict], me_id: str, peer: dict, force: bool = False
+    *,
+    thread: dict,
+    messages: list[dict],
+    me_id: str,
+    peer: dict,
+    force: bool = False,
+    generate: bool = True,
 ) -> tuple[dict | None, str | None]:
     """Return (brief, message_id) for the most recent message the peer
     sent (incoming to me). Best-effort; auto-generation is gated to
     serious messages inside the service. Returns (None, msg_id) when
-    there's an incoming message but no brief yet."""
+    there's an incoming message but no brief yet.
+
+    ``generate=False`` — read-only lookup, never call the model. Used
+    by the DM GET path so the render is never blocked on a Claude call;
+    the background sweep is the only auto-generation site now."""
     incoming = [m for m in messages if str(m.get("sender_id")) != me_id]
     if not incoming:
         return None, None
     latest = incoming[-1]
     message_id = str(latest.get("id") or "")
+    if not generate:
+        try:
+            brief = dm_briefs.get_brief_for_message(message_id, recipient_id=me_id)
+        except Exception:
+            brief = None
+        return brief, (message_id or None)
     sender_public = profiles.public_creator(peer) or {}
     me_full = profiles.get_creator_profile(me_id)
     recipient_public = profiles.public_creator(me_full) or {}

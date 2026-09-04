@@ -836,12 +836,32 @@ def sweep_dm_briefs(*, now: datetime | None = None) -> SweepReport:
                 detail={"reason": "not_serious"},
             )
             continue
+        # Recipient's `babyg_auto_brief_dms` preference gates automatic
+        # generation. The DM GET path no longer generates on the render
+        # (patch 3C), so this sweep is the only remaining auto site —
+        # honor the opt-out here.
+        recipient_row = (
+            profiles.get_creator_profile(recipient_id) or {}
+        )
+        auto_enabled = (
+            recipient_row.get("babyg_auto_brief_dms") is not False
+        )
+        if not auto_enabled:
+            mark_ran(
+                "sweep_dm_briefs",
+                dedupe_key,
+                outcome="skipped",
+                target_user_id=recipient_id,
+                detail={"reason": "auto_disabled"},
+            )
+            continue
         try:
             brief = dm_briefs.get_or_generate_brief(
                 thread_id=thread_id,
                 message={"id": message_id, "body": body},
                 recipient_id=recipient_id,
                 recipient_role="creator",
+                auto_enabled=auto_enabled,
             )
         except Exception as exc:
             record_failure(

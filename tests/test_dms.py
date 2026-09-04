@@ -395,7 +395,11 @@ def test_creator_dm_send_appends_and_notifies(client, world, monkeypatch):
     assert "Anna Reyes" in n["title"]
 
 
-def test_auto_brief_preference_is_passed_to_service(client, world, monkeypatch):
+def test_dm_view_never_generates_brief_synchronously(client, world, monkeypatch):
+    """DM GET is read-only for briefs (patch 3C): the render never calls
+    the model. `sweep_dm_briefs` (bot_jobs) is the sole auto-generation
+    site now — that's where the `babyg_auto_brief_dms` preference is
+    enforced. The GET path only looks up an already-persisted brief."""
     _signed_in(client, role="creator", user_id="c-1")
     world.add_creator(user_id="c-1", babyg_auto_brief_dms=False)
     world.add_creator(user_id="c-2")
@@ -403,18 +407,16 @@ def test_auto_brief_preference_is_passed_to_service(client, world, monkeypatch):
     _seed_thread(
         world, a="c-2", b="c-1", body="what is the budget?", sender="c-2"
     )
-    captured: dict[str, Any] = {}
+    generate_calls: list[dict[str, Any]] = []
 
-    def _brief(**kwargs):
-        captured.update(kwargs)
+    def _generate(**kwargs):
+        generate_calls.append(kwargs)
         return None
 
-    monkeypatch.setattr(dm_briefs_module, "get_or_generate_brief", _brief)
+    monkeypatch.setattr(dm_briefs_module, "get_or_generate_brief", _generate)
     response = client.get("/creator/dm/c-2")
     assert response.status_code == 200
-    assert captured["auto_enabled"] is False
-    assert captured["force"] is False
-    assert captured["recent_messages"] == world.messages
+    assert generate_calls == []
 
 
 def test_manual_brief_bypasses_disabled_auto_preference(client, world, monkeypatch):
