@@ -50,7 +50,7 @@ def is_configured() -> bool:
     return _configured
 
 
-def _scrub_event(event: dict[str, Any], hint: dict[str, Any] | None) -> dict[str, Any] | None:
+def _scrub_event(event: Any, hint: Any) -> Any:
     """Strip session cookie + auth header from every event we ship.
 
     Runs even when send_default_pii is off, because the FastAPI

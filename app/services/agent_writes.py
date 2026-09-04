@@ -35,6 +35,8 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from postgrest.types import CountMethod
+
 from app.core import supabase_client
 from app.integrations import google_calendar, google_gmail
 from app.services import (
@@ -98,7 +100,9 @@ def drop_nudge(
     except Exception:
         logger.exception("agent_writes.drop_nudge.write_failed user=%s", user_id)
         return {"ok": False, "reason": "write_failed"}
-    return {"ok": True, "message_id": (message or {}).get("id")}
+    # bot.create_message returns the inserted row's id as a plain str (or
+    # None on failure), not a dict. Pass it through directly.
+    return {"ok": True, "message_id": message}
 
 
 def rewrite_memory(
@@ -294,7 +298,7 @@ def _count_recent_agent_nudges(
         result = (
             supabase_client.get_service_client()
             .table("bot_messages")
-            .select("id", count="exact")
+            .select("id", count=CountMethod.exact)
             .eq("user_id", user_id)
             .eq("role", "assistant")
             .gte("created_at", cutoff)

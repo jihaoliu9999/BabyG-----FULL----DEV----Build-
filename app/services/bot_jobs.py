@@ -417,7 +417,7 @@ def sweep_gmail_briefs(*, now: datetime | None = None) -> SweepReport:
                     creator_id,
                     kind="email_message",
                     direction="inbound",
-                    summary=(latest.subject or "")[:200] or None,
+                    summary=(latest.subject or "")[:200],
                     brand_name=brand,
                     email=sender_email,
                 )
