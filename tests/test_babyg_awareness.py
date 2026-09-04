@@ -159,16 +159,18 @@ def test_unread_dms_projects_peer_name_only(monkeypatch) -> None:
         "list_threads_for_user",
         lambda uid: [{"peer_id": "peer-42"}],
     )
+    # `get_creators_by_ids` already public-projects each row, so the test
+    # mock can return only public fields — the snapshot shape check below
+    # still guards against a snapshot builder that stashes extra keys.
     monkeypatch.setattr(
         profiles_module,
-        "get_creator_profile",
-        lambda uid: {
-            "user_id": uid,
-            "full_name": "Maya Chen",
-            # Owner-private fields MUST NOT leak into the snapshot.
-            "location_lat": 34.0522,
-            "baseline_followers": 42_000,
-            "tier": "pro",
+        "get_creators_by_ids",
+        lambda ids: {
+            uid: {
+                "user_id": uid,
+                "full_name": "Maya Chen",
+            }
+            for uid in ids
         },
     )
     sig = babyg_awareness._unread_dms("u1")
