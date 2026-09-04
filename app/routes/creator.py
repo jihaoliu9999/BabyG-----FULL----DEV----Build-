@@ -140,6 +140,83 @@ def _calendar_preview_days(today: date | None = None) -> list[dict[str, Any]]:
     ]
 
 
+def _home_social_analytics(view: stats_merge.PerformanceView) -> dict[str, Any]:
+    """Compact, honest social signal preview for Creator Home."""
+    ig_rows = [
+        row
+        for row in view.rows
+        if row.source == stats_merge.SOURCE_INSTAGRAM and row.metrics
+    ]
+    metric_totals = {
+        "reach": sum(_metric_int(row.metrics, "reach") for row in ig_rows),
+        "saved": sum(_metric_int(row.metrics, "saved") for row in ig_rows),
+        "comments": sum(_metric_int(row.metrics, "comments") for row in ig_rows),
+    }
+    metric_labels = {"reach": "reach", "saved": "saves", "comments": "comments"}
+    metrics = [
+        {"label": metric_labels[key], "value": _format_compact_count(value)}
+        for key, value in metric_totals.items()
+        if value > 0
+    ]
+    chart_values = [_home_social_row_value(row) for row in reversed(ig_rows[:5])]
+    chart_max = max(chart_values, default=0)
+    trend = [
+        max(12, round((value / chart_max) * 100)) if chart_max else 0
+        for value in chart_values
+    ]
+    top_row = max(ig_rows, key=_home_social_row_value, default=None)
+    top_value = _home_social_row_value(top_row)
+    status_copy = {
+        stats_merge.IG_STATUS_OK: "live instagram",
+        stats_merge.IG_STATUS_ERROR: "instagram paused",
+        stats_merge.IG_STATUS_NOT_CONNECTED: "connect instagram",
+        stats_merge.IG_STATUS_NOT_CONFIGURED: "manual only",
+    }.get(view.instagram_status, "manual only")
+
+    return {
+        "status": view.instagram_status,
+        "status_copy": status_copy,
+        "has_data": bool(ig_rows),
+        "post_count": len(ig_rows),
+        "top_value": _format_compact_count(top_value),
+        "top_label": "top post signal",
+        "top_title": top_row.title if top_row else None,
+        "metrics": metrics,
+        "trend": trend,
+    }
+
+
+def _home_social_row_value(row: stats_merge.StatsRow | None) -> int:
+    if row is None:
+        return 0
+    metrics = row.metrics or {}
+    for key in ("engagement", "reach", "likes", "comments", "saved"):
+        value = _metric_int(metrics, key)
+        if value > 0:
+            return value
+    return 0
+
+
+def _metric_int(metrics: dict[str, Any], key: str) -> int:
+    value = metrics.get(key)
+    if value is None or isinstance(value, bool):
+        return 0
+    if isinstance(value, int | float):
+        return max(0, int(value))
+    try:
+        return max(0, int(float(str(value).strip())))
+    except (TypeError, ValueError):
+        return 0
+
+
+def _format_compact_count(value: int) -> str:
+    if value >= 1_000_000:
+        return f"{value / 1_000_000:.1f}m".replace(".0m", "m")
+    if value >= 1_000:
+        return f"{value / 1_000:.1f}k".replace(".0k", "k")
+    return str(value)
+
+
 @router.get("/creator", response_class=HTMLResponse)
 async def dashboard(
     request: Request,
@@ -170,6 +247,7 @@ async def dashboard(
         matched_picks,
         pending_actions_all,
         unread_dm_n,
+        performance_view,
     ) = await asyncio.gather(
         _safe_call(
             intel.feed_for_creator,
@@ -205,6 +283,15 @@ async def dashboard(
         # unread_dm_count(request) global picks up the cached value
         # instead of firing its own supabase query at render time.
         _safe_call(dms.unread_count_for_user, user_id, _default=0),
+        _safe_call(
+            stats_merge.performance_view,
+            user_id,
+            ig_limit=5,
+            _default=stats_merge.PerformanceView(
+                rows=[],
+                instagram_status=stats_merge.IG_STATUS_ERROR,
+            ),
+        ),
     )
 
     # Overnight recap — "here's what babyg did while you were away".
@@ -275,6 +362,7 @@ async def dashboard(
             "calendar_days": _calendar_preview_days(),
             "daily_greeting": daily_greeting,
             "overnight_recap": overnight_recap,
+            "social_analytics": _home_social_analytics(performance_view),
         },
     )
 
