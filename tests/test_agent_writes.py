@@ -29,7 +29,9 @@ def test_drop_nudge_success(monkeypatch) -> None:
     monkeypatch.setattr(
         agent_writes.bot,
         "create_message",
-        lambda **kwargs: captured.update(kwargs) or {"id": "msg-1"},
+        # bot.create_message returns the inserted row's id as a str
+        # (or None). See app/services/bot.py::create_message.
+        lambda **kwargs: captured.update(kwargs) or "msg-1",
     )
     out = agent_writes.drop_nudge(
         "creator-1",
