@@ -26,6 +26,12 @@ from app.core.security import SESSION_COOKIE, write_session
 from app.main import app
 from app.routes import creator as creator_routes
 from app.services import (
+    action_proposals as action_proposals_module,
+)
+from app.services import (
+    agent_recap as agent_recap_module,
+)
+from app.services import (
     bookings as bookings_module,
 )
 from app.services import (
@@ -83,6 +89,11 @@ def stub_dashboard(monkeypatch):
         "profile": _profile(),
         "bookings": [],
         "calendar_connected": False,
+        "matched_picks": [],
+        "pending_actions": [],
+        "pending_connections": [],
+        "unread_dms": 0,
+        "overnight_recap": None,
         "performance_view": stats_merge_module.PerformanceView(
             rows=[],
             instagram_status=stats_merge_module.IG_STATUS_NOT_CONNECTED,
@@ -92,11 +103,31 @@ def stub_dashboard(monkeypatch):
         profiles_module, "get_creator_profile", lambda uid: state["profile"]
     )
     monkeypatch.setattr(intel_module, "feed_for_creator", lambda **kw: [])
-    monkeypatch.setattr(notifications_module, "list_unread", lambda uid, *, limit=4: [])
+    monkeypatch.setattr(notifications_module, "list_unread", lambda uid, *, limit=8: [])
     monkeypatch.setattr(notifications_module, "unread_count", lambda uid: 0)
-    monkeypatch.setattr(dms_module, "unread_count_for_user", lambda uid: 0)
-    monkeypatch.setattr(network_module, "list_incoming_pending", lambda uid: [])
-    monkeypatch.setattr(discover_module, "list_cards", lambda **kw: [])
+    monkeypatch.setattr(
+        dms_module, "unread_count_for_user", lambda uid: state["unread_dms"]
+    )
+    monkeypatch.setattr(
+        network_module,
+        "list_incoming_pending",
+        lambda uid: list(state["pending_connections"]),
+    )
+    monkeypatch.setattr(
+        discover_module,
+        "list_cards",
+        lambda **kw: list(state["matched_picks"]),
+    )
+    monkeypatch.setattr(
+        action_proposals_module,
+        "list_pending_for_user",
+        lambda **kw: list(state["pending_actions"]),
+    )
+    monkeypatch.setattr(
+        agent_recap_module,
+        "build",
+        lambda uid: state["overnight_recap"],
+    )
     monkeypatch.setattr(
         bookings_module, "list_for_user",
         lambda uid, **kw: list(state["bookings"]),
@@ -190,6 +221,48 @@ def test_home_renders_quiet_empty_state_when_connected_but_no_events(
     assert r.status_code == 200
     assert "nothing on the books" in r.text.lower()
     assert "connect calendar" not in r.text.lower()
+
+
+def test_home_shortcuts_keep_default_labels_when_nothing_needs_attention(
+    client: TestClient, stub_dashboard
+) -> None:
+    _signed_in(client)
+    r = client.get("/creator")
+    assert r.status_code == 200
+    assert "<span>check dms</span>" in r.text
+    assert "<span>ask babyg</span>" in r.text
+    assert "<span>browse discover</span>" in r.text
+    assert "<span>my connections</span>" in r.text
+
+
+def test_home_shortcuts_generate_from_current_unchecked_state(
+    client: TestClient, stub_dashboard
+) -> None:
+    _signed_in(client)
+    stub_dashboard["unread_dms"] = 3
+    stub_dashboard["pending_connections"] = [
+        {"id": "c-1", "requester_id": "u-2"},
+        {"id": "c-2", "requester_id": "u-3"},
+    ]
+    stub_dashboard["matched_picks"] = [
+        {
+            "card_id": "op-1",
+            "card_kind": "opportunity",
+            "title": "Rooftop shoot",
+        }
+    ]
+
+    r = client.get("/creator")
+
+    assert r.status_code == 200
+    assert "<span>3 unread dms</span>" in r.text
+    assert "<span>ask babyg</span>" in r.text
+    assert "<span>new opportunity</span>" in r.text
+    assert "<span>2 requests</span>" in r.text
+    assert (
+        'href="/creator/discover?bring_back_kind=opportunity&amp;bring_back_id=op-1"'
+        in r.text
+    )
 
 
 def test_home_renders_social_analytics_connect_state(

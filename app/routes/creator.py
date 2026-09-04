@@ -290,6 +290,62 @@ def _format_compact_count(value: int) -> str:
     return str(value)
 
 
+def _home_shortcuts(
+    *,
+    unread_dm_count: int,
+    pending_connections: list[dict[str, Any]],
+    matched_picks: list[dict[str, Any]],
+) -> list[dict[str, str]]:
+    dm_count = max(0, int(unread_dm_count or 0))
+    connection_count = len(pending_connections or [])
+    match_count = len(matched_picks or [])
+    first_match = (matched_picks or [{}])[0] if matched_picks else {}
+
+    dm_label = "check dms"
+    if dm_count == 1:
+        dm_label = "1 unread dm"
+    elif dm_count > 1:
+        dm_label = f"{_format_compact_count(dm_count)} unread dms"
+
+    discover_label = "browse discover"
+    discover_href = "/creator/discover"
+    if match_count:
+        card_kind = str(first_match.get("card_kind") or "").lower()
+        card_id = first_match.get("card_id") or first_match.get("id")
+        if card_kind == "opportunity":
+            discover_label = "new opportunity"
+        elif card_kind == "brand":
+            discover_label = "new brand match"
+        else:
+            discover_label = "new match"
+        if card_kind and card_id:
+            discover_href = (
+                f"/creator/discover?bring_back_kind={card_kind}"
+                f"&bring_back_id={card_id}"
+            )
+
+    connections_label = "my connections"
+    if connection_count == 1:
+        connections_label = "1 request"
+    elif connection_count > 1:
+        connections_label = f"{_format_compact_count(connection_count)} requests"
+
+    return [
+        {"slot": "dm", "href": "/creator/dm", "label": dm_label},
+        {"slot": "babyg", "href": "/creator/bot", "label": "ask babyg"},
+        {
+            "slot": "discover",
+            "href": discover_href,
+            "label": discover_label,
+        },
+        {
+            "slot": "connections",
+            "href": "/creator/connections",
+            "label": connections_label,
+        },
+    ]
+
+
 @router.get("/creator", response_class=HTMLResponse)
 async def dashboard(
     request: Request,
@@ -436,6 +492,11 @@ async def dashboard(
             "calendar_days": _calendar_preview_days(),
             "daily_greeting": daily_greeting,
             "overnight_recap": overnight_recap,
+            "home_shortcuts": _home_shortcuts(
+                unread_dm_count=int(unread_dm_n or 0),
+                pending_connections=pending_connections,
+                matched_picks=matched_picks,
+            ),
             "social_analytics": _home_social_analytics(
                 performance_view,
                 active_platform=_active_social_platform(social_platform),
