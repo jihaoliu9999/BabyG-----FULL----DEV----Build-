@@ -1,19 +1,19 @@
 """Composer chip strip for the bot chat.
 
-Rendered as tap-to-fill chips inside the composer surround, above the
-input. Chips are context-driven: the awareness snapshot decides which
-four suggestions fit this exact moment (unread DM peer, freshly
-accepted connection, event about to start, pending confirm, fresh
-match, hot drop, open deal stage). If no live context qualifies for a
-slot, the strip fills the remainder with evergreens so the row is
-never empty. Always capped at exactly 4.
+Rendered as tap-to-run chips inside the composer surround, above the
+input. Chips are context-driven: the current conversation ranks first,
+then awareness snapshot signals (unread DMs, accepted connection,
+event about to start, pending confirm, fresh match, hot drop, open
+deal stage). Cold opens backfill from a rotating evergreen pool.
 
-Tap-to-fill semantics stay identical to the legacy behavior — chip
-text lands in the composer textarea, the user still taps send.
+The strip is capped at three useful mobile controls so it feels like a
+real assistant toolbar, not a cramped row of tiny pills.
 """
 
 from __future__ import annotations
 
+import hashlib
+import re
 from datetime import UTC, datetime
 from typing import Any, TypedDict
 
@@ -38,7 +38,7 @@ _ICON_PENCIL = "pencil"
 _ICON_CLOCK = "clock"
 _ICON_CALENDAR = "calendar"
 
-_MAX_CHIPS = 4
+_MAX_CHIPS = 3
 
 # Rotating pool of concrete manager questions. Each one maps to a
 # real tool call the ai can act on (read_my_dms, read_my_deals,
@@ -76,8 +76,9 @@ def compute_prompts(
     recent_dm_peer_name: str | None = None,
     snapshot: dict[str, Any] | None = None,
     messages: list[dict[str, Any]] | None = None,
+    session_seed: str | None = None,
 ) -> list[BotPrompt]:
-    """Return up to 4 context-driven prompts for the composer chip strip.
+    """Return up to 3 context-driven prompts for the composer chip strip.
 
     Live conversation state ranks above the awareness snapshot: if the
     last assistant message has a pending action proposal, the row
@@ -89,8 +90,8 @@ def compute_prompts(
     last assistant row is inspected for `tool_calls.status == 'pending'`
     and the associated action_type / payload. Evergreens ("what needs
     me today?", "check my week") only fire on a genuine cold open —
-    no user messages yet — so a live turn is never buried under
-    generic filler.
+    no user messages yet. Live turns get category-specific suggestions
+    inferred from the recent conversation.
 
     Legacy call-sites that only pass ``unread_dms_count`` +
     ``recent_dm_peer_name`` keep working; those two args are still
@@ -99,17 +100,19 @@ def compute_prompts(
     Priority order (highest first):
       0. pending action proposal on the last assistant turn (verb chips)
       1. brand-specific next move from the last staged action
-      2. connection just accepted → nudge to say hi
-      3. event starting in the next few hours → check-in / directions
-      4. pending action proposal (awareness snapshot fallback)
-      5. unread DMs → summarize / draft
-      6. fresh discover match → look at the card
-      7. fresh hot drop matching niches → skim it
-      8. evergreens ONLY on cold open
+      2. topic-specific next moves from the conversation
+      3. connection just accepted -> nudge to say hi
+      4. event starting in the next few hours -> check-in / directions
+      5. pending action proposal (awareness snapshot fallback)
+      6. unread DMs -> summarize / draft
+      7. fresh discover match -> look at the card
+      8. fresh hot drop matching niches -> skim it
+      9. evergreens ONLY on cold open
     """
     prompts: list[BotPrompt] = []
     snap = snapshot or {}
     msgs = messages or []
+    rotation_offset = _seeded_offset(session_seed)
 
     # ---- 0. pending action on the last assistant turn ----
     #
@@ -160,6 +163,14 @@ def compute_prompts(
             "text": f"remind me about {brand_from_reply} in 2 days",
             "icon": _ICON_CLOCK,
         })
+
+    # ---- 2. conversation-specific suggestions ----
+    #
+    # These keep the chip row alive after a real chat turn. We avoid
+    # quoting raw user text in chip labels; category intent is enough
+    # and safer on a small screen.
+    if not brand_from_reply:
+        prompts.extend(_conversation_prompts(msgs, offset=rotation_offset))
 
     # ---- 1. connection accepted (highest-signal social moment) ----
     accepted = snap.get("recent_connection_accepted") or {}
@@ -226,17 +237,13 @@ def compute_prompts(
             "icon": _ICON_CLOCK,
         })
 
-    # ---- 8. rotating backfill — always aim for 4 fresh chips ----
+    # ---- 9. rotating backfill ----
     #
-    # Whatever real signals fired above, the strip should never open
-    # with fewer than 4 chips (or with the SAME 2 evergreens every
-    # visit — the creator called that out as noise). Once we know
-    # what's already in the prompts list, we backfill from a rotating
-    # pool of manager questions. The rotation offset is the current
-    # hour so a same-hour reopen stays consistent, and the pool
-    # refreshes as the day moves.
+    # Cold opens get three fresh manager questions. If a session seed is
+    # available, it comes from the signed login cookie, so a new login
+    # can rotate the choices without persisting any extra database row.
     if not _has_user_turn(msgs):
-        prompts.extend(_rotating_backfill(offset=_hour_offset()))
+        prompts.extend(_rotating_backfill(offset=rotation_offset))
 
     # Dedupe by text so the same suggestion doesn't slot twice from
     # different signals (e.g. accepted peer == latest DM peer).
@@ -312,6 +319,8 @@ _STOPWORD_TOKENS = frozenset({
     "our", "have", "has", "was", "were", "will", "would", "could",
     "should", "just", "then", "than", "them", "from", "into", "onto",
     "about", "before", "after", "still", "want", "need", "yeah",
+    "drafting", "drafted", "staged", "sent", "morning", "evening",
+    "tonight", "today", "tomorrow", "verdict",
 })
 
 
@@ -345,8 +354,6 @@ def _last_brand_mentioned(messages: list[dict[str, Any]]) -> str | None:
 
 
 def _extract_brand_from_text(text: str) -> str | None:
-    import re
-
     # 1. Prefer **bold** tokens — the prompt uses them for brand names.
     bold_match = re.search(r"\*\*([A-Z][A-Za-z0-9&\-]{1,40})\*\*", text)
     if bold_match:
@@ -368,6 +375,162 @@ def _extract_brand_from_text(text: str) -> str | None:
     return None
 
 
+_ACK_ONLY_TOKENS = frozenset({
+    "ok",
+    "okay",
+    "yes",
+    "yeah",
+    "yep",
+    "no",
+    "nah",
+    "thanks",
+    "thank",
+    "cool",
+    "done",
+    "sent",
+})
+
+_CONVERSATION_PROMPT_SETS: dict[str, list[BotPrompt]] = {
+    "dm": [
+        {"text": "draft the clean reply", "icon": _ICON_PENCIL, "tone": "primary"},
+        {"text": "summarize the thread first", "icon": _ICON_MESSAGE},
+        {"text": "pull the relationship context", "icon": _ICON_MESSAGE},
+        {"text": "make it sound more human", "icon": _ICON_PENCIL},
+    ],
+    "deal": [
+        {"text": "draft the next deal move", "icon": _ICON_PENCIL, "tone": "primary"},
+        {"text": "pull the deal context", "icon": _ICON_MESSAGE},
+        {"text": "tighten the pitch", "icon": _ICON_PENCIL},
+        {"text": "check what they owe me", "icon": _ICON_CLOCK},
+    ],
+    "content": [
+        {"text": "turn this into a post plan", "icon": _ICON_PENCIL, "tone": "primary"},
+        {"text": "write the caption", "icon": _ICON_PENCIL},
+        {"text": "shape it for reels", "icon": _ICON_MESSAGE},
+        {"text": "make a content angle", "icon": _ICON_CALENDAR},
+    ],
+    "calendar": [
+        {"text": "check my week around this", "icon": _ICON_CALENDAR},
+        {"text": "make this a plan", "icon": _ICON_PENCIL, "tone": "primary"},
+        {"text": "find the open window", "icon": _ICON_CLOCK},
+        {"text": "turn it into a booking", "icon": _ICON_CALENDAR},
+    ],
+    "places": [
+        {"text": "map this into a plan", "icon": _ICON_CALENDAR, "tone": "primary"},
+        {"text": "rank the best options", "icon": _ICON_MESSAGE},
+        {"text": "turn it into an itinerary", "icon": _ICON_PENCIL},
+        {"text": "save the strongest picks", "icon": _ICON_CLOCK},
+    ],
+    "generic": [
+        {"text": "go deeper on this", "icon": _ICON_MESSAGE},
+        {"text": "turn this into next steps", "icon": _ICON_PENCIL, "tone": "primary"},
+        {"text": "make it more direct", "icon": _ICON_PENCIL},
+        {"text": "pull useful context first", "icon": _ICON_MESSAGE},
+    ],
+}
+
+
+def _conversation_prompts(
+    messages: list[dict[str, Any]], *, offset: int
+) -> list[BotPrompt]:
+    text = _last_user_text(messages)
+    if text is None:
+        return []
+    normalized = " ".join(text.lower().split())
+    if not normalized:
+        return []
+    tokens = set(re.findall(r"[a-z0-9']+", normalized))
+    if tokens and tokens <= _ACK_ONLY_TOKENS:
+        return []
+    if len(normalized) < 8:
+        return []
+
+    category = _conversation_category(normalized)
+    return _pick_chips(_CONVERSATION_PROMPT_SETS[category], offset=offset)
+
+
+def _last_user_text(messages: list[dict[str, Any]]) -> str | None:
+    for msg in reversed(messages or []):
+        if str(msg.get("role") or "").lower() == "user":
+            return str(msg.get("content") or "")
+    return None
+
+
+def _conversation_category(text: str) -> str:
+    if _has_any(text, ("dm", "reply", "message", "thread", "text back", "inbox")):
+        return "dm"
+    if _has_any(text, (
+        "brand",
+        "deal",
+        "rate",
+        "price",
+        "counter",
+        "offer",
+        "contract",
+        "paid",
+        "payment",
+        "pitch",
+        "sell",
+        "sponsor",
+        "collab",
+    )):
+        return "deal"
+    if _has_any(text, (
+        "post",
+        "caption",
+        "reel",
+        "story",
+        "content",
+        "tiktok",
+        "youtube",
+        "instagram",
+        "video",
+    )):
+        return "content"
+    if _has_any(text, (
+        "calendar",
+        "week",
+        "today",
+        "tomorrow",
+        "schedule",
+        "meeting",
+        "call",
+        "book",
+    )):
+        return "calendar"
+    if _has_any(text, (
+        "where",
+        "restaurant",
+        "bar",
+        "club",
+        "dinner",
+        "night",
+        "miami",
+        "place",
+        "lounge",
+    )):
+        return "places"
+    return "generic"
+
+
+def _has_any(text: str, needles: tuple[str, ...]) -> bool:
+    return any(needle in text for needle in needles)
+
+
+def _pick_chips(pool: list[BotPrompt], *, offset: int) -> list[BotPrompt]:
+    if not pool:
+        return []
+    rotated = _rotate(pool, offset=offset)
+    return rotated[:_MAX_CHIPS]
+
+
+def _rotate(pool: list[BotPrompt], *, offset: int) -> list[BotPrompt]:
+    if not pool:
+        return []
+    o = offset % len(pool)
+    return list(pool[o:]) + list(pool[:o])
+
+
 def _hour_offset() -> int:
     """Rotation index derived from the current UTC hour. Same hour
     yields the same offset (so a burst of opens stays visually
@@ -376,13 +539,16 @@ def _hour_offset() -> int:
     return datetime.now(UTC).hour
 
 
+def _seeded_offset(session_seed: str | None) -> int:
+    if not session_seed:
+        return _hour_offset()
+    digest = hashlib.blake2s(session_seed.encode("utf-8"), digest_size=2).digest()
+    return int.from_bytes(digest, "big")
+
+
 def _rotating_backfill(*, offset: int) -> list[BotPrompt]:
     """Return the pool rotated by `offset`. Callers upstream dedupe
     against already-inserted signal chips and then trim to _MAX_CHIPS,
     so we can safely return the full pool and let the dedupe cap take
     care of the rest."""
-    pool = _ROTATING_PROMPTS
-    if not pool:
-        return []
-    o = offset % len(pool)
-    return list(pool[o:]) + list(pool[:o])
+    return _rotate(_ROTATING_PROMPTS, offset=offset)

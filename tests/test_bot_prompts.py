@@ -1,10 +1,9 @@
-"""Bot chat composer chip prompts — v3.
+"""Bot chat composer chip prompts.
 
-On a cold open the strip fills with 4 rotating manager questions
-from _ROTATING_PROMPTS so the creator never sees the same two chips
-on every visit. Live signals (unread DMs, pending action, brand
-mentioned in the last assistant turn) still take priority; the
-rotating pool only backfills the empty slots."""
+On a cold open the strip fills with 3 rotating manager questions from
+_ROTATING_PROMPTS so the creator does not see the same chips on every
+visit. Live signals and conversation-specific prompts still take
+priority."""
 
 from __future__ import annotations
 
@@ -21,12 +20,12 @@ def _stable_hour_offset(monkeypatch):
     monkeypatch.setattr(bp, "_hour_offset", lambda: 0)
 
 
-def test_no_context_returns_four_rotating_chips() -> None:
+def test_no_context_returns_three_rotating_chips() -> None:
     prompts = compute_prompts()
-    assert len(prompts) == 4
+    assert len(prompts) == 3
     texts = [p["text"] for p in prompts]
-    # With the fixture pinning offset=0 the first four pool entries land.
-    assert texts == [p["text"] for p in bp._ROTATING_PROMPTS[:4]]
+    # With the fixture pinning offset=0 the first three pool entries land.
+    assert texts == [p["text"] for p in bp._ROTATING_PROMPTS[:3]]
 
 
 def test_unread_dms_singular_grammar() -> None:
@@ -62,24 +61,23 @@ def test_missing_or_blank_peer_skips_the_chip() -> None:
         )
 
 
-def test_all_context_present_returns_four_chips_max() -> None:
+def test_all_context_present_returns_three_chips_max() -> None:
     prompts = compute_prompts(
         unread_dms_count=3,
         recent_dm_peer_name="Zoe Eschman",
     )
-    assert len(prompts) == 4
-    # First two slots are the concrete signals; the last two backfill
+    assert len(prompts) == 3
+    # First two slots are the concrete signals; the last slot backfills
     # from the rotating pool (offset pinned to 0 in the fixture).
     assert prompts[0]["text"].startswith("summarize my 3")
     assert prompts[1]["text"] == "draft a follow-up to zoe"
     assert prompts[2]["text"] == bp._ROTATING_PROMPTS[0]["text"]
-    assert prompts[3]["text"] == bp._ROTATING_PROMPTS[1]["text"]
 
 
-def test_prompts_never_exceed_max_four() -> None:
+def test_prompts_never_exceed_max_three() -> None:
     # Same call; even with future context sources added, the cap holds.
     prompts = compute_prompts(unread_dms_count=99, recent_dm_peer_name="Anna")
-    assert len(prompts) <= 4
+    assert len(prompts) <= 3
 
 
 def test_every_prompt_has_a_known_icon_id() -> None:
@@ -154,8 +152,8 @@ def test_snapshot_pending_action_surfaces_confirm_chip() -> None:
     assert "open the action i still need to confirm" in texts
 
 
-def test_snapshot_never_produces_more_than_four_chips() -> None:
-    """Every signal populated at once. Strip still caps at 4."""
+def test_snapshot_never_produces_more_than_three_chips() -> None:
+    """Every signal populated at once. Strip still caps at 3."""
     snap = _snapshot(
         unread_dms={"count": 3, "latest_peer_name": "Garrett Reynolds"},
         recent_connection_accepted={"peer_id": "p1", "peer_name": "Maya Chen"},
@@ -179,7 +177,7 @@ def test_snapshot_never_produces_more_than_four_chips() -> None:
         recent_hot_drop={"id": "h-1", "title": "Miami rooftop pop-up"},
     )
     prompts = compute_prompts(snapshot=snap)
-    assert len(prompts) == 4
+    assert len(prompts) == 3
 
 
 def test_snapshot_dedupes_by_text() -> None:
@@ -202,21 +200,20 @@ def test_legacy_kwargs_still_work_without_snapshot() -> None:
     prompts = compute_prompts(
         unread_dms_count=2, recent_dm_peer_name="Anna Reyes"
     )
-    assert len(prompts) == 4
+    assert len(prompts) == 3
     texts = [p["text"] for p in prompts]
     assert "summarize my 2 unread dms" in texts
     assert "draft a follow-up to anna" in texts
-    # Remaining two slots come from the rotating pool.
+    # Remaining slot comes from the rotating pool.
     assert texts[2] == bp._ROTATING_PROMPTS[0]["text"]
-    assert texts[3] == bp._ROTATING_PROMPTS[1]["text"]
 
 
 def test_empty_snapshot_falls_back_to_rotating_pool() -> None:
     prompts = compute_prompts(snapshot=_snapshot())
     # Empty snapshot + no messages = cold open; the rotating pool fills
-    # all 4 slots (offset pinned to 0 by the fixture).
+    # all 3 slots (offset pinned to 0 by the fixture).
     assert [p["text"] for p in prompts] == [
-        p["text"] for p in bp._ROTATING_PROMPTS[:4]
+        p["text"] for p in bp._ROTATING_PROMPTS[:3]
     ]
 
 
@@ -234,18 +231,18 @@ def _msg(role, content, **tc):
 
 
 def test_rotating_pool_only_fires_on_cold_open() -> None:
-    """Empty thread: rotating pool backfills all 4 slots.
+    """Empty thread: rotating pool backfills all 3 slots.
     Thread with a real user turn: pool must NOT appear — we rely on
     live signals instead."""
     cold = compute_prompts(messages=[])
     assert [p["text"] for p in cold] == [
-        p["text"] for p in bp._ROTATING_PROMPTS[:4]
+        p["text"] for p in bp._ROTATING_PROMPTS[:3]
     ]
 
 
 def test_hour_offset_rotates_the_pool(monkeypatch) -> None:
     """Same hour: identical chip set. Different hour: rotated set.
-    Guarantees the creator does not see the same 4 chips forever."""
+    Guarantees the creator does not see the same 3 chips forever."""
     monkeypatch.setattr(bp, "_hour_offset", lambda: 0)
     a = [p["text"] for p in compute_prompts()]
     monkeypatch.setattr(bp, "_hour_offset", lambda: 4)
@@ -253,7 +250,21 @@ def test_hour_offset_rotates_the_pool(monkeypatch) -> None:
     assert a != b
     # Rotation is a stable cyclic shift, not a random shuffle.
     pool = [p["text"] for p in bp._ROTATING_PROMPTS]
-    assert b == pool[4:8]
+    assert b == pool[4:7]
+
+
+def test_session_seed_rotates_cold_open_chips(monkeypatch) -> None:
+    """A new signed-login cookie can refresh the cold-open chip set."""
+    monkeypatch.setattr(bp, "_hour_offset", lambda: 0)
+    seed = next(
+        candidate
+        for candidate in ("login-cookie", "fresh-login", "new-session")
+        if bp._seeded_offset(candidate) % len(bp._ROTATING_PROMPTS) != 0
+    )
+    hour_texts = [p["text"] for p in compute_prompts()]
+    seeded_texts = [p["text"] for p in compute_prompts(session_seed=seed)]
+    assert seeded_texts != hour_texts
+    assert len(seeded_texts) == 3
 
 
 def test_rotating_pool_suppressed_once_conversation_has_substance() -> None:
@@ -261,13 +272,33 @@ def test_rotating_pool_suppressed_once_conversation_has_substance() -> None:
     signals only — the rotating pool must not backfill."""
     live = compute_prompts(
         messages=[
-            _msg("user", "hey"),
+            _msg("user", "what should we do next with this?"),
             _msg("assistant", "morning."),
         ]
     )
     texts = [p["text"] for p in live]
     for pool_entry in bp._ROTATING_PROMPTS:
         assert pool_entry["text"] not in texts
+    assert texts == [
+        "go deeper on this",
+        "turn this into next steps",
+        "make it more direct",
+    ]
+
+
+def test_conversation_generates_topic_specific_chips() -> None:
+    prompts = compute_prompts(
+        messages=[
+            _msg("user", "which miami dinner spot should i use for the pitch?"),
+            _msg("assistant", "swan is the strongest room for that angle."),
+        ]
+    )
+    texts = [p["text"] for p in prompts]
+    assert texts == [
+        "draft the next deal move",
+        "pull the deal context",
+        "tighten the pitch",
+    ]
 
 
 def test_pending_action_collapses_row_to_verb_chips() -> None:
@@ -317,7 +348,7 @@ def test_pending_action_ignored_if_already_resolved() -> None:
             ),
         ]
     )
-    # No pending action, no brand-bolded reply, no snapshot: strip empty.
+    # No pending action, no brand-bolded reply, no substantial prompt.
     assert prompts == []
 
 
@@ -383,8 +414,8 @@ def test_helpers_do_not_crash_on_missing_fields() -> None:
     """The helper is defensive against messages missing tool_calls or
     role. Prod data is messy. Malformed inputs get treated as if
     there were no user turn (cold-open behavior), so the rotating
-    pool fills all 4 slots."""
-    expected = [p["text"] for p in bp._ROTATING_PROMPTS[:4]]
+    pool fills all 3 slots."""
+    expected = [p["text"] for p in bp._ROTATING_PROMPTS[:3]]
     got = compute_prompts(messages=[{"content": "hi"}])
     assert [p["text"] for p in got] == expected
     got = compute_prompts(messages=[{"role": "assistant"}])

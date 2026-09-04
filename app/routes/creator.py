@@ -30,7 +30,12 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Resp
 
 from app.core.rate_limit import dm_brief_manual_limiter
 from app.core.redirects import safe_same_origin
-from app.core.security import SessionPayload, clear_pending_role, clear_session
+from app.core.security import (
+    SESSION_COOKIE,
+    SessionPayload,
+    clear_pending_role,
+    clear_session,
+)
 from app.core.templating import templates
 from app.core.url_guard import http_url_or_none
 from app.deps import require_role
@@ -482,6 +487,7 @@ async def bot_chat(
         recent_dm_peer_name=(snap.get("unread_dms") or {}).get("latest_peer_name"),
         snapshot=snap,
         messages=messages,
+        session_seed=request.cookies.get(SESSION_COOKIE),
     )
 
     # Personal greeting for the empty-state hero. Same helper the
@@ -541,6 +547,7 @@ def _bot_messages_partial(
         recent_dm_peer_name=(snap.get("unread_dms") or {}).get("latest_peer_name"),
         snapshot=snap,
         messages=messages,
+        session_seed=request.cookies.get(SESSION_COOKIE),
     )
     return templates.TemplateResponse(
         request,
