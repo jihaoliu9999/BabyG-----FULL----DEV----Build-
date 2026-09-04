@@ -254,7 +254,12 @@ def _current_profile(request):
     try:
         session = read_session(request)
         if session and session.get("role") == "creator":
-            resolved = profiles.get_creator_profile(session["user_id"]) or None
+            resolved = (
+                profiles.get_creator_profile_cached(
+                    session["user_id"], request
+                )
+                or None
+            )
     except Exception:
         resolved = None
 

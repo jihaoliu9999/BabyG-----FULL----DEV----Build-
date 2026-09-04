@@ -146,7 +146,7 @@ async def dashboard(
     category: str | None = Query(None),
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
-    profile = profiles.get_creator_profile(session["user_id"]) or {}
+    profile = profiles.get_creator_profile_cached(session["user_id"], request) or {}
     if not profile.get("onboarding_completed_at"):
         return RedirectResponse("/onboarding/creator", status_code=302)
 
@@ -284,7 +284,7 @@ async def bot_chat(
     request: Request,
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
-    profile = profiles.get_creator_profile(session["user_id"]) or {}
+    profile = profiles.get_creator_profile_cached(session["user_id"], request) or {}
     if not profile.get("onboarding_completed_at"):
         return RedirectResponse("/onboarding/creator", status_code=302)
 
@@ -398,7 +398,7 @@ async def bot_send(
     user_tz: str | None = Form(default=None),
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
-    profile = profiles.get_creator_profile(session["user_id"]) or {}
+    profile = profiles.get_creator_profile_cached(session["user_id"], request) or {}
     if not profile.get("onboarding_completed_at"):
         return RedirectResponse("/onboarding/creator", status_code=302)
 
@@ -469,7 +469,7 @@ async def profile_page(
     request: Request,
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
-    raw_profile = profiles.get_creator_profile(session["user_id"]) or {}
+    raw_profile = profiles.get_creator_profile_cached(session["user_id"], request) or {}
     if not raw_profile.get("onboarding_completed_at"):
         return RedirectResponse("/onboarding/creator", status_code=302)
     profile = {
@@ -499,7 +499,7 @@ async def profile_chips_update(
     request: Request,
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
-    profile = profiles.get_creator_profile(session["user_id"]) or {}
+    profile = profiles.get_creator_profile_cached(session["user_id"], request) or {}
     if not profile.get("onboarding_completed_at"):
         return RedirectResponse("/onboarding/creator", status_code=302)
 
@@ -541,7 +541,7 @@ async def profile_location_update(
     request: Request,
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
-    profile = profiles.get_creator_profile(session["user_id"]) or {}
+    profile = profiles.get_creator_profile_cached(session["user_id"], request) or {}
     if not profile.get("onboarding_completed_at"):
         return RedirectResponse("/onboarding/creator", status_code=302)
 
@@ -693,7 +693,7 @@ async def profile_settings_page(
     request: Request,
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
-    raw_profile = profiles.get_creator_profile(session["user_id"]) or {}
+    raw_profile = profiles.get_creator_profile_cached(session["user_id"], request) or {}
     if not raw_profile.get("onboarding_completed_at"):
         return RedirectResponse("/onboarding/creator", status_code=302)
     profile = {**raw_profile, "location_label": profiles.safe_location_label(raw_profile)}
@@ -861,7 +861,7 @@ async def profile_photo_upload(
             "/creator/profile?photo=storage_failed", status_code=303
         )
 
-    current_profile = profiles.get_creator_profile(session["user_id"]) or {}
+    current_profile = profiles.get_creator_profile_cached(session["user_id"], request) or {}
     old_url = current_profile.get("profile_photo_url")
     if not profiles.update_creator_profile(
         session["user_id"], {"profile_photo_url": url}
@@ -883,7 +883,7 @@ async def profile_photo_delete(
 ) -> Response:
     # Clear the DB column first (source of truth for "no photo"), then
     # best-effort remove the storage object.
-    current_profile = profiles.get_creator_profile(session["user_id"]) or {}
+    current_profile = profiles.get_creator_profile_cached(session["user_id"], request) or {}
     profiles.update_creator_profile(
         session["user_id"], {"profile_photo_url": None}
     )
@@ -1769,7 +1769,7 @@ async def views_list(
     request: Request,
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
-    profile = profiles.get_creator_profile(session["user_id"]) or {}
+    profile = profiles.get_creator_profile_cached(session["user_id"], request) or {}
     if not profile.get("onboarding_completed_at"):
         return RedirectResponse("/onboarding/creator", status_code=302)
 

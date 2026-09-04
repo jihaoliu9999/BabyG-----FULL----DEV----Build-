@@ -162,6 +162,33 @@ def get_creator_profile(user_id: str) -> dict[str, Any] | None:
     return _get_profile("creator_profiles", user_id)
 
 
+def get_creator_profile_cached(
+    user_id: str, request: Any
+) -> dict[str, Any] | None:
+    """Same as ``get_creator_profile`` but memoized per request.
+
+    Reads/writes ``request.state._creator_profile_cache`` (dict keyed
+    by user_id). Route handlers and the base.html avatar global both
+    resolve the signed-in creator on the same request — this collapses
+    the two reads into one. Delegates to ``get_creator_profile`` on
+    miss so any test that monkeypatches the base function still wins.
+    """
+    if request is None or not hasattr(request, "state"):
+        return get_creator_profile(user_id)
+    cache = getattr(request.state, "_creator_profile_cache", None)
+    if isinstance(cache, dict) and user_id in cache:
+        return cache[user_id]
+    row = get_creator_profile(user_id)
+    if not isinstance(cache, dict):
+        cache = {}
+        try:
+            request.state._creator_profile_cache = cache
+        except Exception:
+            return row
+    cache[user_id] = row
+    return row
+
+
 def get_brand_profile(user_id: str) -> dict[str, Any] | None:
     """Owner-side full read. For non-operator cross-user reads, project
     with `public_brand` before rendering."""
