@@ -419,6 +419,13 @@ def test_creator_home_social_analytics_card_is_mobile_safe() -> None:
     assert "social_analytics.has_data" in DASHBOARD_TEMPLATE
 
 
+def test_creator_home_social_analytics_sits_after_shortcuts() -> None:
+    shortcuts_position = DASHBOARD_TEMPLATE.index("creator-home-shortcuts")
+    analytics_position = DASHBOARD_TEMPLATE.index("creator-social-section")
+
+    assert shortcuts_position < analytics_position
+
+
 def test_hidden_brand_topbar_does_not_reserve_mobile_space() -> None:
     assert ".is-brand-shell .brand-main" in APP_CSS
     assert "padding-top: max(18px, env(safe-area-inset-top, 0px))" in APP_CSS
