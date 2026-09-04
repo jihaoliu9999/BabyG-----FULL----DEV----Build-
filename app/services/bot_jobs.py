@@ -31,6 +31,7 @@ from app.core import supabase_client
 from app.integrations import anthropic_client, google_calendar, google_gmail
 from app.services import (
     action_proposals,
+    agent_memory,
     babyg_deals,
     babyg_memory,
     babyg_relations,
@@ -542,12 +543,18 @@ def _draft_gmail_reply(
     *, creator_id: str, thread, brand: str
 ) -> str | None:
     """Ask Claude for a short reply body in the creator's voice.
-    Bounded max_tokens keeps cost predictable. Returns the reply body
-    text, or None if drafting failed / produced nothing usable."""
+
+    Grounded on: creator memory summary (what babyg has learned about
+    them), tone preference (casual/professional/direct), risk
+    tolerance (cautious/balanced/latitude), and any open deal already
+    tracked with this brand. Bounded max_tokens keeps cost
+    predictable. Returns the reply body text, or None if drafting
+    failed / produced nothing usable.
+    """
     profile = profiles.get_creator_profile(creator_id) or {}
     first_name = str(profile.get("full_name") or "").split(" ")[0].strip() or "the creator"
     thread_lines: list[str] = []
-    for m in thread.messages[-4:]:
+    for m in thread.messages[-6:]:
         who = "brand" if _is_brandish_sender(_clean_email(m.from_) or "") else first_name
         body = (m.body_text or m.snippet or "").strip()
         if not body:
@@ -555,6 +562,16 @@ def _draft_gmail_reply(
         thread_lines.append(f"{who}: {body[:800]}")
     if not thread_lines:
         return None
+
+    # Enrichment: everything the drafter should know about who they're
+    # writing FROM and TO. Each helper degrades silently — a missing
+    # memory row or a supabase blip drops the extra context, the
+    # baseline draft still gets written.
+    memory_line = _memory_context_line(creator_id)
+    tone_line = _tone_line(profile)
+    risk_line = _risk_line(profile)
+    deal_line = _deal_context_line(creator_id, brand)
+
     system_prompt = (
         "you are babyg, the creator's ai manager. draft a SHORT reply "
         f"from {first_name} to {brand}. rules: lowercase, no em dashes, "
@@ -563,6 +580,10 @@ def _draft_gmail_reply(
         "a specific question and the answer isn't in the thread, ask "
         "back for the missing detail instead of guessing. output ONLY "
         "the reply body, no subject line, no signature, no explanation."
+        + memory_line
+        + tone_line
+        + risk_line
+        + deal_line
     )
     messages = [
         {
@@ -587,6 +608,68 @@ def _draft_gmail_reply(
     if not text or len(text) < 10:
         return None
     return text
+
+
+def _memory_context_line(creator_id: str) -> str:
+    """Inject the durable creator summary (agent memory) into the
+    drafter's system prompt. Empty string on any failure or when the
+    creator has no memory row yet."""
+    try:
+        row = agent_memory.load(creator_id) or {}
+    except Exception:
+        return ""
+    summary = str(row.get("summary") or "").strip()
+    if not summary:
+        return ""
+    # Cap at ~1500 chars so a bloated memory doesn't blow the prompt.
+    if len(summary) > 1500:
+        summary = summary[:1500].rstrip() + "…"
+    return f"\n\nwhat you know about this creator:\n{summary}"
+
+
+def _tone_line(profile: dict[str, Any]) -> str:
+    tone = str(profile.get("babyg_tone") or "").strip().lower()
+    if tone == "professional":
+        return "\n\ntone: professional. warm but polished; avoid slang."
+    if tone == "direct":
+        return "\n\ntone: direct. no preamble; get to the point in the first sentence."
+    # default (casual) matches the baseline voice already in the rules
+    # above; no extra line needed.
+    return ""
+
+
+def _risk_line(profile: dict[str, Any]) -> str:
+    risk = str(profile.get("babyg_risk_tolerance") or "").strip().lower()
+    if risk == "cautious":
+        return (
+            "\n\nrisk posture: cautious. if the brand is asking for anything "
+            "specific (rate, timeline, deliverables), do not answer — ask a "
+            "clarifying question and defer commitment until the creator confirms."
+        )
+    if risk == "latitude":
+        return (
+            "\n\nrisk posture: latitude. it's ok to acknowledge interest and "
+            "propose a next step (call, brief). still no rates, still no dates."
+        )
+    return ""  # balanced (default) needs no extra guidance
+
+
+def _deal_context_line(creator_id: str, brand: str) -> str:
+    """Add a one-line summary of any open deal with this brand so the
+    drafter doesn't reply as if this is a first contact when there's
+    an active pitch/negotiation."""
+    try:
+        deal = babyg_deals.find_open_deal(creator_id, brand_name=brand)
+    except Exception:
+        return ""
+    if not deal:
+        return ""
+    stage = str(deal.get("stage") or "").strip() or "in_progress"
+    return (
+        "\n\ndeal context: there is an OPEN deal with this brand at stage "
+        f"'{stage}'. reply consistent with that stage — do not restart the "
+        "conversation from scratch."
+    )
 
 
 def _drop_gmail_nudge(

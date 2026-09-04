@@ -1180,3 +1180,93 @@ def test_sweep_ig_metrics_viral_dedupes_across_runs(monkeypatch, store: _FakeSto
 
     assert first.changed == 1
     assert second.changed == 0
+
+
+# ---------------------------------------------------------------------
+# Brand-mail drafter enrichment (_memory/_tone/_risk/_deal context lines)
+# ---------------------------------------------------------------------
+
+
+def test_memory_context_line_returns_empty_when_no_memory(monkeypatch) -> None:
+    monkeypatch.setattr(bot_jobs.agent_memory, "load", lambda uid: None)
+    assert bot_jobs._memory_context_line("c1") == ""
+
+
+def test_memory_context_line_returns_empty_on_load_failure(monkeypatch) -> None:
+    def _boom(_):
+        raise RuntimeError("supabase down")
+
+    monkeypatch.setattr(bot_jobs.agent_memory, "load", _boom)
+    assert bot_jobs._memory_context_line("c1") == ""
+
+
+def test_memory_context_line_injects_summary(monkeypatch) -> None:
+    monkeypatch.setattr(
+        bot_jobs.agent_memory,
+        "load",
+        lambda uid: {"summary": "travel + fashion creator based in nyc."},
+    )
+    line = bot_jobs._memory_context_line("c1")
+    assert "what you know about this creator" in line
+    assert "travel + fashion" in line
+
+
+def test_memory_context_line_truncates_long_summary(monkeypatch) -> None:
+    huge = "x" * 3000
+    monkeypatch.setattr(
+        bot_jobs.agent_memory, "load", lambda uid: {"summary": huge}
+    )
+    line = bot_jobs._memory_context_line("c1")
+    # Total length includes the wrapper text; core content capped at 1500.
+    assert "…" in line
+    assert len(line) < 1700
+
+
+def test_tone_line_variants() -> None:
+    assert bot_jobs._tone_line({"babyg_tone": "professional"}).startswith(
+        "\n\ntone: professional"
+    )
+    assert bot_jobs._tone_line({"babyg_tone": "direct"}).startswith("\n\ntone: direct")
+    # casual and unset both fall through to no extra line.
+    assert bot_jobs._tone_line({"babyg_tone": "casual"}) == ""
+    assert bot_jobs._tone_line({}) == ""
+
+
+def test_risk_line_variants() -> None:
+    cautious = bot_jobs._risk_line({"babyg_risk_tolerance": "cautious"})
+    assert "cautious" in cautious
+    assert "clarifying question" in cautious
+
+    latitude = bot_jobs._risk_line({"babyg_risk_tolerance": "latitude"})
+    assert "latitude" in latitude
+    assert "no rates, still no dates" in latitude
+
+    # balanced (default) and unset get no extra line.
+    assert bot_jobs._risk_line({"babyg_risk_tolerance": "balanced"}) == ""
+    assert bot_jobs._risk_line({}) == ""
+
+
+def test_deal_context_line_returns_empty_when_no_open_deal(monkeypatch) -> None:
+    monkeypatch.setattr(
+        bot_jobs.babyg_deals, "find_open_deal", lambda uid, brand_name: None
+    )
+    assert bot_jobs._deal_context_line("c1", "acme") == ""
+
+
+def test_deal_context_line_returns_empty_on_lookup_failure(monkeypatch) -> None:
+    def _boom(uid, brand_name):
+        raise RuntimeError("supabase down")
+
+    monkeypatch.setattr(bot_jobs.babyg_deals, "find_open_deal", _boom)
+    assert bot_jobs._deal_context_line("c1", "acme") == ""
+
+
+def test_deal_context_line_carries_stage(monkeypatch) -> None:
+    monkeypatch.setattr(
+        bot_jobs.babyg_deals,
+        "find_open_deal",
+        lambda uid, brand_name: {"id": "d1", "stage": "negotiating"},
+    )
+    line = bot_jobs._deal_context_line("c1", "acme")
+    assert "OPEN deal" in line
+    assert "'negotiating'" in line
