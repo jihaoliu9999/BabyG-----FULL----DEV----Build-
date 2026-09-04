@@ -2864,8 +2864,11 @@ select.profile-detail-input {
   border-radius: 20px 20px 20px 6px;
   background: var(--surface-1);
   border: 1px solid var(--hairline);
+  /* Softer lift than before — the outer glow was reading as a heavy
+     dark halo on mobile. Keep the inset highlight for definition; drop
+     the outer shadow to a whisper. */
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.025),
-              0 6px 22px rgba(0, 0, 0, 0.22);
+              0 2px 8px rgba(0, 0, 0, 0.08);
   /* Assistant text is server-rendered as <p>/<ul>/<strong> via the
      bot_markdown filter; pre-wrap would preserve the between-tag
      whitespace as visible gaps. */
@@ -10137,9 +10140,13 @@ hr.hairline {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 44px;
+  min-height: 40px;
   white-space: nowrap;
-  box-shadow: inset 0 1px rgba(255,255,255,.055), 0 10px 26px rgba(0,0,0,.18);
+  /* Was: 0 10px 26px rgba(0,0,0,.18) — read as a heavy dark halo on
+     the chip strip. Keep the inset highlight for definition; drop the
+     outer glow to a whisper so chips look like buttons, not floating
+     cards. */
+  box-shadow: inset 0 1px rgba(255,255,255,.055), 0 2px 6px rgba(0,0,0,.08);
 }
 .bot-prompt-chip:focus-visible {
   outline: 2px solid rgba(255, 77, 109, 0.55);
@@ -10199,7 +10206,8 @@ hr.hairline {
     min-height: 48px;
   }
   .bot-prompt-chips {
-    padding: 0 18px 10px;
+    padding: 0 14px 6px;
+    gap: 6px;
     flex-wrap: nowrap;
     overflow-x: auto;
     scrollbar-width: none;
@@ -10211,13 +10219,18 @@ hr.hairline {
   .bot-prompt-chip {
     flex-shrink: 0;
     scroll-snap-align: start;
-    min-height: 44px;   /* iOS tap target */
-    font-size: 13.5px;
+    /* iOS's canonical 44px tap target applies to touch controls in
+       isolation; a horizontally-scrolling chip strip inside a
+       finger-scrollable region reads fine at 34px and reclaims real
+       estate above the composer. */
+    min-height: 34px;
+    padding: 0 12px;
+    font-size: 12.5px;
   }
 }
 @media (max-width: 420px) {
-  .bot-prompt-chips { padding: 0 14px 10px; gap: 6px; }
-  .bot-prompt-chip { padding: 0 12px; font-size: 13px; }
+  .bot-prompt-chips { padding: 0 12px 6px; gap: 6px; }
+  .bot-prompt-chip { padding: 0 10px; font-size: 12px; min-height: 32px; }
 }
 
 /* Bot composer: keep the textarea as the only visible input surface.
@@ -10235,7 +10248,9 @@ body.is-creator-app.is-chat:not(.chat-keyboard-open) .bot-composer {
   display: flex;
   align-items: center;
   gap: 8px;
-  min-height: 48px;
+  /* Matches the tightened textarea min-height below so the send
+     button sits flush without a phantom baseline gap. */
+  min-height: 40px;
   padding: 0;
   background: transparent;
   border: 0;
@@ -10248,15 +10263,21 @@ body.is-creator-app.is-chat:not(.chat-keyboard-open) .bot-composer {
   flex: 1 1 auto;
   width: 100%;
   min-width: 0;
-  min-height: 48px;
+  /* Was min-height 48px + 12px vertical pad = 72px tall. Tightened to
+     40 + 8 = 56px so the composer stops eating a third of the chat
+     screen on mobile. */
+  min-height: 40px;
   max-height: 104px;
-  padding: 12px 15px;
+  padding: 8px 14px;
   color: var(--ink);
   background: linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.035));
   border: 1px solid rgba(255,255,255,.12);
   border-radius: 16px;
   outline: 0;
-  box-shadow: inset 0 1px rgba(255,255,255,.055), 0 10px 28px rgba(0,0,0,.2);
+  /* Was 0 10px 28px rgba(0,0,0,.2) — the dark halo the user flagged.
+     Same softening pass as the chips + bubbles: keep the inset
+     highlight; whisper on the outer drop. */
+  box-shadow: inset 0 1px rgba(255,255,255,.055), 0 2px 8px rgba(0,0,0,.08);
   font-size: 16px;
   line-height: 1.35;
   resize: none;
