@@ -51,6 +51,7 @@ from app.services import (
     dm_briefs,
     dms,
     greetings,
+    instagram_dms,
     intel,
     jobs,
     locations,
@@ -1238,6 +1239,35 @@ async def notifications_mark_all_read(
 # -----------------------------------------------------------------------------
 # DMs
 # -----------------------------------------------------------------------------
+
+
+@router.get("/creator/instagram/dms", response_class=HTMLResponse)
+async def instagram_dm_inbox(
+    request: Request,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    """Minimal read-only surface for Instagram DMs babyg has ingested
+    via webhook. Populated by /webhooks/instagram → instagram_dms
+    service. Empty when the creator hasn't connected IG, or Meta
+    hasn't subscribed the webhook, or nobody's DM'd them yet."""
+    profile = profiles.get_creator_profile(session["user_id"]) or {}
+    if not profile.get("onboarding_completed_at"):
+        return RedirectResponse("/onboarding/creator", status_code=302)
+    threads = instagram_dms.list_threads_for_creator(session["user_id"], limit=30)
+    thread_messages: dict[str, list[dict[str, Any]]] = {}
+    for t in threads[:10]:  # only render inline for the newest 10
+        thread_messages[str(t["id"])] = instagram_dms.list_messages_for_thread(
+            session["user_id"], str(t["id"]), limit=40
+        )
+    return templates.TemplateResponse(
+        request,
+        "creator/instagram_dms.html",
+        {
+            "profile": profile,
+            "threads": threads,
+            "thread_messages": thread_messages,
+        },
+    )
 
 
 @router.get("/creator/dm", response_class=HTMLResponse)

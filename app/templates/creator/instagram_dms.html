@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}instagram dms — babyg{% endblock %}
+
+{% block content %}
+<main class="creator-home wrap ambient-page">
+
+  <header class="creator-home-hero">
+    <h1>instagram dms</h1>
+  </header>
+
+  {% if not threads %}
+  <section class="creator-home-section">
+    <div class="creator-home-recap">
+      <ul class="creator-home-recap-lines">
+        <li>no instagram dms yet.</li>
+        <li>if you just connected instagram, ping yourself from another account to test the webhook flow.</li>
+        <li>if it stays empty, the meta webhook subscription probably isn't set up on the developer console.</li>
+      </ul>
+    </div>
+  </section>
+  {% endif %}
+
+  {% for t in threads %}
+  <section class="creator-home-section">
+    <div class="creator-home-section-head">
+      <h2>{{ t.peer_username or t.ig_peer_user_id }}</h2>
+      {% if t.unread_count and t.unread_count > 0 %}
+      <span class="tabbar-badge" style="position: static;">{{ t.unread_count }}</span>
+      {% endif %}
+    </div>
+    <div class="creator-home-recap">
+      {% set msgs = thread_messages.get(t.id | string, []) %}
+      {% if not msgs %}
+      <p class="settings-hint">no messages loaded for this thread.</p>
+      {% else %}
+      <ul class="creator-home-recap-lines">
+        {% for m in msgs %}
+        <li>
+          <strong>{{ 'you' if m.direction == 'outbound' else (t.peer_username or 'them') }}</strong>
+          <span class="settings-help" style="margin-left: 8px;">{{ m.received_at|human_ago if m.received_at else '' }}</span>
+          <div>{{ m.body or '(no text)' }}</div>
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    </div>
+  </section>
+  {% endfor %}
+
+</main>
+{% endblock %}

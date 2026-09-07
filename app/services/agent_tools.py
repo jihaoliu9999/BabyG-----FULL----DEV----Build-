@@ -171,6 +171,47 @@ def pending_action_proposals_snapshot(user_id: str) -> dict[str, Any]:
     return {"count": len(rows), "by_action_type": by_kind}
 
 
+def pending_instagram_dms_snapshot(user_id: str) -> dict[str, Any]:
+    """Recent inbound IG DM threads with any unread. Compact shape
+    for the agent's pre-filter (counts + peer id + last body preview).
+
+    Reads `instagram_dm_threads` (which the webhook ingestion service
+    populates when Meta pushes a `messages` event). Empty when the
+    creator hasn't connected IG, hasn't received any DMs, or the
+    webhook subscription isn't set up yet — all three degrade to
+    the same "nothing to see" response.
+    """
+    try:
+        result = (
+            _service()
+            .table("instagram_dm_threads")
+            .select("id,ig_thread_id,ig_peer_user_id,peer_username,last_message_at,unread_count")
+            .eq("creator_id", user_id)
+            .gt("unread_count", 0)
+            .order("last_message_at", desc=True)
+            .limit(10)
+            .execute()
+        )
+    except Exception:
+        logger.exception(
+            "agent_tools.pending_instagram_dms_snapshot.failed user=%s", user_id
+        )
+        return {"count": 0, "threads": []}
+    rows = list(getattr(result, "data", None) or [])
+    return {
+        "count": sum(int(r.get("unread_count") or 0) for r in rows),
+        "threads": [
+            {
+                "id": r.get("id"),
+                "peer": r.get("peer_username") or r.get("ig_peer_user_id"),
+                "unread": int(r.get("unread_count") or 0),
+                "last_at": r.get("last_message_at"),
+            }
+            for r in rows
+        ],
+    }
+
+
 def observe(user_id: str, *, now: datetime | None = None) -> dict[str, Any]:
     """Aggregate snapshot the agent's pre-filter reads every cycle.
 
@@ -188,6 +229,7 @@ def observe(user_id: str, *, now: datetime | None = None) -> dict[str, Any]:
         "upcoming_bookings": upcoming_bookings(user_id, limit=5),
         "unread_dms": unread_dms_snapshot(user_id),
         "pending_action_proposals": pending_action_proposals_snapshot(user_id),
+        "pending_instagram_dms": pending_instagram_dms_snapshot(user_id),
     }
 
 
@@ -206,5 +248,8 @@ def delta_summary(snapshot: dict[str, Any]) -> dict[str, int]:
         "unread_dms": int((snapshot.get("unread_dms") or {}).get("count") or 0),
         "pending_action_proposals": int(
             (snapshot.get("pending_action_proposals") or {}).get("count") or 0
+        ),
+        "pending_instagram_dms": int(
+            (snapshot.get("pending_instagram_dms") or {}).get("count") or 0
         ),
     }

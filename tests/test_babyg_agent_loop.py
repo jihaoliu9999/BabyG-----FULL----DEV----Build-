@@ -85,6 +85,7 @@ def test_no_delta_skips_llm(monkeypatch) -> None:
             "upcoming_bookings": [],
             "unread_dms": {"count": 0},
             "pending_action_proposals": {"count": 0},
+            "pending_instagram_dms": {"count": 0},
             "as_of": "2026-09-03T00:00:00Z",
         },
     )
@@ -103,6 +104,7 @@ def test_no_delta_skips_llm(monkeypatch) -> None:
         "upcoming_bookings": 0,
         "unread_dms": 0,
         "pending_action_proposals": 0,
+        "pending_instagram_dms": 0,
     }
 
 
@@ -120,6 +122,7 @@ def test_ok_cycle_dispatches_tool_calls(monkeypatch) -> None:
             "upcoming_bookings": [],
             "unread_dms": {"count": 0},
             "pending_action_proposals": {"count": 0},
+            "pending_instagram_dms": {"count": 0},
             "as_of": "2026-09-03T00:00:00Z",
         },
     )
@@ -204,6 +207,7 @@ def test_claude_not_configured_records_skip(monkeypatch) -> None:
             "upcoming_bookings": [],
             "unread_dms": {"count": 0},
             "pending_action_proposals": {"count": 0},
+            "pending_instagram_dms": {"count": 0},
             "as_of": "2026-09-03T00:00:00Z",
         },
     )
@@ -233,6 +237,7 @@ def test_claude_call_error_records_failed(monkeypatch) -> None:
             "upcoming_bookings": [],
             "unread_dms": {"count": 0},
             "pending_action_proposals": {"count": 0},
+            "pending_instagram_dms": {"count": 0},
             "as_of": "2026-09-03T00:00:00Z",
         },
     )
@@ -262,6 +267,7 @@ def test_tool_exception_becomes_failed_tool_result(monkeypatch) -> None:
             "upcoming_bookings": [],
             "unread_dms": {"count": 0},
             "pending_action_proposals": {"count": 0},
+            "pending_instagram_dms": {"count": 0},
             "as_of": "2026-09-03T00:00:00Z",
         },
     )
@@ -319,6 +325,7 @@ def test_unknown_tool_name_survives(monkeypatch) -> None:
             "upcoming_bookings": [],
             "unread_dms": {"count": 0},
             "pending_action_proposals": {"count": 0},
+            "pending_instagram_dms": {"count": 0},
             "as_of": "2026-09-03T00:00:00Z",
         },
     )

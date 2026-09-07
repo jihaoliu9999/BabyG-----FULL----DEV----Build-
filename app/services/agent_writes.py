@@ -282,6 +282,69 @@ def calendar_create_hold(
     return {"ok": True, "event_id": event_id}
 
 
+def draft_instagram_dm_reply(
+    user_id: str,
+    *,
+    ig_thread_id: str,
+    body: str,
+    profile: dict | None = None,
+) -> dict[str, Any]:
+    """Stage a proposed IG DM reply in the creator's bot thread.
+
+    The staging is a `bot_messages` entry with tool_calls carrying
+    the thread id + draft body. The creator taps "send" in the bot
+    thread to approve; only then does a follow-up commit actually
+    call Meta's Send API. This mirrors the gmail draft flow (we
+    write the draft, human confirms before external write happens).
+
+    Safety: gated on `stage_action_proposal` autonomy (baseline —
+    always allowed). Never sends autonomously in this commit.
+    """
+    if not agent_autonomy.agent_can(
+        user_id, "stage_action_proposal", profile=profile
+    ):
+        return {
+            "ok": False,
+            "reason": "autonomy_denied",
+            "action": "draft_instagram_dm_reply",
+        }
+    clean_body = (body or "").strip()
+    if not clean_body:
+        return {"ok": False, "reason": "empty_body"}
+    thread = (ig_thread_id or "").strip()
+    if not thread:
+        return {"ok": False, "reason": "no_thread_id"}
+    tool_calls: dict[str, Any] = {
+        "source": f"{_NUDGE_SOURCE_PREFIX}_loop",
+        "kind": "proposed_action",
+        "action_type": "instagram.send_dm",
+        "payload": {
+            "ig_thread_id": thread,
+            "body": clean_body,
+        },
+        "preview": {
+            "title": "reply to instagram dm",
+            "body": clean_body,
+        },
+    }
+    try:
+        message = bot.create_message(
+            user_id=user_id,
+            role="assistant",
+            content=(
+                f"drafted a reply for your instagram dm thread. "
+                f"tap to review + send:\n\n> {clean_body[:200]}"
+            ),
+            tool_calls=tool_calls,
+        )
+    except Exception:
+        logger.exception(
+            "agent_writes.draft_instagram_dm_reply.write_failed user=%s", user_id
+        )
+        return {"ok": False, "reason": "write_failed"}
+    return {"ok": True, "message_id": message}
+
+
 def _count_recent_agent_nudges(
     user_id: str, *, now: datetime | None = None
 ) -> int:

@@ -147,6 +147,7 @@ def test_observe_returns_all_dimensions(monkeypatch) -> None:
     _install(monkeypatch, rows_by_table={
         "babyg_memory_drafts": [],
         "babyg_memory_deals": [],
+        "instagram_dm_threads": [],
     })
     monkeypatch.setattr(
         agent_tools.bookings, "list_for_user", lambda *a, **kw: []
@@ -165,6 +166,7 @@ def test_observe_returns_all_dimensions(monkeypatch) -> None:
         "upcoming_bookings",
         "unread_dms",
         "pending_action_proposals",
+        "pending_instagram_dms",
     }
 
 
@@ -175,6 +177,7 @@ def test_delta_summary_zero_when_nothing_new() -> None:
         "upcoming_bookings": [],
         "unread_dms": {"count": 0},
         "pending_action_proposals": {"count": 0},
+        "pending_instagram_dms": {"count": 0},
     }
     delta = agent_tools.delta_summary(snap)
     assert sum(delta.values()) == 0
@@ -187,6 +190,7 @@ def test_delta_summary_counts_correctly() -> None:
         "upcoming_bookings": [],
         "unread_dms": {"count": 3},
         "pending_action_proposals": {"count": 4},
+        "pending_instagram_dms": {"count": 2},
     }
     delta = agent_tools.delta_summary(snap)
     assert delta == {
@@ -195,4 +199,5 @@ def test_delta_summary_counts_correctly() -> None:
         "upcoming_bookings": 0,
         "unread_dms": 3,
         "pending_action_proposals": 4,
+        "pending_instagram_dms": 2,
     }

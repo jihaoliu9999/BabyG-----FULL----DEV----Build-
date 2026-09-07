@@ -64,6 +64,60 @@ from app.core import supabase_client
 logger = logging.getLogger(__name__)
 
 
+def list_threads_for_creator(user_id: str, *, limit: int = 30) -> list[dict[str, Any]]:
+    """Read helper for the /creator/instagram/dms route. Threads
+    newest-first, capped at `limit`. Never raises — flaky supabase
+    returns []."""
+    capped = max(1, min(int(limit), 100))
+    try:
+        result = (
+            supabase_client.get_service_client()
+            .table("instagram_dm_threads")
+            .select(
+                "id,ig_thread_id,ig_peer_user_id,peer_username,"
+                "last_message_at,unread_count"
+            )
+            .eq("creator_id", user_id)
+            .order("last_message_at", desc=True)
+            .limit(capped)
+            .execute()
+        )
+    except Exception:
+        logger.exception("instagram_dms.list_threads_for_creator.failed user=%s", user_id)
+        return []
+    return list(getattr(result, "data", None) or [])
+
+
+def list_messages_for_thread(
+    user_id: str, thread_id: str, *, limit: int = 100
+) -> list[dict[str, Any]]:
+    """Read helper. Messages ascending by received_at so the UI can
+    render top-to-bottom. Owner-scoped via creator_id so an operator
+    query never leaks another creator's DMs."""
+    capped = max(1, min(int(limit), 500))
+    try:
+        result = (
+            supabase_client.get_service_client()
+            .table("instagram_dm_messages")
+            .select(
+                "id,thread_id,direction,sender_ig_id,body,attachments,received_at"
+            )
+            .eq("creator_id", user_id)
+            .eq("thread_id", thread_id)
+            .order("received_at", desc=False)
+            .limit(capped)
+            .execute()
+        )
+    except Exception:
+        logger.exception(
+            "instagram_dms.list_messages_for_thread.failed user=%s thread=%s",
+            user_id,
+            thread_id,
+        )
+        return []
+    return list(getattr(result, "data", None) or [])
+
+
 def ingest_webhook_payload(payload: dict[str, Any]) -> dict[str, int]:
     """Top-level entrypoint. Returns a small stats dict for the
     webhook route's log line — never raises."""
