@@ -31,6 +31,7 @@ from app.routes import marketing as marketing_routes
 from app.routes import onboarding as onboarding_routes
 from app.routes import operator as operator_routes
 from app.routes import opportunities as opportunities_routes
+from app.routes import webhooks as webhooks_routes
 
 logger = logging.getLogger(__name__)
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -96,6 +97,10 @@ def create_app() -> FastAPI:
     app.include_router(operator_routes.router)
     app.include_router(abuse_routes.router)
     app.include_router(legal_routes.router)
+    # Inbound webhooks (Instagram DMs, potentially others). Public
+    # endpoints — auth is done by HMAC signature verification inside
+    # the route, not by session middleware.
+    app.include_router(webhooks_routes.router)
 
     @app.get("/healthz", tags=["system"])
     async def healthz() -> JSONResponse:

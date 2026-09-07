@@ -55,6 +55,10 @@ MAX_CSRF_BODY_BYTES = 11 * 1024 * 1024
 # fresh tab with no session cookie; everything else requires a token.
 CSRF_EXEMPT_PATHS = frozenset({
     "/auth/callback",
+    # Inbound webhooks are authenticated by HMAC signature verification
+    # inside the route (see app/routes/webhooks.py). A CSRF token from
+    # Meta would be nonsensical — Meta doesn't know our session.
+    "/webhooks/instagram",
 })
 
 
