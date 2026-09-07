@@ -944,6 +944,35 @@ async def profile_settings_page(
         )
     except Exception:
         instagram_connected = False
+    # If the stored IG connection exists but token refresh is failing,
+    # surface a "reconnect" state in the UI so the user knows why their
+    # IG data isn't updating. Best-effort — never blanks the page.
+    try:
+        instagram_needs_reconnect = (
+            instagram_connected
+            and oauth_connections.instagram_needs_reconnect(session["user_id"])
+        )
+    except Exception:
+        instagram_needs_reconnect = False
+    # Refresh the stored IG handle from the live Graph API when we
+    # have a valid token. Fixes the "user changed handle → babyg still
+    # shows old one" issue. Silent + idempotent. If the returned
+    # username differs from what's already on `profile`, update the
+    # in-memory profile too so the page renders the fresh value on
+    # this same request.
+    if instagram_connected and not instagram_needs_reconnect:
+        try:
+            live_handle = oauth_connections.refresh_instagram_username(
+                session["user_id"]
+            )
+            if live_handle and live_handle != profile.get("instagram_handle"):
+                profile = {**profile, "instagram_handle": live_handle}
+        except Exception:
+            logger.info(
+                "instagram username refresh raised for user %s",
+                session["user_id"],
+                exc_info=True,
+            )
     # Agent memory + recent history for the "what babyg knows" panel.
     # Both degrade to empty on supabase failure — the panel just
     # renders an empty textarea + "no history yet".
@@ -972,6 +1001,7 @@ async def profile_settings_page(
             "google_configured": google_calendar.is_configured(),
             "instagram_configured": instagram_configured,
             "instagram_connected": instagram_connected,
+            "instagram_needs_reconnect": instagram_needs_reconnect,
             "agent_memory": memory_row,
             "agent_memory_history": memory_history,
             "agent_memory_max_chars": agent_memory.SUMMARY_MAX_CHARS,

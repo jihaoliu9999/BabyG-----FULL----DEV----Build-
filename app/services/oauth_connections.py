@@ -500,6 +500,61 @@ def access_token_for_instagram(user_id: str) -> str | None:
     return new_token
 
 
+def instagram_needs_reconnect(user_id: str) -> bool:
+    """True when the creator has a stored Instagram connection but we
+    can't produce a usable token from it (refresh failed / user
+    revoked at Meta). Callers surface a 'reconnect instagram' button
+    in the settings UI. Returns False when there's no connection at
+    all — that's "not connected", a different state the template
+    already renders."""
+    connection = get_instagram_connection(user_id)
+    if not connection:
+        return False
+    if not _is_expired(connection.get("expires_at")):
+        return False
+    # Try to refresh in place; if it returns a real token, we're fine.
+    # access_token_for_instagram already runs the refresh flow.
+    fresh = access_token_for_instagram(user_id)
+    return not bool(fresh)
+
+
+def refresh_instagram_username(user_id: str) -> str | None:
+    """Refresh the stored `creator_profiles.instagram_handle` from
+    Meta's Graph API. Idempotent; safe to call on every settings-page
+    render. Returns the current handle or None on any failure.
+
+    Fixes the "user changed their IG handle but babyg still shows the
+    old one" bug — the handle used to only sync at oauth-connect time.
+    """
+    from app.services import profiles  # local: avoid service-cycle at import
+
+    token = access_token_for_instagram(user_id)
+    if not token:
+        return None
+    try:
+        account = instagram_meta.resolve_business_account(token)
+    except instagram_meta.InstagramError:
+        logger.info("instagram username refresh: graph call failed user=%s", user_id)
+        return None
+    live_handle = (account.username or "").strip() or None
+    if not live_handle:
+        return None
+    profile = profiles.get_creator_profile(user_id) or {}
+    stored = str(profile.get("instagram_handle") or "").strip()
+    if stored.lower() != live_handle.lower():
+        try:
+            profiles.update_creator_profile(
+                user_id, {"instagram_handle": live_handle}
+            )
+        except Exception:
+            logger.exception(
+                "instagram username persist failed user=%s live=%s",
+                user_id,
+                live_handle,
+            )
+    return live_handle
+
+
 def _instagram_state_serializer() -> URLSafeTimedSerializer:
     return URLSafeTimedSerializer(
         get_settings().session_secret, salt="bg.instagram.oauth.v1"

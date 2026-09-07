@@ -62,7 +62,9 @@
   <article class="integration-card{% if instagram_connected %} integration-card-connected{% endif %}{% if not instagram_configured %} integration-card-soon{% endif %}">
     <div class="integration-head">
       <span class="mono integration-tag">Instagram</span>
-      {% if instagram_connected %}
+      {% if instagram_needs_reconnect %}
+      <span class="status-pill status-pill-warn"><span class="pulse-dot"></span> reconnect</span>
+      {% elif instagram_connected %}
       <span class="status-pill status-pill-connected"><span class="pulse-dot"></span> connected</span>
       {% elif instagram_configured %}
       <span class="status-pill status-pill-ready"><span class="pulse-dot"></span> ready</span>
@@ -70,9 +72,18 @@
       <span class="status-pill status-pill-muted">coming soon</span>
       {% endif %}
     </div>
-    <p class="integration-body">connect instagram so babyg can keep your social context current.</p>
+    <p class="integration-body">syncs your posts, reach, and follower count. dms and comments stay on instagram — babyg never reads them.</p>
+    {% if instagram_needs_reconnect %}
+    <p class="settings-hint">your instagram token expired or was revoked. reconnect to keep your metrics fresh.</p>
+    {% endif %}
     <div class="integration-card-actions">
-      {% if instagram_connected %}
+      {% if instagram_needs_reconnect %}
+      <a class="btn btn-lime btn-sm" href="/creator/instagram/connect?next=/creator/profile/settings">reconnect instagram</a>
+      <form method="post" action="/creator/instagram/disconnect" style="display:inline;">
+        {% include "_partials/csrf.html" %}
+        <button type="submit" class="btn btn-ghost btn-sm">remove</button>
+      </form>
+      {% elif instagram_connected %}
       <form method="post" action="/creator/instagram/disconnect">
         {% include "_partials/csrf.html" %}
         <button type="submit" class="btn btn-ghost btn-sm">disconnect instagram</button>

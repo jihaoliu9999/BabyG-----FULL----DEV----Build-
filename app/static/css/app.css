@@ -9641,6 +9641,17 @@ hr.hairline {
 .is-creator-app .settings-clean-shell .status-pill-ready {
   color: var(--text-secondary) !important;
 }
+/* Warn state — the integration was connected but the token expired
+   or was revoked at the provider. Used by the IG card when
+   `instagram_needs_reconnect` is True. Same shape as connected/ready
+   but amber so it reads as "attention needed, not broken". */
+.is-creator-app .settings-clean-shell .status-pill-warn {
+  color: #f0b060 !important;
+}
+.is-creator-app .settings-clean-shell .status-pill-warn .pulse-dot {
+  background: #f0b060;
+  box-shadow: 0 0 8px rgba(240,176,96,0.35);
+}
 .is-creator-app .settings-clean-shell .status-pill .pulse-dot {
   width: 7px;
   height: 7px;
