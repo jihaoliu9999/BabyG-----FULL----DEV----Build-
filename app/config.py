@@ -103,6 +103,19 @@ class Settings(BaseSettings):
             "META_REDIRECT_URI",
         ),
     )
+    # Shared secret between us and Meta for webhook challenge
+    # verification. Set this value verbatim in Meta Developer Console
+    # → Products → Webhooks → Verify Token when subscribing to
+    # `instagram/messages`. Empty = the webhook endpoint refuses
+    # every verify challenge (safe default; DM ingestion just doesn't
+    # start).
+    instagram_webhook_verify_token: str = Field(
+        default="",
+        validation_alias=AliasChoices(
+            "INSTAGRAM_WEBHOOK_VERIFY_TOKEN",
+            "META_WEBHOOK_VERIFY_TOKEN",
+        ),
+    )
 
     @property
     def is_production(self) -> bool:

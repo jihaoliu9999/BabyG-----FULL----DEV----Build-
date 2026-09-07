@@ -52,12 +52,24 @@ DEFAULT_CALLBACK_PATH: Final = "/creator/instagram/callback"
 
 # Read-only scope set. instagram_business_basic alone covers profile +
 # media listing; insights is added so we can pull engagement/reach/etc.
-# We deliberately do NOT include content_publish, manage_comments, or
-# manage_messages — those would grant write capabilities our integration
-# module never exposes.
+# `instagram_business_manage_messages` is included so we can ingest
+# incoming IG DMs via the /webhooks/instagram receiver + reply on
+# the creator's behalf (double-gated by agent_autonomy +
+# agent_safety.is_gmail_reply_safe patterns adapted for DMs).
+#
+# We still deliberately do NOT include content_publish or
+# manage_comments — those would grant post-authoring / comment-moderation
+# capabilities our integration module doesn't expose today.
+#
+# Scope grant behavior at Meta: this scope is "Ready for testing"
+# on our app dashboard, which means it works for app admins,
+# developers, testers, and Instagram Testers today. Public rollout
+# (any creator can sign up + connect) still requires Meta App Review
+# submission — the code below is ready either way.
 SCOPES: Final[tuple[str, ...]] = (
     "instagram_business_basic",
     "instagram_business_manage_insights",
+    "instagram_business_manage_messages",
 )
 
 TIMEOUT_SECONDS: Final = 20.0
