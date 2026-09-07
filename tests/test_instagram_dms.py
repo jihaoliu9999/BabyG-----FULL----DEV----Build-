@@ -1,0 +1,323 @@
+"""Tests for the Instagram DM ingestion service."""
+
+from __future__ import annotations
+
+from app.services import instagram_dms
+
+
+class _FakeSupabase:
+    def __init__(self):
+        # Fake tables. oauth_connections is a static list; the two
+        # instagram_dm tables are lists that get appended to on
+        # inserts.
+        self.oauth_rows: list[dict] = []
+        self.threads: list[dict] = []
+        self.messages: list[dict] = []
+        self._table_id_seq = 0
+        self.raise_on: set[str] = set()
+
+    def next_id(self) -> str:
+        self._table_id_seq += 1
+        return f"row-{self._table_id_seq}"
+
+    def table(self, name):
+        if name in self.raise_on:
+            class _Boom:
+                def __getattr__(self, _):
+                    raise RuntimeError(f"supabase down ({name})")
+            return _Boom()
+        return _FakeTable(self, name)
+
+
+class _FakeTable:
+    def __init__(self, store, name):
+        self.store = store
+        self.name = name
+        self._filter: dict = {}
+        self._upsert_row = None
+        self._insert_row = None
+        self._update_payload = None
+
+    def select(self, _cols):
+        return self
+
+    def eq(self, col, val):
+        self._filter[col] = val
+        return self
+
+    def limit(self, _):
+        return self
+
+    def upsert(self, row, on_conflict=None):
+        self._upsert_row = (row, on_conflict)
+        return self
+
+    def insert(self, row):
+        self._insert_row = row
+        return self
+
+    def update(self, payload):
+        self._update_payload = payload
+        return self
+
+    def execute(self):
+        # Handle the filter-first paths (select or update)
+        if self.name == "oauth_connections":
+            rows = [
+                r for r in self.store.oauth_rows
+                if all(r.get(k) == v for k, v in self._filter.items())
+            ]
+            return _Result(rows)
+        if self.name == "instagram_dm_threads":
+            if self._insert_row is not None:
+                row = {**self._insert_row, "id": self.store.next_id()}
+                self.store.threads.append(row)
+                return _Result([row])
+            if self._update_payload is not None:
+                for r in self.store.threads:
+                    if r["id"] == self._filter.get("id"):
+                        r.update(self._update_payload)
+                        return _Result([r])
+                return _Result([])
+            # select
+            rows = [
+                r for r in self.store.threads
+                if all(r.get(k) == v for k, v in self._filter.items())
+            ]
+            return _Result(rows)
+        if self.name == "instagram_dm_messages" and self._upsert_row is not None:
+            row, _ = self._upsert_row
+            # Idempotence: skip duplicates on (creator_id, ig_message_id)
+            already = any(
+                m.get("creator_id") == row.get("creator_id")
+                and m.get("ig_message_id") == row.get("ig_message_id")
+                for m in self.store.messages
+            )
+            if not already:
+                self.store.messages.append({**row, "id": self.store.next_id()})
+            return _Result([row])
+        return _Result([])
+
+
+class _Result:
+    def __init__(self, data):
+        self.data = data
+
+
+def _install(monkeypatch) -> _FakeSupabase:
+    fake = _FakeSupabase()
+    monkeypatch.setattr(
+        instagram_dms.supabase_client, "get_service_client", lambda: fake
+    )
+    return fake
+
+
+# ---- top-level guards ------------------------------------------------
+
+
+def test_ingest_ignores_non_dict_payload(monkeypatch) -> None:
+    _install(monkeypatch)
+    assert instagram_dms.ingest_webhook_payload(None) == {  # type: ignore[arg-type]
+        "entries": 0,
+        "messages_ingested": 0,
+        "dropped_no_creator": 0,
+        "errors": 0,
+    }
+
+
+def test_ingest_ignores_non_instagram_object(monkeypatch) -> None:
+    _install(monkeypatch)
+    stats = instagram_dms.ingest_webhook_payload(
+        {"object": "page", "entry": [{"id": "x", "messaging": []}]}
+    )
+    assert stats["entries"] == 0
+
+
+# ---- unknown IG account ----------------------------------------------
+
+
+def test_ingest_drops_entry_when_no_creator_matches(monkeypatch) -> None:
+    fake = _install(monkeypatch)
+    fake.oauth_rows = []  # nobody has connected IG account "999"
+    stats = instagram_dms.ingest_webhook_payload({
+        "object": "instagram",
+        "entry": [{
+            "id": "999",
+            "messaging": [{
+                "sender": {"id": "peer1"},
+                "recipient": {"id": "999"},
+                "timestamp": 1699999999000,
+                "message": {"mid": "m1", "text": "hi"},
+            }],
+        }],
+    })
+    assert stats == {"entries": 1, "messages_ingested": 0, "dropped_no_creator": 1, "errors": 0}
+    assert fake.messages == []
+
+
+# ---- happy path: inbound message -------------------------------------
+
+
+def test_ingest_persists_inbound_message_and_creates_thread(monkeypatch) -> None:
+    fake = _install(monkeypatch)
+    fake.oauth_rows = [
+        {"user_id": "creator-1", "provider": "instagram", "provider_account_id": "acct-1"}
+    ]
+    stats = instagram_dms.ingest_webhook_payload({
+        "object": "instagram",
+        "entry": [{
+            "id": "acct-1",
+            "messaging": [{
+                "sender": {"id": "peer-99"},
+                "recipient": {"id": "acct-1"},
+                "timestamp": 1699999999000,
+                "message": {"mid": "m1", "text": "love your reel"},
+            }],
+        }],
+    })
+    assert stats["messages_ingested"] == 1
+    assert stats["errors"] == 0
+    # Thread created
+    assert len(fake.threads) == 1
+    thread = fake.threads[0]
+    assert thread["creator_id"] == "creator-1"
+    assert thread["ig_thread_id"] == "peer-99"
+    assert thread["unread_count"] == 1
+    # Message stored
+    assert len(fake.messages) == 1
+    m = fake.messages[0]
+    assert m["direction"] == "inbound"
+    assert m["body"] == "love your reel"
+
+
+# ---- outbound message (echo) -----------------------------------------
+
+
+def test_ingest_recognizes_outbound_echo(monkeypatch) -> None:
+    fake = _install(monkeypatch)
+    fake.oauth_rows = [
+        {"user_id": "creator-1", "provider": "instagram", "provider_account_id": "acct-1"}
+    ]
+    stats = instagram_dms.ingest_webhook_payload({
+        "object": "instagram",
+        "entry": [{
+            "id": "acct-1",
+            "messaging": [{
+                "sender": {"id": "acct-1"},
+                "recipient": {"id": "peer-99"},
+                "timestamp": 1699999999000,
+                "message": {"mid": "m2", "text": "thanks!", "is_echo": True},
+            }],
+        }],
+    })
+    assert stats["messages_ingested"] == 1
+    assert fake.messages[0]["direction"] == "outbound"
+    # Thread built off the peer id, unread NOT incremented (outbound)
+    assert fake.threads[0]["unread_count"] == 0
+
+
+# ---- idempotence -----------------------------------------------------
+
+
+def test_ingest_duplicate_message_is_no_op(monkeypatch) -> None:
+    fake = _install(monkeypatch)
+    fake.oauth_rows = [
+        {"user_id": "creator-1", "provider": "instagram", "provider_account_id": "acct-1"}
+    ]
+    payload = {
+        "object": "instagram",
+        "entry": [{
+            "id": "acct-1",
+            "messaging": [{
+                "sender": {"id": "peer-99"},
+                "recipient": {"id": "acct-1"},
+                "timestamp": 1699999999000,
+                "message": {"mid": "m-same", "text": "hi"},
+            }],
+        }],
+    }
+    instagram_dms.ingest_webhook_payload(payload)
+    instagram_dms.ingest_webhook_payload(payload)
+    # Second delivery must not create a duplicate row
+    assert len(fake.messages) == 1
+
+
+# ---- malformed messaging entries survive -----------------------------
+
+
+def test_ingest_skips_message_without_mid(monkeypatch) -> None:
+    fake = _install(monkeypatch)
+    fake.oauth_rows = [
+        {"user_id": "creator-1", "provider": "instagram", "provider_account_id": "acct-1"}
+    ]
+    instagram_dms.ingest_webhook_payload({
+        "object": "instagram",
+        "entry": [{
+            "id": "acct-1",
+            "messaging": [
+                # Missing message.mid
+                {
+                    "sender": {"id": "peer-99"},
+                    "recipient": {"id": "acct-1"},
+                    "message": {"text": "no mid here"},
+                },
+                # Valid one right after — must still land
+                {
+                    "sender": {"id": "peer-99"},
+                    "recipient": {"id": "acct-1"},
+                    "timestamp": 1699999999000,
+                    "message": {"mid": "m-real", "text": "real one"},
+                },
+            ],
+        }],
+    })
+    assert len(fake.messages) == 1
+    assert fake.messages[0]["ig_message_id"] == "m-real"
+
+
+# ---- crashes never propagate ----------------------------------------
+
+
+def test_ingest_survives_supabase_crash_on_resolve(monkeypatch) -> None:
+    fake = _install(monkeypatch)
+    fake.raise_on = {"oauth_connections"}
+    # Should not raise; entry is dropped with no crash.
+    stats = instagram_dms.ingest_webhook_payload({
+        "object": "instagram",
+        "entry": [{
+            "id": "acct-1",
+            "messaging": [{
+                "sender": {"id": "peer-99"},
+                "recipient": {"id": "acct-1"},
+                "timestamp": 1699999999000,
+                "message": {"mid": "m1", "text": "hi"},
+            }],
+        }],
+    })
+    # dropped_no_creator = 1 because resolve returned None (via caught exception)
+    assert stats["dropped_no_creator"] == 1
+
+
+# ---- timestamp coercion ---------------------------------------------
+
+
+def test_timestamp_missing_falls_back_to_now(monkeypatch) -> None:
+    fake = _install(monkeypatch)
+    fake.oauth_rows = [
+        {"user_id": "creator-1", "provider": "instagram", "provider_account_id": "acct-1"}
+    ]
+    instagram_dms.ingest_webhook_payload({
+        "object": "instagram",
+        "entry": [{
+            "id": "acct-1",
+            "messaging": [{
+                "sender": {"id": "peer-99"},
+                "recipient": {"id": "acct-1"},
+                # timestamp missing
+                "message": {"mid": "m1", "text": "hi"},
+            }],
+        }],
+    })
+    assert len(fake.messages) == 1
+    # received_at got set to something valid (isoformat with 'T')
+    assert "T" in fake.messages[0]["received_at"]
