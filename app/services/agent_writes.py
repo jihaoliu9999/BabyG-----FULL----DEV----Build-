@@ -40,6 +40,7 @@ from postgrest.types import CountMethod
 from app.core import supabase_client
 from app.integrations import google_calendar, google_gmail, instagram_meta
 from app.services import (
+    action_proposals,
     agent_autonomy,
     agent_memory,
     agent_safety,
@@ -314,18 +315,39 @@ def draft_instagram_dm_reply(
     thread = (ig_thread_id or "").strip()
     if not thread:
         return {"ok": False, "reason": "no_thread_id"}
+    payload = {
+        "ig_thread_id": thread,
+        "body": clean_body,
+    }
+    preview = {
+        "title": "reply to instagram dm",
+        "body": clean_body,
+    }
+    try:
+        proposal_row = action_proposals.create_proposal(
+            user_id=user_id,
+            action_type="instagram.send_dm",
+            payload=payload,
+            preview=preview,
+        )
+    except Exception:
+        logger.exception(
+            "agent_writes.draft_instagram_dm_reply.proposal_failed user=%s", user_id
+        )
+        return {"ok": False, "reason": "proposal_write_failed"}
+    if not proposal_row or not proposal_row.get("id"):
+        return {"ok": False, "reason": "proposal_write_failed"}
+    proposal_id = str(proposal_row["id"])
+
     tool_calls: dict[str, Any] = {
         "source": f"{_NUDGE_SOURCE_PREFIX}_loop",
         "kind": "proposed_action",
         "action_type": "instagram.send_dm",
-        "payload": {
-            "ig_thread_id": thread,
-            "body": clean_body,
-        },
-        "preview": {
-            "title": "reply to instagram dm",
-            "body": clean_body,
-        },
+        "proposal_id": proposal_id,
+        "status": "pending",
+        "payload": payload,
+        "preview": preview,
+        "result": None,
     }
     try:
         message = bot.create_message(
@@ -342,7 +364,7 @@ def draft_instagram_dm_reply(
             "agent_writes.draft_instagram_dm_reply.write_failed user=%s", user_id
         )
         return {"ok": False, "reason": "write_failed"}
-    return {"ok": True, "message_id": message}
+    return {"ok": True, "message_id": message, "proposal_id": proposal_id}
 
 
 def send_instagram_dm_reply(

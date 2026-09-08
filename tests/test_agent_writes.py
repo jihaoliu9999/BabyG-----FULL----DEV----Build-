@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+import pytest
+
 from app.services import agent_writes
 
 
@@ -432,6 +434,97 @@ def test_calendar_create_hold_insert_failure(monkeypatch) -> None:
     )
     assert out["ok"] is False
     assert out["reason"] == "calendar_insert_failed"
+
+
+# ---- draft_instagram_dm_reply ---------------------------------------
+
+
+def test_draft_ig_dm_reply_autonomy_denied(monkeypatch) -> None:
+    _stub_autonomy(monkeypatch, {"stage_action_proposal": False})
+    out = agent_writes.draft_instagram_dm_reply(
+        "c1", ig_thread_id="t-1", body="thanks!"
+    )
+    assert out["ok"] is False
+    assert out["reason"] == "autonomy_denied"
+
+
+def test_draft_ig_dm_reply_no_thread_id(monkeypatch) -> None:
+    _stub_autonomy(monkeypatch)
+    out = agent_writes.draft_instagram_dm_reply(
+        "c1", ig_thread_id="  ", body="thanks!"
+    )
+    assert out == {"ok": False, "reason": "no_thread_id"}
+
+
+def test_draft_ig_dm_reply_empty_body(monkeypatch) -> None:
+    _stub_autonomy(monkeypatch)
+    out = agent_writes.draft_instagram_dm_reply(
+        "c1", ig_thread_id="t-1", body="   "
+    )
+    assert out == {"ok": False, "reason": "empty_body"}
+
+
+def test_draft_ig_dm_reply_success_creates_proposal_and_message(
+    monkeypatch,
+) -> None:
+    _stub_autonomy(monkeypatch)
+    proposal_calls: list[dict] = []
+    monkeypatch.setattr(
+        agent_writes.action_proposals,
+        "create_proposal",
+        lambda **kw: proposal_calls.append(kw) or {"id": "prop-uuid-1"},
+    )
+    captured: dict = {}
+    monkeypatch.setattr(
+        agent_writes.bot,
+        "create_message",
+        lambda **kwargs: captured.update(kwargs) or "msg-1",
+    )
+    out = agent_writes.draft_instagram_dm_reply(
+        "c1", ig_thread_id="t-1", body="thanks!"
+    )
+    assert out == {"ok": True, "message_id": "msg-1", "proposal_id": "prop-uuid-1"}
+    assert proposal_calls[0]["action_type"] == "instagram.send_dm"
+    assert proposal_calls[0]["payload"]["ig_thread_id"] == "t-1"
+    tc = captured["tool_calls"]
+    assert tc["action_type"] == "instagram.send_dm"
+    assert tc["proposal_id"] == "prop-uuid-1"
+    assert tc["status"] == "pending"
+    assert tc["payload"]["body"] == "thanks!"
+
+
+def test_draft_ig_dm_reply_proposal_failure(monkeypatch) -> None:
+    _stub_autonomy(monkeypatch)
+    monkeypatch.setattr(
+        agent_writes.action_proposals, "create_proposal", lambda **kw: None
+    )
+    monkeypatch.setattr(
+        agent_writes.bot,
+        "create_message",
+        lambda **kw: pytest.fail("must not write a bot_message without a proposal"),
+    )
+    out = agent_writes.draft_instagram_dm_reply(
+        "c1", ig_thread_id="t-1", body="thanks!"
+    )
+    assert out == {"ok": False, "reason": "proposal_write_failed"}
+
+
+def test_draft_ig_dm_reply_message_write_failure(monkeypatch) -> None:
+    _stub_autonomy(monkeypatch)
+    monkeypatch.setattr(
+        agent_writes.action_proposals,
+        "create_proposal",
+        lambda **kw: {"id": "prop-uuid-1"},
+    )
+
+    def _boom(**_):
+        raise RuntimeError("bot down")
+
+    monkeypatch.setattr(agent_writes.bot, "create_message", _boom)
+    out = agent_writes.draft_instagram_dm_reply(
+        "c1", ig_thread_id="t-1", body="thanks!"
+    )
+    assert out == {"ok": False, "reason": "write_failed"}
 
 
 # ---- send_instagram_dm_reply ----------------------------------------
