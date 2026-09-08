@@ -441,14 +441,22 @@ def test_get_account_snapshot_survives_insights_failure(monkeypatch):
     assert snap["profile_views"] is None
 
 
-def test_account_snapshot_reads_only_scope_tools(monkeypatch):
-    """Belt-and-braces: the module must not have gained a write tool
-    while we were wiring account insights. If a future edit adds
-    e.g. content_publish, this test flags it before the tokens reach
-    users."""
-    forbidden = {"content_publish", "manage_comments", "manage_messages"}
+def test_account_snapshot_scope_shape(monkeypatch):
+    """Belt-and-braces: the module must not have gained a scope for
+    posting or comment moderation. Messaging (manage_messages) is
+    intentionally in-scope now — it powers the /webhooks/instagram
+    ingestion + send_direct_message tool — but posting and comments
+    stay refused."""
+    forbidden = {
+        "instagram_content_publish",
+        "instagram_manage_comments",
+        "instagram_business_content_publish",
+        "instagram_business_manage_comments",
+    }
     for scope in instagram_meta.SCOPES:
         assert scope not in forbidden, scope
+    # Positive assertion so the messaging scope's presence is intentional.
+    assert "instagram_business_manage_messages" in instagram_meta.SCOPES
 
 
 def test_graph_get_maps_non_json_response(monkeypatch):
@@ -469,6 +477,172 @@ def test_graph_get_maps_non_json_response(monkeypatch):
 # ---------------------------------------------------------------------------
 # token logging discipline (hard constraint)
 # ---------------------------------------------------------------------------
+
+
+def _err_status_response(status: int, body_text: str = ""):
+    class _Resp:
+        def __init__(self):
+            self.status_code = status
+            self.text = body_text
+
+        def raise_for_status(self):
+            raise httpx.HTTPStatusError(
+                "boom",
+                request=httpx.Request(
+                    "POST", "https://graph.instagram.com/ig-1/messages"
+                ),
+                response=self,
+            )
+
+        def json(self):
+            return {}
+
+    return _Resp()
+
+
+# ---------------------------------------------------------------------------
+# send_direct_message
+# ---------------------------------------------------------------------------
+
+
+def test_send_direct_message_success(monkeypatch):
+    monkeypatch.setenv("INSTAGRAM_APP_ID", "app-123")
+    monkeypatch.setenv("INSTAGRAM_APP_SECRET", "secret")
+    get_settings.cache_clear()
+
+    posted: dict = {}
+
+    def _post(url, params=None, json=None, timeout=None):
+        posted["url"] = url
+        posted["params"] = dict(params or {})
+        posted["json"] = json
+        return _ok_response({"message_id": "m-out-1", "recipient_id": "peer-9"})
+
+    monkeypatch.setattr(httpx, "post", _post)
+    out = instagram_meta.send_direct_message(
+        "ACCESS", ig_business_account_id="ig-1", recipient_ig_user_id="peer-9", body="thanks."
+    )
+    assert out == "m-out-1"
+    assert posted["url"].endswith("/ig-1/messages")
+    assert posted["params"]["access_token"] == "ACCESS"
+    assert posted["json"]["messaging_product"] == "instagram"
+    assert posted["json"]["recipient"]["id"] == "peer-9"
+    assert posted["json"]["message"]["text"] == "thanks."
+
+
+def test_send_direct_message_missing_config(monkeypatch):
+    monkeypatch.setenv("INSTAGRAM_APP_ID", "")
+    monkeypatch.setenv("INSTAGRAM_APP_SECRET", "")
+    get_settings.cache_clear()
+    with pytest.raises(instagram_meta.InstagramNotConfiguredError):
+        instagram_meta.send_direct_message(
+            "TOKEN", ig_business_account_id="ig-1", recipient_ig_user_id="p", body="hi"
+        )
+
+
+def test_send_direct_message_empty_body_refused(monkeypatch):
+    monkeypatch.setenv("INSTAGRAM_APP_ID", "app-123")
+    monkeypatch.setenv("INSTAGRAM_APP_SECRET", "secret")
+    get_settings.cache_clear()
+    with pytest.raises(instagram_meta.InstagramError):
+        instagram_meta.send_direct_message(
+            "TOKEN", ig_business_account_id="ig-1", recipient_ig_user_id="p", body="  "
+        )
+
+
+def test_send_direct_message_missing_recipient(monkeypatch):
+    monkeypatch.setenv("INSTAGRAM_APP_ID", "app-123")
+    monkeypatch.setenv("INSTAGRAM_APP_SECRET", "secret")
+    get_settings.cache_clear()
+    with pytest.raises(instagram_meta.InstagramError):
+        instagram_meta.send_direct_message(
+            "TOKEN", ig_business_account_id="ig-1", recipient_ig_user_id="", body="hi"
+        )
+
+
+def test_send_direct_message_maps_24h_window_error(monkeypatch):
+    monkeypatch.setenv("INSTAGRAM_APP_ID", "app-123")
+    monkeypatch.setenv("INSTAGRAM_APP_SECRET", "secret")
+    get_settings.cache_clear()
+
+    def _post(url, params=None, json=None, timeout=None):
+        return _err_status_response(
+            400,
+            body_text=(
+                '{"error":{"message":"This message is sent outside of the '
+                'allowed window","code":10,"type":"OAuthException"}}'
+            ),
+        )
+
+    monkeypatch.setattr(httpx, "post", _post)
+    with pytest.raises(instagram_meta.InstagramMessageWindowError):
+        instagram_meta.send_direct_message(
+            "TOKEN",
+            ig_business_account_id="ig-1",
+            recipient_ig_user_id="peer",
+            body="thanks.",
+        )
+
+
+def test_send_direct_message_generic_error(monkeypatch):
+    monkeypatch.setenv("INSTAGRAM_APP_ID", "app-123")
+    monkeypatch.setenv("INSTAGRAM_APP_SECRET", "secret")
+    get_settings.cache_clear()
+
+    def _post(url, params=None, json=None, timeout=None):
+        return _err_status_response(500, body_text="{}")
+
+    monkeypatch.setattr(httpx, "post", _post)
+    with pytest.raises(instagram_meta.InstagramError) as excinfo:
+        instagram_meta.send_direct_message(
+            "TOKEN",
+            ig_business_account_id="ig-1",
+            recipient_ig_user_id="peer",
+            body="thanks.",
+        )
+    # Must be the base error, not the window subclass.
+    assert not isinstance(excinfo.value, instagram_meta.InstagramMessageWindowError)
+
+
+def test_send_direct_message_response_missing_id(monkeypatch):
+    monkeypatch.setenv("INSTAGRAM_APP_ID", "app-123")
+    monkeypatch.setenv("INSTAGRAM_APP_SECRET", "secret")
+    get_settings.cache_clear()
+
+    def _post(url, params=None, json=None, timeout=None):
+        return _ok_response({"recipient_id": "peer-9"})  # missing message_id
+
+    monkeypatch.setattr(httpx, "post", _post)
+    with pytest.raises(instagram_meta.InstagramError):
+        instagram_meta.send_direct_message(
+            "TOKEN",
+            ig_business_account_id="ig-1",
+            recipient_ig_user_id="peer-9",
+            body="thanks.",
+        )
+
+
+def test_send_direct_message_truncates_long_body(monkeypatch):
+    monkeypatch.setenv("INSTAGRAM_APP_ID", "app-123")
+    monkeypatch.setenv("INSTAGRAM_APP_SECRET", "secret")
+    get_settings.cache_clear()
+
+    seen: dict = {}
+
+    def _post(url, params=None, json=None, timeout=None):
+        seen["text"] = json["message"]["text"]
+        return _ok_response({"message_id": "m1"})
+
+    monkeypatch.setattr(httpx, "post", _post)
+    body = "y" * 2000
+    out = instagram_meta.send_direct_message(
+        "TOKEN",
+        ig_business_account_id="ig-1",
+        recipient_ig_user_id="peer",
+        body=body,
+    )
+    assert out == "m1"
+    assert len(seen["text"]) == instagram_meta.DM_BODY_HARD_MAX
 
 
 def test_no_token_or_app_secret_in_logs_on_failure(monkeypatch, caplog):

@@ -879,6 +879,7 @@ async def profile_babyg_update(
     babyg_agent_internal_actions: str = Form(""),
     babyg_agent_gmail_auto_send: str = Form(""),
     babyg_agent_calendar_holds: str = Form(""),
+    babyg_agent_ig_auto_send: str = Form(""),
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
     """Update the babyg-behavior section — tone, risk tolerance, the
@@ -905,6 +906,7 @@ async def profile_babyg_update(
     )
     payload["babyg_agent_gmail_auto_send"] = _form_bool(babyg_agent_gmail_auto_send)
     payload["babyg_agent_calendar_holds"] = _form_bool(babyg_agent_calendar_holds)
+    payload["babyg_agent_ig_auto_send"] = _form_bool(babyg_agent_ig_auto_send)
     if not profiles.update_creator_profile(session["user_id"], payload):
         return RedirectResponse(
             "/creator/profile/settings?babyg=save_failed", status_code=303

@@ -125,6 +125,13 @@ class InstagramIneligibleAccountError(RuntimeError):
     so the creator knows how to fix it; the connection row is NOT saved."""
 
 
+class InstagramMessageWindowError(InstagramError):
+    """Meta refused a DM send because the target is outside the 24-hour
+    messaging window (or the account/tag policy otherwise blocks the
+    send). Split from generic InstagramError so callers can surface a
+    stable reason without string-matching Meta's error copy."""
+
+
 @dataclass(frozen=True)
 class InstagramAccount:
     ig_user_id: str
@@ -392,6 +399,94 @@ def get_account_snapshot(
             continue
         out[name] = _int_or_none(last.get("value"))
     return out
+
+
+DM_BODY_HARD_MAX: Final = 950
+_MESSAGE_WINDOW_HINTS: Final[tuple[str, ...]] = (
+    "outside the allowed window",
+    "24 hour",
+    "24-hour",
+    "message_tag",
+    "messaging window",
+    "outside of the allowed",
+)
+
+
+def send_direct_message(
+    access_token: str,
+    *,
+    ig_business_account_id: str,
+    recipient_ig_user_id: str,
+    body: str,
+) -> str:
+    """Send one plain-text Instagram DM via Meta's Send API.
+
+    Endpoint: `POST https://graph.instagram.com/{ig_business_account_id}/messages`
+    with body `{recipient: {id}, message: {text}, messaging_product: "instagram"}`.
+
+    Meta enforces a 24-hour messaging window: the creator can reply to
+    someone who has DM'd them in the last 24 hours, but cannot initiate
+    or reply outside that window without a message tag we do not use.
+    A refusal from Meta for that reason surfaces as
+    InstagramMessageWindowError so the caller can map it to a stable
+    'outside_messaging_window' reason.
+
+    Returns the Meta message id (as a string). Never logs the token,
+    recipient id, or body.
+    """
+    if not is_configured():
+        raise InstagramNotConfiguredError("Instagram OAuth is not configured")
+    ig_account = str(ig_business_account_id or "").strip()
+    recipient = str(recipient_ig_user_id or "").strip()
+    text = (body or "").strip()
+    if not ig_account or not recipient:
+        raise InstagramError("send_direct_message missing account or recipient")
+    if not text:
+        raise InstagramError("send_direct_message empty body")
+    text = text[:DM_BODY_HARD_MAX]
+
+    url = f"https://graph.instagram.com/{ig_account}/messages"
+    payload = {
+        "recipient": {"id": recipient},
+        "message": {"text": text},
+        "messaging_product": "instagram",
+    }
+    try:
+        response = httpx.post(
+            url,
+            params={"access_token": access_token},
+            json=payload,
+            timeout=TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+    except httpx.HTTPStatusError as exc:
+        status = exc.response.status_code if exc.response is not None else "?"
+        body_hint = ""
+        try:
+            body_hint = (exc.response.text or "")[:400] if exc.response is not None else ""
+        except Exception:
+            body_hint = ""
+        # Status-only log. Meta's error body is inspected in-process to
+        # decide which exception to raise but never sent to the logger.
+        logger.info("Instagram send_direct_message failed with status %s", status)
+        if any(hint in body_hint.lower() for hint in _MESSAGE_WINDOW_HINTS):
+            raise InstagramMessageWindowError(
+                "Instagram Send API refused: outside 24h messaging window"
+            ) from exc
+        raise InstagramError("Instagram Send API request failed") from exc
+    except httpx.HTTPError as exc:
+        logger.info("Instagram send_direct_message transport error")
+        raise InstagramError("Instagram Send API transport error") from exc
+    try:
+        data = response.json()
+    except ValueError as exc:
+        raise InstagramError("Instagram Send API response was not JSON") from exc
+    if not isinstance(data, dict):
+        raise InstagramError("Instagram Send API response was not an object")
+    message_id = str(data.get("message_id") or "").strip()
+    if not message_id:
+        raise InstagramError("Instagram Send API response missing message_id")
+    return message_id
 
 
 def _post_short_lived_token(payload: dict[str, str]) -> dict[str, Any]:

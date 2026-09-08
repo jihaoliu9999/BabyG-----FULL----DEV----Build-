@@ -38,7 +38,7 @@ from typing import Any
 from postgrest.types import CountMethod
 
 from app.core import supabase_client
-from app.integrations import google_calendar, google_gmail
+from app.integrations import google_calendar, google_gmail, instagram_meta
 from app.services import (
     agent_autonomy,
     agent_memory,
@@ -343,6 +343,116 @@ def draft_instagram_dm_reply(
         )
         return {"ok": False, "reason": "write_failed"}
     return {"ok": True, "message_id": message}
+
+
+def send_instagram_dm_reply(
+    user_id: str,
+    *,
+    thread_id: str,
+    body: str,
+    profile: dict | None = None,
+) -> dict[str, Any]:
+    """Send one IG DM reply autonomously via Meta's Send API.
+
+    Triple-gated:
+      1. IG_AUTO_SEND autonomy setting (babyg_agent_ig_auto_send).
+      2. agent_safety.is_instagram_dm_safe on the body (no money,
+         urls, phone, committal language; reply-only).
+      3. Meta's 24-hour messaging window at the Send API layer,
+         surfaced as InstagramMessageWindowError -> reason=
+         'outside_messaging_window'.
+
+    `thread_id` is the babyg `instagram_dm_threads.id` UUID, not the
+    Meta thread id. We look up the row to get the creator scope +
+    the peer IG user id (Meta's Send API is addressed by peer id,
+    not thread id). Also confirms the row belongs to this creator
+    before doing anything — an operator with a stolen thread id
+    still can't send from another creator's account.
+    """
+    if not agent_autonomy.agent_can(
+        user_id, "send_instagram_dm_reply", profile=profile
+    ):
+        return {
+            "ok": False,
+            "reason": "autonomy_denied",
+            "action": "send_instagram_dm_reply",
+        }
+    thread = (thread_id or "").strip()
+    if not thread:
+        return {"ok": False, "reason": "no_thread_id"}
+    safe, safety_reason = agent_safety.is_instagram_dm_safe(
+        ig_thread_id=thread, body=body
+    )
+    if not safe:
+        return {"ok": False, "reason": "unsafe_content", "detail": safety_reason}
+    thread_row = _load_ig_thread(user_id=user_id, thread_uuid=thread)
+    if not thread_row:
+        return {"ok": False, "reason": "thread_not_found"}
+    peer_ig_id = str(thread_row.get("ig_peer_user_id") or "").strip()
+    if not peer_ig_id:
+        return {"ok": False, "reason": "no_peer_ig_id"}
+    ig_connection = oauth_connections.get_instagram_connection(user_id) or {}
+    ig_business_account_id = oauth_connections.instagram_account_id(ig_connection) or ""
+    if not ig_business_account_id:
+        return {"ok": False, "reason": "no_ig_connection"}
+    try:
+        token = oauth_connections.access_token_for_instagram(user_id)
+    except Exception:
+        logger.exception(
+            "agent_writes.send_instagram_dm_reply.token_failed user=%s", user_id
+        )
+        return {"ok": False, "reason": "token_lookup_failed"}
+    if not token:
+        return {"ok": False, "reason": "no_ig_token"}
+    try:
+        message_id = instagram_meta.send_direct_message(
+            token,
+            ig_business_account_id=ig_business_account_id,
+            recipient_ig_user_id=peer_ig_id,
+            body=body,
+        )
+    except instagram_meta.InstagramMessageWindowError:
+        return {"ok": False, "reason": "outside_messaging_window"}
+    except instagram_meta.InstagramNotConfiguredError:
+        return {"ok": False, "reason": "instagram_not_configured"}
+    except instagram_meta.InstagramError as exc:
+        logger.warning(
+            "agent_writes.send_instagram_dm_reply.send_failed user=%s error=%s",
+            user_id,
+            exc,
+        )
+        return {"ok": False, "reason": "ig_send_failed", "detail": str(exc)[:200]}
+    except Exception:
+        logger.exception(
+            "agent_writes.send_instagram_dm_reply.crashed user=%s", user_id
+        )
+        return {"ok": False, "reason": "ig_send_failed"}
+    return {"ok": True, "message_id": message_id}
+
+
+def _load_ig_thread(*, user_id: str, thread_uuid: str) -> dict[str, Any] | None:
+    """Return the instagram_dm_threads row for (user_id, thread_uuid),
+    or None. Owner-scoped: a thread that doesn't belong to this
+    creator is invisible."""
+    try:
+        result = (
+            supabase_client.get_service_client()
+            .table("instagram_dm_threads")
+            .select("id,ig_thread_id,ig_peer_user_id")
+            .eq("creator_id", user_id)
+            .eq("id", thread_uuid)
+            .limit(1)
+            .execute()
+        )
+    except Exception:
+        logger.exception(
+            "agent_writes.load_ig_thread.failed user=%s thread=%s",
+            user_id,
+            thread_uuid,
+        )
+        return None
+    rows = list(getattr(result, "data", None) or [])
+    return rows[0] if rows else None
 
 
 def _count_recent_agent_nudges(

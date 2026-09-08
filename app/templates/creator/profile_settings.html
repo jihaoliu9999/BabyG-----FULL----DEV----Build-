@@ -246,6 +246,14 @@
             </label>
           </div>
 
+          <div class="settings-check">
+            <label class="settings-toggle">
+              <input type="checkbox" name="babyg_agent_ig_auto_send" value="on"
+                {% if profile.babyg_agent_ig_auto_send %}checked{% endif %} />
+              <span>auto-reply to obviously safe instagram dms (advanced)</span>
+            </label>
+          </div>
+
           <div class="settings-actions">
             <button class="btn btn-lime btn-sm" type="submit">save</button>
           </div>

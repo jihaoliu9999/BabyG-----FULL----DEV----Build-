@@ -17,6 +17,7 @@ def stub_profile(monkeypatch):
             "babyg_agent_internal_actions": True,
             "babyg_agent_gmail_auto_send": False,
             "babyg_agent_calendar_holds": False,
+            "babyg_agent_ig_auto_send": False,
         }
         base.update(overrides)
         monkeypatch.setattr(
@@ -69,6 +70,14 @@ def test_calendar_holds_gate(stub_profile) -> None:
     assert agent_autonomy.agent_can("creator-1", "calendar_create_hold") is True
 
 
+def test_ig_auto_send_gate(stub_profile) -> None:
+    stub_profile(babyg_agent_ig_auto_send=False)
+    assert agent_autonomy.agent_can("creator-1", "send_instagram_dm_reply") is False
+
+    stub_profile(babyg_agent_ig_auto_send=True)
+    assert agent_autonomy.agent_can("creator-1", "send_instagram_dm_reply") is True
+
+
 def test_unknown_action_refused_with_warning(stub_profile, caplog) -> None:
     stub_profile()
     import logging
@@ -111,19 +120,22 @@ def test_missing_columns_fall_back_to_documented_defaults(monkeypatch) -> None:
     assert agent_autonomy.agent_can("old-creator", "update_deal_stage") is True
     assert agent_autonomy.agent_can("old-creator", "gmail_auto_reply") is False
     assert agent_autonomy.agent_can("old-creator", "calendar_create_hold") is False
+    assert agent_autonomy.agent_can("old-creator", "send_instagram_dm_reply") is False
 
 
-def test_load_settings_returns_three_booleans(stub_profile) -> None:
+def test_load_settings_returns_four_booleans(stub_profile) -> None:
     stub_profile(
         babyg_agent_internal_actions=True,
         babyg_agent_gmail_auto_send=True,
         babyg_agent_calendar_holds=False,
+        babyg_agent_ig_auto_send=True,
     )
     settings = agent_autonomy.load_settings("creator-1")
     assert settings == {
         "internal_actions": True,
         "gmail_auto_send": True,
         "calendar_holds": False,
+        "ig_auto_send": True,
     }
 
 

@@ -139,6 +139,104 @@ def test_boring_replies_pass(body) -> None:
     assert reason == "ok"
 
 
+# ---- is_instagram_dm_safe ------------------------------------------
+
+
+@pytest.mark.parametrize("thread_id", ["", None, "   "])
+def test_ig_missing_thread_id_always_refused(thread_id) -> None:
+    ok, reason = agent_safety.is_instagram_dm_safe(
+        ig_thread_id=thread_id, body="thanks!"
+    )
+    assert (ok, reason) == (False, "no_thread_id_first_touch_blocked")
+
+
+def test_ig_empty_body_refused() -> None:
+    ok, reason = agent_safety.is_instagram_dm_safe(ig_thread_id="t", body="")
+    assert (ok, reason) == (False, "empty_body")
+
+
+def test_ig_long_body_refused() -> None:
+    body = "x" * (agent_safety.MAX_IG_DM_CHARS + 1)
+    ok, reason = agent_safety.is_instagram_dm_safe(ig_thread_id="t", body=body)
+    assert (ok, reason) == (False, "body_too_long")
+
+
+def test_ig_gmail_cap_would_have_passed_but_ig_cap_refuses() -> None:
+    """IG cap (400) is tighter than gmail cap (500) on purpose. A body
+    that would have squeaked past gmail must be refused here."""
+    body = "x" * (agent_safety.MAX_IG_DM_CHARS + 10)
+    assert len(body) < agent_safety.MAX_REPLY_CHARS
+    ok, reason = agent_safety.is_instagram_dm_safe(ig_thread_id="t", body=body)
+    assert (ok, reason) == (False, "body_too_long")
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "let's book that",
+        "confirmed for tuesday",
+        "i'll DM you tomorrow",
+        "happy to hop on a call",
+    ],
+)
+def test_ig_committal_language_refused(body) -> None:
+    ok, reason = agent_safety.is_instagram_dm_safe(ig_thread_id="t", body=body)
+    assert ok is False
+    assert reason == "committal_language"
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "we can pay $500 for the post",
+        "budget is 5k",
+        "we can offer 25%",
+    ],
+)
+def test_ig_financial_content_refused(body) -> None:
+    ok, reason = agent_safety.is_instagram_dm_safe(ig_thread_id="t", body=body)
+    assert ok is False
+    assert reason == "financial_content"
+
+
+def test_ig_url_refused() -> None:
+    ok, reason = agent_safety.is_instagram_dm_safe(
+        ig_thread_id="t", body="see https://example.com"
+    )
+    assert (ok, reason) == (False, "contains_url")
+
+
+def test_ig_phone_refused() -> None:
+    ok, reason = agent_safety.is_instagram_dm_safe(
+        ig_thread_id="t", body="call 415 555 0100"
+    )
+    assert (ok, reason) == (False, "contains_phone")
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "thanks, not a fit right now.",
+        "received, will review.",
+        "appreciate the note.",
+        "noted",
+    ],
+)
+def test_ig_boring_replies_pass(body) -> None:
+    ok, reason = agent_safety.is_instagram_dm_safe(ig_thread_id="t", body=body)
+    assert ok is True, (body, reason)
+    assert reason == "ok"
+
+
+def test_ig_has_no_subject_gate() -> None:
+    """Where gmail refuses a non-Re: subject, IG has no subject line
+    at all — the classifier must not import that gate."""
+    ok, reason = agent_safety.is_instagram_dm_safe(
+        ig_thread_id="t", body="thanks."
+    )
+    assert (ok, reason) == (True, "ok")
+
+
 # ---- classify_reply soft signal -------------------------------------
 
 

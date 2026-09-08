@@ -123,6 +123,7 @@ def _build_prompt(
         f"- can change internal state (deals, memory, drafts): {autonomy_settings['internal_actions']}\n"
         f"- can auto-send gmail replies:                       {autonomy_settings['gmail_auto_send']}\n"
         f"- can create calendar holds:                         {autonomy_settings['calendar_holds']}\n"
+        f"- can auto-send instagram dm replies:                {autonomy_settings['ig_auto_send']}\n"
         "if a switch is False and you try to call a gated tool, the server refuses. work within what's allowed."
     )
     system_prompt = _SYSTEM_PROMPT_HEADER + memory_line + autonomy_line
@@ -168,6 +169,18 @@ def _serialize_observation(observation: dict[str, Any]) -> str:
     unread = observation.get("unread_dms") or {}
     if int(unread.get("count") or 0) > 0:
         lines.append(f"- {unread['count']} unread DM(s)")
+    ig_pending = observation.get("pending_instagram_dms") or {}
+    ig_threads = ig_pending.get("threads") or []
+    if int(ig_pending.get("count") or 0) > 0 and ig_threads:
+        lines.append(
+            f"- {ig_pending['count']} unread instagram dm(s) across "
+            f"{len(ig_threads)} thread(s):"
+        )
+        for row in ig_threads[:5]:
+            lines.append(
+                f"    * thread_id={row.get('id')} peer={row.get('peer') or 'unknown'}"
+                f" unread={row.get('unread')}"
+            )
     pending = observation.get("pending_action_proposals") or {}
     if int(pending.get("count") or 0) > 0:
         buckets = ", ".join(
@@ -270,6 +283,28 @@ def _tool_definitions() -> list[dict[str, Any]]:
             },
         },
         {
+            "name": "send_instagram_dm_reply",
+            "description": (
+                "Send a short reply into an EXISTING instagram DM thread on "
+                "the creator's behalf without waiting for approval. Only use "
+                "for obviously safe replies: politely declining an off-brand "
+                "pitch, saying 'thanks, will review', acknowledging a note. "
+                "Requires the IG_AUTO_SEND autonomy setting; the server also "
+                "refuses unsafe patterns (money, urls, phone numbers, "
+                "committal language, first-touch sends) AND Meta enforces "
+                "its 24-hour messaging window at the Send API layer. "
+                "thread_id is the babyg thread UUID from the observation."
+            ),
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "thread_id": {"type": "string"},
+                    "body": {"type": "string"},
+                },
+                "required": ["thread_id", "body"],
+            },
+        },
+        {
             "name": "calendar_create_hold",
             "description": (
                 "Put a private HOLD on the creator's own google calendar to "
@@ -321,6 +356,12 @@ _TOOL_DISPATCH = {
         thread_id=str(args.get("thread_id") or "").strip(),
         to=str(args.get("to") or "").strip(),
         subject=str(args.get("subject") or "").strip(),
+        body=str(args.get("body") or "").strip(),
+        profile=profile,
+    ),
+    "send_instagram_dm_reply": lambda user_id, args, profile: agent_writes.send_instagram_dm_reply(
+        user_id,
+        thread_id=str(args.get("thread_id") or "").strip(),
         body=str(args.get("body") or "").strip(),
         profile=profile,
     ),

@@ -35,6 +35,11 @@ from typing import Literal
 
 MAX_REPLY_CHARS = 500
 
+# IG DMs are shorter than gmail replies by convention. 400 chars is
+# ~4 sentences; anything longer reads like a document and is almost
+# certainly the wrong shape for a DM reply.
+MAX_IG_DM_CHARS = 400
+
 # Refusal patterns. Order doesn't matter but the reason string picked
 # up by the caller is the FIRST match, so keep the most-informative
 # reasons early.
@@ -110,6 +115,53 @@ def is_gmail_reply_safe(
     # a new thread by mistake.
     if subject_norm and not subject_norm.startswith(("re:", "re :", "re[")):
         return False, "subject_not_reply_shape"
+
+    for pattern in _COMMITTAL_PATTERNS:
+        if pattern.search(text):
+            return False, "committal_language"
+
+    for pattern in _FINANCIAL_PATTERNS:
+        if pattern.search(text):
+            return False, "financial_content"
+
+    if _URL_PATTERN.search(text):
+        return False, "contains_url"
+
+    if _PHONE_PATTERN.search(text):
+        return False, "contains_phone"
+
+    return True, "ok"
+
+
+def is_instagram_dm_safe(
+    *,
+    ig_thread_id: str | None,
+    body: str,
+) -> tuple[bool, str]:
+    """True iff the agent is allowed to autonomously send this specific
+    IG DM reply.
+
+    Differs from is_gmail_reply_safe in two ways:
+      - No subject-line "Re:" gate (IG DMs have no subject).
+      - Shorter body cap (MAX_IG_DM_CHARS).
+
+    Otherwise the same rules apply — reply-only (missing thread id is
+    always refused), no committal language, no money/urls/phone.
+
+    The 24-hour messaging-window rule is NOT enforced here — that's a
+    Meta-side runtime check the Send API performs, surfaced by
+    integrations/instagram_meta.py as InstagramMessageWindowError. The
+    caller maps that to a reason string; this function stays focused
+    on message CONTENT.
+    """
+    if not ig_thread_id or not str(ig_thread_id).strip():
+        return False, "no_thread_id_first_touch_blocked"
+
+    text = (body or "").strip()
+    if not text:
+        return False, "empty_body"
+    if len(text) > MAX_IG_DM_CHARS:
+        return False, "body_too_long"
 
     for pattern in _COMMITTAL_PATTERNS:
         if pattern.search(text):

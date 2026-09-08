@@ -783,6 +783,7 @@ def test_profile_babyg_update_saves_all_fields(
         "babyg_agent_internal_actions": False,
         "babyg_agent_gmail_auto_send": False,
         "babyg_agent_calendar_holds": False,
+        "babyg_agent_ig_auto_send": False,
     }
 
 

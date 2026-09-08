@@ -432,3 +432,170 @@ def test_calendar_create_hold_insert_failure(monkeypatch) -> None:
     )
     assert out["ok"] is False
     assert out["reason"] == "calendar_insert_failed"
+
+
+# ---- send_instagram_dm_reply ----------------------------------------
+
+
+def _stub_ig_thread(monkeypatch, row: dict | None):
+    monkeypatch.setattr(
+        agent_writes, "_load_ig_thread", lambda *, user_id, thread_uuid: row
+    )
+
+
+def _stub_ig_connection(monkeypatch, *, ig_account_id: str | None):
+    conn = (
+        {"provider_account_id": ig_account_id} if ig_account_id else None
+    )
+    monkeypatch.setattr(
+        agent_writes.oauth_connections,
+        "get_instagram_connection",
+        lambda uid: conn,
+    )
+    monkeypatch.setattr(
+        agent_writes.oauth_connections,
+        "instagram_account_id",
+        lambda c: (c or {}).get("provider_account_id"),
+    )
+
+
+def test_send_instagram_dm_reply_autonomy_denied(monkeypatch) -> None:
+    _stub_autonomy(monkeypatch, {"send_instagram_dm_reply": False})
+    out = agent_writes.send_instagram_dm_reply(
+        "c1", thread_id="t-1", body="thanks."
+    )
+    assert out["ok"] is False
+    assert out["reason"] == "autonomy_denied"
+
+
+def test_send_instagram_dm_reply_no_thread_id(monkeypatch) -> None:
+    _stub_autonomy(monkeypatch, {"send_instagram_dm_reply": True})
+    out = agent_writes.send_instagram_dm_reply(
+        "c1", thread_id="   ", body="thanks."
+    )
+    assert out == {"ok": False, "reason": "no_thread_id"}
+
+
+def test_send_instagram_dm_reply_unsafe_body(monkeypatch) -> None:
+    _stub_autonomy(monkeypatch, {"send_instagram_dm_reply": True})
+    # A body containing money should be refused by the safety classifier
+    # BEFORE any supabase or network call happens.
+    out = agent_writes.send_instagram_dm_reply(
+        "c1", thread_id="t-1", body="we can do $500."
+    )
+    assert out["ok"] is False
+    assert out["reason"] == "unsafe_content"
+    assert out["detail"] == "financial_content"
+
+
+def test_send_instagram_dm_reply_thread_not_found(monkeypatch) -> None:
+    _stub_autonomy(monkeypatch, {"send_instagram_dm_reply": True})
+    _stub_ig_thread(monkeypatch, None)
+    out = agent_writes.send_instagram_dm_reply(
+        "c1", thread_id="t-1", body="thanks."
+    )
+    assert out == {"ok": False, "reason": "thread_not_found"}
+
+
+def test_send_instagram_dm_reply_no_peer_id(monkeypatch) -> None:
+    _stub_autonomy(monkeypatch, {"send_instagram_dm_reply": True})
+    _stub_ig_thread(monkeypatch, {"id": "t-1", "ig_peer_user_id": ""})
+    out = agent_writes.send_instagram_dm_reply(
+        "c1", thread_id="t-1", body="thanks."
+    )
+    assert out == {"ok": False, "reason": "no_peer_ig_id"}
+
+
+def test_send_instagram_dm_reply_no_ig_connection(monkeypatch) -> None:
+    _stub_autonomy(monkeypatch, {"send_instagram_dm_reply": True})
+    _stub_ig_thread(monkeypatch, {"id": "t-1", "ig_peer_user_id": "peer-9"})
+    _stub_ig_connection(monkeypatch, ig_account_id=None)
+    out = agent_writes.send_instagram_dm_reply(
+        "c1", thread_id="t-1", body="thanks."
+    )
+    assert out == {"ok": False, "reason": "no_ig_connection"}
+
+
+def test_send_instagram_dm_reply_no_ig_token(monkeypatch) -> None:
+    _stub_autonomy(monkeypatch, {"send_instagram_dm_reply": True})
+    _stub_ig_thread(monkeypatch, {"id": "t-1", "ig_peer_user_id": "peer-9"})
+    _stub_ig_connection(monkeypatch, ig_account_id="ig-biz-1")
+    monkeypatch.setattr(
+        agent_writes.oauth_connections,
+        "access_token_for_instagram",
+        lambda uid: None,
+    )
+    out = agent_writes.send_instagram_dm_reply(
+        "c1", thread_id="t-1", body="thanks."
+    )
+    assert out == {"ok": False, "reason": "no_ig_token"}
+
+
+def test_send_instagram_dm_reply_outside_messaging_window(monkeypatch) -> None:
+    _stub_autonomy(monkeypatch, {"send_instagram_dm_reply": True})
+    _stub_ig_thread(monkeypatch, {"id": "t-1", "ig_peer_user_id": "peer-9"})
+    _stub_ig_connection(monkeypatch, ig_account_id="ig-biz-1")
+    monkeypatch.setattr(
+        agent_writes.oauth_connections,
+        "access_token_for_instagram",
+        lambda uid: "tok",
+    )
+
+    def _boom(*a, **kw):
+        raise agent_writes.instagram_meta.InstagramMessageWindowError("closed")
+
+    monkeypatch.setattr(agent_writes.instagram_meta, "send_direct_message", _boom)
+    out = agent_writes.send_instagram_dm_reply(
+        "c1", thread_id="t-1", body="thanks."
+    )
+    assert out == {"ok": False, "reason": "outside_messaging_window"}
+
+
+def test_send_instagram_dm_reply_send_failed(monkeypatch) -> None:
+    _stub_autonomy(monkeypatch, {"send_instagram_dm_reply": True})
+    _stub_ig_thread(monkeypatch, {"id": "t-1", "ig_peer_user_id": "peer-9"})
+    _stub_ig_connection(monkeypatch, ig_account_id="ig-biz-1")
+    monkeypatch.setattr(
+        agent_writes.oauth_connections,
+        "access_token_for_instagram",
+        lambda uid: "tok",
+    )
+
+    def _boom(*a, **kw):
+        raise agent_writes.instagram_meta.InstagramError("500")
+
+    monkeypatch.setattr(agent_writes.instagram_meta, "send_direct_message", _boom)
+    out = agent_writes.send_instagram_dm_reply(
+        "c1", thread_id="t-1", body="thanks."
+    )
+    assert out["ok"] is False
+    assert out["reason"] == "ig_send_failed"
+
+
+def test_send_instagram_dm_reply_success(monkeypatch) -> None:
+    _stub_autonomy(monkeypatch, {"send_instagram_dm_reply": True})
+    _stub_ig_thread(monkeypatch, {"id": "t-1", "ig_peer_user_id": "peer-9"})
+    _stub_ig_connection(monkeypatch, ig_account_id="ig-biz-1")
+    monkeypatch.setattr(
+        agent_writes.oauth_connections,
+        "access_token_for_instagram",
+        lambda uid: "tok",
+    )
+
+    captured = {}
+
+    def _send(token, *, ig_business_account_id, recipient_ig_user_id, body):
+        captured["token"] = token
+        captured["ig_business_account_id"] = ig_business_account_id
+        captured["recipient_ig_user_id"] = recipient_ig_user_id
+        captured["body"] = body
+        return "meta-mid-1"
+
+    monkeypatch.setattr(agent_writes.instagram_meta, "send_direct_message", _send)
+    out = agent_writes.send_instagram_dm_reply(
+        "c1", thread_id="t-1", body="thanks."
+    )
+    assert out == {"ok": True, "message_id": "meta-mid-1"}
+    assert captured["ig_business_account_id"] == "ig-biz-1"
+    assert captured["recipient_ig_user_id"] == "peer-9"
+    assert captured["body"] == "thanks."

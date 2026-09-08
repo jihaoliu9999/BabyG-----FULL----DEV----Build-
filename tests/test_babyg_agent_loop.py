@@ -28,6 +28,7 @@ def _stub_common(monkeypatch, *, profile=None, memory=None):
             "internal_actions": True,
             "gmail_auto_send": False,
             "calendar_holds": False,
+            "ig_auto_send": False,
         },
     )
 

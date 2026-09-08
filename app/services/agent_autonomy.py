@@ -23,6 +23,12 @@ on creator_profiles (migration 0034):
       calendar (private visibility, no external invites). never
       sends a real invite without a per-action tap.
 
+  * IG_AUTO_SEND -> babyg_agent_ig_auto_send (default false)
+      the agent may reply to an existing IG DM thread through Meta's
+      Send API without a tap, for narrow safe patterns. never
+      initiates a new thread. content gated by is_instagram_dm_safe;
+      Meta enforces the 24h messaging window at the Send API layer.
+
 Two categories are ALWAYS allowed regardless of setting:
 
   * PROPOSE       stage an action_proposals row (status='pending').
@@ -66,6 +72,8 @@ Action = Literal[
     "gmail_auto_reply",
     # CALENDAR_HOLDS family.
     "calendar_create_hold",
+    # IG_AUTO_SEND family.
+    "send_instagram_dm_reply",
 ]
 
 _ALWAYS_ALLOWED: frozenset[str] = frozenset(
@@ -89,9 +97,14 @@ _INTERNAL_ACTIONS: frozenset[str] = frozenset(
 
 _GMAIL_AUTO_SEND: frozenset[str] = frozenset({"gmail_auto_reply"})
 _CALENDAR_HOLDS: frozenset[str] = frozenset({"calendar_create_hold"})
+_IG_AUTO_SEND: frozenset[str] = frozenset({"send_instagram_dm_reply"})
 
 _KNOWN_ACTIONS: frozenset[str] = (
-    _ALWAYS_ALLOWED | _INTERNAL_ACTIONS | _GMAIL_AUTO_SEND | _CALENDAR_HOLDS
+    _ALWAYS_ALLOWED
+    | _INTERNAL_ACTIONS
+    | _GMAIL_AUTO_SEND
+    | _CALENDAR_HOLDS
+    | _IG_AUTO_SEND
 )
 
 
@@ -118,6 +131,8 @@ def agent_can(user_id: str, action: str, *, profile: dict | None = None) -> bool
         return bool(settings["gmail_auto_send"])
     if action in _CALENDAR_HOLDS:
         return bool(settings["calendar_holds"])
+    if action in _IG_AUTO_SEND:
+        return bool(settings["ig_auto_send"])
     return False
 
 
@@ -136,6 +151,7 @@ def _load_settings(user_id: str, *, profile: dict | None = None) -> dict[str, bo
         "internal_actions": _bool(profile.get("babyg_agent_internal_actions"), True),
         "gmail_auto_send": _bool(profile.get("babyg_agent_gmail_auto_send"), False),
         "calendar_holds": _bool(profile.get("babyg_agent_calendar_holds"), False),
+        "ig_auto_send": _bool(profile.get("babyg_agent_ig_auto_send"), False),
     }
 
 
