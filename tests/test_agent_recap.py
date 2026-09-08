@@ -76,12 +76,13 @@ def test_singular_pluralization(monkeypatch) -> None:
     assert any("staged 1 action for your tap" in h for h in result["headlines"])
 
 
-def test_all_four_dimensions_present(monkeypatch) -> None:
+def test_all_dimensions_present(monkeypatch) -> None:
     _install(monkeypatch, counts={
         "action_proposals": 2,
         "agent_cycles": 4,
         "bot_messages": 3,
         "creator_agent_memory_history": 1,
+        "instagram_dm_messages": 5,
     })
     result = agent_recap.build("c1", now=datetime(2026, 9, 3, tzinfo=UTC))
     assert result["counts"] == {
@@ -89,8 +90,19 @@ def test_all_four_dimensions_present(monkeypatch) -> None:
         "cycles_active": 4,
         "nudges": 3,
         "memory_writes": 1,
+        "ig_dms": 5,
     }
-    assert len(result["headlines"]) == 4
+    assert len(result["headlines"]) == 5
+    assert any("5 new instagram dms" in h for h in result["headlines"])
+
+
+def test_ig_dms_only(monkeypatch) -> None:
+    _install(monkeypatch, counts={"instagram_dm_messages": 1})
+    result = agent_recap.build("c1", now=datetime(2026, 9, 3, tzinfo=UTC))
+    assert result is not None
+    assert result["counts"]["ig_dms"] == 1
+    # Singular pluralization.
+    assert any("1 new instagram dm" in h for h in result["headlines"])
 
 
 def test_ordering_puts_proposals_first(monkeypatch) -> None:
@@ -126,6 +138,7 @@ def test_all_reads_failing_returns_none(monkeypatch) -> None:
             "agent_cycles",
             "bot_messages",
             "creator_agent_memory_history",
+            "instagram_dm_messages",
         },
     )
     assert agent_recap.build("c1", now=datetime(2026, 9, 3, tzinfo=UTC)) is None

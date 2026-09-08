@@ -13,7 +13,7 @@ from typing import Any
 
 import pytest
 
-from app.services import bot
+from app.services import bot, bot_ig_actions
 
 
 class _FakeMessage:
@@ -70,37 +70,37 @@ def test_confirm_ig_send_dm_success(monkeypatch, message_row) -> None:
     calls: dict[str, Any] = {}
 
     monkeypatch.setattr(
-        bot.action_proposals, "confirm_proposal",
+        bot_ig_actions.action_proposals, "confirm_proposal",
         lambda **kw: calls.setdefault("confirm", kw) or True,
     )
     monkeypatch.setattr(
-        bot.action_proposals, "mark_executing",
+        bot_ig_actions.action_proposals, "mark_executing",
         lambda **kw: calls.setdefault("executing", kw) or True,
     )
     monkeypatch.setattr(
-        bot.action_proposals, "mark_executed",
+        bot_ig_actions.action_proposals, "mark_executed",
         lambda **kw: calls.setdefault("executed", kw) or True,
     )
     monkeypatch.setattr(
-        bot.action_proposals, "mark_failed",
+        bot_ig_actions.action_proposals, "mark_failed",
         lambda **kw: pytest.fail("must not mark_failed on success"),
     )
     monkeypatch.setattr(
-        bot, "_load_ig_thread_for_send",
+        bot_ig_actions, "_load_ig_thread",
         lambda *, user_id, thread_uuid: {
             "id": thread_uuid, "ig_peer_user_id": "peer-9"
         },
     )
     monkeypatch.setattr(
-        bot.oauth_connections, "get_instagram_connection",
+        bot_ig_actions.oauth_connections, "get_instagram_connection",
         lambda uid: {"provider_account_id": "ig-biz-1"},
     )
     monkeypatch.setattr(
-        bot.oauth_connections, "instagram_account_id",
+        bot_ig_actions.oauth_connections, "instagram_account_id",
         lambda c: (c or {}).get("provider_account_id"),
     )
     monkeypatch.setattr(
-        bot.oauth_connections, "access_token_for_instagram",
+        bot_ig_actions.oauth_connections, "access_token_for_instagram",
         lambda uid: "TOK",
     )
     sent_calls: list[dict[str, Any]] = []
@@ -112,7 +112,7 @@ def test_confirm_ig_send_dm_success(monkeypatch, message_row) -> None:
         )
         return "meta-mid-1"
 
-    monkeypatch.setattr(bot.instagram_meta, "send_direct_message", _send)
+    monkeypatch.setattr(bot_ig_actions.instagram_meta, "send_direct_message", _send)
 
     result = bot.confirm_action(user_id="u1", message_id="msg-1")
 
@@ -133,7 +133,7 @@ def test_confirm_ig_send_dm_missing_proposal_id(monkeypatch, message_row) -> Non
     message_row["tool_calls"]["proposal_id"] = ""
     _wire_common(monkeypatch, message_row)
     monkeypatch.setattr(
-        bot.action_proposals, "confirm_proposal",
+        bot_ig_actions.action_proposals, "confirm_proposal",
         lambda **kw: pytest.fail("must not touch action_proposals"),
     )
     result = bot.confirm_action(user_id="u1", message_id="msg-1")
@@ -146,14 +146,14 @@ def test_confirm_ig_send_dm_proposal_already_handled(
 ) -> None:
     updates, sent = _wire_common(monkeypatch, message_row)
     monkeypatch.setattr(
-        bot.action_proposals, "confirm_proposal", lambda **kw: False
+        bot_ig_actions.action_proposals, "confirm_proposal", lambda **kw: False
     )
     monkeypatch.setattr(
-        bot.action_proposals, "get_for_user",
+        bot_ig_actions.action_proposals, "get_for_user",
         lambda **kw: {"status": "expired", "error_code": "expired"},
     )
     monkeypatch.setattr(
-        bot.instagram_meta, "send_direct_message",
+        bot_ig_actions.instagram_meta, "send_direct_message",
         lambda *a, **kw: pytest.fail("Send API must not be called on refusal"),
     )
     result = bot.confirm_action(user_id="u1", message_id="msg-1")
@@ -165,36 +165,36 @@ def test_confirm_ig_send_dm_outside_messaging_window(
     monkeypatch, message_row
 ) -> None:
     updates, sent = _wire_common(monkeypatch, message_row)
-    monkeypatch.setattr(bot.action_proposals, "confirm_proposal", lambda **kw: True)
-    monkeypatch.setattr(bot.action_proposals, "mark_executing", lambda **kw: True)
+    monkeypatch.setattr(bot_ig_actions.action_proposals, "confirm_proposal", lambda **kw: True)
+    monkeypatch.setattr(bot_ig_actions.action_proposals, "mark_executing", lambda **kw: True)
     marked_failed: list[dict[str, Any]] = []
     monkeypatch.setattr(
-        bot.action_proposals, "mark_failed",
+        bot_ig_actions.action_proposals, "mark_failed",
         lambda **kw: marked_failed.append(kw) or True,
     )
     monkeypatch.setattr(
-        bot, "_load_ig_thread_for_send",
+        bot_ig_actions, "_load_ig_thread",
         lambda *, user_id, thread_uuid: {
             "id": thread_uuid, "ig_peer_user_id": "peer-9"
         },
     )
     monkeypatch.setattr(
-        bot.oauth_connections, "get_instagram_connection",
+        bot_ig_actions.oauth_connections, "get_instagram_connection",
         lambda uid: {"provider_account_id": "ig-biz-1"},
     )
     monkeypatch.setattr(
-        bot.oauth_connections, "instagram_account_id",
+        bot_ig_actions.oauth_connections, "instagram_account_id",
         lambda c: (c or {}).get("provider_account_id"),
     )
     monkeypatch.setattr(
-        bot.oauth_connections, "access_token_for_instagram",
+        bot_ig_actions.oauth_connections, "access_token_for_instagram",
         lambda uid: "TOK",
     )
 
     def _boom(*a, **kw):
-        raise bot.instagram_meta.InstagramMessageWindowError("closed")
+        raise bot_ig_actions.instagram_meta.InstagramMessageWindowError("closed")
 
-    monkeypatch.setattr(bot.instagram_meta, "send_direct_message", _boom)
+    monkeypatch.setattr(bot_ig_actions.instagram_meta, "send_direct_message", _boom)
 
     result = bot.confirm_action(user_id="u1", message_id="msg-1")
 
@@ -205,29 +205,29 @@ def test_confirm_ig_send_dm_outside_messaging_window(
 
 def test_confirm_ig_send_dm_no_token(monkeypatch, message_row) -> None:
     updates, sent = _wire_common(monkeypatch, message_row)
-    monkeypatch.setattr(bot.action_proposals, "confirm_proposal", lambda **kw: True)
-    monkeypatch.setattr(bot.action_proposals, "mark_executing", lambda **kw: True)
-    monkeypatch.setattr(bot.action_proposals, "mark_failed", lambda **kw: True)
+    monkeypatch.setattr(bot_ig_actions.action_proposals, "confirm_proposal", lambda **kw: True)
+    monkeypatch.setattr(bot_ig_actions.action_proposals, "mark_executing", lambda **kw: True)
+    monkeypatch.setattr(bot_ig_actions.action_proposals, "mark_failed", lambda **kw: True)
     monkeypatch.setattr(
-        bot, "_load_ig_thread_for_send",
+        bot_ig_actions, "_load_ig_thread",
         lambda *, user_id, thread_uuid: {
             "id": thread_uuid, "ig_peer_user_id": "peer-9"
         },
     )
     monkeypatch.setattr(
-        bot.oauth_connections, "get_instagram_connection",
+        bot_ig_actions.oauth_connections, "get_instagram_connection",
         lambda uid: {"provider_account_id": "ig-biz-1"},
     )
     monkeypatch.setattr(
-        bot.oauth_connections, "instagram_account_id",
+        bot_ig_actions.oauth_connections, "instagram_account_id",
         lambda c: (c or {}).get("provider_account_id"),
     )
     monkeypatch.setattr(
-        bot.oauth_connections, "access_token_for_instagram",
+        bot_ig_actions.oauth_connections, "access_token_for_instagram",
         lambda uid: None,
     )
     monkeypatch.setattr(
-        bot.instagram_meta, "send_direct_message",
+        bot_ig_actions.instagram_meta, "send_direct_message",
         lambda *a, **kw: pytest.fail("Send API called without a token"),
     )
     result = bot.confirm_action(user_id="u1", message_id="msg-1")
@@ -237,19 +237,19 @@ def test_confirm_ig_send_dm_no_token(monkeypatch, message_row) -> None:
 
 def test_confirm_ig_send_dm_thread_not_found(monkeypatch, message_row) -> None:
     updates, sent = _wire_common(monkeypatch, message_row)
-    monkeypatch.setattr(bot.action_proposals, "confirm_proposal", lambda **kw: True)
-    monkeypatch.setattr(bot.action_proposals, "mark_executing", lambda **kw: True)
+    monkeypatch.setattr(bot_ig_actions.action_proposals, "confirm_proposal", lambda **kw: True)
+    monkeypatch.setattr(bot_ig_actions.action_proposals, "mark_executing", lambda **kw: True)
     marked_failed: list[dict[str, Any]] = []
     monkeypatch.setattr(
-        bot.action_proposals, "mark_failed",
+        bot_ig_actions.action_proposals, "mark_failed",
         lambda **kw: marked_failed.append(kw) or True,
     )
     monkeypatch.setattr(
-        bot, "_load_ig_thread_for_send",
+        bot_ig_actions, "_load_ig_thread",
         lambda *, user_id, thread_uuid: None,
     )
     monkeypatch.setattr(
-        bot.instagram_meta, "send_direct_message",
+        bot_ig_actions.instagram_meta, "send_direct_message",
         lambda *a, **kw: pytest.fail("Send API called with no thread"),
     )
     result = bot.confirm_action(user_id="u1", message_id="msg-1")
@@ -261,11 +261,11 @@ def test_cancel_ig_send_dm(monkeypatch, message_row) -> None:
     updates, sent = _wire_common(monkeypatch, message_row)
     cancelled: dict[str, Any] = {}
     monkeypatch.setattr(
-        bot.action_proposals, "cancel_proposal",
+        bot_ig_actions.action_proposals, "cancel_proposal",
         lambda **kw: cancelled.update(kw) or True,
     )
     monkeypatch.setattr(
-        bot.instagram_meta, "send_direct_message",
+        bot_ig_actions.instagram_meta, "send_direct_message",
         lambda *a, **kw: pytest.fail("Send API must not be called on cancel"),
     )
     result = bot.cancel_action(user_id="u1", message_id="msg-1")

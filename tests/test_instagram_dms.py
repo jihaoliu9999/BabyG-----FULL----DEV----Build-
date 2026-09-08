@@ -34,6 +34,7 @@ class _FakeTable:
         self.store = store
         self.name = name
         self._filter: dict = {}
+        self._gt_filter: dict = {}
         self._upsert_row = None
         self._insert_row = None
         self._update_payload = None
@@ -43,6 +44,13 @@ class _FakeTable:
 
     def eq(self, col, val):
         self._filter[col] = val
+        return self
+
+    def gt(self, col, val):
+        self._gt_filter[col] = val
+        return self
+
+    def order(self, *_, **__):
         return self
 
     def limit(self, _):
@@ -83,6 +91,9 @@ class _FakeTable:
             rows = [
                 r for r in self.store.threads
                 if all(r.get(k) == v for k, v in self._filter.items())
+                and all(
+                    (r.get(k) or 0) > v for k, v in self._gt_filter.items()
+                )
             ]
             return _Result(rows)
         if self.name == "instagram_dm_messages" and self._upsert_row is not None:
@@ -321,3 +332,27 @@ def test_timestamp_missing_falls_back_to_now(monkeypatch) -> None:
     assert len(fake.messages) == 1
     # received_at got set to something valid (isoformat with 'T')
     assert "T" in fake.messages[0]["received_at"]
+
+
+def test_unread_count_for_creator_sums_positive_unread(monkeypatch) -> None:
+    fake = _install(monkeypatch)
+    fake.threads = [
+        {"id": "t1", "creator_id": "c1", "unread_count": 3},
+        {"id": "t2", "creator_id": "c1", "unread_count": 1},
+        # 0-unread threads are filtered out server-side by the gt(0) clause.
+        {"id": "t3", "creator_id": "c1", "unread_count": 0},
+        # Another creator's threads are ignored.
+        {"id": "t4", "creator_id": "other", "unread_count": 7},
+    ]
+    assert instagram_dms.unread_count_for_creator("c1") == 4
+
+
+def test_unread_count_for_creator_zero_when_no_threads(monkeypatch) -> None:
+    _install(monkeypatch)
+    assert instagram_dms.unread_count_for_creator("c1") == 0
+
+
+def test_unread_count_for_creator_swallows_error(monkeypatch) -> None:
+    fake = _install(monkeypatch)
+    fake.raise_on = {"instagram_dm_threads"}
+    assert instagram_dms.unread_count_for_creator("c1") == 0

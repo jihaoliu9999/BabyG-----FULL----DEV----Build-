@@ -432,6 +432,13 @@ async def dashboard(
     # blocks on it.
     overnight_recap = await _safe_call(agent_recap.build, user_id, _default=None)
 
+    # Unread IG DMs — powers the "needs you" chip that links to
+    # /creator/instagram/dms. Sums unread_count across ingested
+    # threads; 0 (or supabase blip) hides the chip.
+    ig_dm_unread_count = await _safe_call(
+        instagram_dms.unread_count_for_creator, user_id, _default=0
+    )
+
     # "needs you" surfaces non-DM notifications only. DM alerts get their
     # own /creator/dm page; duplicating them here made the home feel
     # spammy and let a user tap into a thread from home instead of the
@@ -493,6 +500,7 @@ async def dashboard(
             "calendar_days": _calendar_preview_days(),
             "daily_greeting": daily_greeting,
             "overnight_recap": overnight_recap,
+            "ig_dm_unread_count": ig_dm_unread_count,
             "home_shortcuts": _home_shortcuts(
                 unread_dm_count=int(unread_dm_n or 0),
                 pending_connections=pending_connections,

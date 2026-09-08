@@ -35,7 +35,7 @@
   {% set _next_confirm = upcoming_bookings[0] if upcoming_bookings else None %}
   {% set _alerts_n = unread_notifs|length %}
   {% set _pending_actions = pending_actions or [] %}
-  {% if pending_connections or _next_confirm or _alerts_n or _pending_actions %}
+  {% if pending_connections or _next_confirm or _alerts_n or _pending_actions or ig_dm_unread_count %}
   <section class="creator-home-section">
     <div class="creator-home-section-head"><h2>needs you</h2></div>
     <div class="creator-needs">
@@ -122,6 +122,21 @@
         </div>
         <div class="creator-needs-actions">
           <span class="creator-needs-text">review<span class="creator-needs-arrow">→</span></span>
+        </div>
+      </a>
+      {% endif %}
+
+      {% if ig_dm_unread_count %}
+      <a class="creator-needs-row actionable" href="/creator/instagram/dms">
+        <span class="creator-needs-glyph" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </span>
+        <div class="creator-needs-body">
+          <span class="creator-needs-title">{{ ig_dm_unread_count }} unread instagram dm{{ 's' if ig_dm_unread_count != 1 else '' }}</span>
+          <span class="creator-needs-sub">open the ig inbox</span>
+        </div>
+        <div class="creator-needs-actions">
+          <span class="creator-needs-chip">open</span>
         </div>
       </a>
       {% endif %}

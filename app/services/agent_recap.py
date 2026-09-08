@@ -70,6 +70,7 @@ def build(
         "cycles_active": _count_active_cycles_since(user_id, since_iso),
         "nudges": _count_agent_nudges_since(user_id, since_iso),
         "memory_writes": _count_memory_writes_since(user_id, since_iso),
+        "ig_dms": _count_ig_dms_since(user_id, since_iso),
     }
     if sum(counts.values()) == 0:
         return None
@@ -106,6 +107,11 @@ def _headlines(counts: dict[str, int]) -> list[str]:
         out.append(
             f"updated your memory {counts['memory_writes']} time"
             f"{'s' if counts['memory_writes'] != 1 else ''}"
+        )
+    if counts["ig_dms"] > 0:
+        out.append(
+            f"caught {counts['ig_dms']} new instagram dm"
+            f"{'s' if counts['ig_dms'] != 1 else ''}"
         )
     return out
 
@@ -160,6 +166,26 @@ def _count_agent_nudges_since(user_id: str, since_iso: str) -> int:
         )
     except Exception:
         logger.exception("agent_recap.nudges.read_failed user=%s", user_id)
+        return 0
+    return int(getattr(result, "count", None) or 0)
+
+
+def _count_ig_dms_since(user_id: str, since_iso: str) -> int:
+    """Inbound IG DMs the ingestion webhook landed in the window.
+    Reads instagram_dm_messages, direction='inbound' only — outbound
+    (creator-sent or agent-sent) doesn't need to be recapped."""
+    try:
+        result = (
+            _service()
+            .table("instagram_dm_messages")
+            .select("id", count="exact")
+            .eq("creator_id", user_id)
+            .eq("direction", "inbound")
+            .gte("received_at", since_iso)
+            .execute()
+        )
+    except Exception:
+        logger.exception("agent_recap.ig_dms.read_failed user=%s", user_id)
         return 0
     return int(getattr(result, "count", None) or 0)
 

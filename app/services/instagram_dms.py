@@ -88,6 +88,28 @@ def list_threads_for_creator(user_id: str, *, limit: int = 30) -> list[dict[str,
     return list(getattr(result, "data", None) or [])
 
 
+def unread_count_for_creator(user_id: str) -> int:
+    """Sum of `unread_count` across every IG DM thread for this creator.
+
+    Read helper for the home dashboard chip that says "N unread
+    instagram dm(s)". Never raises — a flaky supabase returns 0
+    (better to show no chip than to blow up the home render)."""
+    try:
+        result = (
+            supabase_client.get_service_client()
+            .table("instagram_dm_threads")
+            .select("unread_count")
+            .eq("creator_id", user_id)
+            .gt("unread_count", 0)
+            .execute()
+        )
+    except Exception:
+        logger.exception("instagram_dms.unread_count_for_creator.failed user=%s", user_id)
+        return 0
+    rows = list(getattr(result, "data", None) or [])
+    return sum(int(r.get("unread_count") or 0) for r in rows)
+
+
 def list_messages_for_thread(
     user_id: str, thread_id: str, *, limit: int = 100
 ) -> list[dict[str, Any]]:
