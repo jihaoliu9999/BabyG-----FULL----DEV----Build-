@@ -32,6 +32,39 @@
   {% endif %}
   </div>
 
+  {% if activity_recap or pending_actions or recent_cycles %}
+  <section class="bot-activity" aria-label="BabyG activity">
+    <div class="bot-activity-head">
+      <span class="mono">handled</span>
+      <strong>real manager activity</strong>
+    </div>
+    {% if activity_recap %}
+    <ul class="bot-activity-lines">
+      {% for line in activity_recap.headlines %}
+      <li>{{ line }}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+    {% if pending_actions %}
+    <div class="bot-activity-actions">
+      {% for action in pending_actions %}
+      {% set preview = action.preview or {} %}
+      <a href="#action-{{ action.id }}">
+        <span>{{ action.action_type|replace('.', ' ') }}</span>
+        <strong>{{ preview.title or preview.subject or 'review action' }}</strong>
+      </a>
+      {% endfor %}
+    </div>
+    {% elif recent_cycles %}
+    <div class="bot-activity-cycles">
+      {% for cycle in recent_cycles[:3] %}
+      <span>{{ cycle.status|replace('_', ' ') }}{% if cycle.cycle_started_at %} · {{ cycle.cycle_started_at|human_ago }}{% endif %}</span>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </section>
+  {% endif %}
+
   <ol class="bot-messages" id="botMessages" aria-label="babyg conversation">
     {% include "_partials/bot_messages.html" with context %}
   </ol>

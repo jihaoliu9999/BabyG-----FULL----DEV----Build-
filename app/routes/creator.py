@@ -42,11 +42,13 @@ from app.services import (
     agent_recap,
     audit,
     babyg_awareness,
+    babyg_deals,
     bookings,
     bot,
     bot_nudges,
     bot_prompts,
     calendar_sync,
+    deal_manager,
     discover,
     discovery,
     dm_briefs,
@@ -60,6 +62,7 @@ from app.services import (
     network,
     notifications,
     oauth_connections,
+    performance_manager,
     profiles,
     receipts,
     stats_merge,
@@ -358,6 +361,23 @@ async def bot_chat(
         snapshot=snap,
         messages=messages,
     )
+    try:
+        activity_recap = agent_recap.build(session["user_id"], window_hours=168)
+    except Exception:
+        logger.exception("agent_recap.build failed (bot)")
+        activity_recap = None
+    try:
+        recent_cycles = agent_cycles.list_recent(session["user_id"], limit=5)
+    except Exception:
+        logger.exception("agent_cycles.list_recent failed (bot)")
+        recent_cycles = []
+    try:
+        pending_actions = action_proposals.list_pending_for_user(
+            user_id=session["user_id"], limit=5
+        )
+    except Exception:
+        logger.exception("action_proposals.list_pending_for_user failed (bot)")
+        pending_actions = []
 
     # Personal greeting for the empty-state hero. Same helper the
     # dashboard uses, so a creator gets the same "morning, garrett"
@@ -374,6 +394,54 @@ async def bot_chat(
             "error": None,
             "bot_prompts": prompts,
             "daily_greeting": daily_greeting,
+            "activity_recap": activity_recap,
+            "recent_cycles": recent_cycles,
+            "pending_actions": pending_actions,
+        },
+    )
+
+
+@router.get("/creator/deals", response_class=HTMLResponse)
+async def deals_list(
+    request: Request,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    profile = profiles.get_creator_profile_cached(session["user_id"], request) or {}
+    if not profile.get("onboarding_completed_at"):
+        return RedirectResponse("/onboarding/creator", status_code=302)
+    rows = babyg_deals.list_deals(session["user_id"], active_only=True, limit=40)
+    return templates.TemplateResponse(
+        request,
+        "creator/deals_list.html",
+        {
+            "profile": profile,
+            "deals": deal_manager.list_view(rows),
+        },
+    )
+
+
+@router.get("/creator/deals/{deal_id}", response_class=HTMLResponse)
+async def deals_detail(
+    request: Request,
+    deal_id: str,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    profile = profiles.get_creator_profile_cached(session["user_id"], request) or {}
+    if not profile.get("onboarding_completed_at"):
+        return RedirectResponse("/onboarding/creator", status_code=302)
+    deal = babyg_deals.get_deal(deal_id, creator_id=session["user_id"])
+    if deal is None:
+        raise HTTPException(status_code=404)
+    touchpoints = babyg_deals.list_touchpoints(
+        deal_id, creator_id=session["user_id"], limit=30
+    )
+    return templates.TemplateResponse(
+        request,
+        "creator/deals_detail.html",
+        {
+            "profile": profile,
+            "deal": deal_manager.detail_view(deal, touchpoints),
+            "touchpoints": touchpoints,
         },
     )
 
@@ -1096,9 +1164,14 @@ async def instagram_dm_inbox(
         )
     threads = instagram_dms.list_threads_for_creator(session["user_id"], limit=30)
     thread_messages: dict[str, list[dict[str, Any]]] = {}
+    thread_reviews: dict[str, dict[str, Any]] = {}
     for t in threads[:10]:  # only render inline for the newest 10
-        thread_messages[str(t["id"])] = instagram_dms.list_messages_for_thread(
+        thread_id = str(t["id"])
+        thread_messages[thread_id] = instagram_dms.list_messages_for_thread(
             session["user_id"], str(t["id"]), limit=40
+        )
+        thread_reviews[thread_id] = instagram_dms.manager_review_for_thread(
+            t, thread_messages[thread_id]
         )
     return templates.TemplateResponse(
         request,
@@ -1107,6 +1180,7 @@ async def instagram_dm_inbox(
             "profile": profile,
             "threads": threads,
             "thread_messages": thread_messages,
+            "thread_reviews": thread_reviews,
             "selected_thread_id": selected_thread_id,
         },
     )
@@ -2950,13 +3024,21 @@ async def performance_list(
     user_id = session["user_id"]
     active_platform = _active_social_platform(platform)
     view = stats_merge.performance_view(user_id)
+    rows = view.rows if active_platform == "instagram" else []
+    manager_view = performance_manager.build_view(
+        rows=rows,
+        active_platform=active_platform,
+        platform_label=SOCIAL_ANALYTICS_PLATFORMS[active_platform],
+        instagram_status=view.instagram_status,
+    )
     # `instagram_status` is the single source of truth for the
     # page-foot copy + the "temporarily unavailable" banner.
     return templates.TemplateResponse(
         request,
         "creator/performance_list.html",
         {
-            "rows": view.rows if active_platform == "instagram" else [],
+            "rows": rows,
+            "performance_view": manager_view,
             "instagram_status": view.instagram_status,
             "active_platform": active_platform,
             "platform_label": SOCIAL_ANALYTICS_PLATFORMS[active_platform],

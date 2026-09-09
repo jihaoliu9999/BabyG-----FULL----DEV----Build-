@@ -189,6 +189,43 @@ def test_ingest_ignores_non_instagram_object(monkeypatch) -> None:
     assert stats["entries"] == 0
 
 
+def test_manager_review_handles_attachment_only_reel_context() -> None:
+    review = instagram_dms.manager_review_for_thread(
+        {"id": "thread-1", "peer_username": "brandco"},
+        [
+            {
+                "direction": "inbound",
+                "body": None,
+                "attachments": [{"type": "reel", "payload": {"id": "r1"}}],
+                "received_at": "2026-09-08T10:00:00Z",
+            }
+        ],
+    )
+
+    assert review["counterparty"] == "@brandco"
+    assert review["read"] == "instagram reel needs review"
+    assert review["attachment_types"] == ["reel"]
+    assert "shared media" in review["next_step"]
+
+
+def test_manager_review_recommends_terms_for_brandish_dm() -> None:
+    review = instagram_dms.manager_review_for_thread(
+        {"id": "thread-1", "ig_peer_user_id": "peer-1"},
+        [
+            {
+                "direction": "inbound",
+                "body": "Can we do a paid collab next month?",
+                "attachments": [],
+                "received_at": "2026-09-08T10:00:00Z",
+            }
+        ],
+    )
+
+    assert review["business_signal"] is True
+    assert review["read"] == "possible business inquiry"
+    assert "usage rights" in review["next_step"]
+
+
 # ---- unknown IG account ----------------------------------------------
 
 

@@ -135,3 +135,4 @@ def test_home_build_uses_real_recap_and_watching_counts() -> None:
     assert home["watching"]["summary"] == (
         "watching 3 deals · 1 opportunity · 2 Instagram DMs"
     )
+    assert home["watching"]["href"] == "/creator/deals"

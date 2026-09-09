@@ -1,55 +1,134 @@
 {% extends "base.html" %}
 
-{% block title %}instagram dms — babyg{% endblock %}
+{% block title %}instagram review - babyg{% endblock %}
+
+{% macro instagram_icon() -%}
+  <span class="ig-review-icon" aria-label="Instagram" title="Instagram">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <rect x="4" y="4" width="16" height="16" rx="5" />
+      <circle cx="12" cy="12" r="3.2" />
+      <path d="M17 7.2h.01" />
+    </svg>
+  </span>
+{%- endmacro %}
 
 {% block content %}
-<main class="creator-home wrap ambient-page">
-
-  <header class="creator-home-hero">
-    <h1>instagram dms</h1>
+<main class="wrap ig-review-page">
+  <header class="ig-review-head">
+    <div>
+      <span class="mono">manager review</span>
+      <h1>instagram dms</h1>
+    </div>
+    {{ instagram_icon() }}
   </header>
 
   {% if not threads %}
-  <section class="creator-home-section">
-    <div class="creator-home-recap">
-      <ul class="creator-home-recap-lines">
-        <li>no instagram dms yet.</li>
-        <li>if you just connected instagram, ping yourself from another account to test the webhook flow.</li>
-        <li>if it stays empty, the meta webhook subscription probably isn't set up on the developer console.</li>
-      </ul>
-    </div>
+  <section class="ig-review-empty">
+    <span class="mono">nothing ingested yet</span>
+    <h2>No Instagram conversations have reached BabyG.</h2>
+    <p>After Instagram is connected and subscribed, real incoming DMs will appear here with manager context.</p>
+    <a class="btn btn-ghost btn-sm" href="/creator/profile/settings">check Instagram connection</a>
   </section>
   {% endif %}
 
-  {% for t in threads %}
-  <section class="creator-home-section" id="ig-thread-{{ t.id }}">
-    <div class="creator-home-section-head">
-      <h2>{{ t.peer_username or t.ig_peer_user_id }}</h2>
-      {% if selected_thread_id and selected_thread_id == (t.id|string) %}
-      <span class="settings-help">opened</span>
-      {% endif %}
-      {% if t.unread_count and t.unread_count > 0 %}
-      <span class="tabbar-badge" style="position: static;">{{ t.unread_count }}</span>
-      {% endif %}
-    </div>
-    <div class="creator-home-recap">
-      {% set msgs = thread_messages.get(t.id | string, []) %}
-      {% if not msgs %}
-      <p class="settings-hint">no messages loaded for this thread.</p>
-      {% else %}
-      <ul class="creator-home-recap-lines">
-        {% for m in msgs %}
-        <li>
-          <strong>{{ 'you' if m.direction == 'outbound' else (t.peer_username or 'them') }}</strong>
-          <span class="settings-help" style="margin-left: 8px;">{{ m.received_at|human_ago if m.received_at else '' }}</span>
-          <div>{{ m.body or '(no text)' }}</div>
-        </li>
-        {% endfor %}
-      </ul>
-      {% endif %}
+  {% if threads %}
+  <section class="ig-review-layout" aria-label="Instagram conversations">
+    <nav class="ig-thread-list" aria-label="conversation list">
+      {% for t in threads %}
+      {% set review = thread_reviews.get(t.id|string) %}
+      <a class="ig-thread-link {{ 'is-active' if selected_thread_id == (t.id|string) or (not selected_thread_id and loop.first) }}" href="/creator/instagram/dms?thread={{ t.id }}#ig-thread-{{ t.id }}">
+        {{ instagram_icon() }}
+        <span>
+          <strong>{{ review.counterparty if review else (t.peer_username or t.ig_peer_user_id) }}</strong>
+          <small>{{ review.read if review else 'conversation stored' }}</small>
+        </span>
+        {% if t.unread_count and t.unread_count > 0 %}
+        <em>{{ t.unread_count }}</em>
+        {% endif %}
+      </a>
+      {% endfor %}
+    </nav>
+
+    <div class="ig-review-stack">
+      {% for t in threads[:10] %}
+      {% set thread_id = t.id|string %}
+      {% set review = thread_reviews.get(thread_id) %}
+      {% set msgs = thread_messages.get(thread_id, []) %}
+      <section class="ig-review-card" id="ig-thread-{{ t.id }}">
+        <div class="ig-review-card-head">
+          <div>
+            <span class="mono">instagram</span>
+            <h2>{{ review.counterparty if review else (t.peer_username or t.ig_peer_user_id) }}</h2>
+          </div>
+          {% if selected_thread_id and selected_thread_id == thread_id %}
+          <span class="ig-state">opened</span>
+          {% elif t.unread_count and t.unread_count > 0 %}
+          <span class="ig-state">{{ t.unread_count }} unread</span>
+          {% endif %}
+        </div>
+
+        {% if review %}
+        <div class="ig-manager-read">
+          <span class="mono">BabyG's read</span>
+          <h3>{{ review.read }}</h3>
+          <p>{{ review.latest_preview }}</p>
+        </div>
+        <dl class="ig-review-facts">
+          <div>
+            <dt>why it matters</dt>
+            <dd>{{ review.why }}</dd>
+          </div>
+          <div>
+            <dt>next step</dt>
+            <dd>{{ review.next_step }}</dd>
+          </div>
+          {% if review.attachment_types %}
+          <div>
+            <dt>attachments</dt>
+            <dd>{{ review.attachment_types|join(', ') }}</dd>
+          </div>
+          {% endif %}
+        </dl>
+        {% endif %}
+
+        {% if not msgs %}
+        <p class="ig-review-muted">No messages loaded for this thread.</p>
+        {% else %}
+        <details class="ig-message-context" {% if selected_thread_id == thread_id %}open{% endif %}>
+          <summary>
+            message context
+            {% if review and review.hidden_count > 0 %}
+            <span>{{ review.hidden_count }} older hidden</span>
+            {% endif %}
+          </summary>
+          <ol>
+            {% set visible_messages = review.visible_messages if review else msgs[-3:] %}
+            {% for m in visible_messages %}
+            <li class="ig-message {{ 'is-outbound' if m.direction == 'outbound' else 'is-inbound' }}">
+              <div>
+                <strong>{{ 'you' if m.direction == 'outbound' else (review.counterparty if review else 'them') }}</strong>
+                {% if m.received_at %}<span>{{ m.received_at|human_ago }}</span>{% endif %}
+              </div>
+              <p>{{ m.body or '(no text stored)' }}</p>
+              {% if m.attachments %}
+              <small>attachments stored: {{ m.attachments|length }}</small>
+              {% endif %}
+            </li>
+            {% endfor %}
+          </ol>
+        </details>
+        {% endif %}
+
+        <form method="post" action="/creator/bot" class="ig-review-action">
+          {% include "_partials/csrf.html" %}
+          <input type="hidden" name="message" value="Draft an Instagram reply to {{ review.counterparty if review else (t.peer_username or t.ig_peer_user_id) }} based on the stored conversation in thread {{ t.id }}." />
+          <button class="btn btn-primary btn-sm" type="submit">draft reply</button>
+          <a class="btn btn-ghost btn-sm" href="/creator/bot">ask BabyG</a>
+        </form>
+      </section>
+      {% endfor %}
     </div>
   </section>
-  {% endfor %}
-
+  {% endif %}
 </main>
 {% endblock %}

@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}deals - babyg{% endblock %}
+
+{% block content %}
+<main class="wrap deals-page">
+  <header class="deals-head">
+    <div>
+      <span class="mono">manager context</span>
+      <h1>deals</h1>
+    </div>
+    <a class="btn btn-ghost btn-sm" href="/creator/profile/settings#deal-preferences">preferences</a>
+  </header>
+
+  {% if not deals %}
+  <section class="deals-empty">
+    <span class="mono">nothing open</span>
+    <h2>BabyG is not tracking an active deal right now.</h2>
+    <p>When real DMs, Gmail threads, calendar events, or approved actions create deal memory, active negotiations will appear here.</p>
+  </section>
+  {% else %}
+  <section class="deals-stack" aria-label="active deals">
+    {% for deal in deals %}
+    <article class="deal-row">
+      <div class="deal-row-main">
+        <span class="deal-stage">{{ deal.stage }}</span>
+        <h2>{{ deal.brand_name }}</h2>
+        <p>
+          {% if deal.platform %}{{ deal.platform }}{% else %}source not set{% endif %}
+          {% if deal.last_touch_at %} &middot; last touch {{ deal.last_touch_at|human_ago }}{% endif %}
+        </p>
+      </div>
+      <dl class="deal-terms">
+        <div>
+          <dt>agreed</dt>
+          <dd>{{ deal.agreed_amount }}</dd>
+        </div>
+        <div>
+          <dt>paid</dt>
+          <dd>{{ deal.paid_amount }}</dd>
+        </div>
+      </dl>
+      <div class="deal-next">
+        <span class="mono">BabyG recommends</span>
+        <p>{{ deal.recommendation }}</p>
+      </div>
+      <a class="deal-open" href="/creator/deals/{{ deal.id }}">review</a>
+    </article>
+    {% endfor %}
+  </section>
+  {% endif %}
+</main>
+{% endblock %}

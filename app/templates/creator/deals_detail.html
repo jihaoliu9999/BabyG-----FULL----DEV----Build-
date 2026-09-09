@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+
+{% block title %}{{ deal.brand_name }} - babyg{% endblock %}
+
+{% block content %}
+<main class="wrap deals-page">
+  <header class="deals-head">
+    <div>
+      <span class="mono">negotiation</span>
+      <h1>{{ deal.brand_name }}</h1>
+    </div>
+    <a class="btn btn-ghost btn-sm" href="/creator/deals">all deals</a>
+  </header>
+
+  <section class="deal-detail-card">
+    <span class="deal-stage">{{ deal.stage }}</span>
+    <h2>Terms first.</h2>
+    <dl class="deal-detail-terms">
+      <div>
+        <dt>current offer</dt>
+        <dd>{{ deal.current_offer }}</dd>
+      </div>
+      <div>
+        <dt>agreed</dt>
+        <dd>{{ deal.agreed_amount }}</dd>
+      </div>
+      <div>
+        <dt>paid</dt>
+        <dd>{{ deal.paid_amount }}</dd>
+      </div>
+      <div>
+        <dt>platform</dt>
+        <dd>{{ deal.platform }}</dd>
+      </div>
+      <div>
+        <dt>first touch</dt>
+        <dd>{{ deal.first_touch_at|short_date if deal.first_touch_at else 'not set' }}</dd>
+      </div>
+      <div>
+        <dt>last touch</dt>
+        <dd>{{ deal.last_touch_at|human_ago if deal.last_touch_at else 'not set' }}</dd>
+      </div>
+    </dl>
+    <dl class="deal-detail-terms deal-detail-terms-secondary">
+      {% for term in deal.term_items %}
+      <div>
+        <dt>{{ term.label }}</dt>
+        <dd>{{ term.value }}</dd>
+      </div>
+      {% endfor %}
+    </dl>
+    <div class="deal-next deal-next-detail">
+      <span class="mono">BabyG recommends</span>
+      <p>{{ deal.recommendation }}</p>
+    </div>
+  </section>
+
+  <section class="deal-touchpoints" aria-label="deal touchpoints">
+    <div class="deal-section-head">
+      <span class="mono">context</span>
+      <h2>recent touchpoints</h2>
+    </div>
+    {% if not touchpoints %}
+    <p class="deals-muted">No touchpoints are stored for this deal yet.</p>
+    {% else %}
+    <ol>
+      {% for point in touchpoints %}
+      <li>
+        <div>
+          <strong>{{ point.kind|replace('_', ' ') }}</strong>
+          {% if point.direction %}<span>{{ point.direction }}</span>{% endif %}
+        </div>
+        {% if point.summary %}<p>{{ point.summary }}</p>{% endif %}
+        {% if point.occurred_at %}<small>{{ point.occurred_at|human_ago }}</small>{% endif %}
+      </li>
+      {% endfor %}
+    </ol>
+    {% endif %}
+  </section>
+</main>
+{% endblock %}

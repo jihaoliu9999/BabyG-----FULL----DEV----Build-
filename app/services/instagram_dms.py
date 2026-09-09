@@ -153,6 +153,64 @@ def list_messages_for_thread(
     return list(getattr(result, "data", None) or [])
 
 
+def manager_review_for_thread(
+    thread: dict[str, Any],
+    messages: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Small read model for the Instagram DM destination.
+
+    This is intentionally deterministic and evidence-bound. It does
+    not summarize with an LLM or invent deal context; it uses the
+    stored message body + attachment metadata already persisted by the
+    webhook path.
+    """
+    peer = str(
+        thread.get("peer_username") or thread.get("ig_peer_user_id") or "instagram user"
+    ).strip()
+    peer_label = f"@{peer}" if peer and not peer.startswith("@") else peer
+    latest = _latest_message(messages)
+    latest_inbound = _latest_message(
+        [m for m in messages if str(m.get("direction") or "") == "inbound"]
+    )
+    review_message = latest_inbound or latest
+    body = str((review_message or {}).get("body") or "").strip()
+    attachment_types = _attachment_types((review_message or {}).get("attachments"))
+    attachment_label = _attachment_label(attachment_types)
+    business_signal = _looks_like_collab_or_deal(body)
+    if business_signal:
+        read = "possible business inquiry"
+        why = "The stored message mentions collaboration, sponsorship, money, rates, rights, or a deadline."
+        next_step = "Clarify scope, usage rights, campaign length, timeline, and budget before quoting."
+    elif attachment_label:
+        read = f"instagram {attachment_label} needs review"
+        why = "The message has no usable text, but it includes stored Instagram attachment metadata."
+        next_step = "Open the shared media, confirm what they sent, then decide whether a reply is needed."
+    elif body:
+        read = "conversation needs a human read"
+        why = "BabyG has stored message text, but no clear business signal from the available words."
+        next_step = "Reply directly or ask BabyG to draft once you know the intent."
+    else:
+        read = "conversation stored without readable content"
+        why = "The webhook created a thread, but the latest stored item has neither text nor supported attachment metadata."
+        next_step = "Check the original Instagram conversation before acting."
+    visible_messages = list(messages[-3:]) if len(messages) > 3 else list(messages)
+    return {
+        "counterparty": peer_label,
+        "read": read,
+        "why": why,
+        "next_step": next_step,
+        "business_signal": business_signal,
+        "attachment_label": attachment_label,
+        "attachment_types": attachment_types,
+        "message_count": len(messages),
+        "hidden_count": max(len(messages) - len(visible_messages), 0),
+        "visible_messages": visible_messages,
+        "latest_received_at": (review_message or {}).get("received_at")
+        or thread.get("last_message_at"),
+        "latest_preview": _message_preview(body, attachment_label=attachment_label),
+    }
+
+
 def ingest_webhook_payload(payload: dict[str, Any]) -> dict[str, int]:
     """Top-level entrypoint. Returns a small stats dict for the
     webhook route's log line — never raises."""
@@ -495,6 +553,22 @@ def _looks_like_collab_or_deal(body: str) -> bool:
             "deadline",
         )
     )
+
+
+def _latest_message(messages: list[dict[str, Any]]) -> dict[str, Any] | None:
+    if not messages:
+        return None
+    return messages[-1]
+
+
+def _message_preview(body: str, *, attachment_label: str | None = None) -> str:
+    clean = " ".join((body or "").split())
+    if clean:
+        preview = clean[:160]
+        return preview.rstrip() + ("..." if len(clean) > 160 else "")
+    if attachment_label:
+        return f"Instagram {attachment_label} shared with no message text."
+    return "No readable message text stored."
 
 
 def _manager_body(body: str, *, attachment_label: str | None = None) -> str:

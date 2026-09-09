@@ -131,6 +131,32 @@
 
     <div class="discover-stage">
       {% if cards %}
+      {% set lead = cards[0] %}
+      <section class="discover-manager-read" aria-label="BabyG discover read">
+        <span class="mono">BabyG's read</span>
+        <h2>{{ lead.title }}</h2>
+        <p>
+          {% if lead.subtitle %}{{ lead.subtitle }}
+          {% elif lead.location_label %}{{ lead.location_label }}
+          {% elif lead.tags %}{{ lead.tags[:3]|join(', ') }}
+          {% else %}Real {{ lead.card_kind }} card from the Discover feed.{% endif %}
+        </p>
+        <dl>
+          <div>
+            <dt>fit evidence</dt>
+            <dd>
+              {% if lead.tags %}{{ lead.tags[:4]|join(', ') }}
+              {% elif lead.follower_range %}{{ lead.follower_range }}
+              {% elif lead.budget_label %}{{ lead.budget_label }}
+              {% else %}Not enough structured evidence to claim a strong fit yet.{% endif %}
+            </dd>
+          </div>
+          <div>
+            <dt>BabyG recommends</dt>
+            <dd>Review the profile details before saving, passing, or starting a connection.</dd>
+          </div>
+        </dl>
+      </section>
       <div class="discover-count" aria-live="polite"><strong data-card-count>{{ cards|length }}</strong> left</div>
       <div class="discover-stack" data-card-stack>
         {% for card in cards %}

@@ -173,8 +173,8 @@ def test_performance_list_shows_manual_pill_when_ig_not_configured(client, world
 
 def test_performance_list_merges_instagram_rows(client, world, monkeypatch):
     """When performance_view surfaces both sources with status=ok, both
-    render, the page-foot copy reflects live IG, and the engagement
-    bar chart appears above the cards."""
+    render, the page-foot copy reflects live IG, and the page leads
+    with BabyG's evidence-bound read instead of a raw chart."""
     from app.services import stats_merge as merge_module
 
     _signed_in(client, role="creator", user_id="c-1")
@@ -225,8 +225,13 @@ def test_performance_list_merges_instagram_rows(client, world, monkeypatch):
     assert "instagram" in r.text
     # Adaptive footer reflects connected state.
     assert "manual + instagram" in r.text
-    # Bar chart renders for IG rows only when engagement values exist.
-    assert "engagement by post" in r.text
+    assert "strongest recent signal BabyG can verify" in r.text
+    assert "recommendation" in r.text
+    assert "evidence" in r.text
+    # Old deterministic filler should not come back.
+    assert "comments are the signal" not in r.text
+    assert "sharpen the caption" not in r.text
+    assert "watch this" not in r.text
 
 
 def test_performance_list_prompts_connect_when_configured_but_not_connected(

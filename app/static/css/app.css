@@ -7080,8 +7080,8 @@ hr.hairline {
   z-index: 80;
 }
 .is-creator-app .mobile-header .mobile-profile-link {
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
   pointer-events: auto;
   box-shadow: 0 10px 28px rgba(0,0,0,.28), inset 0 0 0 1px rgba(255,255,255,.025);
 }
@@ -13017,4 +13017,711 @@ body:has(.dm-thread-composer-box input:focus) .creator-tabbar {
 
 @media (prefers-reduced-motion: reduce) {
   .conn-row, .conn-btn, .conn-tab { transition: none; }
+}
+
+/* Home V2 destination foundation */
+.perf-read,
+.perf-row,
+.ig-review-empty,
+.ig-review-card,
+.calendar-v2-connect,
+.calendar-v2-read,
+.calendar-v2-row,
+.deals-empty,
+.deal-row,
+.deal-detail-card,
+.deal-touchpoints,
+.bot-activity,
+.discover-manager-read {
+  box-sizing: border-box;
+  min-width: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--surface-1);
+}
+
+.perf-read,
+.ig-review-empty,
+.calendar-v2-connect,
+.calendar-v2-read,
+.deals-empty,
+.deal-detail-card,
+.deal-touchpoints,
+.bot-activity,
+.discover-manager-read {
+  padding: 16px;
+}
+
+.perf-read,
+.ig-manager-read,
+.calendar-v2-read,
+.deal-next,
+.bot-activity,
+.discover-manager-read {
+  display: grid;
+  gap: 8px;
+}
+
+.perf-read-label,
+.perf-read .mono,
+.ig-review-head .mono,
+.ig-review-card-head .mono,
+.ig-manager-read .mono,
+.calendar-v2-head .mono,
+.calendar-v2-read .mono,
+.deals-head .mono,
+.deal-next .mono,
+.deal-section-head .mono,
+.bot-activity .mono,
+.discover-manager-read .mono {
+  color: var(--text-tertiary);
+  font-size: 10px;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.perf-read h2,
+.ig-review-empty h2,
+.ig-manager-read h3,
+.calendar-v2-connect h2,
+.calendar-v2-read h2,
+.deals-empty h2,
+.deal-detail-card h2,
+.discover-manager-read h2 {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--text-primary);
+  font-size: 20px;
+  line-height: 1.15;
+  letter-spacing: 0;
+}
+
+.perf-read p,
+.perf-read-action strong,
+.perf-row-copy p,
+.perf-row-reco p,
+.ig-review-empty p,
+.ig-manager-read p,
+.ig-review-facts dd,
+.calendar-v2-connect p,
+.calendar-v2-read p,
+.calendar-v2-read strong,
+.deals-empty p,
+.deal-next p,
+.deal-touchpoints p,
+.discover-manager-read p,
+.discover-manager-read dd {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.perf-read-action {
+  display: grid;
+  gap: 5px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.perf-feed,
+.ig-review-stack,
+.calendar-v2-stack,
+.deals-stack {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.perf-row {
+  box-sizing: border-box;
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+}
+
+.performance-platform-tabs a {
+  min-height: 40px;
+}
+
+.perf-row-main {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.perf-row-source a,
+.perf-platform-icon,
+.ig-review-icon {
+  width: 42px;
+  height: 42px;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 42px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  background: var(--surface-2);
+}
+
+.perf-row-source a {
+  min-height: 42px;
+  text-decoration: none;
+}
+
+.perf-platform-icon svg,
+.ig-review-icon svg {
+  width: 19px;
+  height: 19px;
+}
+
+.perf-platform-icon-instagram,
+.ig-review-icon {
+  color: #ff6b8a;
+}
+
+.perf-row-copy,
+.ig-thread-link span,
+.calendar-v2-row-main,
+.deal-row-main {
+  min-width: 0;
+}
+
+.perf-row-meta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  color: var(--text-tertiary);
+  font-size: 10px;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.perf-row-copy h2,
+.deal-row-main h2 {
+  margin: 2px 0 4px;
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 15px;
+  line-height: 1.25;
+  letter-spacing: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.perf-row-result {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.perf-row-result span,
+.perf-row-details dt,
+.deal-terms dt,
+.deal-detail-terms dt,
+.ig-review-facts dt {
+  color: var(--text-tertiary);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.perf-row-result strong,
+.perf-row-details dd,
+.deal-terms dd,
+.deal-detail-terms dd {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.perf-row-details,
+.ig-message-context {
+  min-width: 0;
+}
+
+.perf-row-details summary,
+.ig-message-context summary {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.perf-row-details dl,
+.ig-review-facts,
+.deal-terms,
+.deal-detail-terms,
+.discover-manager-read dl {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+}
+
+.perf-row-details dl,
+.deal-detail-terms {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.perf-row-details div,
+.ig-review-facts div,
+.deal-terms div,
+.deal-detail-terms div,
+.discover-manager-read div {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.perf-row-details a {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  color: var(--accent-text);
+}
+
+.ig-review-page,
+.calendar-v2-page,
+.deals-page {
+  display: grid;
+  gap: 14px;
+  padding-top: 18px;
+  padding-bottom: calc(var(--tabbar-h, 64px) + 24px);
+}
+
+.ig-review-head,
+.calendar-v2-head,
+.deals-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ig-review-head h1,
+.calendar-v2-head h1,
+.deals-head h1 {
+  margin: 2px 0 0;
+  color: var(--text-primary);
+  font-size: 25px;
+  line-height: 1.08;
+  letter-spacing: 0;
+}
+
+.ig-review-layout {
+  display: grid;
+  gap: 12px;
+}
+
+.ig-thread-list {
+  min-width: 0;
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+
+.ig-thread-list::-webkit-scrollbar { display: none; }
+
+.ig-thread-link {
+  min-width: 208px;
+  min-height: 58px;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  background: var(--surface-1);
+  text-decoration: none;
+}
+
+.ig-thread-link.is-active {
+  border-color: var(--border-accent);
+  color: var(--text-primary);
+  background: var(--accent-subtle-2);
+}
+
+.ig-thread-link .ig-review-icon {
+  width: 34px;
+  height: 34px;
+}
+
+.ig-thread-link strong,
+.ig-thread-link small {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ig-thread-link strong {
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.ig-thread-link small {
+  color: var(--text-tertiary);
+  font-size: 11px;
+}
+
+.ig-thread-link em,
+.ig-state {
+  min-width: 22px;
+  min-height: 22px;
+  display: inline-grid;
+  place-items: center;
+  padding: 0 7px;
+  border-radius: 999px;
+  color: var(--accent-text);
+  background: var(--accent-subtle-2);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.ig-review-card {
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+}
+
+.ig-review-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.ig-review-card-head h2 {
+  margin: 2px 0 0;
+  overflow-wrap: anywhere;
+  color: var(--text-primary);
+  font-size: 18px;
+  line-height: 1.15;
+  letter-spacing: 0;
+}
+
+.ig-manager-read,
+.calendar-v2-read {
+  padding: 12px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.ig-message-context ol,
+.deal-touchpoints ol {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ig-message {
+  box-sizing: border-box;
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.ig-message div {
+  min-width: 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--text-tertiary);
+  font-size: 11px;
+}
+
+.ig-message strong {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.ig-message p,
+.ig-message small {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.ig-review-action,
+.calendar-v2-provider-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.calendar-v2-notice {
+  padding: 12px 14px;
+  border: 1px solid var(--border-accent);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  background: var(--accent-subtle-2);
+  font-size: 13px;
+}
+
+.calendar-v2-tabs {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.calendar-v2-tabs a {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 13px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  color: var(--text-secondary);
+  background: var(--surface-1);
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.calendar-v2-tabs a.is-active {
+  color: var(--accent-text);
+  border-color: var(--border-accent);
+  background: var(--accent-subtle-2);
+}
+
+.calendar-v2-row,
+.deal-row {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+}
+
+.calendar-v2-row-main {
+  min-height: 48px;
+  display: grid;
+  gap: 3px;
+  color: inherit;
+  text-decoration: none;
+}
+
+.calendar-v2-type,
+.deal-stage {
+  width: fit-content;
+  max-width: 100%;
+  padding: 4px 8px;
+  border-radius: 999px;
+  color: var(--text-tertiary);
+  background: var(--surface-2);
+  font-size: 11px;
+}
+
+.calendar-v2-row-main strong {
+  overflow-wrap: anywhere;
+  color: var(--text-primary);
+  font-size: 15px;
+  line-height: 1.25;
+}
+
+.calendar-v2-row-main small,
+.deal-row-main p,
+.deal-touchpoints small,
+.deals-muted {
+  color: var(--text-tertiary);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.calendar-v2-row-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.calendar-v2-empty {
+  padding: 40px 12px;
+  text-align: center;
+}
+
+.deal-terms {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.deal-open {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  text-decoration: none;
+}
+
+.deal-detail-terms-secondary {
+  margin-top: 10px;
+}
+
+.deal-touchpoints li {
+  display: grid;
+  gap: 5px;
+  padding: 10px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.deal-touchpoints li > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.deal-touchpoints strong {
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.deal-touchpoints span {
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+.bot-activity {
+  width: min(760px, calc(100% - 24px));
+  margin: 0 auto 12px;
+}
+
+.bot-activity-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.bot-activity-head strong {
+  min-width: 0;
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.bot-activity-lines {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding-left: 16px;
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.bot-activity-actions,
+.bot-activity-cycles {
+  display: grid;
+  gap: 7px;
+}
+
+.bot-activity-actions a {
+  min-height: 44px;
+  display: grid;
+  gap: 3px;
+  padding: 9px 10px;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  background: var(--surface-2);
+  text-decoration: none;
+}
+
+.bot-activity-actions span,
+.bot-activity-cycles span {
+  color: var(--text-tertiary);
+  font-size: 11px;
+}
+
+.bot-activity-actions strong {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.discover-manager-read {
+  margin-bottom: 12px;
+}
+
+@media (min-width: 768px) {
+  .perf-row,
+  .calendar-v2-row,
+  .deal-row {
+    grid-template-columns: minmax(0, 1.4fr) minmax(140px, .5fr) minmax(220px, .8fr) auto;
+    align-items: center;
+  }
+
+  .calendar-v2-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .deal-row {
+    grid-template-columns: minmax(0, 1fr) 180px minmax(260px, .7fr) auto;
+  }
+
+  .ig-review-layout {
+    grid-template-columns: 260px minmax(0, 1fr);
+    align-items: start;
+  }
+
+  .ig-thread-list {
+    display: grid;
+    overflow: visible;
+  }
+
+  .ig-thread-link {
+    min-width: 0;
+  }
+
+  .deal-detail-terms {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 430px) {
+  .perf-row-copy h2,
+  .deal-row-main h2 {
+    white-space: normal;
+  }
+
+  .perf-row-details dl,
+  .deal-detail-terms {
+    grid-template-columns: 1fr;
+  }
+
+  .ig-review-head h1,
+  .calendar-v2-head h1,
+  .deals-head h1 {
+    font-size: 22px;
+  }
+
+  .ig-review-action .btn,
+  .calendar-v2-provider-actions .btn,
+  .calendar-v2-row-actions .btn {
+    width: 100%;
+  }
 }

@@ -495,9 +495,18 @@ def _watching(
         parts.append(f"{ig_dm_unread_count} Instagram DM{'s' if ig_dm_unread_count != 1 else ''}")
     if not parts:
         return None
+    href = "/creator/bot"
+    if open_deals > 0:
+        href = "/creator/deals"
+    elif opportunity_count > 0:
+        href = "/creator/discover"
+    elif upcoming_count > 0:
+        href = "/creator/calendar"
+    elif ig_dm_unread_count > 0:
+        href = "/creator/instagram/dms"
     return {
         "summary": "watching " + " · ".join(parts[:4]),
-        "href": "/creator/bot",
+        "href": href,
     }
 
 
