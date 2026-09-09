@@ -502,7 +502,8 @@ def _watching(
 
 
 def _item_from_notification(row: dict[str, Any], *, score: int) -> dict[str, Any]:
-    metadata = row.get("metadata") if isinstance(row.get("metadata"), dict) else {}
+    metadata_raw = row.get("metadata")
+    metadata: dict[str, Any] = metadata_raw if isinstance(metadata_raw, dict) else {}
     source = str(row.get("source_provider") or metadata.get("source") or "babyg").lower()
     if source not in {"instagram", "gmail", "google", "calendar", "network", "babyg"}:
         source = "babyg"
