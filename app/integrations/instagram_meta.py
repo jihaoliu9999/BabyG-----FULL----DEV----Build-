@@ -14,10 +14,11 @@ Server-side only. Tokens never reach templates or browser JS.
 Status-only logging — never logs tokens, app secret, query bodies,
 or response payloads.
 
-Scope is strictly read-only: instagram_business_basic +
-instagram_business_manage_insights. We never request the publish,
-comments, or messages scopes — the module surface itself doesn't
-expose write functions (test-pinned in tests/test_instagram_routes.py).
+Scope stays tightly bounded: instagram_business_basic +
+instagram_business_manage_insights for profile/performance data, plus
+instagram_business_manage_messages for webhook-backed DM ingestion and
+creator-approved replies. We still do not request publish or comment
+management scopes.
 
 Eligibility: only Instagram Business or Creator accounts qualify.
 A Personal account that authorizes will surface as
@@ -261,6 +262,60 @@ def resolve_business_account(access_token: str) -> InstagramAccount:
         username=_str_or_none(detail.get("username"), max_len=80),
         name=_str_or_none(detail.get("name"), max_len=120),
     )
+
+
+def subscribe_account_to_messages(access_token: str, *, ig_user_id: str) -> bool:
+    """Subscribe one connected IG account to app-level message webhooks.
+
+    Meta's app webhook config defines the callback URL/fields; this call
+    attaches the app subscription to the creator's Instagram account so
+    real DMs are delivered. It is safe to call on reconnect: Meta treats
+    repeated subscriptions for the same field as idempotent.
+    """
+    if not is_configured():
+        raise InstagramNotConfiguredError("Instagram OAuth is not configured")
+    account_id = str(ig_user_id or "").strip()
+    if not account_id:
+        raise InstagramError("Instagram webhook subscription missing account id")
+    logger.info(
+        "instagram_meta.subscribe_messages.attempt ig_account_hint=%s",
+        _id_hint(account_id),
+    )
+    try:
+        response = httpx.post(
+            f"{GRAPH_BASE}/{account_id}/subscribed_apps",
+            params={"access_token": access_token},
+            data={"subscribed_fields": "messages"},
+            timeout=TIMEOUT_SECONDS,
+        )
+        response.raise_for_status()
+    except httpx.HTTPError as exc:
+        status = getattr(getattr(exc, "response", None), "status_code", "?")
+        logger.info(
+            "instagram_meta.subscribe_messages.failed ig_account_hint=%s status=%s",
+            _id_hint(account_id),
+            status,
+        )
+        raise InstagramError("Instagram webhook subscription failed") from exc
+    try:
+        data = response.json()
+    except ValueError as exc:
+        logger.info(
+            "instagram_meta.subscribe_messages.failed ig_account_hint=%s status=non_json",
+            _id_hint(account_id),
+        )
+        raise InstagramError("Instagram webhook subscription response was not JSON") from exc
+    if not isinstance(data, dict) or data.get("success") is not True:
+        logger.info(
+            "instagram_meta.subscribe_messages.failed ig_account_hint=%s status=not_confirmed",
+            _id_hint(account_id),
+        )
+        raise InstagramError("Instagram webhook subscription was not accepted")
+    logger.info(
+        "instagram_meta.subscribe_messages.ok ig_account_hint=%s",
+        _id_hint(account_id),
+    )
+    return True
 
 
 def get_user_media(
@@ -593,3 +648,10 @@ def _int_or_none(value: Any) -> int | None:
         return int(value)
     except (TypeError, ValueError):
         return None
+
+
+def _id_hint(value: str) -> str:
+    raw = str(value or "").strip()
+    if len(raw) <= 8:
+        return f"len:{len(raw)}"
+    return f"{raw[:4]}...{raw[-4:]}"

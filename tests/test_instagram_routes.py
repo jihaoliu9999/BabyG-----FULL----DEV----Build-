@@ -229,6 +229,39 @@ def test_callback_happy_path_saves_and_redirects(
     }
 
 
+def test_callback_does_not_report_connected_when_save_fails(
+    monkeypatch, client: TestClient
+) -> None:
+    _signed_in(client)
+    _stub_verify_state(monkeypatch, next_path="/creator/profile/settings")
+    monkeypatch.setattr(
+        instagram_meta,
+        "exchange_code",
+        lambda _c: {"access_token": "tok", "expires_in": 5184000},
+    )
+    monkeypatch.setattr(
+        instagram_meta,
+        "resolve_business_account",
+        lambda _t: instagram_meta.InstagramAccount(
+            ig_user_id="ig-1", username="miacreates", name="Mia"
+        ),
+    )
+    monkeypatch.setattr(
+        creator_routes.oauth_connections,
+        "save_instagram_connection",
+        lambda *a, **kw: False,
+    )
+
+    r = client.get(
+        "/creator/instagram/callback?code=abc&state=ok",
+        follow_redirects=False,
+    )
+
+    assert r.status_code == 303
+    assert "instagram=save_failed" in r.headers["location"]
+    assert "instagram=connected" not in r.headers["location"]
+
+
 def test_callback_respects_next_path_from_state(
     monkeypatch, client: TestClient
 ) -> None:

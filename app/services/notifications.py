@@ -43,6 +43,20 @@ KINDS = [
 ]
 
 PRIORITIES = {"low", "normal", "high", "urgent"}
+_MANAGER_ACTIVITY_NON_DM_KINDS = [
+    "manager_alert",
+    "profile_sync",
+    "performance_spike",
+]
+
+
+def _is_manager_activity(row: dict[str, Any]) -> bool:
+    kind = row.get("kind")
+    if kind in _MANAGER_ACTIVITY_NON_DM_KINDS:
+        return True
+    if kind != "new_dm":
+        return False
+    return row.get("source_provider") == "instagram"
 
 
 def create(
@@ -252,7 +266,10 @@ def list_manager_activity(user_id: str, *, limit: int = 5) -> list[dict[str, Any
             .eq("user_id", user_id)
             .eq("is_read", False)
             .is_("archived_at", "null")
-            .in_("kind", ["new_dm", "manager_alert", "profile_sync", "performance_spike"])
+            .or_(
+                "kind.in.(manager_alert,profile_sync,performance_spike),"
+                "and(kind.eq.new_dm,source_provider.eq.instagram)"
+            )
             .order("created_at", desc=True)
             .limit(limit)
             .execute()
@@ -260,4 +277,5 @@ def list_manager_activity(user_id: str, *, limit: int = 5) -> list[dict[str, Any
     except PostgrestAPIError:
         logger.exception("notifications.list_manager_activity failed: %s", user_id)
         return []
-    return getattr(result, "data", None) or []
+    rows = getattr(result, "data", None) or []
+    return [row for row in rows if _is_manager_activity(row)][:limit]

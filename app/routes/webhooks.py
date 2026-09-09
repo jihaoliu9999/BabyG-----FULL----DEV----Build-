@@ -101,6 +101,11 @@ async def instagram_event(request: Request) -> JSONResponse:
 
     raw_body = await request.body()
     header_sig = request.headers.get("x-hub-signature-256") or ""
+    logger.info(
+        "instagram_webhook.event.received body_len=%s signature_present=%s",
+        len(raw_body),
+        bool(header_sig),
+    )
     if not _verify_signature(app_secret, raw_body, header_sig):
         logger.warning(
             "instagram_webhook.event.bad_signature len=%s header_present=%s",
@@ -116,6 +121,12 @@ async def instagram_event(request: Request) -> JSONResponse:
         # Ack anyway so Meta doesn't retry a permanently-broken body.
         return JSONResponse({"ok": True, "note": "unparseable"}, status_code=200)
 
+    entries = payload.get("entry") if isinstance(payload, dict) else None
+    logger.info(
+        "instagram_webhook.event.parsed object=%s entries=%s",
+        payload.get("object") if isinstance(payload, dict) else type(payload).__name__,
+        len(entries) if isinstance(entries, list) else "invalid",
+    )
     # Belt-and-suspenders: _dispatch_payload has its own try/except,
     # but if a future refactor removes it, we still don't want to
     # trigger Meta's retry-on-5xx storm. Ack + drop.

@@ -141,6 +141,12 @@ def test_get_instagram_connection_returns_none_when_missing(monkeypatch):
 def test_save_instagram_connection_writes_expected_payload(monkeypatch):
     store: dict[str, Any] = {"execute_data": [{"x": 1}]}
     _patch_supabase(monkeypatch, store)
+    subscribed: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        instagram_meta,
+        "subscribe_account_to_messages",
+        lambda token, *, ig_user_id: subscribed.append((token, ig_user_id)) or True,
+    )
     account = instagram_meta.InstagramAccount(
         ig_user_id="ig-1784", username="miacreates", name="Mia"
     )
@@ -153,6 +159,7 @@ def test_save_instagram_connection_writes_expected_payload(monkeypatch):
         ig_account=account,
     )
     assert ok is True
+    assert subscribed == [("long-token", "ig-1784")]
     assert len(store["upserts"]) == 1
     upsert = store["upserts"][0]
     assert upsert["table"] == "oauth_connections"
@@ -170,6 +177,11 @@ def test_save_instagram_connection_writes_expected_payload(monkeypatch):
 def test_save_instagram_connection_refuses_when_token_missing(monkeypatch):
     store: dict[str, Any] = {}
     _patch_supabase(monkeypatch, store)
+    monkeypatch.setattr(
+        instagram_meta,
+        "subscribe_account_to_messages",
+        lambda *_a, **_kw: pytest.fail("must not subscribe without a token"),
+    )
     account = instagram_meta.InstagramAccount(
         ig_user_id="ig-1", username=None, name=None
     )
@@ -178,6 +190,65 @@ def test_save_instagram_connection_refuses_when_token_missing(monkeypatch):
     )
     assert ok is False
     assert "upserts" not in store
+
+
+def test_save_instagram_connection_refuses_and_deletes_on_subscription_failure(
+    monkeypatch,
+):
+    store: dict[str, Any] = {"execute_data": []}
+    _patch_supabase(monkeypatch, store)
+
+    def _fail(_token, *, ig_user_id):
+        assert ig_user_id == "ig-1784"
+        raise instagram_meta.InstagramError("subscription failed")
+
+    monkeypatch.setattr(instagram_meta, "subscribe_account_to_messages", _fail)
+    account = instagram_meta.InstagramAccount(
+        ig_user_id="ig-1784", username="miacreates", name="Mia"
+    )
+
+    ok = oauth_connections.save_instagram_connection(
+        "creator-1",
+        {"access_token": "long-token", "expires_in": 5184000},
+        ig_account=account,
+    )
+
+    assert ok is False
+    assert "upserts" not in store
+    assert store.get("deletes") == [{"table": "oauth_connections"}]
+
+
+def test_save_instagram_connection_resubscribes_on_reconnect(monkeypatch):
+    store: dict[str, Any] = {"execute_data": [{"x": 1}]}
+    _patch_supabase(monkeypatch, store)
+    subscribed: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        instagram_meta,
+        "subscribe_account_to_messages",
+        lambda token, *, ig_user_id: subscribed.append((token, ig_user_id)) or True,
+    )
+    account = instagram_meta.InstagramAccount(
+        ig_user_id="ig-1784", username="miacreates", name="Mia"
+    )
+
+    first = oauth_connections.save_instagram_connection(
+        "creator-1",
+        {"access_token": "long-token-1", "expires_in": 5184000},
+        ig_account=account,
+    )
+    second = oauth_connections.save_instagram_connection(
+        "creator-1",
+        {"access_token": "long-token-2", "expires_in": 5184000},
+        ig_account=account,
+    )
+
+    assert first is True
+    assert second is True
+    assert subscribed == [
+        ("long-token-1", "ig-1784"),
+        ("long-token-2", "ig-1784"),
+    ]
+    assert len(store["upserts"]) == 2
 
 
 # ---------------------------------------------------------------------------

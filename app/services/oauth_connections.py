@@ -423,6 +423,20 @@ def save_instagram_connection(
     access_token = str(token_response.get("access_token") or "")
     if not access_token:
         return False
+    try:
+        instagram_meta.subscribe_account_to_messages(
+            access_token,
+            ig_user_id=ig_account.ig_user_id,
+        )
+    except instagram_meta.InstagramError:
+        logger.exception(
+            "instagram oauth subscription failed before save user=%s",
+            user_id,
+        )
+        # Reconnects should not leave an old row looking fully connected
+        # when the webhook subscription step failed.
+        disconnect_instagram(user_id)
+        return False
     expires_at = _expires_at(token_response.get("expires_in"))
     payload = {
         "user_id": user_id,

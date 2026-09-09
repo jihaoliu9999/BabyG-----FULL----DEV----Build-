@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from app.services import instagram_dms
@@ -191,23 +192,32 @@ def test_ingest_ignores_non_instagram_object(monkeypatch) -> None:
 # ---- unknown IG account ----------------------------------------------
 
 
-def test_ingest_drops_entry_when_no_creator_matches(monkeypatch) -> None:
+def test_ingest_drops_entry_when_no_creator_matches(monkeypatch, caplog) -> None:
     fake = _install(monkeypatch)
     fake.oauth_rows = []  # nobody has connected IG account "999"
-    stats = instagram_dms.ingest_webhook_payload({
-        "object": "instagram",
-        "entry": [{
-            "id": "999",
-            "messaging": [{
-                "sender": {"id": "peer1"},
-                "recipient": {"id": "999"},
-                "timestamp": 1699999999000,
-                "message": {"mid": "m1", "text": "hi"},
+    with caplog.at_level(logging.INFO):
+        stats = instagram_dms.ingest_webhook_payload({
+            "object": "instagram",
+            "entry": [{
+                "id": "999",
+                "messaging": [{
+                    "sender": {"id": "peer1"},
+                    "recipient": {"id": "999"},
+                    "timestamp": 1699999999000,
+                    "message": {"mid": "m1", "text": "hi"},
+                }],
             }],
-        }],
-    })
-    assert stats == {"entries": 1, "messages_ingested": 0, "dropped_no_creator": 1, "errors": 0}
+        })
+    assert stats == {
+        "entries": 1,
+        "messages_ingested": 0,
+        "dropped_no_creator": 1,
+        "errors": 0,
+    }
     assert fake.messages == []
+    log_text = "\n".join(r.getMessage() for r in caplog.records)
+    assert "instagram_dms.resolve_creator.not_found" in log_text
+    assert "instagram_dms.dropped.no_creator" in log_text
 
 
 # ---- happy path: inbound message -------------------------------------
@@ -278,6 +288,80 @@ def test_ingest_important_inbound_message_creates_manager_notification(
     assert note["underlying_id"] == fake.messages[0]["id"]
     assert note["link_path"].startswith("/creator/instagram/dms?thread=")
     assert note["metadata"]["suggested_action"] == "draft_reply"
+
+
+def test_ingest_attachment_only_message_persists_and_notifies(monkeypatch) -> None:
+    fake = _install(monkeypatch)
+    fake.oauth_rows = [
+        {"user_id": "creator-1", "provider": "instagram", "provider_account_id": "acct-1"}
+    ]
+    stats = instagram_dms.ingest_webhook_payload({
+        "object": "instagram",
+        "entry": [{
+            "id": "acct-1",
+            "messaging": [{
+                "sender": {"id": "peer-99", "username": "brandco"},
+                "recipient": {"id": "acct-1"},
+                "timestamp": 1699999999000,
+                "message": {
+                    "mid": "m-image-only",
+                    "attachments": [
+                        {"type": "image", "payload": {"url": "https://cdn.example/img"}}
+                    ],
+                },
+            }],
+        }],
+    })
+
+    assert stats["messages_ingested"] == 1
+    assert len(fake.messages) == 1
+    assert fake.messages[0]["body"] is None
+    assert fake.messages[0]["attachments"][0]["type"] == "image"
+    assert len(fake.notifications) == 1
+    note = fake.notifications[0]
+    assert note["title"] == "new instagram media from @brandco"
+    assert note["body"] == "They sent you an Instagram media. I can draft a reply."
+    assert note["priority"] == "normal"
+    assert note["metadata"]["attachment_types"] == ["image"]
+
+
+def test_ingest_reel_attachment_message_persists_and_notifies_high_priority(
+    monkeypatch,
+) -> None:
+    fake = _install(monkeypatch)
+    fake.oauth_rows = [
+        {"user_id": "creator-1", "provider": "instagram", "provider_account_id": "acct-1"}
+    ]
+    stats = instagram_dms.ingest_webhook_payload({
+        "object": "instagram",
+        "entry": [{
+            "id": "acct-1",
+            "messaging": [{
+                "sender": {"id": "peer-99", "username": "brandco"},
+                "recipient": {"id": "acct-1"},
+                "timestamp": 1699999999000,
+                "message": {
+                    "mid": "m-reel-only",
+                    "attachments": [
+                        {
+                            "type": "reel",
+                            "payload": {"url": "https://instagram.com/reel/example"},
+                        }
+                    ],
+                },
+            }],
+        }],
+    })
+
+    assert stats["messages_ingested"] == 1
+    assert fake.messages[0]["body"] is None
+    assert fake.messages[0]["attachments"][0]["type"] == "reel"
+    assert len(fake.notifications) == 1
+    note = fake.notifications[0]
+    assert note["title"] == "new instagram reel from @brandco"
+    assert note["body"] == "They sent you an Instagram reel. I can draft a reply."
+    assert note["priority"] == "high"
+    assert note["metadata"]["attachment_types"] == ["reel"]
 
 
 # ---- outbound message (echo) -----------------------------------------
@@ -392,6 +476,34 @@ def test_ingest_skips_message_without_mid(monkeypatch) -> None:
     })
     assert len(fake.messages) == 1
     assert fake.messages[0]["ig_message_id"] == "m-real"
+
+
+def test_ingest_skips_unsupported_webhook_event(monkeypatch, caplog) -> None:
+    fake = _install(monkeypatch)
+    fake.oauth_rows = [
+        {"user_id": "creator-1", "provider": "instagram", "provider_account_id": "acct-1"}
+    ]
+
+    with caplog.at_level(logging.INFO):
+        stats = instagram_dms.ingest_webhook_payload({
+            "object": "instagram",
+            "entry": [{
+                "id": "acct-1",
+                "messaging": [{
+                    "sender": {"id": "peer-99"},
+                    "recipient": {"id": "acct-1"},
+                    "timestamp": 1699999999000,
+                    "read": {"watermark": 1699999999000},
+                }],
+            }],
+        })
+
+    assert stats["messages_ingested"] == 0
+    assert fake.messages == []
+    assert fake.notifications == []
+    log_text = "\n".join(r.getMessage() for r in caplog.records)
+    assert "instagram_dms.message.dropped reason=unsupported_event" in log_text
+    assert "read" in log_text
 
 
 # ---- crashes never propagate ----------------------------------------

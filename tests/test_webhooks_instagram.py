@@ -17,6 +17,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import logging
 
 import pytest
 from fastapi import FastAPI
@@ -137,20 +138,23 @@ def test_event_403_when_signature_missing(client, monkeypatch) -> None:
     assert r.status_code == 403
 
 
-def test_event_403_when_signature_wrong(client, monkeypatch) -> None:
+def test_event_403_when_signature_wrong(client, monkeypatch, caplog) -> None:
     _stub_settings(monkeypatch, app_secret="app-secret-hex")
-    r = client.post(
-        "/webhooks/instagram",
-        content=b'{"entry":[]}',
-        headers={
-            "content-type": "application/json",
-            "x-hub-signature-256": "sha256=" + "0" * 64,
-        },
-    )
+    with caplog.at_level(logging.WARNING):
+        r = client.post(
+            "/webhooks/instagram",
+            content=b'{"entry":[]}',
+            headers={
+                "content-type": "application/json",
+                "x-hub-signature-256": "sha256=" + "0" * 64,
+            },
+        )
     assert r.status_code == 403
+    log_text = "\n".join(record.getMessage() for record in caplog.records)
+    assert "instagram_webhook.event.bad_signature" in log_text
 
 
-def test_event_200_on_valid_signature(client, monkeypatch) -> None:
+def test_event_200_on_valid_signature(client, monkeypatch, caplog) -> None:
     secret = "app-secret-hex"
     body = json.dumps({"object": "instagram", "entry": []}).encode("utf-8")
     _stub_settings(monkeypatch, app_secret=secret)
@@ -160,16 +164,20 @@ def test_event_200_on_valid_signature(client, monkeypatch) -> None:
         webhooks, "_dispatch_payload", lambda p: dispatched.append(p)
     )
 
-    r = client.post(
-        "/webhooks/instagram",
-        content=body,
-        headers={
-            "content-type": "application/json",
-            "x-hub-signature-256": _sign(secret, body),
-        },
-    )
+    with caplog.at_level(logging.INFO):
+        r = client.post(
+            "/webhooks/instagram",
+            content=body,
+            headers={
+                "content-type": "application/json",
+                "x-hub-signature-256": _sign(secret, body),
+            },
+        )
     assert r.status_code == 200
     assert dispatched == [{"object": "instagram", "entry": []}]
+    log_text = "\n".join(record.getMessage() for record in caplog.records)
+    assert "instagram_webhook.event.received" in log_text
+    assert "instagram_webhook.event.parsed object=instagram entries=0" in log_text
 
 
 def test_event_200_when_json_is_broken_but_signature_ok(

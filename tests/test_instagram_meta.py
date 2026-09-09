@@ -293,6 +293,60 @@ def test_resolve_business_account_raises_when_me_missing_id(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
+# subscribe_account_to_messages — per-account webhook delivery
+# ---------------------------------------------------------------------------
+
+
+def test_subscribe_account_to_messages_success(monkeypatch):
+    monkeypatch.setenv("INSTAGRAM_APP_ID", "app-123")
+    monkeypatch.setenv("INSTAGRAM_APP_SECRET", "secret")
+    get_settings.cache_clear()
+
+    posted: dict = {}
+
+    def _post(url, params=None, data=None, timeout=None):
+        posted["url"] = url
+        posted["params"] = dict(params or {})
+        posted["data"] = dict(data or {})
+        posted["timeout"] = timeout
+        return _ok_response({"success": True})
+
+    monkeypatch.setattr(httpx, "post", _post)
+
+    assert instagram_meta.subscribe_account_to_messages(
+        "ACCESS", ig_user_id="1784140582230000"
+    )
+    assert posted["url"].endswith("/1784140582230000/subscribed_apps")
+    assert posted["params"] == {"access_token": "ACCESS"}
+    assert posted["data"] == {"subscribed_fields": "messages"}
+    assert posted["timeout"] == instagram_meta.TIMEOUT_SECONDS
+
+
+def test_subscribe_account_to_messages_maps_http_failure(monkeypatch):
+    monkeypatch.setenv("INSTAGRAM_APP_ID", "app-123")
+    monkeypatch.setenv("INSTAGRAM_APP_SECRET", "secret")
+    get_settings.cache_clear()
+    monkeypatch.setattr(httpx, "post", lambda *a, **kw: _err_response(400))
+
+    with pytest.raises(instagram_meta.InstagramError):
+        instagram_meta.subscribe_account_to_messages(
+            "ACCESS", ig_user_id="1784140582230000"
+        )
+
+
+def test_subscribe_account_to_messages_rejects_success_false(monkeypatch):
+    monkeypatch.setenv("INSTAGRAM_APP_ID", "app-123")
+    monkeypatch.setenv("INSTAGRAM_APP_SECRET", "secret")
+    get_settings.cache_clear()
+    monkeypatch.setattr(httpx, "post", lambda *a, **kw: _ok_response({"success": False}))
+
+    with pytest.raises(instagram_meta.InstagramError):
+        instagram_meta.subscribe_account_to_messages(
+            "ACCESS", ig_user_id="1784140582230000"
+        )
+
+
+# ---------------------------------------------------------------------------
 # get_user_media + get_media_insights
 # ---------------------------------------------------------------------------
 
@@ -663,9 +717,14 @@ def test_no_token_or_app_secret_in_logs_on_failure(monkeypatch, caplog):
             instagram_meta.get_user_media("ACCESS_TOKEN_LEAK", ig_user_id="ig-1")
         with pytest.raises(instagram_meta.InstagramError):
             instagram_meta.refresh_long_lived_token("REFRESH_TOKEN_LEAK")
+        with pytest.raises(instagram_meta.InstagramError):
+            instagram_meta.subscribe_account_to_messages(
+                "SUBSCRIBE_TOKEN_LEAK", ig_user_id="1784140582230000"
+            )
 
     log_text = "\n".join(r.getMessage() for r in caplog.records)
     assert "app-secret-LEAK" not in log_text
     assert "CODE_LEAK" not in log_text
     assert "ACCESS_TOKEN_LEAK" not in log_text
     assert "REFRESH_TOKEN_LEAK" not in log_text
+    assert "SUBSCRIBE_TOKEN_LEAK" not in log_text
