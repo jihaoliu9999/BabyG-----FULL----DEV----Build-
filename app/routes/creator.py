@@ -378,6 +378,7 @@ async def dashboard(
         matched_picks,
         pending_actions_all,
         unread_dm_n,
+        manager_activity,
         performance_view,
     ) = await asyncio.gather(
         _safe_call(
@@ -414,6 +415,7 @@ async def dashboard(
         # unread_dm_count(request) global picks up the cached value
         # instead of firing its own supabase query at render time.
         _safe_call(dms.unread_count_for_user, user_id, _default=0),
+        _safe_call(notifications.list_manager_activity, user_id, limit=4, _default=[]),
         _safe_call(
             stats_merge.performance_view,
             user_id,
@@ -438,13 +440,12 @@ async def dashboard(
     ig_dm_unread_count = await _safe_call(
         instagram_dms.unread_count_for_creator, user_id, _default=0
     )
+    total_dm_unread_count = int(unread_dm_n or 0) + int(ig_dm_unread_count or 0)
 
-    # "needs you" surfaces non-DM notifications only. DM alerts get their
-    # own /creator/dm page; duplicating them here made the home feel
-    # spammy and let a user tap into a thread from home instead of the
-    # dedicated inbox. We keep the raw counts for the greeting summary
-    # (so "3 things need you today" stays honest).
-    unread_notifs = [n for n in unread_notifs_all if n.get("kind") != "new_dm"]
+    # "needs you" surfaces non-manager notifications only. Manager-grade
+    # DM/activity alerts get the dedicated BabyG manager area above.
+    manager_kinds = {"new_dm", "manager_alert", "profile_sync", "performance_spike"}
+    unread_notifs = [n for n in unread_notifs_all if n.get("kind") not in manager_kinds]
     non_dm_unread_total = len(unread_notifs)
 
     calendar_connected = oauth_connections.google_calendar_connected(google_connection)
@@ -455,7 +456,7 @@ async def dashboard(
     pending_action_count_int = len(pending_actions_all)
     try:
         request.state.pending_action_count = pending_action_count_int
-        request.state.unread_dm_count = int(unread_dm_n or 0)
+        request.state.unread_dm_count = total_dm_unread_count
     except Exception:
         # Never fail a dashboard render because the cache-prime raised.
         pass
@@ -493,6 +494,7 @@ async def dashboard(
             "unread_notifs": unread_notifs,
             "pending_connections": pending_connections,
             "pending_actions": pending_actions,
+            "manager_activity": manager_activity,
             "upcoming_bookings": upcoming_bookings,
             "matched_picks": matched_picks,
             "needs_count": needs_count,
@@ -501,8 +503,9 @@ async def dashboard(
             "daily_greeting": daily_greeting,
             "overnight_recap": overnight_recap,
             "ig_dm_unread_count": ig_dm_unread_count,
+            "unread_dms": total_dm_unread_count,
             "home_shortcuts": _home_shortcuts(
-                unread_dm_count=int(unread_dm_n or 0),
+                unread_dm_count=total_dm_unread_count,
                 pending_connections=pending_connections,
                 matched_picks=matched_picks,
             ),
@@ -1246,6 +1249,21 @@ async def notifications_mark_all_read(
     return RedirectResponse("/creator/notifications", status_code=303)
 
 
+@router.post("/creator/notifications/{notification_id}/archive")
+async def notifications_archive(
+    notification_id: str,
+    session: SessionPayload = Depends(require_role("creator")),
+    target: str = Form("/creator/notifications"),
+) -> Response:
+    notifications.archive(
+        user_id=session["user_id"], notification_id=notification_id
+    )
+    return RedirectResponse(
+        safe_same_origin(target, default="/creator/notifications"),
+        status_code=303,
+    )
+
+
 # -----------------------------------------------------------------------------
 # DMs
 # -----------------------------------------------------------------------------
@@ -1254,6 +1272,7 @@ async def notifications_mark_all_read(
 @router.get("/creator/instagram/dms", response_class=HTMLResponse)
 async def instagram_dm_inbox(
     request: Request,
+    thread: str | None = Query(None),
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
     """Minimal read-only surface for Instagram DMs babyg has ingested
@@ -1263,6 +1282,16 @@ async def instagram_dm_inbox(
     profile = profiles.get_creator_profile(session["user_id"]) or {}
     if not profile.get("onboarding_completed_at"):
         return RedirectResponse("/onboarding/creator", status_code=302)
+    selected_thread_id = str(thread or "").strip() or None
+    if selected_thread_id:
+        instagram_dms.mark_thread_read_for_creator(
+            user_id=session["user_id"], thread_id=selected_thread_id
+        )
+        notifications.mark_thread_read(
+            user_id=session["user_id"],
+            source_provider="instagram",
+            thread_id=selected_thread_id,
+        )
     threads = instagram_dms.list_threads_for_creator(session["user_id"], limit=30)
     thread_messages: dict[str, list[dict[str, Any]]] = {}
     for t in threads[:10]:  # only render inline for the newest 10
@@ -1276,6 +1305,7 @@ async def instagram_dm_inbox(
             "profile": profile,
             "threads": threads,
             "thread_messages": thread_messages,
+            "selected_thread_id": selected_thread_id,
         },
     )
 

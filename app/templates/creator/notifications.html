@@ -52,6 +52,11 @@
         {% if not n.is_read %}<span class="notif-dot" aria-label="unread"></span>{% endif %}
       </button>
     </form>
+    <form method="post" action="/creator/notifications/{{ n.id }}/archive" class="notif-dismiss-form">
+      {% include "_partials/csrf.html" %}
+      <input type="hidden" name="target" value="/creator/notifications" />
+      <button type="submit" class="notif-dismiss">dismiss</button>
+    </form>
     {% endfor %}
   </div>
   {% else %}

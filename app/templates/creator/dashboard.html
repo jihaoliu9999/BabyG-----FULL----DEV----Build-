@@ -31,6 +31,47 @@
   </section>
   {% endif %}
 
+  {% if manager_activity %}
+  <section class="creator-home-section">
+    <div class="creator-home-section-head">
+      <h2>babyg manager</h2>
+      <a href="/creator/notifications" class="creator-home-link">activity →</a>
+    </div>
+    <div class="creator-needs">
+      {% for n in manager_activity %}
+      <div class="creator-needs-row actionable">
+        <span class="creator-needs-glyph" aria-hidden="true">
+          <img src="/static/assets/logo-bg.png" alt="" />
+        </span>
+        <div class="creator-needs-body">
+          <a href="{{ n.link_path or '/creator/notifications' }}" class="creator-needs-link">
+            <span class="creator-needs-title">{{ n.title|string|truncate(64, true, '…') }}</span>
+            <span class="creator-needs-sub">
+              {% if n.created_at %}{{ n.created_at|human_ago }} · {% endif %}{{ n.body|string|truncate(76, true, '…') }}
+            </span>
+          </a>
+        </div>
+        <div class="creator-needs-actions">
+          <form method="post" action="/creator/notifications/{{ n.id }}/read" class="creator-needs-actions-inline">
+            {% include "_partials/csrf.html" %}
+            <input type="hidden" name="target" value="{{ n.link_path or '/creator/notifications' }}" />
+            <button type="submit" class="creator-needs-chip">view</button>
+          </form>
+          {% if n.kind == 'new_dm' %}
+          <a href="/creator/bot" class="creator-needs-text">draft reply</a>
+          {% endif %}
+          <form method="post" action="/creator/notifications/{{ n.id }}/archive" class="creator-needs-actions-inline">
+            {% include "_partials/csrf.html" %}
+            <input type="hidden" name="target" value="/creator" />
+            <button type="submit" class="creator-needs-text">dismiss</button>
+          </form>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
   {# needs you: verb-first task rows — only when there's actually something #}
   {% set _next_confirm = upcoming_bookings[0] if upcoming_bookings else None %}
   {% set _alerts_n = unread_notifs|length %}

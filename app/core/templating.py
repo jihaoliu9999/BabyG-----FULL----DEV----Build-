@@ -415,9 +415,12 @@ def _unread_dm_count(request) -> int:
     try:
         session = read_session(request)
         if session and session.get("role") == "creator":
-            from app.services import dms
+            from app.services import dms, instagram_dms
 
-            resolved = int(dms.unread_count_for_user(session["user_id"]) or 0)
+            user_id = session["user_id"]
+            resolved = int(dms.unread_count_for_user(user_id) or 0) + int(
+                instagram_dms.unread_count_for_creator(user_id) or 0
+            )
     except Exception:
         resolved = 0
 

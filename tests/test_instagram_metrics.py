@@ -9,6 +9,7 @@ Mocks Supabase at the service-client boundary so we can prove:
 
 from __future__ import annotations
 
+from datetime import date
 from types import SimpleNamespace
 from typing import Any
 from uuid import uuid4
@@ -204,6 +205,7 @@ def test_history_returns_newest_first_bounded_by_days(monkeypatch, uid):
 
 
 def test_growth_over_returns_delta_across_window(monkeypatch, uid):
+    monkeypatch.setattr(instagram_metrics, "_today_utc", lambda: date(2026, 9, 8))
     tbl = _StubTable(
         rows=[
             {
@@ -263,6 +265,7 @@ def test_growth_over_returns_none_when_only_one_snapshot(monkeypatch, uid):
 
 def test_growth_over_leaves_partial_metric_none(monkeypatch, uid):
     """One endpoint has reach, the other doesn't → reach delta is None."""
+    monkeypatch.setattr(instagram_metrics, "_today_utc", lambda: date(2026, 9, 8))
     tbl = _StubTable(
         rows=[
             {

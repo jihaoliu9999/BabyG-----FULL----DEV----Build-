@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from app.services import instagram_dms
 
 
@@ -13,6 +15,7 @@ class _FakeSupabase:
         self.oauth_rows: list[dict] = []
         self.threads: list[dict] = []
         self.messages: list[dict] = []
+        self.notifications: list[dict] = []
         self._table_id_seq = 0
         self.raise_on: set[str] = set()
 
@@ -39,7 +42,7 @@ class _FakeTable:
         self._insert_row = None
         self._update_payload = None
 
-    def select(self, _cols):
+    def select(self, _cols, **_kwargs):
         return self
 
     def eq(self, col, val):
@@ -50,13 +53,21 @@ class _FakeTable:
         self._gt_filter[col] = val
         return self
 
+    def is_(self, col, val):
+        self._filter[col] = None if val == "null" else val
+        return self
+
+    def in_(self, col, vals):
+        self._filter[col] = list(vals)
+        return self
+
     def order(self, *_, **__):
         return self
 
     def limit(self, _):
         return self
 
-    def upsert(self, row, on_conflict=None):
+    def upsert(self, row, on_conflict=None, **_kwargs):
         self._upsert_row = (row, on_conflict)
         return self
 
@@ -96,17 +107,50 @@ class _FakeTable:
                 )
             ]
             return _Result(rows)
-        if self.name == "instagram_dm_messages" and self._upsert_row is not None:
-            row, _ = self._upsert_row
-            # Idempotence: skip duplicates on (creator_id, ig_message_id)
-            already = any(
-                m.get("creator_id") == row.get("creator_id")
-                and m.get("ig_message_id") == row.get("ig_message_id")
-                for m in self.store.messages
-            )
-            if not already:
-                self.store.messages.append({**row, "id": self.store.next_id()})
-            return _Result([row])
+        if self.name == "instagram_dm_messages":
+            if self._upsert_row is not None:
+                row, _ = self._upsert_row
+                already = next(
+                    (
+                        m
+                        for m in self.store.messages
+                        if m.get("creator_id") == row.get("creator_id")
+                        and m.get("ig_message_id") == row.get("ig_message_id")
+                    ),
+                    None,
+                )
+                if already:
+                    return _Result([already])
+                stored = {**row, "id": self.store.next_id()}
+                self.store.messages.append(stored)
+                return _Result([stored])
+            rows = [
+                r for r in self.store.messages
+                if all(r.get(k) == v for k, v in self._filter.items())
+            ]
+            return _Result(rows)
+        if self.name == "notifications":
+            if self._upsert_row is not None:
+                row, _ = self._upsert_row
+                already = next(
+                    (
+                        n
+                        for n in self.store.notifications
+                        if n.get("user_id") == row.get("user_id")
+                        and n.get("source_provider") == row.get("source_provider")
+                        and n.get("source_event_id") == row.get("source_event_id")
+                    ),
+                    None,
+                )
+                if already:
+                    return _Result([already])
+                stored = {**row, "id": self.store.next_id()}
+                self.store.notifications.append(stored)
+                return _Result([stored])
+            if self._insert_row is not None:
+                stored = {**self._insert_row, "id": self.store.next_id()}
+                self.store.notifications.append(stored)
+                return _Result([stored])
         return _Result([])
 
 
@@ -199,6 +243,41 @@ def test_ingest_persists_inbound_message_and_creates_thread(monkeypatch) -> None
     m = fake.messages[0]
     assert m["direction"] == "inbound"
     assert m["body"] == "love your reel"
+    assert fake.notifications == []
+
+
+def test_ingest_important_inbound_message_creates_manager_notification(
+    monkeypatch,
+) -> None:
+    fake = _install(monkeypatch)
+    fake.oauth_rows = [
+        {"user_id": "creator-1", "provider": "instagram", "provider_account_id": "acct-1"}
+    ]
+    stats = instagram_dms.ingest_webhook_payload({
+        "object": "instagram",
+        "entry": [{
+            "id": "acct-1",
+            "messaging": [{
+                "sender": {"id": "peer-99", "username": "brandco"},
+                "recipient": {"id": "acct-1"},
+                "timestamp": 1699999999000,
+                "message": {"mid": "m-collab", "text": "what are your paid collab rates?"},
+            }],
+        }],
+    })
+    assert stats["messages_ingested"] == 1
+    assert len(fake.messages) == 1
+    assert len(fake.notifications) == 1
+    note: dict[str, Any] = fake.notifications[0]
+    assert note["kind"] == "new_dm"
+    assert note["priority"] == "high"
+    assert note["source_provider"] == "instagram"
+    assert note["source_event_id"] == "instagram:message:m-collab"
+    assert note["source_thread_id"] == fake.threads[0]["id"]
+    assert note["underlying_type"] == "instagram_dm_message"
+    assert note["underlying_id"] == fake.messages[0]["id"]
+    assert note["link_path"].startswith("/creator/instagram/dms?thread=")
+    assert note["metadata"]["suggested_action"] == "draft_reply"
 
 
 # ---- outbound message (echo) -----------------------------------------
@@ -251,6 +330,35 @@ def test_ingest_duplicate_message_is_no_op(monkeypatch) -> None:
     instagram_dms.ingest_webhook_payload(payload)
     # Second delivery must not create a duplicate row
     assert len(fake.messages) == 1
+    # Or inflate the already-created thread's unread count.
+    assert fake.threads[0]["unread_count"] == 1
+    assert len(fake.notifications) == 0
+
+
+def test_ingest_duplicate_important_message_dedupes_notification(
+    monkeypatch,
+) -> None:
+    fake = _install(monkeypatch)
+    fake.oauth_rows = [
+        {"user_id": "creator-1", "provider": "instagram", "provider_account_id": "acct-1"}
+    ]
+    payload = {
+        "object": "instagram",
+        "entry": [{
+            "id": "acct-1",
+            "messaging": [{
+                "sender": {"id": "peer-99", "username": "brandco"},
+                "recipient": {"id": "acct-1"},
+                "timestamp": 1699999999000,
+                "message": {"mid": "m-same", "text": "paid collab rates?"},
+            }],
+        }],
+    }
+    instagram_dms.ingest_webhook_payload(payload)
+    instagram_dms.ingest_webhook_payload(payload)
+    assert len(fake.messages) == 1
+    assert fake.threads[0]["unread_count"] == 1
+    assert len(fake.notifications) == 1
 
 
 # ---- malformed messaging entries survive -----------------------------

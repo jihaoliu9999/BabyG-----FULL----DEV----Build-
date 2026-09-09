@@ -29,6 +29,10 @@ Files are applied in numeric order. Each migration is plain SQL — run via the 
 | `0020_discovery_card_view.sql` | Creates the server-read `discovery_cards` view for creator, brand, and opportunity cards. |
 | `0021_mixed_discovery_actions.sql` | Extends creator discovery actions to track creator, brand, and opportunity card targets. |
 | `0026_dm_ai_brief_upgrade.sql` | Adds structured intent, confidence, deal analysis, annotations, and reply styles to recipient-private DM briefs. |
+| `0027_bot_turns.sql` | Adds bot turn tracking. |
+| `0038_instagram_dms.sql` | Adds production Instagram DM ingestion tables separate from native BabyG DMs. |
+| `0039_babyg_agent_ig_auto_send.sql` | Adds the opt-in creator profile switch for autonomous Instagram DM sends. |
+| `0040_manager_notifications.sql` | Extends existing notifications with manager priority/source metadata and webhook-safe dedupe keys. |
 
 ## Conventions
 

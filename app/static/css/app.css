@@ -7412,6 +7412,18 @@ hr.hairline {
 
 .is-creator-app .creator-notifs-page .notif-stack { display: flex; flex-direction: column; gap: 8px; }
 .is-creator-app .creator-notifs-page .notif-form { margin: 0; }
+.is-creator-app .creator-notifs-page .notif-dismiss-form { margin: -4px 0 6px 46px; }
+.is-creator-app .creator-notifs-page .notif-dismiss {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--ink-dim);
+  cursor: pointer;
+  font: inherit;
+  font-size: 12px;
+  padding: 0;
+}
+.is-creator-app .creator-notifs-page .notif-dismiss:hover { color: var(--ink); }
 .is-creator-app .creator-notifs-page .notif-row {
   width: 100%;
   display: flex; align-items: flex-start; gap: 12px;
@@ -11489,11 +11501,20 @@ body:has(.dm-thread-composer-box input:focus) .creator-tabbar {
   color: var(--ink-faint);
 }
 .is-creator-app .creator-needs-glyph svg { width: 14px; height: 14px; }
+.is-creator-app .creator-needs-glyph img { width: 16px; height: 16px; object-fit: contain; opacity: .86; }
 .is-creator-app .creator-needs-row.actionable .creator-needs-glyph { color: var(--accent); }
 .is-creator-app .creator-needs-row.deadline   .creator-needs-glyph { color: #ffc07a; }
 .is-creator-app .creator-needs-body {
   min-width: 0;
   display: flex; flex-direction: column; gap: 2px;
+}
+.is-creator-app .creator-needs-link {
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 .is-creator-app .creator-needs-title {
   color: var(--ink);

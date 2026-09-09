@@ -41,6 +41,9 @@ from app.services import (
     dms as dms_module,
 )
 from app.services import (
+    instagram_dms as instagram_dms_module,
+)
+from app.services import (
     intel as intel_module,
 )
 from app.services import (
@@ -93,6 +96,8 @@ def stub_dashboard(monkeypatch):
         "pending_actions": [],
         "pending_connections": [],
         "unread_dms": 0,
+        "unread_ig_dms": 0,
+        "manager_activity": [],
         "overnight_recap": None,
         "performance_view": stats_merge_module.PerformanceView(
             rows=[],
@@ -104,9 +109,19 @@ def stub_dashboard(monkeypatch):
     )
     monkeypatch.setattr(intel_module, "feed_for_creator", lambda **kw: [])
     monkeypatch.setattr(notifications_module, "list_unread", lambda uid, *, limit=8: [])
+    monkeypatch.setattr(
+        notifications_module,
+        "list_manager_activity",
+        lambda uid, *, limit=4: list(state["manager_activity"]),
+    )
     monkeypatch.setattr(notifications_module, "unread_count", lambda uid: 0)
     monkeypatch.setattr(
         dms_module, "unread_count_for_user", lambda uid: state["unread_dms"]
+    )
+    monkeypatch.setattr(
+        instagram_dms_module,
+        "unread_count_for_creator",
+        lambda uid: state["unread_ig_dms"],
     )
     monkeypatch.setattr(
         network_module,
@@ -233,6 +248,94 @@ def test_home_shortcuts_keep_default_labels_when_nothing_needs_attention(
     assert "<span>ask babyg</span>" in r.text
     assert "<span>browse discover</span>" in r.text
     assert "<span>my connections</span>" in r.text
+
+
+def test_home_surfaces_manager_activity_with_deep_link(
+    client: TestClient, stub_dashboard
+) -> None:
+    _signed_in(client)
+    stub_dashboard["manager_activity"] = [
+        {
+            "id": "n-1",
+            "kind": "new_dm",
+            "title": "new instagram message from @brandco",
+            "body": "paid collab rates? I can draft a reply.",
+            "link_path": "/creator/instagram/dms?thread=ig-thread-1#ig-thread-ig-thread-1",
+            "priority": "high",
+            "created_at": "2026-09-08T10:00:00Z",
+        }
+    ]
+
+    r = client.get("/creator")
+
+    assert r.status_code == 200
+    assert "babyg manager" in r.text
+    assert "new instagram message from @brandco" in r.text
+    assert (
+        "/creator/instagram/dms?thread=ig-thread-1#ig-thread-ig-thread-1"
+        in r.text
+    )
+    assert "draft reply" in r.text
+
+
+def test_instagram_dm_deep_link_marks_thread_and_notification_read(
+    client: TestClient, stub_dashboard, monkeypatch
+) -> None:
+    _signed_in(client)
+    calls: list[tuple[str, dict[str, str]]] = []
+
+    monkeypatch.setattr(
+        instagram_dms_module,
+        "mark_thread_read_for_creator",
+        lambda **kw: calls.append(("ig", kw)) or True,
+    )
+    monkeypatch.setattr(
+        notifications_module,
+        "mark_thread_read",
+        lambda **kw: calls.append(("notification", kw)) or 1,
+    )
+    monkeypatch.setattr(
+        instagram_dms_module,
+        "list_threads_for_creator",
+        lambda uid, *, limit=30: [
+            {
+                "id": "thread-1",
+                "ig_thread_id": "peer-1",
+                "ig_peer_user_id": "peer-1",
+                "peer_username": "brandco",
+                "last_message_at": "2026-09-08T10:00:00Z",
+                "unread_count": 0,
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        instagram_dms_module,
+        "list_messages_for_thread",
+        lambda uid, thread_id, *, limit=40: [
+            {
+                "id": "msg-1",
+                "thread_id": thread_id,
+                "direction": "inbound",
+                "body": "paid collab rates?",
+                "received_at": "2026-09-08T10:00:00Z",
+            }
+        ],
+    )
+
+    r = client.get("/creator/instagram/dms?thread=thread-1")
+
+    assert r.status_code == 200
+    assert ("ig", {"user_id": "u-1", "thread_id": "thread-1"}) in calls
+    assert (
+        "notification",
+        {
+            "user_id": "u-1",
+            "source_provider": "instagram",
+            "thread_id": "thread-1",
+        },
+    ) in calls
+    assert 'id="ig-thread-thread-1"' in r.text
+    assert "opened" in r.text
 
 
 def test_home_shortcuts_generate_from_current_unchecked_state(

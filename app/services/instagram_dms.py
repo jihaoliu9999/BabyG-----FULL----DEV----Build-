@@ -60,6 +60,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from app.core import supabase_client
+from app.services import dm_briefs, notifications
 
 logger = logging.getLogger(__name__)
 
@@ -178,8 +179,15 @@ def _ingest_entry(entry: dict[str, Any], stats: dict[str, int]) -> None:
         )
         return
     for msg in entry.get("messaging") or []:
-        if _persist_message(creator_id, ig_business_account_id, msg):
+        persisted = _persist_message(creator_id, ig_business_account_id, msg)
+        if persisted:
             stats["messages_ingested"] += 1
+            if _create_manager_notification(creator_id, persisted):
+                logger.info(
+                    "instagram_dms.manager_notification.created user=%s mid=%s",
+                    creator_id,
+                    persisted.get("ig_message_id"),
+                )
 
 
 def _resolve_creator_from_ig_account(ig_account_id: str) -> str | None:
@@ -210,27 +218,36 @@ def _resolve_creator_from_ig_account(ig_account_id: str) -> str | None:
 
 def _persist_message(
     creator_id: str, ig_business_account_id: str, msg: dict[str, Any]
-) -> bool:
-    """Upsert the thread + append the message. Returns True on a
-    successful insert (message was new), False on skip/failure."""
+) -> dict[str, Any] | None:
+    """Upsert the thread + append the message.
+
+    Returns the persisted message/thread context when the message was
+    new, None on skip/failure. Checking for an existing message before
+    bumping the thread keeps Meta webhook retries from inflating unread
+    counts.
+    """
     if not isinstance(msg, dict):
-        return False
+        return None
     message = msg.get("message") or {}
     ig_message_id = str(message.get("mid") or "").strip()
     if not ig_message_id:
-        return False
+        return None
     sender_id = str((msg.get("sender") or {}).get("id") or "").strip()
     recipient_id = str((msg.get("recipient") or {}).get("id") or "").strip()
     if not sender_id or not recipient_id:
-        return False
+        return None
+    if _message_exists(creator_id=creator_id, ig_message_id=ig_message_id):
+        return None
 
     is_echo = bool(message.get("is_echo"))
     if is_echo or sender_id == ig_business_account_id:
         direction = "outbound"
         peer_ig_id = recipient_id
+        peer_username = str((msg.get("recipient") or {}).get("username") or "").strip()
     else:
         direction = "inbound"
         peer_ig_id = sender_id
+        peer_username = str((msg.get("sender") or {}).get("username") or "").strip()
 
     body = str(message.get("text") or "")[:8000] or None
     attachments = message.get("attachments") or []
@@ -245,17 +262,18 @@ def _persist_message(
         creator_id=creator_id,
         ig_thread_id=peer_ig_id,
         ig_peer_user_id=peer_ig_id,
+        peer_username=peer_username or None,
         last_message_at=received_at,
         inbound=(direction == "inbound"),
     )
     if not thread_row:
-        return False
+        return None
     thread_uuid = str(thread_row.get("id") or "")
     if not thread_uuid:
-        return False
+        return None
 
     try:
-        (
+        result = (
             supabase_client.get_service_client()
             .table("instagram_dm_messages")
             .upsert(
@@ -277,8 +295,110 @@ def _persist_message(
         logger.exception(
             "instagram_dms.persist_message.write_failed mid=%s", ig_message_id
         )
+        return None
+    rows = list(getattr(result, "data", None) or [])
+    row = rows[0] if rows else {}
+    return {
+        "id": row.get("id"),
+        "thread_id": thread_uuid,
+        "thread_created": bool(thread_row.get("_created")),
+        "ig_message_id": ig_message_id,
+        "direction": direction,
+        "peer_ig_id": peer_ig_id,
+        "peer_username": peer_username or None,
+        "body": body,
+        "attachments": attachments,
+        "received_at": received_at,
+    }
+
+
+def _message_exists(*, creator_id: str, ig_message_id: str) -> bool:
+    try:
+        result = (
+            supabase_client.get_service_client()
+            .table("instagram_dm_messages")
+            .select("id")
+            .eq("creator_id", creator_id)
+            .eq("ig_message_id", ig_message_id)
+            .limit(1)
+            .execute()
+        )
+    except Exception:
+        logger.exception(
+            "instagram_dms.message_exists.failed creator=%s mid=%s",
+            creator_id,
+            ig_message_id,
+        )
         return False
-    return True
+    return bool(getattr(result, "data", None))
+
+
+def _create_manager_notification(
+    creator_id: str, message: dict[str, Any]
+) -> bool:
+    if message.get("direction") != "inbound":
+        return False
+    body = str(message.get("body") or "")
+    if not dm_briefs.needs_brief(body):
+        return False
+    thread_id = str(message.get("thread_id") or "")
+    message_id = str(message.get("id") or "")
+    ig_message_id = str(message.get("ig_message_id") or "")
+    if not thread_id or not ig_message_id:
+        return False
+    peer = str(message.get("peer_username") or message.get("peer_ig_id") or "").strip()
+    peer_label = f"@{peer}" if peer and not peer.startswith("@") else peer or "someone"
+    link_path = f"/creator/instagram/dms?thread={thread_id}#ig-thread-{thread_id}"
+    priority = "high" if _looks_like_collab_or_deal(body) else "normal"
+    return notifications.create(
+        user_id=creator_id,
+        kind="new_dm",
+        title=f"new instagram message from {peer_label}",
+        body=_manager_body(body),
+        link_path=link_path,
+        priority=priority,
+        source_provider="instagram",
+        source_event_id=f"instagram:message:{ig_message_id}",
+        source_thread_id=thread_id,
+        underlying_type="instagram_dm_message",
+        underlying_id=message_id or ig_message_id,
+        metadata={
+            "ig_thread_id": thread_id,
+            "ig_message_id": ig_message_id,
+            "peer_ig_id": message.get("peer_ig_id"),
+            "peer_username": message.get("peer_username"),
+            "suggested_action": "draft_reply",
+        },
+    )
+
+
+def _looks_like_collab_or_deal(body: str) -> bool:
+    norm = (body or "").lower()
+    return any(
+        token in norm
+        for token in (
+            "collab",
+            "collaboration",
+            "brand deal",
+            "sponsor",
+            "sponsorship",
+            "paid",
+            "rate",
+            "rates",
+            "usage rights",
+            "deadline",
+        )
+    )
+
+
+def _manager_body(body: str) -> str:
+    clean = " ".join((body or "").split())
+    if not clean:
+        return "This Instagram DM may need a response. I can draft a reply."
+    preview = clean[:180]
+    if len(clean) > 180:
+        preview = preview.rstrip() + "..."
+    return f"{preview} I can draft a reply."
 
 
 def _upsert_thread(
@@ -286,6 +406,7 @@ def _upsert_thread(
     creator_id: str,
     ig_thread_id: str,
     ig_peer_user_id: str,
+    peer_username: str | None = None,
     last_message_at: str,
     inbound: bool,
 ) -> dict[str, Any] | None:
@@ -311,16 +432,19 @@ def _upsert_thread(
         if rows:
             row = rows[0]
             update_payload: dict[str, Any] = {"last_message_at": last_message_at}
+            if peer_username:
+                update_payload["peer_username"] = peer_username[:255]
             if inbound:
                 update_payload["unread_count"] = int(row.get("unread_count") or 0) + 1
             client.table("instagram_dm_threads").update(update_payload).eq(
                 "id", row["id"]
             ).execute()
-            return {"id": row["id"]}
+            return {"id": row["id"], "_created": False}
         insert_payload = {
             "creator_id": creator_id,
             "ig_thread_id": ig_thread_id,
             "ig_peer_user_id": ig_peer_user_id,
+            "peer_username": peer_username[:255] if peer_username else None,
             "last_message_at": last_message_at,
             "unread_count": 1 if inbound else 0,
         }
@@ -330,7 +454,9 @@ def _upsert_thread(
             .execute()
         )
         rows = list(getattr(result, "data", None) or [])
-        return rows[0] if rows else None
+        if not rows:
+            return None
+        return {**rows[0], "_created": True}
     except Exception:
         logger.exception(
             "instagram_dms.upsert_thread.failed creator=%s thread=%s",
@@ -338,6 +464,27 @@ def _upsert_thread(
             ig_thread_id,
         )
         return None
+
+
+def mark_thread_read_for_creator(*, user_id: str, thread_id: str) -> bool:
+    """Clear the unread counter for one owner-scoped Instagram DM thread."""
+    try:
+        result = (
+            supabase_client.get_service_client()
+            .table("instagram_dm_threads")
+            .update({"unread_count": 0})
+            .eq("creator_id", user_id)
+            .eq("id", thread_id)
+            .execute()
+        )
+    except Exception:
+        logger.exception(
+            "instagram_dms.mark_thread_read_for_creator.failed user=%s thread=%s",
+            user_id,
+            thread_id,
+        )
+        return False
+    return bool(getattr(result, "data", None))
 
 
 def _timestamp_to_iso(value: Any) -> str:

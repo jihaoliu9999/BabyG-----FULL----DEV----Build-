@@ -100,32 +100,40 @@ def test_unread_dm_count_zero_for_anon(monkeypatch) -> None:
 
 def test_unread_dm_count_calls_service_for_creator(monkeypatch) -> None:
     from app.core import security
-    from app.services import dms
+    from app.services import dms, instagram_dms
 
     monkeypatch.setattr(
         security, "read_session", lambda req: {"role": "creator", "user_id": "c1"}
     )
     monkeypatch.setattr(dms, "unread_count_for_user", lambda uid: 7)
+    monkeypatch.setattr(instagram_dms, "unread_count_for_creator", lambda uid: 3)
     req = _FakeRequest()
-    assert templating._unread_dm_count(req) == 7
+    assert templating._unread_dm_count(req) == 10
 
 
 def test_unread_dm_count_caches_on_request_state(monkeypatch) -> None:
     from app.core import security
-    from app.services import dms
+    from app.services import dms, instagram_dms
 
     calls = {"n": 0}
+    ig_calls = {"n": 0}
 
     def _count(uid):
         calls["n"] += 1
         return 1
 
+    def _ig_count(uid):
+        ig_calls["n"] += 1
+        return 2
+
     monkeypatch.setattr(
         security, "read_session", lambda req: {"role": "creator", "user_id": "c1"}
     )
     monkeypatch.setattr(dms, "unread_count_for_user", _count)
+    monkeypatch.setattr(instagram_dms, "unread_count_for_creator", _ig_count)
 
     req = _FakeRequest()
-    templating._unread_dm_count(req)
-    templating._unread_dm_count(req)
+    assert templating._unread_dm_count(req) == 3
+    assert templating._unread_dm_count(req) == 3
     assert calls["n"] == 1
+    assert ig_calls["n"] == 1

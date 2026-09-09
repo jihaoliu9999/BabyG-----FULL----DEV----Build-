@@ -22,9 +22,12 @@
   {% endif %}
 
   {% for t in threads %}
-  <section class="creator-home-section">
+  <section class="creator-home-section" id="ig-thread-{{ t.id }}">
     <div class="creator-home-section-head">
       <h2>{{ t.peer_username or t.ig_peer_user_id }}</h2>
+      {% if selected_thread_id and selected_thread_id == (t.id|string) %}
+      <span class="settings-help">opened</span>
+      {% endif %}
       {% if t.unread_count and t.unread_count > 0 %}
       <span class="tabbar-badge" style="position: static;">{{ t.unread_count }}</span>
       {% endif %}
