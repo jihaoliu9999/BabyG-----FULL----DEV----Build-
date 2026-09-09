@@ -368,67 +368,40 @@ def test_creator_settings_work_links_use_uniform_bold_text() -> None:
     assert "text-transform: none" in rule
 
 
-def test_creator_home_shortcuts_fit_mobile_labels() -> None:
-    shortcut_rule = APP_CSS.split(
-        ".is-creator-app .creator-home-shortcut {", 1
-    )[1].split("}", 1)[0]
-    shortcut_mobile_rule = APP_CSS.split(
-        ".is-creator-app .creator-home-shortcuts { grid-template-columns: repeat(2, minmax(0, 1fr)) !important;",
-        1,
-    )[1].split("@media (max-width: 420px)", 1)[0]
-    label_rule = APP_CSS.split(
-        ".is-creator-app .creator-home-shortcut span {", 1
-    )[1].split("}", 1)[0]
-
-    assert "max-height" not in shortcut_rule
-    assert "min-width: 0" in shortcut_rule
-    assert (
-        "grid-template-columns: repeat(2, minmax(0, 1fr)) !important"
-        in APP_CSS
-    )
-    assert "min-height: 62px !important" in shortcut_mobile_rule
-    assert "overflow-wrap: anywhere" in label_rule
-    assert "home_shortcuts or [" in DASHBOARD_TEMPLATE
-    assert "class=\"creator-home-shortcut sc-{{ shortcut.slot }}\"" in DASHBOARD_TEMPLATE
-    assert "href=\"{{ shortcut.href }}\"" in DASHBOARD_TEMPLATE
-    assert "<span>{{ shortcut.label }}</span>" in DASHBOARD_TEMPLATE
-    assert "'slot': 'babyg', 'href': '/creator/bot', 'label': 'ask babyg'" in DASHBOARD_TEMPLATE
-
-
-def test_creator_home_social_analytics_card_is_mobile_safe() -> None:
-    card_rule = APP_CSS.split(
-        ".is-creator-app .creator-social-card {", 1
-    )[1].split("}", 1)[0]
-    head_rule = APP_CSS.split(
-        ".is-creator-app .creator-social-card-head {", 1
-    )[1].split("}", 1)[0]
-    tabs_rule = APP_CSS.split(
-        ".is-creator-app .creator-social-tabs {", 1
-    )[1].split("}", 1)[0]
-    main_rule = APP_CSS.split(
-        ".is-creator-app .creator-social-main {", 1
-    )[1].split("}", 1)[0]
-    metrics_rule = APP_CSS.split(
-        ".is-creator-app .creator-social-metrics {", 1
-    )[1].split("}", 1)[0]
+def test_creator_home_v2_manager_cards_fit_mobile_labels() -> None:
+    card_rule = APP_CSS.split(".is-creator-app .manager-card {", 1)[1].split(
+        "}", 1
+    )[0]
+    main_rule = APP_CSS.split(".is-creator-app .manager-card-main {", 1)[1].split(
+        "}", 1
+    )[0]
+    title_rule = APP_CSS.split(".is-creator-app .manager-card-title {", 1)[1].split(
+        "}", 1
+    )[0]
+    action_rule = APP_CSS.split(".is-creator-app .manager-card-action {", 1)[
+        1
+    ].split("}", 1)[0]
+    mobile_rule = APP_CSS.split("@media (max-width: 430px) {", 1)[1]
 
     assert "min-width: 0" in card_rule
-    assert "grid-template-columns: minmax(0, 1fr) auto" in head_rule
-    assert "grid-template-columns: repeat(3, minmax(0, 1fr))" in tabs_rule
-    assert "minmax(92px, .82fr) minmax(0, 1fr)" in main_rule
-    assert "grid-template-columns: repeat(3, minmax(0, 1fr))" in metrics_rule
-    assert '<div class="creator-social-card' in DASHBOARD_TEMPLATE
-    assert '<a href="/creator/performance"\n       class="creator-social-card' not in DASHBOARD_TEMPLATE
-    assert 'href="{{ platform.href }}"' in DASHBOARD_TEMPLATE
-    assert "creator-social-action" in DASHBOARD_TEMPLATE
-    assert "social_analytics.has_data" in DASHBOARD_TEMPLATE
+    assert "grid-template-columns: minmax(0, 1fr) auto" in card_rule
+    assert "grid-template-columns: 34px minmax(0, 1fr)" in main_rule
+    assert "overflow-wrap: anywhere" in title_rule
+    assert "min-height: 40px" in action_rule
+    assert ".is-creator-app .manager-card" in mobile_rule
+    assert "grid-template-columns: minmax(0, 1fr)" in mobile_rule
+    assert "width: 100%" in mobile_rule
 
 
-def test_creator_home_social_analytics_sits_after_shortcuts() -> None:
-    shortcuts_position = DASHBOARD_TEMPLATE.index("creator-home-shortcuts")
-    analytics_position = DASHBOARD_TEMPLATE.index("creator-social-section")
-
-    assert shortcuts_position < analytics_position
+def test_creator_home_v2_removes_dashboard_analytics_and_shortcuts() -> None:
+    assert "creator-home-v2" in DASHBOARD_TEMPLATE
+    assert "home_v2" in DASHBOARD_TEMPLATE
+    assert "home_shortcuts or [" not in DASHBOARD_TEMPLATE
+    assert "creator-home-shortcuts" not in DASHBOARD_TEMPLATE
+    assert "creator-social-section" not in DASHBOARD_TEMPLATE
+    assert "social_analytics" not in DASHBOARD_TEMPLATE
+    assert "BabyG's brief" in DASHBOARD_TEMPLATE
+    assert "needs you" in DASHBOARD_TEMPLATE
 
 
 def test_hidden_brand_topbar_does_not_reserve_mobile_space() -> None:

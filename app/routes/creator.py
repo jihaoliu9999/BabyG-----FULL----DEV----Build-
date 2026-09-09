@@ -37,6 +37,7 @@ from app.deps import require_role
 from app.integrations import google_calendar, instagram_meta
 from app.services import (
     action_proposals,
+    agent_cycles,
     agent_memory,
     agent_recap,
     audit,
@@ -51,8 +52,9 @@ from app.services import (
     dm_briefs,
     dms,
     greetings,
+    home_manager,
     instagram_dms,
-    intel,
+    instagram_metrics,
     jobs,
     locations,
     network,
@@ -68,14 +70,6 @@ from app.services import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["creator"])
-
-CATEGORY_LABELS = {
-    "venue": "Venue",
-    "trend": "Trend",
-    "brand": "Brand",
-    "collab": "Collab",
-    "alert": "Alert",
-}
 
 SOCIAL_ANALYTICS_PLATFORMS = {
     "instagram": "Instagram",
@@ -154,223 +148,27 @@ def _active_social_platform(value: str | None) -> str:
     return platform
 
 
-def _home_social_analytics(
-    view: stats_merge.PerformanceView, *, active_platform: str = "instagram"
-) -> dict[str, Any]:
-    """Compact, honest social signal preview for Creator Home."""
-    active_platform = _active_social_platform(active_platform)
-    platform_label = SOCIAL_ANALYTICS_PLATFORMS[active_platform]
-    platforms = [
-        {
-            "key": key,
-            "label": label.lower(),
-            "href": "/creator" if key == "instagram" else f"/creator?social_platform={key}",
-            "active": key == active_platform,
-        }
-        for key, label in SOCIAL_ANALYTICS_PLATFORMS.items()
-    ]
-
-    if active_platform != "instagram":
-        platform_lower = platform_label.lower()
-        return {
-            "active_platform": active_platform,
-            "analytics_href": f"/creator/performance?platform={active_platform}",
-            "platforms": platforms,
-            "status": stats_merge.IG_STATUS_NOT_CONNECTED,
-            "action_label": f"connect {platform_lower}",
-            "action_href": None,
-            "action_disabled": True,
-            "has_data": False,
-            "post_count": 0,
-            "top_value": "0",
-            "top_label": "top post signal",
-            "top_title": None,
-            "metrics": [],
-            "trend": [],
-            "empty_title": f"{platform_label} analytics are not connected yet.",
-            "empty_body": (
-                f"When {platform_label} support is ready, live views, saves, "
-                "comments, and post momentum will show here."
-            ),
-        }
-
-    ig_rows = [
-        row
-        for row in view.rows
-        if row.source == stats_merge.SOURCE_INSTAGRAM and row.metrics
-    ]
-    metric_totals = {
-        "reach": sum(_metric_int(row.metrics, "reach") for row in ig_rows),
-        "saved": sum(_metric_int(row.metrics, "saved") for row in ig_rows),
-        "comments": sum(_metric_int(row.metrics, "comments") for row in ig_rows),
-    }
-    metric_labels = {"reach": "reach", "saved": "saves", "comments": "comments"}
-    metrics = [
-        {"label": metric_labels[key], "value": _format_compact_count(value)}
-        for key, value in metric_totals.items()
-        if value > 0
-    ]
-    chart_values = [_home_social_row_value(row) for row in reversed(ig_rows[:5])]
-    chart_max = max(chart_values, default=0)
-    trend = [
-        max(12, round((value / chart_max) * 100)) if chart_max else 0
-        for value in chart_values
-    ]
-    top_row = max(ig_rows, key=_home_social_row_value, default=None)
-    top_value = _home_social_row_value(top_row)
-    action_href = {
-        stats_merge.IG_STATUS_OK: "/creator/performance?platform=instagram",
-        stats_merge.IG_STATUS_ERROR: "/creator/profile/settings",
-        stats_merge.IG_STATUS_NOT_CONNECTED: "/creator/instagram/connect?next=/creator",
-    }.get(view.instagram_status)
-    action_label = {
-        stats_merge.IG_STATUS_OK: "open instagram",
-        stats_merge.IG_STATUS_ERROR: "reconnect instagram",
-        stats_merge.IG_STATUS_NOT_CONNECTED: "connect instagram",
-        stats_merge.IG_STATUS_NOT_CONFIGURED: "connect later",
-    }.get(view.instagram_status, "connect instagram")
-
-    return {
-        "active_platform": active_platform,
-        "analytics_href": "/creator/performance?platform=instagram",
-        "platforms": platforms,
-        "status": view.instagram_status,
-        "action_label": action_label,
-        "action_href": action_href,
-        "action_disabled": action_href is None,
-        "has_data": bool(ig_rows),
-        "post_count": len(ig_rows),
-        "top_value": _format_compact_count(top_value),
-        "top_label": "top post signal",
-        "top_title": top_row.title if top_row else None,
-        "metrics": metrics,
-        "trend": trend,
-        "empty_title": (
-            "instagram is paused."
-            if view.instagram_status == stats_merge.IG_STATUS_ERROR
-            else (
-                "connect instagram for live signals."
-                if view.instagram_status == stats_merge.IG_STATUS_NOT_CONNECTED
-                else "social signals will land here."
-            )
-        ),
-        "empty_body": (
-            "Reach, saves, comments, and post momentum will show once live data is available."
-        ),
-    }
-
-
-def _home_social_row_value(row: stats_merge.StatsRow | None) -> int:
-    if row is None:
-        return 0
-    metrics = row.metrics or {}
-    for key in ("engagement", "reach", "likes", "comments", "saved"):
-        value = _metric_int(metrics, key)
-        if value > 0:
-            return value
-    return 0
-
-
-def _metric_int(metrics: dict[str, Any], key: str) -> int:
-    value = metrics.get(key)
-    if value is None or isinstance(value, bool):
-        return 0
-    if isinstance(value, int | float):
-        return max(0, int(value))
-    try:
-        return max(0, int(float(str(value).strip())))
-    except (TypeError, ValueError):
-        return 0
-
-
-def _format_compact_count(value: int) -> str:
-    if value >= 1_000_000:
-        return f"{value / 1_000_000:.1f}m".replace(".0m", "m")
-    if value >= 1_000:
-        return f"{value / 1_000:.1f}k".replace(".0k", "k")
-    return str(value)
-
-
-def _home_shortcuts(
-    *,
-    unread_dm_count: int,
-    pending_connections: list[dict[str, Any]],
-    matched_picks: list[dict[str, Any]],
-) -> list[dict[str, str]]:
-    dm_count = max(0, int(unread_dm_count or 0))
-    connection_count = len(pending_connections or [])
-    match_count = len(matched_picks or [])
-    first_match = (matched_picks or [{}])[0] if matched_picks else {}
-
-    dm_label = "check dms"
-    if dm_count == 1:
-        dm_label = "1 unread dm"
-    elif dm_count > 1:
-        dm_label = f"{_format_compact_count(dm_count)} unread dms"
-
-    discover_label = "browse discover"
-    discover_href = "/creator/discover"
-    if match_count:
-        card_kind = str(first_match.get("card_kind") or "").lower()
-        card_id = first_match.get("card_id") or first_match.get("id")
-        if card_kind == "opportunity":
-            discover_label = "new opportunity"
-        elif card_kind == "brand":
-            discover_label = "new brand match"
-        else:
-            discover_label = "new match"
-        if card_kind and card_id:
-            discover_href = (
-                f"/creator/discover?bring_back_kind={card_kind}"
-                f"&bring_back_id={card_id}"
-            )
-
-    connections_label = "my connections"
-    if connection_count == 1:
-        connections_label = "1 request"
-    elif connection_count > 1:
-        connections_label = f"{_format_compact_count(connection_count)} requests"
-
-    return [
-        {"slot": "dm", "href": "/creator/dm", "label": dm_label},
-        {"slot": "babyg", "href": "/creator/bot", "label": "ask babyg"},
-        {
-            "slot": "discover",
-            "href": discover_href,
-            "label": discover_label,
-        },
-        {
-            "slot": "connections",
-            "href": "/creator/connections",
-            "label": connections_label,
-        },
-    ]
-
-
 @router.get("/creator", response_class=HTMLResponse)
 async def dashboard(
     request: Request,
     category: str | None = Query(None),
-    social_platform: str | None = Query(None),
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
     profile = profiles.get_creator_profile_cached(session["user_id"], request) or {}
     if not profile.get("onboarding_completed_at"):
         return RedirectResponse("/onboarding/creator", status_code=302)
 
-    # Every service call below hits supabase serially = 8-10 sequential
-    # round-trips = ~1-2s of dashboard latency on a warm container.
-    # Running them concurrently on the shared threadpool cuts that to
-    # ~one round-trip time (whichever is slowest). Every branch keeps
-    # its own try/except behavior via _safe_call so a flaky call still
-    # degrades to the same empty default, not a 500.
+    # Every service call below hits supabase. Running them concurrently
+    # on the shared threadpool keeps Home bound by the slowest necessary
+    # read. Every branch keeps its own try/except behavior via
+    # _safe_call so a flaky call still degrades to the same empty
+    # default, not a 500.
     viewer_location_label = ", ".join(
         p for p in (profile.get("location_city"), profile.get("location_region")) if p
     ) or None
     user_id = session["user_id"]
 
     (
-        posts,
         unread_notifs_all,
         pending_connections,
         upcoming_bookings,
@@ -379,15 +177,13 @@ async def dashboard(
         pending_actions_all,
         unread_dm_n,
         manager_activity,
-        performance_view,
+        instagram_connection,
+        instagram_snapshot,
+        instagram_growth,
+        latest_agent_cycle,
+        latest_sweep,
+        open_deals,
     ) = await asyncio.gather(
-        _safe_call(
-            intel.feed_for_creator,
-            niches=profile.get("niches") or [],
-            tier=profile.get("tier") or "basic",
-            category=category if category in intel.CATEGORIES else None,
-            _default=[],
-        ),
         _safe_call(notifications.list_unread, user_id, limit=8, _default=[]),
         _safe_call(network.list_incoming_pending, user_id, _default=[]),
         _safe_call(
@@ -416,15 +212,12 @@ async def dashboard(
         # instead of firing its own supabase query at render time.
         _safe_call(dms.unread_count_for_user, user_id, _default=0),
         _safe_call(notifications.list_manager_activity, user_id, limit=4, _default=[]),
-        _safe_call(
-            stats_merge.performance_view,
-            user_id,
-            ig_limit=5,
-            _default=stats_merge.PerformanceView(
-                rows=[],
-                instagram_status=stats_merge.IG_STATUS_ERROR,
-            ),
-        ),
+        _safe_call(oauth_connections.get_instagram_connection, user_id, _default=None),
+        _safe_call(instagram_metrics.latest_snapshot, user_id, _default=None),
+        _safe_call(instagram_metrics.growth_over, user_id, days=7, _default={}),
+        _safe_call(agent_cycles.latest, user_id, _default=None),
+        _safe_call(home_manager.latest_sweep_run, user_id, _default=None),
+        _safe_call(home_manager.open_deal_count, user_id, _default=0),
     )
 
     # Overnight recap — "here's what babyg did while you were away".
@@ -449,6 +242,7 @@ async def dashboard(
     non_dm_unread_total = len(unread_notifs)
 
     calendar_connected = oauth_connections.google_calendar_connected(google_connection)
+    gmail_connected = oauth_connections.google_gmail_connected(google_connection)
 
     # Prime the request-scoped cache the tabbar template globals read so
     # they don't fire their own supabase calls. Both globals check
@@ -464,6 +258,26 @@ async def dashboard(
     # Home rail shows the first 6 pending actions; the tab badge uses
     # the full count.
     pending_actions = pending_actions_all[:6]
+    home_v2 = home_manager.build(
+        user_id=user_id,
+        google_connection=google_connection,
+        instagram_connection=instagram_connection,
+        instagram_snapshot=instagram_snapshot,
+        instagram_growth=instagram_growth,
+        latest_agent_cycle=latest_agent_cycle,
+        latest_sweep=latest_sweep,
+        manager_activity=manager_activity,
+        unread_notifs=unread_notifs,
+        pending_actions=pending_actions,
+        pending_connections=pending_connections,
+        upcoming_bookings=upcoming_bookings,
+        matched_picks=matched_picks,
+        overnight_recap=overnight_recap,
+        ig_dm_unread_count=ig_dm_unread_count,
+        open_deals=int(open_deals or 0),
+        calendar_connected=calendar_connected,
+        gmail_connected=gmail_connected,
+    )
 
     # "N things need you today" summary count: connections + confirm
     # bookings + non-DM notifications + pending action proposals. DMs
@@ -488,9 +302,6 @@ async def dashboard(
         {
             "profile": profile,
             "profile_initial": profile_initial,
-            "posts": posts,
-            "categories": list(CATEGORY_LABELS.items()),
-            "active_category": category if category in intel.CATEGORIES else None,
             "unread_notifs": unread_notifs,
             "pending_connections": pending_connections,
             "pending_actions": pending_actions,
@@ -499,20 +310,11 @@ async def dashboard(
             "matched_picks": matched_picks,
             "needs_count": needs_count,
             "calendar_connected": calendar_connected,
-            "calendar_days": _calendar_preview_days(),
             "daily_greeting": daily_greeting,
+            "home_v2": home_v2,
             "overnight_recap": overnight_recap,
             "ig_dm_unread_count": ig_dm_unread_count,
             "unread_dms": total_dm_unread_count,
-            "home_shortcuts": _home_shortcuts(
-                unread_dm_count=total_dm_unread_count,
-                pending_connections=pending_connections,
-                matched_picks=matched_picks,
-            ),
-            "social_analytics": _home_social_analytics(
-                performance_view,
-                active_platform=_active_social_platform(social_platform),
-            ),
         },
     )
 

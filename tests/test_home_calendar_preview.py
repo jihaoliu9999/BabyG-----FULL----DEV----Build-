@@ -15,7 +15,7 @@ Service calls are stubbed so tests never hit Supabase.
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 import pytest
@@ -27,6 +27,9 @@ from app.main import app
 from app.routes import creator as creator_routes
 from app.services import (
     action_proposals as action_proposals_module,
+)
+from app.services import (
+    agent_cycles as agent_cycles_module,
 )
 from app.services import (
     agent_recap as agent_recap_module,
@@ -41,7 +44,13 @@ from app.services import (
     dms as dms_module,
 )
 from app.services import (
+    home_manager as home_manager_module,
+)
+from app.services import (
     instagram_dms as instagram_dms_module,
+)
+from app.services import (
+    instagram_metrics as instagram_metrics_module,
 )
 from app.services import (
     intel as intel_module,
@@ -57,9 +66,6 @@ from app.services import (
 )
 from app.services import (
     profiles as profiles_module,
-)
-from app.services import (
-    stats_merge as stats_merge_module,
 )
 
 
@@ -99,10 +105,12 @@ def stub_dashboard(monkeypatch):
         "unread_ig_dms": 0,
         "manager_activity": [],
         "overnight_recap": None,
-        "performance_view": stats_merge_module.PerformanceView(
-            rows=[],
-            instagram_status=stats_merge_module.IG_STATUS_NOT_CONNECTED,
-        ),
+        "instagram_connection": None,
+        "instagram_snapshot": None,
+        "instagram_growth": {},
+        "latest_agent_cycle": None,
+        "latest_sweep": None,
+        "open_deals": 0,
     }
     monkeypatch.setattr(
         profiles_module, "get_creator_profile", lambda uid: state["profile"]
@@ -152,13 +160,43 @@ def stub_dashboard(monkeypatch):
         lambda uid: {"connected": True} if state["calendar_connected"] else None,
     )
     monkeypatch.setattr(
+        oauth_module,
+        "get_instagram_connection",
+        lambda uid: state["instagram_connection"],
+    )
+    monkeypatch.setattr(
         oauth_module, "google_calendar_connected",
         lambda conn: bool(conn),
     )
     monkeypatch.setattr(
-        stats_merge_module,
-        "performance_view",
-        lambda uid, **kw: state["performance_view"],
+        oauth_module,
+        "google_gmail_connected",
+        lambda conn: bool(conn and state.get("gmail_connected")),
+    )
+    monkeypatch.setattr(
+        instagram_metrics_module,
+        "latest_snapshot",
+        lambda uid: state["instagram_snapshot"],
+    )
+    monkeypatch.setattr(
+        instagram_metrics_module,
+        "growth_over",
+        lambda uid, **kw: state["instagram_growth"],
+    )
+    monkeypatch.setattr(
+        agent_cycles_module,
+        "latest",
+        lambda uid: state["latest_agent_cycle"],
+    )
+    monkeypatch.setattr(
+        home_manager_module,
+        "latest_sweep_run",
+        lambda uid: state["latest_sweep"],
+    )
+    monkeypatch.setattr(
+        home_manager_module,
+        "open_deal_count",
+        lambda uid: state["open_deals"],
     )
     return state
 
@@ -177,11 +215,10 @@ def test_home_renders_today_section_when_calendar_not_connected(
     # Empty state copy is the honest "connect to see" prompt the user
     # spec mandates — no fake events, no fake "ai" upsell.
     assert "connect calendar" in r.text.lower()
-    assert "today's calls" in r.text.lower()
+    assert "calls and deadlines" in r.text.lower()
     # "open calendar" link is always present so the user can dig in.
     assert "/creator/calendar" in r.text
-    assert 'aria-label="next five days"' in r.text
-    assert 'aria-current="date"' in r.text
+    assert 'aria-label="next five days"' not in r.text
     assert "<strong>now</strong>" not in r.text
 
 
@@ -202,18 +239,18 @@ def test_home_renders_upcoming_events_when_present(
     _signed_in(client)
     stub_dashboard["calendar_connected"] = True
     stub_dashboard["bookings"] = [
-        {
-            "id": "b-1",
-            "title": "Brand intro call",
-            "starts_at": "2026-06-19T15:00:00Z",
-            "venue_name": "Zoom",
-        },
-        {
-            "id": "b-2",
-            "title": "Studio shoot",
-            "starts_at": "2026-06-20T18:00:00Z",
-            "venue_name": None,
-        },
+            {
+                "id": "b-1",
+                "title": "Brand intro call",
+                "starts_at": (datetime.now(UTC) + timedelta(hours=3)).isoformat(),
+                "venue_name": "Zoom",
+            },
+            {
+                "id": "b-2",
+                "title": "Studio shoot",
+                "starts_at": (datetime.now(UTC) + timedelta(hours=6)).isoformat(),
+                "venue_name": None,
+            },
     ]
     r = client.get("/creator")
     assert r.status_code == 200
@@ -234,20 +271,19 @@ def test_home_renders_quiet_empty_state_when_connected_but_no_events(
     stub_dashboard["bookings"] = []
     r = client.get("/creator")
     assert r.status_code == 200
-    assert "nothing on the books" in r.text.lower()
+    assert "you're clear" in r.text.lower()
     assert "connect calendar" not in r.text.lower()
 
 
-def test_home_shortcuts_keep_default_labels_when_nothing_needs_attention(
+def test_home_v2_does_not_render_shortcut_grid_when_nothing_needs_attention(
     client: TestClient, stub_dashboard
 ) -> None:
     _signed_in(client)
     r = client.get("/creator")
     assert r.status_code == 200
-    assert "<span>check dms</span>" in r.text
-    assert "<span>ask babyg</span>" in r.text
-    assert "<span>browse discover</span>" in r.text
-    assert "<span>my connections</span>" in r.text
+    assert "creator-home-shortcuts" not in r.text
+    assert "social analytics" not in r.text.lower()
+    assert "nothing needs your attention right now" in r.text.lower()
 
 
 def test_home_surfaces_manager_activity_with_deep_link(
@@ -259,23 +295,25 @@ def test_home_surfaces_manager_activity_with_deep_link(
             "id": "n-1",
             "kind": "new_dm",
             "title": "new instagram message from @brandco",
-            "body": "paid collab rates? I can draft a reply.",
-            "link_path": "/creator/instagram/dms?thread=ig-thread-1#ig-thread-ig-thread-1",
-            "priority": "high",
-            "created_at": "2026-09-08T10:00:00Z",
-        }
-    ]
+                "body": "paid collab rates? I can draft a reply.",
+                "link_path": "/creator/instagram/dms?thread=ig-thread-1#ig-thread-ig-thread-1",
+                "priority": "high",
+                "source_provider": "instagram",
+                "created_at": "2026-09-08T10:00:00Z",
+            }
+        ]
 
     r = client.get("/creator")
 
     assert r.status_code == 200
-    assert "babyg manager" in r.text
+    assert "needs you" in r.text
+    assert "you're clear" not in r.text.lower()
     assert "new instagram message from @brandco" in r.text
     assert (
         "/creator/instagram/dms?thread=ig-thread-1#ig-thread-ig-thread-1"
         in r.text
     )
-    assert "draft reply" in r.text
+    assert "review" in r.text
 
 
 def test_instagram_dm_deep_link_marks_thread_and_notification_read(
@@ -338,7 +376,7 @@ def test_instagram_dm_deep_link_marks_thread_and_notification_read(
     assert "opened" in r.text
 
 
-def test_home_shortcuts_generate_from_current_unchecked_state(
+def test_home_needs_you_ranks_real_pending_state(
     client: TestClient, stub_dashboard
 ) -> None:
     _signed_in(client)
@@ -358,96 +396,55 @@ def test_home_shortcuts_generate_from_current_unchecked_state(
     r = client.get("/creator")
 
     assert r.status_code == 200
-    assert "<span>3 unread dms</span>" in r.text
-    assert "<span>ask babyg</span>" in r.text
-    assert "<span>new opportunity</span>" in r.text
-    assert "<span>2 requests</span>" in r.text
+    assert "needs you" in r.text
+    assert "wants to connect" in r.text
+    assert "BabyG's brief" in r.text
+    assert "Rooftop shoot" in r.text
     assert (
         'href="/creator/discover?bring_back_kind=opportunity&amp;bring_back_id=op-1"'
         in r.text
     )
 
 
-def test_home_renders_social_analytics_connect_state(
+def test_home_status_shows_real_disconnected_integrations(
     client: TestClient, stub_dashboard
 ) -> None:
     _signed_in(client)
     r = client.get("/creator")
     assert r.status_code == 200
-    assert "social analytics" in r.text
-    assert "connect instagram for live signals" in r.text.lower()
-    assert 'href="/creator?social_platform=tiktok"' in r.text
-    assert 'href="/creator?social_platform=youtube"' in r.text
     assert 'href="/creator/instagram/connect?next=/creator"' in r.text
-    assert 'href="/creator/performance?platform=instagram"' in r.text
-    assert "top post signal" not in r.text
+    assert "message monitoring unavailable" in r.text.lower()
+    assert "gmail and calendar not connected" in r.text.lower()
 
 
-def test_home_social_platform_tabs_change_action_without_dead_links(
+def test_home_ignores_social_platform_query_without_dead_links(
     client: TestClient, stub_dashboard
 ) -> None:
     _signed_in(client)
     r = client.get("/creator?social_platform=tiktok")
     assert r.status_code == 200
-    assert 'aria-current="true">tiktok</a>' in r.text
-    assert "connect tiktok" in r.text.lower()
-    assert "tiktok analytics are not connected yet" in r.text.lower()
     assert "/creator/tiktok/connect" not in r.text
-    assert "connect instagram for live signals" not in r.text.lower()
+    assert "social analytics" not in r.text.lower()
 
     r = client.get("/creator?social_platform=youtube")
     assert r.status_code == 200
-    assert 'aria-current="true">youtube</a>' in r.text
-    assert "connect youtube" in r.text.lower()
-    assert "youtube analytics are not connected yet" in r.text.lower()
     assert "/creator/youtube/connect" not in r.text
+    assert "social analytics" not in r.text.lower()
 
 
-def test_home_renders_social_analytics_from_real_instagram_rows(
+def test_home_renders_stored_instagram_growth_as_brief_not_live_analytics(
     client: TestClient, stub_dashboard
 ) -> None:
     _signed_in(client)
-    stub_dashboard["performance_view"] = stats_merge_module.PerformanceView(
-        rows=[
-            stats_merge_module.StatsRow(
-                source=stats_merge_module.SOURCE_INSTAGRAM,
-                title="Empire Social Lounge",
-                timestamp="2026-06-20T12:00:00+0000",
-                permalink="https://www.instagram.com/p/one",
-                metrics={
-                    "likes": 88,
-                    "comments": 7,
-                    "reach": 1200,
-                    "engagement": 140,
-                    "saved": 19,
-                },
-                notes=None,
-            ),
-            stats_merge_module.StatsRow(
-                source=stats_merge_module.SOURCE_INSTAGRAM,
-                title="Swan dinner recap",
-                timestamp="2026-06-18T12:00:00+0000",
-                permalink="https://www.instagram.com/p/two",
-                metrics={
-                    "likes": 40,
-                    "comments": 3,
-                    "reach": 500,
-                    "engagement": 62,
-                    "saved": 8,
-                },
-                notes=None,
-            ),
-        ],
-        instagram_status=stats_merge_module.IG_STATUS_OK,
-    )
+    stub_dashboard["instagram_connection"] = {"provider_account_id": "ig-1"}
+    stub_dashboard["instagram_growth"] = {"followers_count": 42}
     r = client.get("/creator")
     assert r.status_code == 200
-    assert "open instagram" in r.text
-    assert "top post signal" in r.text
-    assert "Empire Social Lounge" in r.text
-    assert "1.7k" in r.text
-    assert "saves" in r.text
-    assert "comments" in r.text
+    assert "BabyG's brief" in r.text
+    assert "Instagram followers are up" in r.text
+    assert "+42 over the latest stored 7-day window" in r.text
+    assert "top post signal" not in r.text
+    assert "social analytics" not in r.text.lower()
 
 
 def test_home_caps_upcoming_preview_to_three_items(
@@ -459,19 +456,20 @@ def test_home_caps_upcoming_preview_to_three_items(
     stub_dashboard["calendar_connected"] = True
     stub_dashboard["bookings"] = [
         {
-            "id": f"b-{i}",
-            "title": f"Event {i}",
-            "starts_at": f"2026-06-{20+i:02d}T10:00:00Z",
-            "venue_name": None,
-        }
+                "id": f"b-{i}",
+                "title": f"Event {i}",
+                "starts_at": (datetime.now(UTC) + timedelta(hours=i + 1)).isoformat(),
+                "venue_name": None,
+            }
         for i in range(8)
     ]
     r = client.get("/creator")
     assert r.status_code == 200
-    # Event 0..2 visible; Event 3..7 must not be rendered.
-    for i in range(3):
+    # Home V2 shows only the first two relevant calendar rows. The full
+    # list remains on /creator/calendar.
+    for i in range(2):
         assert f"Event {i}" in r.text
-    for i in range(3, 8):
+    for i in range(2, 8):
         assert f"Event {i}" not in r.text
 
 

@@ -11873,6 +11873,340 @@ body:has(.dm-thread-composer-box input:focus) .creator-tabbar {
   .is-creator-app .creator-home-shortcut { gap: 8px; padding-inline: 10px; }
 }
 
+/* Creator Home V2: manager briefing. Scoped so legacy dashboard cards
+   remain available to older destination templates without shaping Home. */
+.is-creator-app .creator-home-v2 {
+  width: min(100%, 720px);
+  gap: 18px;
+  padding-top: 8px;
+}
+.is-creator-app .creator-home-v2 .manager-hero {
+  align-items: flex-start;
+}
+.is-creator-app .creator-home-v2 .manager-hero > div {
+  min-width: 0;
+  width: 100%;
+  display: grid;
+  gap: 10px;
+}
+.is-creator-app .creator-home-v2 .manager-hero h1 {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 650;
+  line-height: 1.08;
+  letter-spacing: 0;
+}
+.is-creator-app .manager-status {
+  min-width: 0;
+}
+.is-creator-app .manager-status summary {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: fit-content;
+  max-width: 100%;
+  padding: 7px 11px;
+  color: var(--ink-mid);
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  background: rgba(255,255,255,.035);
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+  list-style: none;
+}
+.is-creator-app .manager-status summary::-webkit-details-marker { display: none; }
+.is-creator-app .manager-status summary small {
+  min-width: 0;
+  color: var(--ink-dim);
+  font-size: 11.5px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.is-creator-app .manager-status-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 7px;
+  border-radius: 999px;
+  background: var(--safe);
+  box-shadow: 0 0 0 4px rgba(52,189,132,.12);
+}
+.is-creator-app .manager-status-panel {
+  display: grid;
+  gap: 7px;
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  background: rgba(10,10,10,.72);
+}
+.is-creator-app .manager-status-row {
+  min-width: 0;
+  min-height: 48px;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 7px 9px;
+  color: inherit;
+  border-radius: 10px;
+  text-decoration: none;
+}
+.is-creator-app .manager-status-row[href="#"] {
+  pointer-events: none;
+}
+.is-creator-app .manager-status-row span:not(.manager-source-icon) {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.is-creator-app .manager-status-row strong {
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 650;
+}
+.is-creator-app .manager-status-row small {
+  min-width: 0;
+  color: var(--ink-dim);
+  font-size: 11.5px;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+.is-creator-app .manager-status-row.state-disconnected small,
+.is-creator-app .manager-status-row.state-attention small {
+  color: var(--caution);
+}
+.is-creator-app .manager-clear-state {
+  display: grid;
+  gap: 4px;
+  padding: 16px 14px;
+  border: 1px solid rgba(52,189,132,.2);
+  border-radius: 14px;
+  background: rgba(52,189,132,.055);
+}
+.is-creator-app .manager-clear-state strong {
+  color: var(--ink);
+  font-size: 19px;
+  font-weight: 650;
+  line-height: 1.18;
+}
+.is-creator-app .manager-clear-state span {
+  color: var(--ink-mid);
+  font-size: 13px;
+  line-height: 1.35;
+}
+.is-creator-app .manager-section {
+  gap: 8px;
+}
+.is-creator-app .manager-section-count {
+  min-width: 28px;
+  min-height: 28px;
+  display: inline-grid;
+  place-items: center;
+  color: var(--accent-text);
+  border: 1px solid rgba(255,77,109,.28);
+  border-radius: 999px;
+  background: rgba(255,77,109,.08);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+.is-creator-app .manager-stack {
+  display: grid;
+  gap: 8px;
+}
+.is-creator-app .manager-card {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  background: var(--surface-2);
+}
+.is-creator-app .manager-card.needs-card {
+  background:
+    linear-gradient(135deg, rgba(255,77,109,.075), transparent 42%),
+    var(--surface-2);
+}
+.is-creator-app .manager-card.priority-urgent {
+  border-color: rgba(242,85,77,.42);
+}
+.is-creator-app .manager-card.priority-high {
+  border-color: rgba(255,77,109,.28);
+}
+.is-creator-app .manager-card-main {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: center;
+  gap: 11px;
+  color: inherit;
+  text-decoration: none;
+}
+.is-creator-app .manager-card-copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+.is-creator-app .manager-card-title {
+  min-width: 0;
+  color: var(--ink);
+  font-size: 14.5px;
+  font-weight: 680;
+  line-height: 1.24;
+  overflow-wrap: anywhere;
+}
+.is-creator-app .manager-card-body {
+  min-width: 0;
+  color: var(--ink-mid);
+  font-size: 12.5px;
+  font-weight: 500;
+  line-height: 1.38;
+  overflow-wrap: anywhere;
+}
+.is-creator-app .manager-card-time {
+  color: var(--ink-dim);
+  font-family: var(--mono);
+  font-size: 10.5px;
+}
+.is-creator-app .manager-card-action {
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+  color: var(--ink);
+  border: 1px solid rgba(255,255,255,.13);
+  border-radius: 999px;
+  background: rgba(255,255,255,.045);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  text-decoration: none;
+}
+.is-creator-app .needs-card .manager-card-action {
+  color: #fff;
+  border-color: rgba(255,77,109,.38);
+  background: rgba(255,77,109,.18);
+}
+.is-creator-app .manager-source-icon {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  display: grid;
+  place-items: center;
+  color: var(--ink-mid);
+  border: 1px solid var(--hairline);
+  border-radius: 11px;
+  background: rgba(255,255,255,.035);
+}
+.is-creator-app .manager-source-icon svg {
+  width: 17px;
+  height: 17px;
+}
+.is-creator-app .manager-source-icon img {
+  width: 22px;
+  height: 22px;
+  object-fit: contain;
+}
+.is-creator-app .manager-source-icon.source-instagram { color: #ff7aa8; }
+.is-creator-app .manager-source-icon.source-gmail,
+.is-creator-app .manager-source-icon.source-google { color: #a4d0ff; }
+.is-creator-app .manager-source-icon.source-calendar { color: var(--safe); }
+.is-creator-app .manager-source-icon.source-network { color: var(--lime); }
+.is-creator-app .manager-today-list {
+  display: grid;
+  gap: 7px;
+}
+.is-creator-app .manager-today-row,
+.is-creator-app .manager-empty-link,
+.is-creator-app .manager-compact-row {
+  min-width: 0;
+  min-height: 56px;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: center;
+  gap: 11px;
+  padding: 11px 12px;
+  color: inherit;
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  background: var(--surface-2);
+  text-decoration: none;
+}
+.is-creator-app .manager-today-row span:not(.manager-source-icon),
+.is-creator-app .manager-compact-row span {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+.is-creator-app .manager-today-row strong,
+.is-creator-app .manager-compact-row strong {
+  min-width: 0;
+  color: var(--ink);
+  font-size: 13.5px;
+  font-weight: 650;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.is-creator-app .manager-today-row small,
+.is-creator-app .manager-compact-row small,
+.is-creator-app .manager-empty-link span {
+  color: var(--ink-mid);
+  font-size: 12px;
+  line-height: 1.35;
+}
+.is-creator-app .manager-compact-section {
+  gap: 0;
+}
+.is-creator-app .manager-compact-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+.is-creator-app .manager-compact-row em {
+  color: var(--ink-dim);
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 650;
+}
+@media (min-width: 860px) {
+  .is-creator-app .creator-home-v2 {
+    gap: 20px;
+    padding-top: 14px;
+  }
+  .is-creator-app .creator-home-v2 .manager-hero h1 {
+    font-size: 34px;
+  }
+  .is-creator-app .manager-stack {
+    gap: 9px;
+  }
+}
+@media (max-width: 430px) {
+  .is-creator-app .creator-home-v2 {
+    gap: 15px;
+    padding-inline: 12px;
+  }
+  .is-creator-app .creator-home-v2 .manager-hero h1 {
+    font-size: 27px;
+  }
+  .is-creator-app .manager-status summary {
+    width: 100%;
+    min-height: 40px;
+  }
+  .is-creator-app .manager-card {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+  }
+  .is-creator-app .manager-card-action {
+    width: 100%;
+  }
+}
+
 /* Post-opportunity form — mobile-first, single column. Sits inside the
    creator app shell so the sidebar/tabbar shell chrome handles nav. */
 /* Post-opportunity form. Mobile-first: single column, slim header,

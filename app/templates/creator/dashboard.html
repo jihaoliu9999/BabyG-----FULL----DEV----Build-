@@ -1,356 +1,157 @@
 {% extends "base.html" %}
 
-{% block title %}home — babyg{% endblock %}
+{% block title %}home - babyg{% endblock %}
+
+{% macro source_icon(source) -%}
+  {% set s = (source or 'babyg')|lower %}
+  <span class="manager-source-icon source-{{ s }}" aria-label="{{ s }}" title="{{ s }}">
+    {% if s == 'instagram' %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="5"/><circle cx="12" cy="12" r="3.2"/><path d="M17.2 6.8h.01"/></svg>
+    {% elif s in ['gmail', 'google'] %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5.5" width="17" height="13" rx="2.4"/><path d="M4 8l8 5.5L20 8"/></svg>
+    {% elif s == 'calendar' %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5.5" width="16" height="15" rx="3"/><path d="M4 10h16M8 3.5v4M16 3.5v4"/></svg>
+    {% elif s == 'network' %}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="3"/><circle cx="17" cy="16" r="3"/><path d="M10.4 10.1l4.2 3.8"/></svg>
+    {% else %}
+    <img src="/static/assets/logo-bg.png" alt="" />
+    {% endif %}
+  </span>
+{%- endmacro %}
+
+{% macro manager_item(item, extra_class='') -%}
+  <article class="manager-card priority-{{ item.priority }} {{ extra_class }}">
+    <a class="manager-card-main" href="{{ item.href }}">
+      {{ source_icon(item.source) }}
+      <span class="manager-card-copy">
+        <span class="manager-card-title">{{ item.title|string|truncate(72, true, '...') }}</span>
+        {% if item.body %}<span class="manager-card-body">{{ item.body|string|truncate(112, true, '...') }}</span>{% endif %}
+        {% if item.created_at %}<span class="manager-card-time">{{ item.created_at|human_ago }}</span>{% endif %}
+      </span>
+    </a>
+    <a class="manager-card-action" href="{{ item.href }}">{{ item.action_label }}</a>
+  </article>
+{%- endmacro %}
 
 {% block content %}
-<main class="creator-home wrap ambient-page">
+{% set home = home_v2 or {} %}
+<main class="creator-home creator-home-v2 wrap ambient-page">
 
-  <header class="creator-home-hero">
-    <h1 data-greeting-slots
-        data-greet-morning="{{ daily_greeting.morning }}"
-        data-greet-afternoon="{{ daily_greeting.afternoon }}"
-        data-greet-evening="{{ daily_greeting.evening }}"
-        data-greet-night="{{ daily_greeting.night }}">{{ daily_greeting.afternoon }}</h1>
-  </header>
-
-  {# overnight recap — "here's what babyg did while you were away".
-     Empty when the last 12h had zero agent activity; hidden entirely
-     rather than showing an empty state. #}
-  {% if overnight_recap and overnight_recap.headlines %}
-  <section class="creator-home-section">
-    <div class="creator-home-recap">
-      <div class="creator-home-recap-head">
-        <span class="creator-home-recap-eyebrow">while you were away</span>
-      </div>
-      <ul class="creator-home-recap-lines">
-        {% for line in overnight_recap.headlines %}
-        <li>{{ line }}</li>
-        {% endfor %}
-      </ul>
-    </div>
-  </section>
-  {% endif %}
-
-  {% if manager_activity %}
-  <section class="creator-home-section">
-    <div class="creator-home-section-head">
-      <h2>babyg manager</h2>
-      <a href="/creator/notifications" class="creator-home-link">activity →</a>
-    </div>
-    <div class="creator-needs">
-      {% for n in manager_activity %}
-      <div class="creator-needs-row actionable">
-        <span class="creator-needs-glyph" aria-hidden="true">
-          <img src="/static/assets/logo-bg.png" alt="" />
-        </span>
-        <div class="creator-needs-body">
-          <a href="{{ n.link_path or '/creator/notifications' }}" class="creator-needs-link">
-            <span class="creator-needs-title">{{ n.title|string|truncate(64, true, '…') }}</span>
-            <span class="creator-needs-sub">
-              {% if n.created_at %}{{ n.created_at|human_ago }} · {% endif %}{{ n.body|string|truncate(76, true, '…') }}
+  <header class="creator-home-hero manager-hero">
+    <div>
+      <h1 data-greeting-slots
+          data-greet-morning="{{ daily_greeting.morning }}"
+          data-greet-afternoon="{{ daily_greeting.afternoon }}"
+          data-greet-evening="{{ daily_greeting.evening }}"
+          data-greet-night="{{ daily_greeting.night }}">{{ daily_greeting.afternoon }}</h1>
+      {% if home.status %}
+      <details class="manager-status">
+        <summary>
+          <span class="manager-status-dot" aria-hidden="true"></span>
+          <span>{{ home.status.headline }}</span>
+          <small>{{ home.status.summary }}</small>
+        </summary>
+        <div class="manager-status-panel">
+          {% for source in home.status.sources %}
+          <a class="manager-status-row state-{{ source.state }}" href="{{ source.href or '#' }}" {% if not source.href %}aria-disabled="true"{% endif %}>
+            {{ source_icon(source.key) }}
+            <span>
+              <strong>{{ source.label }}</strong>
+              <small>{{ source.detail }}{% if source.checked_at %} · {{ source.checked_at|human_ago }}{% endif %}</small>
             </span>
           </a>
+          {% endfor %}
         </div>
-        <div class="creator-needs-actions">
-          <form method="post" action="/creator/notifications/{{ n.id }}/read" class="creator-needs-actions-inline">
-            {% include "_partials/csrf.html" %}
-            <input type="hidden" name="target" value="{{ n.link_path or '/creator/notifications' }}" />
-            <button type="submit" class="creator-needs-chip">view</button>
-          </form>
-          {% if n.kind == 'new_dm' %}
-          <a href="/creator/bot" class="creator-needs-text">draft reply</a>
-          {% endif %}
-          <form method="post" action="/creator/notifications/{{ n.id }}/archive" class="creator-needs-actions-inline">
-            {% include "_partials/csrf.html" %}
-            <input type="hidden" name="target" value="/creator" />
-            <button type="submit" class="creator-needs-text">dismiss</button>
-          </form>
-        </div>
-      </div>
+      </details>
+      {% endif %}
+    </div>
+  </header>
+
+  {% if home['clear'] %}
+  <section class="manager-clear-state" aria-label="all clear">
+    <strong>you're clear.</strong>
+    <span>nothing needs your attention right now.</span>
+  </section>
+  {% endif %}
+
+  {% if home.needs_you %}
+  <section class="creator-home-section manager-section needs-section">
+    <div class="creator-home-section-head">
+      <h2>needs you</h2>
+      <span class="manager-section-count">{{ home.needs_you|length }}</span>
+    </div>
+    <div class="manager-stack">
+      {% for item in home.needs_you %}
+        {{ manager_item(item, 'needs-card') }}
       {% endfor %}
     </div>
   </section>
   {% endif %}
 
-  {# needs you: verb-first task rows — only when there's actually something #}
-  {% set _next_confirm = upcoming_bookings[0] if upcoming_bookings else None %}
-  {% set _alerts_n = unread_notifs|length %}
-  {% set _pending_actions = pending_actions or [] %}
-  {% if pending_connections or _next_confirm or _alerts_n or _pending_actions or ig_dm_unread_count %}
-  <section class="creator-home-section">
-    <div class="creator-home-section-head"><h2>needs you</h2></div>
-    <div class="creator-needs">
-
-      {# babyg-staged action proposals (gmail drafts, calendar events, dms).
-         each row links to /creator/bot — the thread is the authority on
-         approval, home is a shortcut in. limited to 3 so the rail stays
-         scannable; the rest live in the thread. #}
-      {% for a in _pending_actions[:3] %}
-      {% set _preview = a.preview or {} %}
-      {% set _title = _preview.title or _preview.subject or _preview.headline or a.action_type %}
-      {% set _sub = _preview.body or _preview.summary or _preview.detail or a.action_type|replace('.', ' · ') %}
-      <a class="creator-needs-row actionable" href="/creator/bot#action-{{ a.id }}">
-        <span class="creator-needs-glyph" aria-hidden="true">
-          {% if 'gmail' in a.action_type %}
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>
-          {% elif 'calendar' in a.action_type %}
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
-          {% elif 'instagram' in a.action_type or 'dm' in a.action_type %}
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-          {% else %}
-          <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="6"/></svg>
-          {% endif %}
-        </span>
-        <div class="creator-needs-body">
-          <span class="creator-needs-title">{{ _title|string|truncate(56, true, '…') }}</span>
-          <span class="creator-needs-sub">{{ _sub|string|truncate(72, true, '…') }}</span>
-        </div>
-        <div class="creator-needs-actions">
-          <span class="creator-needs-chip">review</span>
-        </div>
-      </a>
+  {% if home.brief %}
+  <section class="creator-home-section manager-section">
+    <div class="creator-home-section-head">
+      <h2>BabyG's brief</h2>
+      <a href="/creator/performance" class="creator-home-link">evidence</a>
+    </div>
+    <div class="manager-stack">
+      {% for item in home.brief %}
+        {{ manager_item(item) }}
       {% endfor %}
-
-      {% for c in pending_connections[:2] %}
-      {% set peer = c.peer or {} %}
-      {% set peer_name = (peer.full_name|title) if peer.full_name else (peer.instagram_handle if peer.instagram_handle else 'someone') %}
-      <div class="creator-needs-row actionable">
-        <span class="creator-needs-glyph" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="6"/></svg>
-        </span>
-        <div class="creator-needs-body">
-          <span class="creator-needs-title">accept {{ peer_name }}'s request</span>
-          <span class="creator-needs-sub">creator{% if peer.niches %} · {{ peer.niches[:2]|join(' + ') }}{% endif %}</span>
-        </div>
-        <div class="creator-needs-actions">
-          <form method="post" action="/creator/connections/{{ c.id }}/accept" class="creator-needs-actions-inline">
-            {% include "_partials/csrf.html" %}
-            <button type="submit" class="creator-needs-chip">accept</button>
-          </form>
-          <form method="post" action="/creator/connections/{{ c.id }}/decline" class="creator-needs-actions-inline">
-            {% include "_partials/csrf.html" %}
-            <button type="submit" class="creator-needs-text">pass</button>
-          </form>
-        </div>
-      </div>
-      {% endfor %}
-
-      {% if _next_confirm %}
-      <a class="creator-needs-row deadline" href="/creator/calendar{% if _next_confirm.id %}/{{ _next_confirm.id }}{% endif %}">
-        <span class="creator-needs-glyph" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3l10 18H2z"/></svg>
-        </span>
-        <div class="creator-needs-body">
-          <span class="creator-needs-title">confirm {{ _next_confirm.title }}</span>
-          <span class="creator-needs-sub">
-            {% if _next_confirm.starts_at %}{{ _next_confirm.starts_at|short_dt }}{% else %}time to be confirmed{% endif %}{% if _next_confirm.venue_name %} · {{ _next_confirm.venue_name }}{% endif %}
-          </span>
-        </div>
-        <div class="creator-needs-actions">
-          <span class="creator-needs-chip warn">confirm</span>
-        </div>
-      </a>
-      {% endif %}
-
-      {% if _alerts_n %}
-      <a class="creator-needs-row" href="/creator/notifications">
-        <span class="creator-needs-glyph" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="12" r="8"/></svg>
-        </span>
-        <div class="creator-needs-body">
-          <span class="creator-needs-title">review {{ _alerts_n }} unread {{ 'alert' if _alerts_n == 1 else 'alerts' }}</span>
-          <span class="creator-needs-sub">open notifications for the latest</span>
-        </div>
-        <div class="creator-needs-actions">
-          <span class="creator-needs-text">review<span class="creator-needs-arrow">→</span></span>
-        </div>
-      </a>
-      {% endif %}
-
-      {% if ig_dm_unread_count %}
-      <a class="creator-needs-row actionable" href="/creator/instagram/dms">
-        <span class="creator-needs-glyph" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-        </span>
-        <div class="creator-needs-body">
-          <span class="creator-needs-title">{{ ig_dm_unread_count }} unread instagram dm{{ 's' if ig_dm_unread_count != 1 else '' }}</span>
-          <span class="creator-needs-sub">open the ig inbox</span>
-        </div>
-        <div class="creator-needs-actions">
-          <span class="creator-needs-chip">open</span>
-        </div>
-      </a>
-      {% endif %}
-
     </div>
   </section>
   {% endif %}
 
-  {# today: 5-day strip + real bookings #}
-  <section class="creator-home-section">
+  {% if home.today and (home.today.events or not home.today.connected) %}
+  <section class="creator-home-section manager-section">
     <div class="creator-home-section-head">
       <h2>today</h2>
-      <a href="/creator/calendar" class="creator-home-link">open calendar →</a>
+      <a href="/creator/calendar" class="creator-home-link">calendar</a>
     </div>
-    <div class="creator-today-card">
-      <div class="creator-today-strip" aria-label="next five days">
-        {% for day in calendar_days %}
-        <span class="{{ 'is-active' if day.is_today }}"{% if day.is_today %} aria-current="date"{% endif %}>
-          <small>{{ day.weekday }}</small>
-          <strong>{{ day.day }}</strong>
-        </span>
-        {% endfor %}
-      </div>
-      {% if upcoming_bookings %}
-      <div class="creator-today-events">
-        {% for ev in upcoming_bookings[:3] %}
-        <a class="creator-today-event" href="/creator/calendar{% if ev.id %}/{{ ev.id }}{% endif %}">
-          <span class="creator-today-event-time">{{ ev.starts_at|short_dt if ev.starts_at else 'tbd' }}</span>
-          <span class="creator-today-event-body"><strong>{{ ev.title }}</strong>{% if ev.venue_name %}<small>{{ ev.venue_name }}</small>{% endif %}</span>
-          <span aria-hidden="true">›</span>
-        </a>
-        {% endfor %}
-      </div>
-      {% elif not calendar_connected %}
-      <a class="creator-today-empty" href="/creator/profile/settings">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
-        <span>connect calendar to see today's calls and deadlines.</span>
-      </a>
-      {% else %}
-      <div class="creator-today-empty creator-today-empty-clear">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
-        <span>nothing on the books — you're clear.</span>
-      </div>
-      {% endif %}
-    </div>
-  </section>
-
-  {# matched for you: media-row cards with kind-icon (briefcase / magnifier / camera) #}
-  {% if matched_picks %}
-  <section class="creator-home-section">
-    <div class="creator-home-section-head">
-      <h2>worth a look</h2>
-      <a href="/creator/discover" class="creator-home-link">discover</a>
-    </div>
-    <div class="creator-matched">
-      {% for m in matched_picks %}
-      <a href="/creator/discover?bring_back_kind={{ m.card_kind }}&bring_back_id={{ m.card_id }}"
-         class="creator-match-row k-{{ m.card_kind }}"
-         aria-label="{{ m.card_kind }}: {{ m.title }}">
-        <span class="creator-match-icon" aria-hidden="true">
-          {% if m.card_kind == 'opportunity' %}
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h16v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/><path d="M4 12h16"/></svg>
-          {% elif m.card_kind == 'brand' %}
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
-          {% else %}
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-2h6l2 2h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1z"/><circle cx="12" cy="13" r="3.5"/></svg>
-          {% endif %}
-        </span>
-        <span class="creator-match-body">
-          <span class="creator-match-title">{{ m.title }}</span>
-          {% if m.card_kind == 'opportunity' and m.deadline %}
-          <span class="creator-match-line">closes {{ m.deadline|short_date }}{% if m.location_label %} · {{ m.location_label }}{% endif %}</span>
-          {% elif m.subtitle %}
-          <span class="creator-match-line">{{ m.subtitle }}{% if m.location_label %} · {{ m.location_label }}{% endif %}</span>
-          {% elif m.location_label %}
-          <span class="creator-match-line">{{ m.location_label }}</span>
-          {% endif %}
-        </span>
-        <span class="creator-match-chev" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+    {% if home.today.events %}
+    <div class="manager-today-list">
+      {% for ev in home.today.events %}
+      <a class="manager-today-row" href="/creator/calendar{% if ev.id %}/{{ ev.id }}{% endif %}">
+        {{ source_icon('calendar') }}
+        <span>
+          <strong>{{ ev.starts_at|short_dt if ev.starts_at else 'time tbd' }}</strong>
+          <small>{{ ev.title }}{% if ev.venue_name %} · {{ ev.venue_name }}{% endif %}</small>
         </span>
       </a>
       {% endfor %}
     </div>
+    {% else %}
+    <a class="manager-empty-link" href="/creator/profile/settings">
+      {{ source_icon('calendar') }}
+      <span>connect calendar so BabyG can see calls and deadlines.</span>
+    </a>
+    {% endif %}
   </section>
   {% endif %}
 
-  {# 4 shortcuts — 2x2 on mobile, 1x4 on desktop. post-opportunity swapped
-     for my connections since posting is already a chip on the discover tab
-     strip and the rolodex isn't reachable from any sidebar tab. #}
-  <section class="creator-home-section">
-    <div class="creator-home-shortcuts">
-      {% set shortcuts = home_shortcuts or [
-        {'slot': 'dm', 'href': '/creator/dm', 'label': 'check dms'},
-        {'slot': 'babyg', 'href': '/creator/bot', 'label': 'ask babyg'},
-        {'slot': 'discover', 'href': '/creator/discover', 'label': 'browse discover'},
-        {'slot': 'connections', 'href': '/creator/connections', 'label': 'my connections'}
-      ] %}
-      {% for shortcut in shortcuts %}
-      <a href="{{ shortcut.href }}" class="creator-home-shortcut sc-{{ shortcut.slot }}">
-        {% if shortcut.slot == 'dm' %}
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-        {% elif shortcut.slot == 'babyg' %}
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
-        {% elif shortcut.slot == 'discover' %}
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.35-4.35"/></svg>
-        {% elif shortcut.slot == 'connections' %}
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><circle cx="18" cy="16" r="3"/><path d="M3 21c0-3.3 2.6-6 6-6M21 21c0-1.6-.6-3.2-1.8-4.3"/></svg>
-        {% endif %}
-        <span>{{ shortcut.label }}</span>
-      </a>
-      {% endfor %}
-    </div>
+  {% if home.handled %}
+  <section class="creator-home-section manager-section manager-compact-section">
+    <a class="manager-compact-row" href="{{ home.handled.href }}">
+      <span>
+        <small>{{ home.handled.label }}</small>
+        <strong>{{ home.handled.summary }}</strong>
+      </span>
+      <em>activity</em>
+    </a>
   </section>
+  {% endif %}
 
-  {# social analytics: Option B preview. Real Instagram rows only; when
-     the integration has no live rows yet, show a status/connection state
-     instead of placeholder metrics. #}
-  <section class="creator-home-section creator-social-section">
-    <div class="creator-home-section-head">
-      <h2>social analytics</h2>
-      <a href="{{ social_analytics.analytics_href }}" class="creator-home-link">open analytics →</a>
-    </div>
-    <div class="creator-social-card {{ 'has-data' if social_analytics.has_data else 'is-empty' }}"
-         aria-label="{{ social_analytics.active_platform }} social analytics preview">
-      <div class="creator-social-card-head">
-        <nav class="creator-social-tabs" aria-label="social analytics platforms">
-          {% for platform in social_analytics.platforms %}
-          <a href="{{ platform.href }}"
-             class="{{ 'is-active' if platform.active }}"
-             {% if platform.active %}aria-current="true"{% endif %}>{{ platform.label }}</a>
-          {% endfor %}
-        </nav>
-        {% if social_analytics.action_href %}
-        <a class="creator-social-action" href="{{ social_analytics.action_href }}">{{ social_analytics.action_label }}</a>
-        {% else %}
-        <span class="creator-social-action is-disabled" aria-disabled="true">{{ social_analytics.action_label }}</span>
-        {% endif %}
-      </div>
-
-      {% if social_analytics.has_data %}
-      <div class="creator-social-main">
-        <div class="creator-social-signal">
-          <strong>{{ social_analytics.top_value }}</strong>
-          <span>{{ social_analytics.top_label }}</span>
-          {% if social_analytics.top_title %}
-          <small>{{ social_analytics.top_title }}</small>
-          {% endif %}
-        </div>
-        <div class="creator-social-trend" aria-label="recent post signal trend">
-          {% for point in social_analytics.trend %}
-          <span style="--bar: {{ point }}%;"></span>
-          {% endfor %}
-        </div>
-      </div>
-      {% if social_analytics.metrics %}
-      <div class="creator-social-metrics">
-        {% for metric in social_analytics.metrics[:3] %}
-        <span>
-          <small>{{ metric.label }}</small>
-          <strong>{{ metric.value }}</strong>
-        </span>
-        {% endfor %}
-      </div>
-      {% endif %}
-      {% else %}
-      <div class="creator-social-empty">
-        <strong>{{ social_analytics.empty_title }}</strong>
-        <span>{{ social_analytics.empty_body }}</span>
-      </div>
-      {% endif %}
-    </div>
+  {% if home.watching %}
+  <section class="creator-home-section manager-section manager-compact-section">
+    <a class="manager-compact-row watching" href="{{ home.watching.href }}">
+      <span>
+        <small>watching</small>
+        <strong>{{ home.watching.summary|replace('watching ', '') }}</strong>
+      </span>
+      <em>open</em>
+    </a>
   </section>
+  {% endif %}
 
 </main>
 {% endblock %}
