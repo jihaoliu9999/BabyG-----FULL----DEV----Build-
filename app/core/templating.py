@@ -83,6 +83,30 @@ def _short_dt(value):
         return raw
 
 
+def _short_time(value):
+    """Render an ISO timestamptz as a compact 12-hour clock label.
+
+    Used by the home v5 "next" row where only the time-of-day is shown
+    (`2:00 PM`) — the date is implicit because the row is always the
+    next upcoming item. Falls back to `_short_dt` on any parse failure
+    so we still render something rather than a blank cell.
+    """
+    if not value:
+        return ""
+    raw = str(value)
+    try:
+        _, _, time_part = raw[:16].replace("T", " ").partition(" ")
+        if not time_part:
+            return ""
+        hh, mm = time_part.split(":")
+        hour = int(hh)
+        suffix = "AM" if hour < 12 else "PM"
+        hour = hour % 12 or 12
+        return f"{hour}:{mm} {suffix}"
+    except (ValueError, IndexError):
+        return _short_dt(value)
+
+
 def _short_date(value):
     """Render a date (or leading date portion of an ISO timestamp) as
     `Mon D, YYYY`. e.g. `sep 2, 2026`."""
@@ -430,6 +454,7 @@ def _unread_dm_count(request) -> int:
 
 templates.env.filters["short_dt"] = _short_dt
 templates.env.filters["short_date"] = _short_date
+templates.env.filters["short_time"] = _short_time
 templates.env.filters["safe_url"] = _safe_url
 templates.env.filters["bot_markdown"] = _bot_markdown
 templates.env.filters["human_ago"] = _human_ago

@@ -54,9 +54,8 @@ from app.services import (
     dm_briefs,
     dms,
     greetings,
-    home_manager,
+    home_briefing,
     instagram_dms,
-    instagram_metrics,
     jobs,
     locations,
     network,
@@ -179,13 +178,8 @@ async def dashboard(
         matched_picks,
         pending_actions_all,
         unread_dm_n,
-        manager_activity,
         instagram_connection,
-        instagram_snapshot,
-        instagram_growth,
-        latest_agent_cycle,
-        latest_sweep,
-        open_deals,
+        performance_view,
     ) = await asyncio.gather(
         _safe_call(notifications.list_unread, user_id, limit=8, _default=[]),
         _safe_call(network.list_incoming_pending, user_id, _default=[]),
@@ -214,13 +208,16 @@ async def dashboard(
         # unread_dm_count(request) global picks up the cached value
         # instead of firing its own supabase query at render time.
         _safe_call(dms.unread_count_for_user, user_id, _default=0),
-        _safe_call(notifications.list_manager_activity, user_id, limit=4, _default=[]),
         _safe_call(oauth_connections.get_instagram_connection, user_id, _default=None),
-        _safe_call(instagram_metrics.latest_snapshot, user_id, _default=None),
-        _safe_call(instagram_metrics.growth_over, user_id, days=7, _default={}),
-        _safe_call(agent_cycles.latest, user_id, _default=None),
-        _safe_call(home_manager.latest_sweep_run, user_id, _default=None),
-        _safe_call(home_manager.open_deal_count, user_id, _default=0),
+        _safe_call(
+            stats_merge.performance_view,
+            user_id,
+            ig_limit=5,
+            _default=stats_merge.PerformanceView(
+                rows=[],
+                instagram_status=stats_merge.IG_STATUS_ERROR,
+            ),
+        ),
     )
 
     # Overnight recap — "here's what babyg did while you were away".
@@ -239,13 +236,14 @@ async def dashboard(
     total_dm_unread_count = int(unread_dm_n or 0) + int(ig_dm_unread_count or 0)
 
     # "needs you" surfaces non-manager notifications only. Manager-grade
-    # DM/activity alerts get the dedicated BabyG manager area above.
+    # DM/activity alerts get the dedicated BabyG manager area above (v5
+    # primary card). Kind list preserves what the manager notifications
+    # slab shipped so we don't double-surface anything on home.
     manager_kinds = {"new_dm", "manager_alert", "profile_sync", "performance_spike"}
     unread_notifs = [n for n in unread_notifs_all if n.get("kind") not in manager_kinds]
     non_dm_unread_total = len(unread_notifs)
 
     calendar_connected = oauth_connections.google_calendar_connected(google_connection)
-    gmail_connected = oauth_connections.google_gmail_connected(google_connection)
 
     # Prime the request-scoped cache the tabbar template globals read so
     # they don't fire their own supabase calls. Both globals check
@@ -261,25 +259,31 @@ async def dashboard(
     # Home rail shows the first 6 pending actions; the tab badge uses
     # the full count.
     pending_actions = pending_actions_all[:6]
-    home_v2 = home_manager.build(
-        user_id=user_id,
+
+    # Home v5 briefing — composes the five compact slots the new home
+    # template renders. Every field is derived from state we already
+    # fetched above; the only fresh read is handled_today (small count).
+    home_v5_status = home_briefing.integration_status(
+        user_id,
         google_connection=google_connection,
-        instagram_connection=instagram_connection,
-        instagram_snapshot=instagram_snapshot,
-        instagram_growth=instagram_growth,
-        latest_agent_cycle=latest_agent_cycle,
-        latest_sweep=latest_sweep,
-        manager_activity=manager_activity,
-        unread_notifs=unread_notifs,
-        pending_actions=pending_actions,
-        pending_connections=pending_connections,
-        upcoming_bookings=upcoming_bookings,
+        ig_connection=instagram_connection,
+    )
+    home_v5_primary = home_briefing.primary_manager_update(
+        pending_actions=pending_actions_all,
+        unread_notifs=[n for n in unread_notifs_all if n.get("link_path")],
+    )
+    home_v5_brief = home_briefing.brief_rows(
         matched_picks=matched_picks,
+        ig_dm_unread_count=int(ig_dm_unread_count or 0),
         overnight_recap=overnight_recap,
-        ig_dm_unread_count=ig_dm_unread_count,
-        open_deals=int(open_deals or 0),
-        calendar_connected=calendar_connected,
-        gmail_connected=gmail_connected,
+        performance_view=performance_view,
+    )
+    home_v5_handled_count = await _safe_call(
+        home_briefing.handled_today, user_id, _default=0
+    )
+    home_v5_watching = home_briefing.watching_summary(
+        matched_picks=matched_picks,
+        pending_actions_all=pending_actions_all,
     )
 
     # "N things need you today" summary count: connections + confirm
@@ -308,16 +312,19 @@ async def dashboard(
             "unread_notifs": unread_notifs,
             "pending_connections": pending_connections,
             "pending_actions": pending_actions,
-            "manager_activity": manager_activity,
             "upcoming_bookings": upcoming_bookings,
             "matched_picks": matched_picks,
             "needs_count": needs_count,
             "calendar_connected": calendar_connected,
             "daily_greeting": daily_greeting,
-            "home_v2": home_v2,
             "overnight_recap": overnight_recap,
             "ig_dm_unread_count": ig_dm_unread_count,
             "unread_dms": total_dm_unread_count,
+            "home_v5_status": home_v5_status,
+            "home_v5_primary": home_v5_primary,
+            "home_v5_brief": home_v5_brief,
+            "home_v5_handled_count": home_v5_handled_count,
+            "home_v5_watching": home_v5_watching,
         },
     )
 

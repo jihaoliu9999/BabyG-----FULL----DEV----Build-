@@ -368,44 +368,58 @@ def test_creator_settings_work_links_use_uniform_bold_text() -> None:
     assert "text-transform: none" in rule
 
 
-def test_creator_home_v2_manager_cards_fit_mobile_labels() -> None:
-    card_rule = APP_CSS.split(".is-creator-app .manager-card {", 1)[1].split(
-        "}", 1
-    )[0]
-    main_rule = APP_CSS.split(".is-creator-app .manager-card-main {", 1)[1].split(
-        "}", 1
-    )[0]
-    title_rule = APP_CSS.split(".is-creator-app .manager-card-title {", 1)[1].split(
-        "}", 1
-    )[0]
-    focus_action_rule = APP_CSS.split(".is-creator-app .manager-focus-primary {", 1)[
-        1
-    ].split("}", 1)[0]
-    chevron_rule = APP_CSS.split(".is-creator-app .manager-card-chevron {", 1)[
-        1
-    ].split("}", 1)[0]
-    mobile_rule = APP_CSS.split("@media (max-width: 430px) {", 1)[1]
-
-    assert "min-width: 0" in card_rule
-    assert "grid-template-columns: minmax(0, 1fr) auto" in card_rule
-    assert "grid-template-columns: 32px minmax(0, 1fr)" in main_rule
-    assert "overflow-wrap: anywhere" in title_rule
-    assert "min-height: 44px" in focus_action_rule
-    assert "font-size: 26px" in chevron_rule
-    assert ".is-creator-app .manager-card" in mobile_rule
-    assert "min-height: 72px" in mobile_rule
+def test_home_v5_status_pill_fits_mobile() -> None:
+    """The status pill is a compact 34px control that sits in the top
+    section — it must never balloon to a full-width card or push into
+    the primary card's space."""
+    pill_rule = APP_CSS.split(
+        ".creator-home.hv5 .hv5-status-pill {", 1
+    )[1].split("}", 1)[0]
+    assert "height: 34px" in pill_rule
+    assert "display: inline-flex" in pill_rule
+    # The pill must be a summary of a details element so the panel
+    # is a click-to-expand disclosure (native, no JS).
+    assert '<details class="hv5-status"' in DASHBOARD_TEMPLATE
+    assert "hv5-status-count" in DASHBOARD_TEMPLATE
+    assert "home_v5_status.connected_count" in DASHBOARD_TEMPLATE
+    # Never hardcode `manager status` — v5 shows the lowercase `babyg` label.
+    assert "manager status" not in DASHBOARD_TEMPLATE
 
 
-def test_creator_home_v2_removes_dashboard_analytics_and_shortcuts() -> None:
-    assert "creator-home-v2" in DASHBOARD_TEMPLATE
-    assert "home_v2" in DASHBOARD_TEMPLATE
-    assert "home_shortcuts or [" not in DASHBOARD_TEMPLATE
-    assert "creator-home-shortcuts" not in DASHBOARD_TEMPLATE
-    assert "creator-social-section" not in DASHBOARD_TEMPLATE
-    assert "social_analytics" not in DASHBOARD_TEMPLATE
-    assert "babyg's brief" in DASHBOARD_TEMPLATE
-    assert "primary_focus" in DASHBOARD_TEMPLATE
-    assert "<h2>needs you</h2>" not in DASHBOARD_TEMPLATE
+def test_home_v5_handled_watching_pair_is_mobile_safe() -> None:
+    """The handled + watching row is two side-by-side tiles at standard
+    mobile widths. On very narrow widths (<360) they stack cleanly."""
+    pair_rule = APP_CSS.split(
+        ".creator-home.hv5 .hv5-pair {", 1
+    )[1].split("}", 1)[0]
+    tile_rule = APP_CSS.split(
+        ".creator-home.hv5 .hv5-tile {", 1
+    )[1].split("}", 1)[0]
+    assert "grid-template-columns: repeat(2, minmax(0, 1fr))" in pair_rule
+    assert "min-height: 76px" in tile_rule
+    # Narrow-width safety: stack to a single column at 320-359.
+    assert (
+        "@media (max-width: 359px) {" in APP_CSS
+        and "grid-template-columns: 1fr" in APP_CSS
+    )
+    # Both tiles are anchors with real hrefs, no dead chevrons.
+    assert '<a class="hv5-tile hv5-tile-handled"' in DASHBOARD_TEMPLATE
+    assert '<a class="hv5-tile hv5-tile-watching"' in DASHBOARD_TEMPLATE
+
+
+def test_home_v5_section_order_matches_spec() -> None:
+    """The v5 section order is fixed:
+       status pill → primary → next → brief → handled/watching."""
+    status_pos = DASHBOARD_TEMPLATE.index("hv5-status")
+    # Primary card + clear state both live in the same section slot, one
+    # rendered per request. Pick the earlier of whichever markers exist.
+    primary_pos = DASHBOARD_TEMPLATE.index("hv5-primary")
+    clear_pos = DASHBOARD_TEMPLATE.index("hv5-clear")
+    primary_slot_pos = min(primary_pos, clear_pos)
+    next_pos = DASHBOARD_TEMPLATE.index(">next<")
+    brief_pos = DASHBOARD_TEMPLATE.index(">brief<")
+    pair_pos = DASHBOARD_TEMPLATE.index("hv5-pair")
+    assert status_pos < primary_slot_pos < next_pos < brief_pos < pair_pos
 
 
 def test_hidden_brand_topbar_does_not_reserve_mobile_space() -> None:

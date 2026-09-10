@@ -1,185 +1,225 @@
 {% extends "base.html" %}
 
-{% block title %}home - babyg{% endblock %}
-
-{% macro source_icon(source) -%}
-  {% set s = (source or 'babyg')|lower %}
-  <span class="manager-source-icon source-{{ s }}" aria-label="{{ s }}" title="{{ s }}">
-    {% if s == 'instagram' %}
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="5"/><circle cx="12" cy="12" r="3.2"/><path d="M17.2 6.8h.01"/></svg>
-    {% elif s in ['gmail', 'google'] %}
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5.5" width="17" height="13" rx="2.4"/><path d="M4 8l8 5.5L20 8"/></svg>
-    {% elif s == 'calendar' %}
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="5.5" width="16" height="15" rx="3"/><path d="M4 10h16M8 3.5v4M16 3.5v4"/></svg>
-    {% elif s == 'network' %}
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="8" r="3"/><circle cx="17" cy="16" r="3"/><path d="M10.4 10.1l4.2 3.8"/></svg>
-    {% else %}
-    <img src="/static/assets/logo-bg.png" alt="" />
-    {% endif %}
-  </span>
-{%- endmacro %}
-
-{% macro manager_item(item, extra_class='') -%}
-  <a class="manager-card priority-{{ item.priority }} {{ extra_class }}" href="{{ item.href }}">
-    <span class="manager-card-main">
-      {{ source_icon(item.source) }}
-      <span class="manager-card-copy">
-        <span class="manager-card-title">{{ item.title|string|truncate(72, true, '...') }}</span>
-        {% if item.body %}<span class="manager-card-body">{{ item.body|string|truncate(112, true, '...') }}</span>{% endif %}
-        {% if item.created_at %}<span class="manager-card-time">{{ item.created_at|human_ago }}</span>{% endif %}
-      </span>
-    </span>
-    <span class="manager-card-chevron" aria-hidden="true">&rsaquo;</span>
-  </a>
-{%- endmacro %}
-
-{% macro primary_focus(item) -%}
-  <section class="manager-focus priority-{{ item.priority }}" aria-label="primary manager focus">
-    <div class="manager-focus-head">
-      {{ source_icon(item.source) }}
-      <span>{{ item.source|replace('google', 'gmail') }}</span>
-      {% if item.created_at %}<time>{{ item.created_at|human_ago }}</time>{% endif %}
-    </div>
-    <div class="manager-focus-copy">
-      <h2>{{ item.title|string|truncate(86, true, '...') }}</h2>
-      {% if item.body %}<p>{{ item.body|string|truncate(150, true, '...') }}</p>{% endif %}
-    </div>
-    <div class="manager-focus-actions">
-      <a class="manager-focus-primary" href="{{ item.href }}">{{ item.action_label or 'review' }}</a>
-    </div>
-  </section>
-{%- endmacro %}
+{% block title %}home — babyg{% endblock %}
 
 {% block content %}
-{% set home = home_v2 or {} %}
-<main class="creator-home creator-home-v2 wrap ambient-page">
+{# home v5 — matches the mobile spec screenshot.
 
-  <header class="creator-home-hero manager-hero">
-    <div>
-      <a class="manager-home-wordmark" href="/creator" aria-label="babyg home">
-        <span>babyg</span>
-      </a>
-      <h1 data-greeting-slots
-          data-greet-morning="{{ daily_greeting.morning }}"
-          data-greet-afternoon="{{ daily_greeting.afternoon }}"
-          data-greet-evening="{{ daily_greeting.evening }}"
-          data-greet-night="{{ daily_greeting.night }}">{{ daily_greeting.afternoon }}</h1>
-      {% if home.status %}
-      <details class="manager-status tone-{{ home.status.tone or 'neutral' }}">
-        <summary>
-          <span class="manager-status-dot" aria-hidden="true"></span>
-          <span>{{ home.status.headline }}</span>
-          <small>{{ home.status.summary }}</small>
-        </summary>
-        <div class="manager-status-panel">
-          {% for source in home.status.sources %}
-          <a class="manager-status-row state-{{ source.state }}" href="{{ source.href }}">
-            {{ source_icon(source.key) }}
-            <span>
-              <strong>{{ source.label }}</strong>
-              <small>{{ source.detail }}{% if source.checked_at %} · {{ source.checked_at|human_ago }}{% endif %}</small>
+   Section order (fixed):
+     1. babyg status pill (● babyg · N connected ›) + expanded rows
+     2. primary manager update (or compact clear state)
+     3. next (one calendar item, or a connect row, or nothing)
+     4. brief (up to 3 rows, real data only)
+     5. handled + watching (two compact side-by-side cards)
+
+   Every value comes from real state via home_briefing service.
+   No top wordmark, no hero greeting — content starts at the pill.
+#}
+<main class="creator-home hv5" data-page="home-v5">
+
+  {# ---------------- 1. babyg status pill ---------------- #}
+  <section class="hv5-section">
+    <details class="hv5-status" data-hv5-status>
+      <summary class="hv5-status-pill" aria-label="integrations">
+        <span class="hv5-status-dot" aria-hidden="true"></span>
+        <span class="hv5-status-name">babyg</span>
+        <span class="hv5-status-sep" aria-hidden="true">·</span>
+        <span class="hv5-status-count">{{ home_v5_status.connected_count }} connected</span>
+        <span class="hv5-status-chev" aria-hidden="true">›</span>
+      </summary>
+      <div class="hv5-status-panel">
+        {% for row in home_v5_status.rows %}
+        <a href="{{ row.open_href if row.connected and not row.needs_reconnect else row.connect_href }}"
+           class="hv5-status-row"
+           data-slot="{{ row.slot }}">
+          <span class="hv5-brand hv5-brand-{{ row.slot }}" aria-hidden="true">
+            {% if row.slot == 'instagram' %}
+              {# restrained mono-stroke ig icon — deliberately NOT the rainbow gradient #}
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3.5" y="3.5" width="17" height="17" rx="5"/>
+                <circle cx="12" cy="12" r="4"/>
+                <circle cx="17" cy="7" r="1" fill="currentColor" stroke="none"/>
+              </svg>
+            {% elif row.slot == 'gmail' %}
+              {# recognizable gmail M envelope with brand-red accent #}
+              <svg viewBox="0 0 24 24" fill="none">
+                <rect x="2.5" y="5.5" width="19" height="13" rx="1.5" fill="#fff" stroke="#e0e0e0" stroke-width="0.6"/>
+                <path d="M2.5 6.5l9.5 7 9.5-7" stroke="#c5221f" stroke-width="1.6" stroke-linejoin="round" fill="none"/>
+                <path d="M2.5 18.5V7l3 2v9.5z" fill="#4285f4"/>
+                <path d="M21.5 18.5V7l-3 2v9.5z" fill="#34a853"/>
+                <path d="M12 13.5l-9.5-7v.8l9.5 7 9.5-7v-.8z" fill="#c5221f"/>
+              </svg>
+            {% elif row.slot == 'calendar' %}
+              {# recognizable google calendar block with blue frame + red day #}
+              <svg viewBox="0 0 24 24" fill="none">
+                <rect x="3.5" y="4.5" width="17" height="16" rx="2" fill="#fff" stroke="#4285f4" stroke-width="1.4"/>
+                <path d="M3.5 8.5h17" stroke="#4285f4" stroke-width="1.4"/>
+                <text x="12" y="17" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="8" font-weight="700" fill="#4285f4">31</text>
+                <rect x="7.5" y="2.6" width="1.4" height="3.4" rx="0.7" fill="#4285f4"/>
+                <rect x="15.1" y="2.6" width="1.4" height="3.4" rx="0.7" fill="#4285f4"/>
+              </svg>
+            {% endif %}
+          </span>
+          <span class="hv5-status-row-body">
+            <span class="hv5-status-row-title">{{ row.label }}</span>
+            <span class="hv5-status-row-sub">
+              {%- if row.needs_reconnect -%}needs reconnect
+              {%- elif row.connected -%}connected
+              {%- else -%}not connected
+              {%- endif -%}
             </span>
-            <em>{{ source.action_label or 'open' }} &rsaquo;</em>
-          </a>
-          {% endfor %}
-        </div>
-      </details>
-      {% endif %}
-    </div>
-  </header>
-
-  {% if home.primary_focus %}
-    {{ primary_focus(home.primary_focus) }}
-  {% elif home['clear'] %}
-  <section class="manager-clear-state" aria-label="all clear">
-    <span class="manager-clear-check" aria-hidden="true">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17l9-10"/></svg>
-    </span>
-    <span class="manager-clear-copy">
-      <strong>you're clear.</strong>
-      <span>nothing needs your attention right now.</span>
-    </span>
-    <small>all caught up</small>
+          </span>
+          <span class="hv5-status-row-action">{{ row.action_label }}<span class="hv5-status-chev" aria-hidden="true">›</span></span>
+        </a>
+        {% endfor %}
+      </div>
+    </details>
   </section>
-  {% endif %}
 
-  {% if home.brief %}
-  <section class="creator-home-section manager-section">
-    <div class="creator-home-section-head">
-      <h2>babyg's brief</h2>
-      <a href="/creator/performance" class="creator-home-link">evidence &rsaquo;</a>
-    </div>
-    <div class="manager-stack">
-      {% for item in home.brief %}
-        {{ manager_item(item) }}
-      {% endfor %}
-    </div>
-  </section>
-  {% endif %}
-
-  {% if home.today and (home.today.events or not home.today.connected) %}
-  <section class="creator-home-section manager-section">
-    <div class="creator-home-section-head">
-      <h2>today</h2>
-      <a href="/creator/calendar" class="creator-home-link">view calendar &rsaquo;</a>
-    </div>
-    {% if home.today.events %}
-    <div class="manager-today-list">
-      {% for ev in home.today.events %}
-      <a class="manager-today-row" href="/creator/calendar{% if ev.id %}/{{ ev.id }}{% endif %}">
-        <time>{{ ev.starts_at|dm_time if ev.starts_at else 'time tbd' }}</time>
-        <span class="manager-today-rule" aria-hidden="true"></span>
-        <span class="manager-today-copy">
-          <strong>{{ ev.title }}</strong>
-          {% if ev.venue_name %}<small>{{ ev.venue_name }}</small>{% endif %}
+  {# ---------------- 2. primary manager update ---------------- #}
+  {% if home_v5_primary %}
+  <section class="hv5-section">
+    <a class="hv5-primary" href="{{ home_v5_primary.primary_href }}" data-source="{{ home_v5_primary.source }}">
+      <div class="hv5-primary-head">
+        <span class="hv5-primary-icon hv5-brand-{{ home_v5_primary.source }}" aria-hidden="true">
+          {% if home_v5_primary.source == 'instagram' %}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17" cy="7" r="1" fill="currentColor" stroke="none"/></svg>
+          {% elif home_v5_primary.source == 'gmail' %}
+            <svg viewBox="0 0 24 24" fill="none"><rect x="2.5" y="5.5" width="19" height="13" rx="1.5" fill="#fff" stroke="#e0e0e0" stroke-width="0.6"/><path d="M2.5 6.5l9.5 7 9.5-7" stroke="#c5221f" stroke-width="1.6" fill="none"/><path d="M2.5 18.5V7l3 2v9.5z" fill="#4285f4"/><path d="M21.5 18.5V7l-3 2v9.5z" fill="#34a853"/><path d="M12 13.5l-9.5-7v.8l9.5 7 9.5-7v-.8z" fill="#c5221f"/></svg>
+          {% elif home_v5_primary.source == 'calendar' %}
+            <svg viewBox="0 0 24 24" fill="none"><rect x="3.5" y="4.5" width="17" height="16" rx="2" fill="#fff" stroke="#4285f4" stroke-width="1.4"/><path d="M3.5 8.5h17" stroke="#4285f4" stroke-width="1.4"/><text x="12" y="17" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="8" font-weight="700" fill="#4285f4">31</text><rect x="7.5" y="2.6" width="1.4" height="3.4" rx="0.7" fill="#4285f4"/><rect x="15.1" y="2.6" width="1.4" height="3.4" rx="0.7" fill="#4285f4"/></svg>
+          {% else %}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 3"/></svg>
+          {% endif %}
         </span>
-      </a>
-      {% endfor %}
+        <div class="hv5-primary-meta">
+          <span class="hv5-primary-category">{{ home_v5_primary.category }}</span>
+        </div>
+        {% set _ago = home_v5_primary.created_at|human_ago %}
+        {% if _ago %}<span class="hv5-primary-time">{{ _ago }}</span>{% endif %}
+      </div>
+      <h2 class="hv5-primary-title">{{ home_v5_primary.title }}</h2>
+      {% if home_v5_primary.body %}<p class="hv5-primary-body">{{ home_v5_primary.body }}</p>{% endif %}
+      <div class="hv5-primary-actions">
+        <span class="hv5-btn hv5-btn-primary">{{ home_v5_primary.primary_label }}</span>
+        <span class="hv5-btn hv5-btn-ghost">{{ home_v5_primary.secondary_label }}</span>
+      </div>
+    </a>
+  </section>
+  {% else %}
+  <section class="hv5-section">
+    <div class="hv5-clear">
+      <span class="hv5-clear-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5L20 6"/></svg>
+      </span>
+      <div class="hv5-clear-body">
+        <strong>you're clear.</strong>
+        <span>nothing needs your attention right now.</span>
+      </div>
     </div>
-    {% else %}
-    <a class="manager-empty-link" href="/creator/google/connect?service=calendar&next=/creator">
-      {{ source_icon('calendar') }}
-      <span>connect calendar to see calls and deadlines.</span>
-      <em aria-hidden="true">&rsaquo;</em>
+  </section>
+  {% endif %}
+
+  {# ---------------- 3. next ---------------- #}
+  {% set _next = upcoming_bookings[0] if upcoming_bookings else None %}
+  <section class="hv5-section">
+    <div class="hv5-head">
+      <h2 class="hv5-head-title">next</h2>
+      <a class="hv5-head-link" href="/creator/calendar">view calendar <span aria-hidden="true">›</span></a>
+    </div>
+    {% if _next %}
+    <a class="hv5-next-row" href="/creator/calendar{% if _next.id %}/{{ _next.id }}{% endif %}">
+      <span class="hv5-next-time">
+        {%- if _next.starts_at -%}{{ _next.starts_at|short_time }}{%- else -%}tbd{%- endif -%}
+      </span>
+      <span class="hv5-next-divider" aria-hidden="true"></span>
+      <span class="hv5-next-body">
+        <strong>{{ _next.title or 'untitled event' }}</strong>
+        {% if _next.venue_name %}<small>{{ _next.venue_name }}</small>{% endif %}
+      </span>
+      <span class="hv5-chev" aria-hidden="true">›</span>
+    </a>
+    {% elif not calendar_connected %}
+    <a class="hv5-next-row hv5-next-connect" href="/creator/profile/settings#integrations">
+      <span class="hv5-brand hv5-brand-calendar" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none"><rect x="3.5" y="4.5" width="17" height="16" rx="2" fill="#fff" stroke="#4285f4" stroke-width="1.4"/><path d="M3.5 8.5h17" stroke="#4285f4" stroke-width="1.4"/><rect x="7.5" y="2.6" width="1.4" height="3.4" rx="0.7" fill="#4285f4"/><rect x="15.1" y="2.6" width="1.4" height="3.4" rx="0.7" fill="#4285f4"/></svg>
+      </span>
+      <span class="hv5-next-body">
+        <strong>connect calendar</strong>
+        <small>see calls and deadlines here</small>
+      </span>
+      <span class="hv5-chev" aria-hidden="true">›</span>
     </a>
     {% endif %}
   </section>
-  {% endif %}
 
-  {% if home.handled or home.watching %}
-  <section class="creator-home-section manager-section manager-proof-section" aria-label="babyg activity">
-    <div class="manager-proof-grid">
-      {% if home.handled %}
-      <a class="manager-compact-row handled" href="{{ home.handled.href }}">
-        <span class="manager-proof-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17l9-10"/></svg>
+  {# ---------------- 4. brief ---------------- #}
+  {% if home_v5_brief %}
+  <section class="hv5-section">
+    <div class="hv5-head">
+      <h2 class="hv5-head-title">brief</h2>
+      <a class="hv5-head-link" href="/creator/discover">view all <span aria-hidden="true">›</span></a>
+    </div>
+    <div class="hv5-brief">
+      {% for row in home_v5_brief %}
+      <a class="hv5-brief-row" href="{{ row.href }}" data-slot="{{ row.slot }}">
+        <span class="hv5-brief-icon" aria-hidden="true">
+          {% if row.slot == 'performance' %}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-8"/><path d="M22 20H2"/></svg>
+          {% elif row.slot == 'instagram' %}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17" cy="7" r="1" fill="currentColor" stroke="none"/></svg>
+          {% elif row.slot == 'opportunity' %}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21h6"/><path d="M12 17v4"/><path d="M7 8a5 5 0 1 1 10 0c0 3-3 4-3 6H10c0-2-3-3-3-6z"/></svg>
+          {% else %}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 3"/></svg>
+          {% endif %}
         </span>
-        <span>
-          <small>babyg handled</small>
-          <strong>{{ home.handled.summary }}</strong>
+        <span class="hv5-brief-body">
+          <strong>{{ row.title }}</strong>
+          {% if row.detail %}<small>{{ row.detail }}</small>{% endif %}
         </span>
-        <em aria-hidden="true">&rsaquo;</em>
+        <span class="hv5-chev" aria-hidden="true">›</span>
       </a>
-      {% endif %}
-      {% if home.watching %}
-      <a class="manager-compact-row watching" href="{{ home.watching.href }}">
-        <span class="manager-proof-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="3.5"/><circle cx="16.5" cy="15.5" r="3.5"/><path d="M9 15 12 7l3 8M10.5 12h3"/></svg>
-        </span>
-        <span>
-          <small>watching</small>
-          <strong>{{ home.watching.summary|replace('watching ', '') }}</strong>
-        </span>
-        <em aria-hidden="true">&rsaquo;</em>
-      </a>
-      {% endif %}
+      {% endfor %}
     </div>
   </section>
   {% endif %}
 
-</main>
-{% endblock %}
+  {# ---------------- 5. handled + watching ---------------- #}
+  <section class="hv5-section hv5-pair">
+    <a class="hv5-tile hv5-tile-handled" href="/creator/bot">
+      <span class="hv5-tile-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg>
+      </span>
+      <span class="hv5-tile-title">handled</span>
+      <span class="hv5-tile-sub">
+        {%- if home_v5_handled_count and home_v5_handled_count > 0 -%}
+          {{ home_v5_handled_count }} thing{{ 's' if home_v5_handled_count != 1 else '' }} today
+        {%- else -%}
+          nothing yet today
+        {%- endif -%}
+      </span>
+      <span class="hv5-tile-chev" aria-hidden="true">›</span>
+    </a>
+    <a class="hv5-tile hv5-tile-watching" href="/creator/discover">
+      <span class="hv5-tile-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="14" r="4"/><circle cx="17" cy="14" r="4"/><path d="M11 14h2"/><path d="M5 10l2-4"/><path d="M19 10l-2-4"/></svg>
+      </span>
+      <span class="hv5-tile-title">watching</span>
+      <span class="hv5-tile-sub">
+        {%- set _deals = home_v5_watching.deals -%}
+        {%- set _opps = home_v5_watching.opportunities -%}
+        {%- if _deals == 0 and _opps == 0 -%}
+          nothing tracked
+        {%- else -%}
+          {%- if _deals > 0 -%}{{ _deals }} deal{{ 's' if _deals != 1 else '' }}{%- endif -%}
+          {%- if _deals > 0 and _opps > 0 -%} · {%- endif -%}
+          {%- if _opps > 0 -%}{{ _opps }} opportunit{{ 'ies' if _opps != 1 else 'y' }}{%- endif -%}
+        {%- endif -%}
+      </span>
+      <span class="hv5-tile-chev" aria-hidden="true">›</span>
+    </a>
+  </section>
 
-{% block foot_scripts %}
-<script src="/static/js/creator_home_greeting.js" defer></script>
+</main>
 {% endblock %}
