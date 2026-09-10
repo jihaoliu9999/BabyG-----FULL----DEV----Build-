@@ -293,3 +293,233 @@ def test_relative_ago_empty_on_bad_input() -> None:
     assert home_briefing.relative_ago("") == ""
     assert home_briefing.relative_ago(None) == ""
     assert home_briefing.relative_ago("not a timestamp") == ""
+
+
+# ---- primary_carousel_slides ---------------------------------------
+
+
+def _stub_no_native_dms(monkeypatch) -> None:
+    """The composer reads native DMs via the `dms` service. Most tests
+    below only care about action_proposals + notifications, so stub the
+    native-DM path to return nothing."""
+    monkeypatch.setattr(
+        home_briefing.dms, "list_threads_for_user", lambda uid: []
+    )
+    monkeypatch.setattr(
+        home_briefing.dms, "unread_counts_by_thread", lambda uid, ids: {}
+    )
+    monkeypatch.setattr(
+        home_briefing.dms, "last_messages_by_thread", lambda ids: {}
+    )
+
+
+def test_carousel_zero_slides_when_nothing_actionable(monkeypatch) -> None:
+    _stub_no_native_dms(monkeypatch)
+    slides = home_briefing.primary_carousel_slides(
+        "c1", pending_actions=[], unread_notifs=[]
+    )
+    assert slides == []
+
+
+def test_carousel_single_slide_for_one_action(monkeypatch) -> None:
+    _stub_no_native_dms(monkeypatch)
+    slides = home_briefing.primary_carousel_slides(
+        "c1",
+        pending_actions=[
+            {
+                "id": "p-1",
+                "action_type": "instagram.send_dm",
+                "created_at": "2026-09-08T10:00:00Z",
+                "preview": {"title": "reply to instagram dm", "body": "thanks"},
+            }
+        ],
+        unread_notifs=[],
+    )
+    assert len(slides) == 1
+    assert slides[0]["slide_type"] == "action_proposal"
+    assert slides[0]["source"] == "instagram"
+
+
+def test_carousel_ranks_high_stakes_action_before_normal(monkeypatch) -> None:
+    """A gmail.send_email proposal (high-stakes) beats an older
+    create_booking proposal (normal) even though the booking is older."""
+    _stub_no_native_dms(monkeypatch)
+    slides = home_briefing.primary_carousel_slides(
+        "c1",
+        pending_actions=[
+            {
+                "id": "old",
+                "action_type": "create_booking",
+                "created_at": "2026-09-01T09:00:00Z",
+                "preview": {"title": "old booking"},
+            },
+            {
+                "id": "new",
+                "action_type": "gmail.send_email",
+                "created_at": "2026-09-08T09:00:00Z",
+                "preview": {"title": "urgent email"},
+            },
+        ],
+        unread_notifs=[],
+    )
+    # High-priority slide (gmail.send_email) comes first.
+    assert slides[0]["primary_href"] == "/creator/bot#action-new"
+    assert slides[1]["primary_href"] == "/creator/bot#action-old"
+
+
+def test_carousel_never_infers_instagram_from_bare_new_dm(monkeypatch) -> None:
+    """A `new_dm` notification with NO source_provider must NOT be
+    presented as Instagram. Native babyg DMs surface via the dms
+    helper; this notification is silently skipped."""
+    _stub_no_native_dms(monkeypatch)
+    slides = home_briefing.primary_carousel_slides(
+        "c1",
+        pending_actions=[],
+        unread_notifs=[
+            {
+                "id": "n-1",
+                "kind": "new_dm",
+                "title": "New message",
+                "body": "hi",
+                "link_path": "/creator/dm/some-thread",
+                # No source_provider — ambiguous, must be skipped.
+            }
+        ],
+    )
+    assert slides == []
+
+
+def test_carousel_surfaces_instagram_dm_when_source_provider_set(
+    monkeypatch,
+) -> None:
+    _stub_no_native_dms(monkeypatch)
+    slides = home_briefing.primary_carousel_slides(
+        "c1",
+        pending_actions=[],
+        unread_notifs=[
+            {
+                "id": "n-ig",
+                "kind": "new_dm",
+                "title": "New message from @brand",
+                "body": "want to collab",
+                "link_path": "/creator/instagram/dms#thread-x",
+                "source_provider": "instagram",
+                "priority": "high",
+                "created_at": "2026-09-08T12:00:00Z",
+            }
+        ],
+    )
+    assert len(slides) == 1
+    assert slides[0]["source"] == "instagram"
+    assert slides[0]["primary_href"] == "/creator/instagram/dms#thread-x"
+
+
+def test_carousel_surfaces_native_babyg_dm_as_native(monkeypatch) -> None:
+    """Unread native DMs come from `dms` service and stay source='babyg'."""
+    monkeypatch.setattr(
+        home_briefing.dms, "list_threads_for_user",
+        lambda uid: [
+            {"id": "t-1", "peer_id": "peer-1",
+             "last_message_at": "2026-09-08T11:00:00Z",
+             "participant_a_id": "c1", "participant_b_id": "peer-1"},
+        ],
+    )
+    monkeypatch.setattr(
+        home_briefing.dms, "unread_counts_by_thread",
+        lambda uid, ids: {"t-1": 2},
+    )
+    monkeypatch.setattr(
+        home_briefing.dms, "last_messages_by_thread",
+        lambda ids: {"t-1": {"body": "hey", "created_at": "2026-09-08T11:00:00Z"}},
+    )
+    monkeypatch.setattr(
+        home_briefing.profiles, "get_creator_profile",
+        lambda uid: {"full_name": "Alex"},
+    )
+    slides = home_briefing.primary_carousel_slides(
+        "c1", pending_actions=[], unread_notifs=[]
+    )
+    assert len(slides) == 1
+    assert slides[0]["slide_type"] == "native_dm"
+    assert slides[0]["source"] == "babyg"  # NEVER instagram
+    assert slides[0]["primary_href"] == "/creator/dm/t-1"
+    assert "Alex" in slides[0]["title"]
+
+
+def test_carousel_native_dm_falls_back_to_someone(monkeypatch) -> None:
+    monkeypatch.setattr(
+        home_briefing.dms, "list_threads_for_user",
+        lambda uid: [
+            {"id": "t-1", "peer_id": "peer-1",
+             "last_message_at": "2026-09-08T11:00:00Z",
+             "participant_a_id": "c1", "participant_b_id": "peer-1"},
+        ],
+    )
+    monkeypatch.setattr(
+        home_briefing.dms, "unread_counts_by_thread",
+        lambda uid, ids: {"t-1": 1},
+    )
+    monkeypatch.setattr(
+        home_briefing.dms, "last_messages_by_thread",
+        lambda ids: {"t-1": {"body": "hi", "created_at": "2026-09-08T11:00:00Z"}},
+    )
+    monkeypatch.setattr(
+        home_briefing.profiles, "get_creator_profile", lambda uid: {}
+    )
+    slides = home_briefing.primary_carousel_slides(
+        "c1", pending_actions=[], unread_notifs=[]
+    )
+    assert slides[0]["title"] == "New message from someone"
+
+
+def test_carousel_caps_at_max_slides(monkeypatch) -> None:
+    _stub_no_native_dms(monkeypatch)
+    many_actions = [
+        {
+            "id": f"p-{i}",
+            "action_type": "gmail.create_draft",
+            "created_at": f"2026-09-01T{i:02d}:00:00Z",
+            "preview": {"title": f"draft {i}"},
+        }
+        for i in range(10)
+    ]
+    slides = home_briefing.primary_carousel_slides(
+        "c1", pending_actions=many_actions, unread_notifs=[]
+    )
+    assert len(slides) == home_briefing.CAROUSEL_MAX_SLIDES
+
+
+def test_carousel_notification_missing_link_path_skipped(monkeypatch) -> None:
+    _stub_no_native_dms(monkeypatch)
+    slides = home_briefing.primary_carousel_slides(
+        "c1",
+        pending_actions=[],
+        unread_notifs=[
+            {"id": "n-1", "kind": "system", "title": "no link"},
+        ],
+    )
+    assert slides == []
+
+
+def test_carousel_urgent_priority_wins_over_high(monkeypatch) -> None:
+    _stub_no_native_dms(monkeypatch)
+    slides = home_briefing.primary_carousel_slides(
+        "c1",
+        pending_actions=[],
+        unread_notifs=[
+            {
+                "id": "high", "kind": "manager_alert",
+                "title": "high one", "link_path": "/x",
+                "source_provider": "instagram", "priority": "high",
+                "created_at": "2026-09-08T13:00:00Z",
+            },
+            {
+                "id": "urgent", "kind": "manager_alert",
+                "title": "urgent one", "link_path": "/y",
+                "source_provider": "instagram", "priority": "urgent",
+                "created_at": "2026-09-08T12:00:00Z",
+            },
+        ],
+    )
+    assert slides[0]["title"] == "urgent one"
+    assert slides[1]["title"] == "high one"

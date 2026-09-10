@@ -268,9 +268,16 @@ async def dashboard(
         google_connection=google_connection,
         ig_connection=instagram_connection,
     )
-    home_v5_primary = home_briefing.primary_manager_update(
+    # Primary slot is a carousel: 0 slides -> clear state, 1 -> single
+    # card with no indicator, 2+ -> swipeable slides with dot count.
+    # Ranking is priority-first, ties broken by manager urgency
+    # (action_proposals before notifications before native DMs).
+    home_v5_primary_slides = await _safe_call(
+        home_briefing.primary_carousel_slides,
+        user_id,
         pending_actions=pending_actions_all,
-        unread_notifs=[n for n in unread_notifs_all if n.get("link_path")],
+        unread_notifs=unread_notifs_all,
+        _default=[],
     )
     home_v5_brief = home_briefing.brief_rows(
         matched_picks=matched_picks,
@@ -321,7 +328,7 @@ async def dashboard(
             "ig_dm_unread_count": ig_dm_unread_count,
             "unread_dms": total_dm_unread_count,
             "home_v5_status": home_v5_status,
-            "home_v5_primary": home_v5_primary,
+            "home_v5_primary_slides": home_v5_primary_slides,
             "home_v5_brief": home_v5_brief,
             "home_v5_handled_count": home_v5_handled_count,
             "home_v5_watching": home_v5_watching,

@@ -132,6 +132,17 @@ def stub_dashboard(monkeypatch):
     monkeypatch.setattr(
         dms_module, "unread_count_for_user", lambda uid: state["unread_dms"]
     )
+    # Home v5 carousel reads native DMs via list_threads_for_user +
+    # unread_counts_by_thread + last_messages_by_thread. Default all
+    # three to empty so tests that don't care about native DMs don't
+    # accidentally hit supabase.
+    monkeypatch.setattr(dms_module, "list_threads_for_user", lambda uid: [])
+    monkeypatch.setattr(
+        dms_module, "unread_counts_by_thread", lambda uid, ids: {}
+    )
+    monkeypatch.setattr(
+        dms_module, "last_messages_by_thread", lambda ids: {}
+    )
     monkeypatch.setattr(
         network_module,
         "list_incoming_pending",
@@ -294,6 +305,208 @@ def test_primary_renders_top_pending_action(
     assert 'href="/creator/bot#action-prop-1"' in r.text
     # Clear state must be gone when a real primary card is shown.
     assert "you're clear." not in r.text
+
+
+def test_primary_single_slide_shows_no_carousel_indicator(
+    client: TestClient, stub_dashboard
+) -> None:
+    _signed_in(client)
+    stub_dashboard["pending_actions"] = [
+        {
+            "id": "prop-1",
+            "action_type": "gmail.create_draft",
+            "created_at": "2026-09-08T12:00:00Z",
+            "preview": {"title": "draft reply", "body": "quick note"},
+        }
+    ]
+    r = client.get("/creator")
+    assert r.status_code == 200
+    # No dot indicator, no count.
+    assert "hv5-primary-dots" not in r.text
+    assert "hv5-primary-count" not in r.text
+    # Not tagged as a carousel.
+    assert 'class="hv5-primary hv5-primary-carousel"' not in r.text
+    # Still uses the same outer box class.
+    assert 'class="hv5-primary"' in r.text
+
+
+def test_primary_two_or_more_slides_becomes_carousel(
+    client: TestClient, stub_dashboard
+) -> None:
+    _signed_in(client)
+    stub_dashboard["pending_actions"] = [
+        {
+            "id": "prop-1",
+            "action_type": "gmail.create_draft",
+            "created_at": "2026-09-08T10:00:00Z",
+            "preview": {"title": "first draft"},
+        },
+        {
+            "id": "prop-2",
+            "action_type": "calendar.create_event",
+            "created_at": "2026-09-08T11:00:00Z",
+            "preview": {"title": "second event"},
+        },
+    ]
+    r = client.get("/creator")
+    assert r.status_code == 200
+    # Same outer box, now marked as carousel.
+    assert "hv5-primary-carousel" in r.text
+    # Dot indicator + count present.
+    assert "hv5-primary-dots" in r.text
+    assert "hv5-primary-count" in r.text
+    # Count total is dynamic (2), not hardcoded.
+    assert "/ <span>2</span>" in r.text
+    # Both slides rendered.
+    assert 'href="/creator/bot#action-prop-1"' in r.text
+    assert 'href="/creator/bot#action-prop-2"' in r.text
+
+
+def test_primary_carousel_puts_highest_priority_first(
+    client: TestClient, stub_dashboard
+) -> None:
+    """High-stakes gmail.send_email should render before an older
+    create_booking proposal, even though the booking is older."""
+    _signed_in(client)
+    stub_dashboard["pending_actions"] = [
+        {
+            "id": "old-booking",
+            "action_type": "create_booking",
+            "created_at": "2026-09-01T09:00:00Z",
+            "preview": {"title": "old booking"},
+        },
+        {
+            "id": "urgent-mail",
+            "action_type": "gmail.send_email",
+            "created_at": "2026-09-08T09:00:00Z",
+            "preview": {"title": "urgent send"},
+        },
+    ]
+    r = client.get("/creator")
+    urgent_pos = r.text.find("action-urgent-mail")
+    booking_pos = r.text.find("action-old-booking")
+    assert urgent_pos < booking_pos < urgent_pos + 4000  # both present, urgent first
+
+
+def test_native_dm_shows_as_babyg_not_instagram(
+    client: TestClient, stub_dashboard, monkeypatch
+) -> None:
+    """A native babyg unread DM surfaces as source='babyg' and its
+    action opens /creator/dm/{thread_id} — NEVER Instagram."""
+    _signed_in(client)
+    monkeypatch.setattr(
+        home_briefing_module.dms, "list_threads_for_user",
+        lambda uid: [
+            {"id": "native-thread-1", "peer_id": "peer-1",
+             "last_message_at": "2026-09-08T11:00:00Z",
+             "participant_a_id": "u-1", "participant_b_id": "peer-1"},
+        ],
+    )
+    monkeypatch.setattr(
+        home_briefing_module.dms, "unread_counts_by_thread",
+        lambda uid, ids: {"native-thread-1": 1},
+    )
+    monkeypatch.setattr(
+        home_briefing_module.dms, "last_messages_by_thread",
+        lambda ids: {"native-thread-1": {
+            "body": "hey are you around",
+            "created_at": "2026-09-08T11:00:00Z",
+        }},
+    )
+    monkeypatch.setattr(
+        home_briefing_module.profiles, "get_creator_profile",
+        lambda uid: {"full_name": "Sam"},
+    )
+    r = client.get("/creator")
+    assert r.status_code == 200
+    assert 'data-source="babyg"' in r.text
+    assert 'href="/creator/dm/native-thread-1"' in r.text
+    assert "New message from Sam" in r.text
+    # Must not route to Instagram
+    assert 'href="/creator/instagram/dms#thread-native-thread-1"' not in r.text
+
+
+def test_bare_new_dm_notification_never_shows_as_instagram(
+    client: TestClient, stub_dashboard
+) -> None:
+    """A legacy `new_dm` notification WITHOUT source_provider must not
+    be labeled as Instagram in the carousel."""
+    _signed_in(client)
+    stub_dashboard["unread_notifs"] = [
+        {
+            "id": "legacy-dm",
+            "kind": "new_dm",
+            "title": "New message",
+            "body": "hi",
+            "link_path": "/creator/dm/legacy-thread",
+            # No source_provider — the ambiguity case.
+        }
+    ]
+    r = client.get("/creator")
+    assert r.status_code == 200
+    # The ambiguous notification is silently skipped -> clear state.
+    assert "you're clear." in r.text
+    # And explicitly not tagged as Instagram anywhere.
+    assert 'data-source="instagram"' not in r.text
+
+
+def test_instagram_dm_notification_requires_source_provider(
+    client: TestClient, stub_dashboard
+) -> None:
+    _signed_in(client)
+    stub_dashboard["unread_notifs"] = [
+        {
+            "id": "ig-dm-1",
+            "kind": "new_dm",
+            "title": "New message from @brand",
+            "body": "collab?",
+            "link_path": "/creator/instagram/dms#thread-ig-1",
+            "source_provider": "instagram",
+            "priority": "high",
+            "created_at": "2026-09-08T12:00:00Z",
+        }
+    ]
+    r = client.get("/creator")
+    assert r.status_code == 200
+    assert 'data-source="instagram"' in r.text
+    assert "/creator/instagram/dms#thread-ig-1" in r.text
+
+
+def test_home_page_has_no_right_facing_chevrons(
+    client: TestClient, stub_dashboard
+) -> None:
+    """Home-wide rule from the spec: no `>` navigation chevrons (unicode single-right-pointing quotation-mark included)."""
+    _signed_in(client)
+    r = client.get("/creator")
+    assert r.status_code == 200
+    # Locate the main home content only (skip the shared base template
+    # nav/footer areas that might include chevrons for reasons outside
+    # this spec's scope).
+    body = r.text
+    home_start = body.find('class="creator-home hv5"')
+    home_end = body.find("</main>", home_start)
+    home_html = body[home_start:home_end]
+    assert "›" not in home_html  # noqa: RUF001
+    # `>` shows up as HTML syntax everywhere; only the "text" > chevron
+    # would be a problem. The generic form doesn't survive as visible
+    # text without &gt; escaping (Jinja auto-escapes). Just double-check
+    # no literal &gt; navigation chip appears.
+    assert "&gt;</a>" not in home_html
+    assert "&gt;</span>" not in home_html
+
+
+def test_status_pill_uses_caret_not_chevron(
+    client: TestClient, stub_dashboard
+) -> None:
+    _signed_in(client)
+    r = client.get("/creator")
+    assert r.status_code == 200
+    assert "hv5-status-caret" in r.text
+    # No right-chevron on the pill.
+    body = r.text
+    pill_start = body.find('class="hv5-status-pill"')
+    pill_end = body.find("</summary>", pill_start)
+    assert "›" not in body[pill_start:pill_end]  # noqa: RUF001
 
 
 # ---------------------------------------------------------------------------

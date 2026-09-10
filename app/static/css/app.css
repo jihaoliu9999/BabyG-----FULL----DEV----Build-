@@ -13437,7 +13437,16 @@ body:has(.dm-thread-composer-box input:focus) .creator-tabbar {
 .creator-home.hv5 .hv5-status-name { font-weight: 500; letter-spacing: 0; }
 .creator-home.hv5 .hv5-status-sep { color: var(--text-tertiary, rgba(255,255,255,0.35)); font-weight: 400; }
 .creator-home.hv5 .hv5-status-count { color: var(--text-secondary, rgba(255,255,255,0.72)); }
-.creator-home.hv5 .hv5-status-chev { color: var(--text-tertiary, rgba(255,255,255,0.35)); font-size: 14px; margin-left: 2px; }
+.creator-home.hv5 .hv5-status-caret {
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-tertiary, rgba(255,255,255,0.5));
+  margin-left: 2px;
+  transition: transform 140ms ease;
+}
+.creator-home.hv5 .hv5-status[open] .hv5-status-caret {
+  transform: rotate(180deg);  /* down-caret becomes up-caret when open */
+}
 
 .creator-home.hv5 .hv5-status-panel {
   margin-top: 10px;
@@ -13488,7 +13497,10 @@ body:has(.dm-thread-composer-box input:focus) .creator-tabbar {
 .creator-home.hv5 .hv5-tile-icon svg { width: 100%; height: 100%; }
 .creator-home.hv5 .hv5-brand-instagram { color: var(--text-primary); }
 
-/* ---------- 2. primary manager update ---------- */
+/* ---------- 2. primary manager update ----------
+   Outer shell stays visually identical whether we render one slide or
+   a swipeable carousel of many. The track scrolls horizontally
+   internally; the box itself never widens, moves, or changes radius. */
 .creator-home.hv5 .hv5-primary {
   display: block;
   padding: 14px 14px 16px;
@@ -13497,6 +13509,79 @@ body:has(.dm-thread-composer-box input:focus) .creator-tabbar {
   background: var(--surface-1, rgba(255,255,255,0.03));
   color: inherit;
   text-decoration: none;
+  position: relative;
+  overflow: hidden;
+}
+/* Carousel-mode padding: the dot indicator lives inside the same box,
+   so reserve a small strip at the bottom. Single-slide mode keeps the
+   original padding via the base rule above. */
+.creator-home.hv5 .hv5-primary-carousel {
+  padding-bottom: 34px;
+}
+.creator-home.hv5 .hv5-primary-track {
+  display: flex;
+  flex-wrap: nowrap;
+  scroll-snap-type: x mandatory;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+  scroll-behavior: smooth;
+  gap: 0;
+  margin: -14px -14px 0;  /* absorb parent padding so slides go edge-to-edge */
+  padding: 14px 14px 0;
+}
+.creator-home.hv5 .hv5-primary-track::-webkit-scrollbar { display: none; }
+/* When only one slide, disable snap + horizontal-overflow so nothing
+   drifts and the card behaves exactly like the pre-carousel version. */
+.creator-home.hv5 .hv5-primary:not(.hv5-primary-carousel) .hv5-primary-track {
+  overflow: visible;
+  scroll-snap-type: none;
+  margin: 0;
+  padding: 0;
+}
+.creator-home.hv5 .hv5-slide {
+  display: block;
+  flex: 0 0 100%;
+  min-width: 0;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+  color: inherit;
+  text-decoration: none;
+  padding-right: 0;
+}
+.creator-home.hv5 .hv5-primary:not(.hv5-primary-carousel) .hv5-slide { flex: 1 1 auto; }
+
+.creator-home.hv5 .hv5-primary-indicator {
+  position: absolute;
+  left: 0; right: 0; bottom: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  gap: 8px;
+  pointer-events: none;
+}
+.creator-home.hv5 .hv5-primary-dots {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+.creator-home.hv5 .hv5-primary-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.22);
+  transition: background 120ms ease, transform 120ms ease;
+}
+.creator-home.hv5 .hv5-primary-dot.is-active {
+  background: var(--text-primary, #fff);
+  transform: scale(1.15);
+}
+.creator-home.hv5 .hv5-primary-count {
+  font-size: 11px;
+  color: var(--text-tertiary, rgba(255,255,255,0.5));
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
 }
 .creator-home.hv5 .hv5-primary-head {
   display: grid;

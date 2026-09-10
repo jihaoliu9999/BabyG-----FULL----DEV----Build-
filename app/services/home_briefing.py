@@ -30,7 +30,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from app.core import supabase_client
-from app.services import oauth_connections
+from app.services import dms, oauth_connections, profiles
 
 logger = logging.getLogger(__name__)
 
@@ -157,75 +157,266 @@ _ACTION_CATEGORY_LABEL: dict[str, str] = {
 }
 
 
+CAROUSEL_MAX_SLIDES = 5
+
+# Priority ordering for the primary carousel. Lower number = shown first.
+_PRIORITY_RANK = {"urgent": 0, "high": 1, "normal": 2, "low": 3}
+
+# Action types that lock time or send external messages get bumped one
+# tier — they cost real money/reputation if the creator misses them.
+_HIGH_STAKES_ACTIONS = frozenset({
+    "gmail.send_email",
+    "gmail.send_draft",
+    "instagram.send_dm",
+    "calendar.create_event",
+})
+
+
+def primary_carousel_slides(
+    user_id: str,
+    *,
+    pending_actions: list[dict[str, Any]] | None,
+    unread_notifs: list[dict[str, Any]] | None,
+    max_slides: int = CAROUSEL_MAX_SLIDES,
+) -> list[dict[str, Any]]:
+    """Ranked list of eligible manager slides for the primary card.
+
+    Empty list -> template renders the compact clear state.
+    One item  -> single card, no carousel controls.
+    2+ items  -> carousel with dot indicator.
+
+    Source-truth rules (from the home v5 spec):
+      * Native babyg DMs come from the `dms` service (source='babyg').
+      * Instagram DMs come from `notifications` rows where
+        `source_provider='instagram'` (verified identity from Ji's
+        migration 0040 fanout). A bare `kind='new_dm'` with no
+        provider is NEVER inferred as Instagram.
+      * Action proposals inherit source from action_type.
+
+    Ranking: priority tier first (urgent > high > normal > low), then
+    within tier action proposals before notifications before DMs
+    (since proposals are the only items that require an explicit
+    creator tap). Ties broken by newest-first (created_at desc)
+    except for action_proposals which use oldest-first (an old
+    unapproved proposal is more overdue than a fresh one).
+    """
+    slides: list[dict[str, Any]] = []
+
+    for proposal in pending_actions or []:
+        slide = _slide_from_action_proposal(proposal)
+        if slide:
+            slides.append(slide)
+
+    for notif in unread_notifs or []:
+        slide = _slide_from_notification(notif)
+        if slide:
+            slides.append(slide)
+
+    slides.extend(_slides_from_native_dms(user_id))
+
+    slides.sort(key=_carousel_sort_key)
+    return slides[: max(1, int(max_slides))]
+
+
 def primary_manager_update(
+    user_id: str | None = None,
     *,
     pending_actions: list[dict[str, Any]] | None,
     unread_notifs: list[dict[str, Any]] | None,
 ) -> dict[str, Any] | None:
-    """Pick the single most-actionable card for the top of home.
+    """Backwards-compatible single-slide accessor.
 
-    Priority order:
-      1. Oldest pending `action_proposals` row (something babyg is
-         waiting on the creator to tap through).
-      2. Newest unread notification with a `link_path` (e.g. brand
-         inquiry, deal follow-up).
-
-    Returns None when nothing qualifies -> template renders the
-    compact clear state instead.
+    Callers that still want just the top slide (e.g. tests, other
+    surfaces that only render one item) get the head of the ranked
+    carousel. Prefer `primary_carousel_slides` in new code.
     """
-    if pending_actions:
-        proposal = pending_actions[0]
-        action_type = str(proposal.get("action_type") or "")
-        preview = proposal.get("preview") or {}
-        title = (
-            preview.get("title")
-            or preview.get("subject")
-            or preview.get("headline")
-            or _ACTION_CATEGORY_LABEL.get(action_type, action_type.replace(".", " · "))
-        )
-        body = (
-            preview.get("body")
-            or preview.get("summary")
-            or preview.get("detail")
-            or ""
-        )
-        return {
-            "source": _ACTION_SOURCE_MAP.get(action_type, "babyg"),
-            "category": _ACTION_CATEGORY_LABEL.get(action_type, "action"),
-            "title": str(title)[:120],
-            "body": str(body)[:200],
-            "created_at": proposal.get("created_at"),
-            "primary_href": f"/creator/bot#action-{proposal.get('id')}",
-            "primary_label": "review",
-            "secondary_href": f"/creator/bot#action-{proposal.get('id')}",
-            "secondary_label": "view details",
-        }
-
-    if unread_notifs:
-        n = unread_notifs[0]
-        source = _source_from_notification_kind(str(n.get("kind") or ""))
-        return {
-            "source": source,
-            "category": str(n.get("kind") or "notice").replace("_", " "),
-            "title": str(n.get("title") or "")[:120] or "there's an update",
-            "body": str(n.get("body") or "")[:200],
-            "created_at": n.get("created_at"),
-            "primary_href": str(n.get("link_path") or "/creator/notifications"),
-            "primary_label": "review",
-            "secondary_href": "/creator/notifications",
-            "secondary_label": "view details",
-        }
-
-    return None
+    slides = primary_carousel_slides(
+        user_id or "",
+        pending_actions=pending_actions,
+        unread_notifs=unread_notifs,
+    )
+    return slides[0] if slides else None
 
 
-def _source_from_notification_kind(kind: str) -> str:
-    if kind == "new_dm":
-        return "instagram"
-    if kind in {"booking_reminder"}:
+def _carousel_sort_key(slide: dict[str, Any]) -> tuple:
+    """Sort by (priority tier asc, type-order asc, tiebreak asc)."""
+    tier = _PRIORITY_RANK.get(str(slide.get("priority") or "normal"), 2)
+    type_order = {"action_proposal": 0, "notification": 1, "native_dm": 2}.get(
+        str(slide.get("slide_type") or ""), 3
+    )
+    # Tiebreak: action_proposals use oldest-first (they've been
+    # waiting), everything else uses newest-first (via reverse-lex).
+    ts = str(slide.get("created_at") or "")
+    tiebreak = ts if slide.get("slide_type") == "action_proposal" else _reverse_string(ts)
+    return (tier, type_order, tiebreak)
+
+
+def _reverse_string(s: str) -> str:
+    """Return a string that sorts in reverse lexicographic order of s."""
+    return "".join(chr(0x10FFFF - min(ord(c), 0x10FFFE)) for c in s) if s else "\x00"
+
+
+def _slide_from_action_proposal(
+    proposal: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    if not isinstance(proposal, dict):
+        return None
+    action_type = str(proposal.get("action_type") or "")
+    preview = proposal.get("preview") or {}
+    title = (
+        preview.get("title")
+        or preview.get("subject")
+        or preview.get("headline")
+        or _ACTION_CATEGORY_LABEL.get(action_type, action_type.replace(".", " · "))
+    )
+    body = (
+        preview.get("body")
+        or preview.get("summary")
+        or preview.get("detail")
+        or ""
+    )
+    priority = "high" if action_type in _HIGH_STAKES_ACTIONS else "normal"
+    return {
+        "slide_type": "action_proposal",
+        "priority": priority,
+        "source": _ACTION_SOURCE_MAP.get(action_type, "babyg"),
+        "category": _ACTION_CATEGORY_LABEL.get(action_type, "action"),
+        "title": str(title)[:120],
+        "body": str(body)[:200],
+        "created_at": proposal.get("created_at"),
+        "primary_href": f"/creator/bot#action-{proposal.get('id')}",
+        "primary_label": "review",
+        "secondary_href": f"/creator/bot#action-{proposal.get('id')}",
+        "secondary_label": "view details",
+    }
+
+
+def _slide_from_notification(
+    notif: dict[str, Any] | None,
+) -> dict[str, Any] | None:
+    """Convert a notifications row into a carousel slide.
+
+    Skip rules (return None):
+      * `link_path` missing — no destination = not actionable
+      * `kind='new_dm'` without an explicit `source_provider` —
+        legacy DM alert with no verified source. Native babyg DMs
+        surface via `_slides_from_native_dms` instead; Instagram
+        DMs must be explicitly tagged.
+    """
+    if not isinstance(notif, dict):
+        return None
+    link_path = str(notif.get("link_path") or "").strip()
+    if not link_path:
+        return None
+    kind = str(notif.get("kind") or "")
+    source_provider = str(notif.get("source_provider") or "").strip().lower()
+    if kind == "new_dm" and source_provider != "instagram":
+        # Source-truth: a `new_dm` without explicit Instagram origin
+        # is NOT presented as Instagram. Native babyg DMs are surfaced
+        # by _slides_from_native_dms; nothing to do here.
+        return None
+    source = _source_from_notification(kind, source_provider)
+    priority = str(notif.get("priority") or "normal").lower()
+    return {
+        "slide_type": "notification",
+        "priority": priority,
+        "source": source,
+        "category": kind.replace("_", " ") or "notice",
+        "title": str(notif.get("title") or "")[:120] or "there's an update",
+        "body": str(notif.get("body") or "")[:200],
+        "created_at": notif.get("created_at"),
+        "primary_href": link_path,
+        "primary_label": "review",
+        "secondary_href": "/creator/notifications",
+        "secondary_label": "view details",
+    }
+
+
+def _slides_from_native_dms(
+    user_id: str, *, max_slides: int = 3
+) -> list[dict[str, Any]]:
+    """Native babyg DM slides — source='babyg', never 'instagram'.
+
+    Reads only the native `dm_threads` / `dm_messages` tables. If the
+    user has no unread native DMs, returns []. Never raises.
+    """
+    if not user_id:
+        return []
+    try:
+        threads = dms.list_threads_for_user(user_id) or []
+    except Exception:
+        logger.exception("home_briefing.native_dms.threads_failed user=%s", user_id)
+        return []
+    if not threads:
+        return []
+    thread_ids = [str(t.get("id") or "") for t in threads if t.get("id")]
+    try:
+        unread_by_thread = dms.unread_counts_by_thread(user_id, thread_ids) or {}
+    except Exception:
+        logger.exception("home_briefing.native_dms.unread_failed user=%s", user_id)
+        return []
+    unread_ids = [tid for tid, n in unread_by_thread.items() if int(n or 0) > 0]
+    if not unread_ids:
+        return []
+    try:
+        previews = dms.last_messages_by_thread(unread_ids) or {}
+    except Exception:
+        logger.exception("home_briefing.native_dms.previews_failed user=%s", user_id)
+        previews = {}
+
+    slides: list[dict[str, Any]] = []
+    threads_by_id = {str(t.get("id") or ""): t for t in threads}
+    for tid in unread_ids:
+        thread = threads_by_id.get(tid) or {}
+        preview = previews.get(tid) or {}
+        peer_id = str(thread.get("peer_id") or "")
+        sender_name = _peer_display_name(peer_id)
+        body = str(preview.get("body") or "")[:180]
+        slides.append({
+            "slide_type": "native_dm",
+            "priority": "normal",
+            "source": "babyg",  # NEVER 'instagram' — native DM.
+            "category": "new message",
+            "title": f"New message from {sender_name}",
+            "body": body,
+            "created_at": preview.get("created_at") or thread.get("last_message_at"),
+            "primary_href": f"/creator/dm/{tid}",
+            "primary_label": "open",
+            "secondary_href": "/creator/dm",
+            "secondary_label": "all messages",
+        })
+    slides.sort(key=lambda s: str(s.get("created_at") or ""), reverse=True)
+    return slides[:max_slides]
+
+
+def _peer_display_name(peer_id: str) -> str:
+    """Look up a real display name for the peer. Falls back to
+    'someone' rather than fabricating a placeholder."""
+    if not peer_id:
+        return "someone"
+    try:
+        profile = profiles.get_creator_profile(peer_id) or {}
+    except Exception:
+        profile = {}
+    name = (
+        profile.get("full_name")
+        or profile.get("instagram_handle")
+        or ""
+    )
+    name = str(name).strip()
+    return name[:40] if name else "someone"
+
+
+def _source_from_notification(kind: str, source_provider: str) -> str:
+    """Trust `source_provider` first. Fall back to kind-based hints
+    ONLY for cases where the kind itself unambiguously identifies
+    the provider (e.g. `booking_reminder` = calendar). Never guess
+    Instagram from a bare `new_dm`.
+    """
+    if source_provider in {"instagram", "gmail", "calendar"}:
+        return source_provider
+    if kind == "booking_reminder":
         return "calendar"
-    if kind in {"job_match", "connection_request", "collab_match"}:
-        return "babyg"
     return "babyg"
 
 

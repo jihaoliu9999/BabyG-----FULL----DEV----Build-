@@ -25,7 +25,9 @@
         <span class="hv5-status-name">babyg</span>
         <span class="hv5-status-sep" aria-hidden="true">·</span>
         <span class="hv5-status-count">{{ home_v5_status.connected_count }} connected</span>
-        <span class="hv5-status-chev" aria-hidden="true">›</span>
+        <span class="hv5-status-caret" aria-hidden="true">
+          <svg viewBox="0 0 12 12" width="10" height="10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4.5l3 3 3-3"/></svg>
+        </span>
       </summary>
       <div class="hv5-status-panel">
         {% for row in home_v5_status.rows %}
@@ -69,42 +71,71 @@
               {%- endif -%}
             </span>
           </span>
-          <span class="hv5-status-row-action">{{ row.action_label }}<span class="hv5-status-chev" aria-hidden="true">›</span></span>
+          <span class="hv5-status-row-action">{{ row.action_label }}</span>
         </a>
         {% endfor %}
       </div>
     </details>
   </section>
 
-  {# ---------------- 2. primary manager update ---------------- #}
-  {% if home_v5_primary %}
+  {# ---------------- 2. primary manager update ----------------
+     One outer box. 0 slides -> clear state. 1 -> single card, no
+     carousel UI. 2+ -> swipeable carousel with dot indicator + count.
+     Outer .hv5-primary dimensions never change with slide count. #}
+  {% if home_v5_primary_slides %}
+  {% set _slide_count = home_v5_primary_slides|length %}
   <section class="hv5-section">
-    <a class="hv5-primary" href="{{ home_v5_primary.primary_href }}" data-source="{{ home_v5_primary.source }}">
-      <div class="hv5-primary-head">
-        <span class="hv5-primary-icon hv5-brand-{{ home_v5_primary.source }}" aria-hidden="true">
-          {% if home_v5_primary.source == 'instagram' %}
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17" cy="7" r="1" fill="currentColor" stroke="none"/></svg>
-          {% elif home_v5_primary.source == 'gmail' %}
-            <svg viewBox="0 0 24 24" fill="none"><rect x="2.5" y="5.5" width="19" height="13" rx="1.5" fill="#fff" stroke="#e0e0e0" stroke-width="0.6"/><path d="M2.5 6.5l9.5 7 9.5-7" stroke="#c5221f" stroke-width="1.6" fill="none"/><path d="M2.5 18.5V7l3 2v9.5z" fill="#4285f4"/><path d="M21.5 18.5V7l-3 2v9.5z" fill="#34a853"/><path d="M12 13.5l-9.5-7v.8l9.5 7 9.5-7v-.8z" fill="#c5221f"/></svg>
-          {% elif home_v5_primary.source == 'calendar' %}
-            <svg viewBox="0 0 24 24" fill="none"><rect x="3.5" y="4.5" width="17" height="16" rx="2" fill="#fff" stroke="#4285f4" stroke-width="1.4"/><path d="M3.5 8.5h17" stroke="#4285f4" stroke-width="1.4"/><text x="12" y="17" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="8" font-weight="700" fill="#4285f4">31</text><rect x="7.5" y="2.6" width="1.4" height="3.4" rx="0.7" fill="#4285f4"/><rect x="15.1" y="2.6" width="1.4" height="3.4" rx="0.7" fill="#4285f4"/></svg>
-          {% else %}
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 3"/></svg>
-          {% endif %}
-        </span>
-        <div class="hv5-primary-meta">
-          <span class="hv5-primary-category">{{ home_v5_primary.category }}</span>
+    <div class="hv5-primary{% if _slide_count > 1 %} hv5-primary-carousel{% endif %}"
+         data-hv5-carousel="{{ _slide_count }}"
+         {% if _slide_count > 1 %}role="region" aria-roledescription="carousel" aria-label="manager notifications"{% endif %}>
+      <div class="hv5-primary-track" data-hv5-track>
+        {% for slide in home_v5_primary_slides %}
+        <a class="hv5-slide" href="{{ slide.primary_href }}"
+           data-source="{{ slide.source }}"
+           data-slide-index="{{ loop.index0 }}"
+           {% if _slide_count > 1 %}role="group" aria-roledescription="slide" aria-label="{{ loop.index }} of {{ _slide_count }}"{% endif %}>
+          <div class="hv5-primary-head">
+            <span class="hv5-primary-icon hv5-brand-{{ slide.source }}" aria-hidden="true">
+              {% if slide.source == 'instagram' %}
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17" cy="7" r="1" fill="currentColor" stroke="none"/></svg>
+              {% elif slide.source == 'gmail' %}
+                <svg viewBox="0 0 24 24" fill="none"><rect x="2.5" y="5.5" width="19" height="13" rx="1.5" fill="#fff" stroke="#e0e0e0" stroke-width="0.6"/><path d="M2.5 6.5l9.5 7 9.5-7" stroke="#c5221f" stroke-width="1.6" fill="none"/><path d="M2.5 18.5V7l3 2v9.5z" fill="#4285f4"/><path d="M21.5 18.5V7l-3 2v9.5z" fill="#34a853"/><path d="M12 13.5l-9.5-7v.8l9.5 7 9.5-7v-.8z" fill="#c5221f"/></svg>
+              {% elif slide.source == 'calendar' %}
+                <svg viewBox="0 0 24 24" fill="none"><rect x="3.5" y="4.5" width="17" height="16" rx="2" fill="#fff" stroke="#4285f4" stroke-width="1.4"/><path d="M3.5 8.5h17" stroke="#4285f4" stroke-width="1.4"/><text x="12" y="17" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="8" font-weight="700" fill="#4285f4">31</text><rect x="7.5" y="2.6" width="1.4" height="3.4" rx="0.7" fill="#4285f4"/><rect x="15.1" y="2.6" width="1.4" height="3.4" rx="0.7" fill="#4285f4"/></svg>
+              {% else %}
+                {# native babyg — flame/orb mark, NEVER an Instagram gradient. #}
+                <img src="/static/assets/logo-bg.png" alt="" style="width:100%;height:100%;object-fit:contain;" />
+              {% endif %}
+            </span>
+            <div class="hv5-primary-meta">
+              <span class="hv5-primary-category">{{ slide.category }}</span>
+            </div>
+            {% set _ago = slide.created_at|human_ago %}
+            {% if _ago %}<span class="hv5-primary-time">{{ _ago }}</span>{% endif %}
+          </div>
+          <h2 class="hv5-primary-title">{{ slide.title }}</h2>
+          {% if slide.body %}<p class="hv5-primary-body">{{ slide.body }}</p>{% endif %}
+          <div class="hv5-primary-actions">
+            <span class="hv5-btn hv5-btn-primary">{{ slide.primary_label }}</span>
+            <span class="hv5-btn hv5-btn-ghost">{{ slide.secondary_label }}</span>
+          </div>
+        </a>
+        {% endfor %}
+      </div>
+      {% if _slide_count > 1 %}
+      <div class="hv5-primary-indicator" aria-hidden="true">
+        <div class="hv5-primary-dots" data-hv5-dots>
+          {% for slide in home_v5_primary_slides %}
+          <span class="hv5-primary-dot{% if loop.index0 == 0 %} is-active{% endif %}"
+                data-dot-index="{{ loop.index0 }}"></span>
+          {% endfor %}
         </div>
-        {% set _ago = home_v5_primary.created_at|human_ago %}
-        {% if _ago %}<span class="hv5-primary-time">{{ _ago }}</span>{% endif %}
+        <span class="hv5-primary-count" data-hv5-count>
+          <span data-hv5-current>1</span> / <span>{{ _slide_count }}</span>
+        </span>
       </div>
-      <h2 class="hv5-primary-title">{{ home_v5_primary.title }}</h2>
-      {% if home_v5_primary.body %}<p class="hv5-primary-body">{{ home_v5_primary.body }}</p>{% endif %}
-      <div class="hv5-primary-actions">
-        <span class="hv5-btn hv5-btn-primary">{{ home_v5_primary.primary_label }}</span>
-        <span class="hv5-btn hv5-btn-ghost">{{ home_v5_primary.secondary_label }}</span>
-      </div>
-    </a>
+      {% endif %}
+    </div>
   </section>
   {% else %}
   <section class="hv5-section">
@@ -125,7 +156,7 @@
   <section class="hv5-section">
     <div class="hv5-head">
       <h2 class="hv5-head-title">next</h2>
-      <a class="hv5-head-link" href="/creator/calendar">view calendar <span aria-hidden="true">›</span></a>
+      <a class="hv5-head-link" href="/creator/calendar">view calendar</a>
     </div>
     {% if _next %}
     <a class="hv5-next-row" href="/creator/calendar{% if _next.id %}/{{ _next.id }}{% endif %}">
@@ -137,7 +168,6 @@
         <strong>{{ _next.title or 'untitled event' }}</strong>
         {% if _next.venue_name %}<small>{{ _next.venue_name }}</small>{% endif %}
       </span>
-      <span class="hv5-chev" aria-hidden="true">›</span>
     </a>
     {% elif not calendar_connected %}
     <a class="hv5-next-row hv5-next-connect" href="/creator/profile/settings#integrations">
@@ -148,7 +178,6 @@
         <strong>connect calendar</strong>
         <small>see calls and deadlines here</small>
       </span>
-      <span class="hv5-chev" aria-hidden="true">›</span>
     </a>
     {% endif %}
   </section>
@@ -158,7 +187,7 @@
   <section class="hv5-section">
     <div class="hv5-head">
       <h2 class="hv5-head-title">brief</h2>
-      <a class="hv5-head-link" href="/creator/discover">view all <span aria-hidden="true">›</span></a>
+      <a class="hv5-head-link" href="/creator/discover">view all</a>
     </div>
     <div class="hv5-brief">
       {% for row in home_v5_brief %}
@@ -178,7 +207,6 @@
           <strong>{{ row.title }}</strong>
           {% if row.detail %}<small>{{ row.detail }}</small>{% endif %}
         </span>
-        <span class="hv5-chev" aria-hidden="true">›</span>
       </a>
       {% endfor %}
     </div>
@@ -199,7 +227,6 @@
           nothing yet today
         {%- endif -%}
       </span>
-      <span class="hv5-tile-chev" aria-hidden="true">›</span>
     </a>
     <a class="hv5-tile hv5-tile-watching" href="/creator/discover">
       <span class="hv5-tile-icon" aria-hidden="true">
@@ -217,9 +244,12 @@
           {%- if _opps > 0 -%}{{ _opps }} opportunit{{ 'ies' if _opps != 1 else 'y' }}{%- endif -%}
         {%- endif -%}
       </span>
-      <span class="hv5-tile-chev" aria-hidden="true">›</span>
     </a>
   </section>
 
 </main>
+{% endblock %}
+
+{% block foot_scripts %}
+<script src="/static/js/creator_home_carousel.js" defer></script>
 {% endblock %}
