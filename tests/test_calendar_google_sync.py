@@ -169,3 +169,148 @@ def test_maybe_auto_sync_empty_user_id_returns_none(monkeypatch):
     calendar_sync_module._LAST_AUTO_SYNC_AT.clear()
     assert calendar_sync_module.maybe_auto_sync("") is None
     assert called["n"] == 0
+
+
+# ---- diagnostic logging --------------------------------------------
+# The following tests lock the safe-ID-hint log lines that let us
+# diagnose live production sync failures without needing to reproduce
+# them locally. If sync starts failing again, we need production logs
+# to say exactly where.
+
+
+def test_sync_emits_start_calendars_and_complete_logs(monkeypatch, caplog):
+    from app.services import calendar_sync as calendar_sync_module
+
+    monkeypatch.setattr(
+        calendar_sync_module.oauth_connections,
+        "access_token_for_google",
+        lambda uid: "TOKEN",
+    )
+    monkeypatch.setattr(
+        calendar_sync_module.google_calendar,
+        "list_calendar_ids",
+        lambda token: ["primary", "work@group.calendar.google.com"],
+    )
+
+    def _list_events(token, *, calendar_id, time_min, time_max, max_results):
+        if calendar_id == "primary":
+            return [
+                {"id": "e-1", "start": {"dateTime": "2026-09-10T10:00:00Z"}, "_babyg_calendar_id": calendar_id},
+            ]
+        return []
+
+    monkeypatch.setattr(
+        calendar_sync_module.google_calendar,
+        "list_events",
+        _list_events,
+    )
+    monkeypatch.setattr(
+        calendar_sync_module.google_calendar,
+        "event_to_booking_payload",
+        lambda ev: {
+            "google_calendar_id": ev["_babyg_calendar_id"],
+            "google_event_id": ev["id"],
+            "starts_at": "2026-09-10T10:00:00Z",
+            "status": "confirmed",
+        },
+    )
+    monkeypatch.setattr(
+        calendar_sync_module.bookings,
+        "upsert_google_event",
+        lambda *, user_id, payload: True,
+    )
+
+    import logging
+    with caplog.at_level(logging.INFO):
+        result = calendar_sync_module.sync_google_calendar("creator-1")
+
+    assert result.imported == 1
+    assert result.error is None
+    log_text = "\n".join(rec.getMessage() for rec in caplog.records)
+    # Sync start log
+    assert "calendar_sync.start user=creator-1" in log_text
+    # Per-calendar counts (safe hint, not full id)
+    assert "calendar_sync.calendars user=creator-1 count=2" in log_text
+    assert "calendar_sync.events_per_calendar" in log_text
+    # Sync completion with import/skip/cancel breakdown
+    assert "calendar_sync.complete" in log_text
+    assert "imported=1" in log_text
+
+
+def test_sync_error_log_names_reason(monkeypatch, caplog):
+    from app.services import calendar_sync as calendar_sync_module
+
+    monkeypatch.setattr(
+        calendar_sync_module.oauth_connections,
+        "access_token_for_google",
+        lambda uid: "TOKEN",
+    )
+
+    def _boom(token):
+        raise calendar_sync_module.google_calendar.GoogleCalendarError("403")
+
+    monkeypatch.setattr(
+        calendar_sync_module.google_calendar,
+        "list_calendar_ids",
+        _boom,
+    )
+
+    import logging
+    with caplog.at_level(logging.INFO):
+        result = calendar_sync_module.sync_google_calendar("creator-2")
+
+    assert result.error == "google_error"
+    log_text = "\n".join(rec.getMessage() for rec in caplog.records)
+    assert "calendar_sync.error user=creator-2 reason=google_error" in log_text
+
+
+def test_sync_not_connected_logs_reason(monkeypatch, caplog):
+    from app.services import calendar_sync as calendar_sync_module
+
+    monkeypatch.setattr(
+        calendar_sync_module.oauth_connections,
+        "access_token_for_google",
+        lambda uid: None,
+    )
+    import logging
+    with caplog.at_level(logging.INFO):
+        result = calendar_sync_module.sync_google_calendar("creator-3")
+
+    assert result.error == "not_connected"
+    log_text = "\n".join(rec.getMessage() for rec in caplog.records)
+    assert "calendar_sync.error user=creator-3 reason=not_connected" in log_text
+
+
+def test_sync_id_hint_never_leaks_full_calendar_id(monkeypatch, caplog):
+    """The log helper masks all but the first 6 + last 6 characters of
+    each opaque id. Verify a Google-style calendar id never appears
+    fully in log output."""
+    from app.services import calendar_sync as calendar_sync_module
+
+    monkeypatch.setattr(
+        calendar_sync_module.oauth_connections,
+        "access_token_for_google",
+        lambda uid: "TOKEN",
+    )
+    long_cal_id = "verylongcalendarid_1234567890@group.calendar.google.com"
+    monkeypatch.setattr(
+        calendar_sync_module.google_calendar,
+        "list_calendar_ids",
+        lambda token: [long_cal_id],
+    )
+    monkeypatch.setattr(
+        calendar_sync_module.google_calendar,
+        "list_events",
+        lambda token, **kw: [],
+    )
+
+    import logging
+    with caplog.at_level(logging.INFO):
+        calendar_sync_module.sync_google_calendar("creator-4")
+
+    log_text = "\n".join(rec.getMessage() for rec in caplog.records)
+    # Full id must not appear
+    assert long_cal_id not in log_text
+    # Hint format present
+    assert "verylo" in log_text
+    assert "le.com" in log_text

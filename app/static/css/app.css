@@ -14284,3 +14284,181 @@ body:has(.dm-thread-composer-box input:focus) .creator-tabbar {
 @media (min-width: 768px) {
   .creator-home.hv5 [data-home-calendar] .creator-home-day-events { display: none; }
 }
+
+/* ==================================================================== */
+/* Full Calendar page — mobile trim.                                    */
+/* Desktop layout is preserved: every rule below is scoped to           */
+/* @media (max-width: 767px).                                           */
+/*                                                                      */
+/* Mobile control grouping (spec):                                      */
+/*   ROW 1: date-range title (left)   |   google synced (right)         */
+/*   ROW 2: previous | today | next | add item   (4 equal-height)      */
+/*   ROW 3: day | week | month   (3 equal-height pill tabs)             */
+/*                                                                      */
+/* Mobile view modes:                                                   */
+/*   day   — single-column timeline, unchanged                          */
+/*   week  — 7-day strip + selected day's column only                   */
+/*            (hide desktop 7-col head, hide non-selected columns)      */
+/*   month — 7-col date grid, compact cells                             */
+/* ==================================================================== */
+
+@media (max-width: 767px) {
+  .calendar-page { padding: 12px 14px calc(88px + env(safe-area-inset-bottom, 0px)) !important; }
+
+  /* Toolbar — ROW 1: title left, google synced pill right.
+     ROW 2: 4 nav/action buttons in equal-width grid.
+     Achieved by anchoring the pill to the top-right of the toolbar so
+     the title flows underneath naturally without touching desktop. */
+  .calendar-page .calendar-toolbar {
+    position: relative;
+    display: block !important;
+    padding: 6px 0 !important;
+  }
+  .calendar-page .calendar-toolbar > div:first-child { min-width: 0; padding-right: 110px; }
+  .calendar-page .calendar-toolbar h1 { font-size: 22px !important; margin: 2px 0 8px !important; overflow-wrap: anywhere; }
+  .calendar-page .calendar-toolbar .eyebrow { font-size: 10.5px !important; }
+
+  .calendar-page .calendar-toolbar-actions {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+    padding: 6px 0 4px !important;
+  }
+  /* Move the google-synced pill up to the top-right of the toolbar so
+     ROW 2 stays a clean 4-button grid. Position + margin lets it sit
+     inside the toolbar box without breaking the desktop layout. */
+  .calendar-page .calendar-toolbar-actions .status-pill {
+    position: absolute;
+    top: 2px;
+    right: 0;
+    font-size: 11px !important;
+    padding: 3px 8px !important;
+    height: 22px !important;
+    display: inline-flex; align-items: center; gap: 4px;
+    white-space: nowrap;
+  }
+  .calendar-page .calendar-toolbar-actions .btn {
+    padding: 0 !important;
+    height: 34px !important;
+    font-size: 12.5px !important;
+    display: inline-flex; align-items: center; justify-content: center;
+    white-space: nowrap;
+    min-width: 0;
+  }
+
+  /* View tabs — ROW 3: 3 equal-width pill anchors. */
+  .calendar-page .calendar-view-tabs {
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 6px !important;
+    margin: 6px 0 8px !important;
+    overflow: visible !important;
+  }
+  .calendar-page .calendar-view-tabs a {
+    padding: 0 !important;
+    height: 32px !important;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 12.5px !important;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  /* State messages */
+  .calendar-page .calendar-state { padding: 10px 12px !important; border-radius: 12px !important; font-size: 13px !important; gap: 8px !important; }
+
+  /* Footer actions (sync/disconnect) */
+  .calendar-page .calendar-footer-actions {
+    display: flex; flex-wrap: wrap; gap: 6px; padding-top: 8px;
+  }
+  .calendar-page .calendar-footer-actions .btn {
+    padding: 0 12px !important; height: 30px !important; font-size: 12px !important;
+  }
+
+  /* ---- WEEK mobile: 7-day strip + selected-day timeline only ---- */
+  .calendar-page .calendar-week-shell:not(.calendar-day-mode) .calendar-week-head,
+  .calendar-page .calendar-week-shell:not(.calendar-day-mode) .calendar-all-day-row {
+    display: none !important;
+  }
+  /* Timeline grid keeps rendering but on mobile week we collapse it
+     to the single selected day's column (hide all non-selected). */
+  .calendar-page .calendar-week-shell:not(.calendar-day-mode) .calendar-time-grid {
+    grid-template-columns: 44px 1fr !important;
+  }
+  .calendar-page .calendar-week-shell:not(.calendar-day-mode) .calendar-time-grid .calendar-day-column {
+    display: none !important;
+  }
+  .calendar-page .calendar-week-shell:not(.calendar-day-mode) .calendar-time-grid .calendar-day-column.is-selected {
+    display: block !important;
+  }
+  .calendar-page .calendar-mobile-days {
+    display: grid !important;
+    grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+    gap: 4px !important;
+    padding: 8px 4px !important;
+    margin: 0 0 8px !important;
+    border-radius: 12px;
+    border: 1px solid var(--border-subtle, rgba(255,255,255,0.08));
+    background: var(--surface-1, rgba(255,255,255,0.03));
+  }
+  .calendar-page .calendar-mobile-days a {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 2px;
+    padding: 6px 0;
+    border-radius: 8px;
+    min-width: 0;
+    color: inherit; text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .calendar-page .calendar-mobile-days a span {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--ink-dim, rgba(255,255,255,0.48));
+  }
+  .calendar-page .calendar-mobile-days a strong {
+    font-size: 14px; font-weight: 500;
+  }
+  .calendar-page .calendar-mobile-days a.is-today strong { color: var(--accent, #ff3b6b); }
+  .calendar-page .calendar-mobile-days a.is-selected { background: rgba(255,255,255,0.06); }
+
+  /* ---- DAY mobile: single column, keep vertical timeline ---- */
+  .calendar-page .calendar-week-shell.calendar-day-mode .calendar-week-head,
+  .calendar-page .calendar-week-shell.calendar-day-mode .calendar-all-day-row {
+    grid-template-columns: 44px 1fr !important;
+  }
+  .calendar-page .calendar-week-shell.calendar-day-mode .calendar-week-head .calendar-day-head:not(.is-selected),
+  .calendar-page .calendar-week-shell.calendar-day-mode .calendar-all-day-row .calendar-all-day-cell:not(.is-selected) {
+    display: none !important;
+  }
+  .calendar-page .calendar-week-shell.calendar-day-mode .calendar-time-grid {
+    grid-template-columns: 44px 1fr !important;
+  }
+  .calendar-page .calendar-week-shell.calendar-day-mode .calendar-time-grid .calendar-day-column:not(.is-selected) {
+    display: none !important;
+  }
+
+  /* ---- MONTH mobile: compact 7-col date grid ---- */
+  .calendar-page .calendar-month-shell { padding: 0 !important; }
+  .calendar-page .calendar-month-weekdays {
+    display: grid; grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 4px; padding: 4px 0; font-size: 10.5px;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--ink-dim, rgba(255,255,255,0.5));
+  }
+  .calendar-page .calendar-month-grid {
+    display: grid !important;
+    grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
+    gap: 3px !important;
+  }
+  .calendar-page .calendar-month-cell {
+    padding: 6px 4px !important;
+    min-height: 46px;
+    border-radius: 8px;
+    font-size: 12.5px;
+    display: flex; flex-direction: column; gap: 2px;
+    min-width: 0; overflow: hidden;
+  }
+  .calendar-page .calendar-month-cell span { font-size: 12px; font-weight: 500; }
+  .calendar-page .calendar-month-cell small {
+    font-size: 10px; line-height: 1.2;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+}

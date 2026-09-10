@@ -932,3 +932,108 @@ def test_home_mobile_calendar_all_day_event_shows_all_day_label(
     assert r.status_code == 200
     assert "ALL DAY" in r.text
     assert "shoot day" in r.text
+
+
+# ---------------------------------------------------------------------------
+# Home day-picker JS data-attribute contract
+# ---------------------------------------------------------------------------
+
+
+def test_home_day_picker_js_is_loaded(client: TestClient, stub_dashboard) -> None:
+    """The mobile day-picker JS must be included on Home. Without it,
+    tapping a different day cannot switch the visible per-day list."""
+    _signed_in(client)
+    stub_dashboard["google_calendar_connected"] = True
+    r = client.get("/creator")
+    assert r.status_code == 200
+    assert "/static/js/creator_home_calendar.js" in r.text
+
+
+def test_home_day_picker_markup_carries_required_data_attrs(
+    client: TestClient, stub_dashboard
+) -> None:
+    """The JS binds on these three attributes. If any of them drops
+    off in a future template edit the picker silently breaks."""
+    _signed_in(client)
+    stub_dashboard["google_calendar_connected"] = True
+    r = client.get("/creator")
+    body = r.text
+    assert 'data-home-day-strip' in body
+    assert 'data-home-day-events' in body
+    assert body.count('data-home-day="') == 7
+    assert body.count('data-home-day-list="') == 7
+
+
+def test_home_day_picker_js_uses_closest_selector(monkeypatch) -> None:
+    """Belt-and-suspenders lookup — the bug was that plain
+    getAttribute-on-target ancestor-walking mis-fired on iOS Safari
+    when the tap landed on the inner <strong>. The fixed script
+    uses element.closest() to hop straight to the anchor."""
+    js_path = "/home/user/BabyG-----FULL----DEV----Build-/app/static/js/creator_home_calendar.js"
+    with open(js_path) as f:
+        src = f.read()
+    assert ".closest(" in src
+    assert "preventDefault" in src
+    assert "stopPropagation" in src
+
+
+def test_home_day_picker_js_binds_per_cell_not_delegation(monkeypatch) -> None:
+    """Direct per-cell binding is the mobile-Safari-safe pattern.
+    Lock the shape."""
+    js_path = "/home/user/BabyG-----FULL----DEV----Build-/app/static/js/creator_home_calendar.js"
+    with open(js_path) as f:
+        src = f.read()
+    # Function that binds a single cell exists.
+    assert "function bindCell" in src or "function attach" in src
+
+
+# ---------------------------------------------------------------------------
+# Full Calendar mobile CSS contract
+# ---------------------------------------------------------------------------
+
+
+def _css() -> str:
+    with open("/home/user/BabyG-----FULL----DEV----Build-/app/static/css/app.css") as f:
+        return f.read()
+
+
+def test_full_calendar_mobile_toolbar_reflow_present() -> None:
+    css = _css()
+    # Toolbar becomes a block on mobile so the pill can float top-right.
+    assert ".calendar-page .calendar-toolbar {" in css
+    assert "position: relative" in css
+    # 4 action buttons in an equal grid.
+    assert "grid-template-columns: repeat(4, minmax(0, 1fr))" in css
+    # 3 view tabs in an equal grid.
+    assert "grid-template-columns: repeat(3, minmax(0, 1fr))" in css
+
+
+def test_full_calendar_mobile_week_hides_seven_column_head() -> None:
+    css = _css()
+    assert (
+        ".calendar-page .calendar-week-shell:not(.calendar-day-mode) .calendar-week-head"
+        in css
+    )
+    assert (
+        ".calendar-page .calendar-week-shell:not(.calendar-day-mode) .calendar-all-day-row"
+        in css
+    )
+
+
+def test_full_calendar_mobile_week_shows_only_selected_day_column() -> None:
+    css = _css()
+    assert (
+        ".calendar-page .calendar-week-shell:not(.calendar-day-mode) .calendar-time-grid .calendar-day-column {"
+        in css
+    )
+    assert (
+        ".calendar-page .calendar-week-shell:not(.calendar-day-mode) .calendar-time-grid .calendar-day-column.is-selected {"
+        in css
+    )
+
+
+def test_full_calendar_mobile_month_is_seven_column_compact_grid() -> None:
+    css = _css()
+    assert ".calendar-page .calendar-month-grid {" in css
+    # Same compact 7-column grid used for weekday labels.
+    assert ".calendar-page .calendar-month-weekdays {" in css

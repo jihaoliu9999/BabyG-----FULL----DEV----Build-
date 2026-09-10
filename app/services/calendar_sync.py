@@ -32,29 +32,60 @@ class CalendarSyncResult:
 
 
 def sync_google_calendar(user_id: str) -> CalendarSyncResult:
+    """Sync Google Calendar into local `bookings`.
+
+    Emits safe INFO logs at every stage so we can diagnose in
+    production without needing to reproduce locally:
+      * calendar_sync.start                       — sync began
+      * calendar_sync.calendars                   — how many + hint ids
+      * calendar_sync.events_per_calendar         — per-calendar counts
+      * calendar_sync.persistence                 — imported/skipped/cancelled
+      * calendar_sync.complete OR .error          — outcome + reason
+    No tokens, secrets, or event bodies are logged.
+    """
+    logger.info("calendar_sync.start user=%s", user_id)
     token = oauth_connections.access_token_for_google(user_id)
     if not token:
+        logger.info("calendar_sync.error user=%s reason=not_connected", user_id)
         return CalendarSyncResult(error="not_connected")
     now = datetime.now(UTC)
+    time_min = now - timedelta(days=30)
+    time_max = now + timedelta(days=180)
     try:
         calendar_ids = google_calendar.list_calendar_ids(token)
+        logger.info(
+            "calendar_sync.calendars user=%s count=%s hints=%s",
+            user_id,
+            len(calendar_ids),
+            [_id_hint(cid) for cid in calendar_ids[:10]],
+        )
         events: list[dict] = []
         for calendar_id in calendar_ids:
-            events.extend(
-                google_calendar.list_events(
-                    token,
-                    calendar_id=calendar_id,
-                    time_min=now - timedelta(days=30),
-                    time_max=now + timedelta(days=180),
-                    max_results=250,
-                )
+            calendar_events = google_calendar.list_events(
+                token,
+                calendar_id=calendar_id,
+                time_min=time_min,
+                time_max=time_max,
+                max_results=250,
             )
-    except google_calendar.GoogleCalendarError:
-        logger.info("Google Calendar sync failed for user %s", user_id)
+            logger.info(
+                "calendar_sync.events_per_calendar user=%s calendar_hint=%s count=%s",
+                user_id,
+                _id_hint(calendar_id),
+                len(calendar_events),
+            )
+            events.extend(calendar_events)
+    except google_calendar.GoogleCalendarError as exc:
+        logger.info(
+            "calendar_sync.error user=%s reason=google_error detail=%s",
+            user_id,
+            str(exc)[:200],
+        )
         return CalendarSyncResult(connected=True, error="google_error")
 
     imported = 0
     skipped = 0
+    cancelled = 0
     for event in events:
         payload = google_calendar.event_to_booking_payload(event)
         if not payload:
@@ -66,14 +97,36 @@ def sync_google_calendar(user_id: str) -> CalendarSyncResult:
                 google_calendar_id=str(payload.get("google_calendar_id") or "primary"),
                 google_event_id=str(payload.get("google_event_id") or ""),
             ):
-                imported += 1
+                cancelled += 1
             else:
                 skipped += 1
         elif bookings.upsert_google_event(user_id=user_id, payload=payload):
             imported += 1
         else:
             skipped += 1
-    return CalendarSyncResult(imported=imported, skipped=skipped, connected=True)
+    logger.info(
+        "calendar_sync.complete user=%s total_events=%s imported=%s skipped=%s cancelled=%s",
+        user_id,
+        len(events),
+        imported,
+        skipped,
+        cancelled,
+    )
+    return CalendarSyncResult(
+        imported=imported + cancelled,
+        skipped=skipped,
+        connected=True,
+    )
+
+
+def _id_hint(value: str) -> str:
+    """Safe, non-secret hint for logging opaque IDs."""
+    raw = str(value or "")
+    if not raw:
+        return "<empty>"
+    if len(raw) <= 12:
+        return raw
+    return raw[:6] + "..." + raw[-6:]
 
 
 def maybe_auto_sync(user_id: str) -> CalendarSyncResult | None:
