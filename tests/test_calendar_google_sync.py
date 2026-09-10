@@ -94,3 +94,78 @@ def test_sync_cancels_deleted_google_events(monkeypatch):
     assert calls["cancel"]["user_id"] == "user-1"
     assert calls["cancel"]["google_calendar_id"] == "cal-1"
     assert calls["cancel"]["google_event_id"] == "evt-1"
+
+
+# ---- maybe_auto_sync throttle ---------------------------------------
+
+
+def test_maybe_auto_sync_first_call_fires(monkeypatch):
+    from app.services import calendar_sync as calendar_sync_module
+
+    monkeypatch.setattr(
+        calendar_sync_module,
+        "sync_google_calendar",
+        lambda uid: calendar_sync_module.CalendarSyncResult(imported=2, connected=True),
+    )
+    calendar_sync_module._LAST_AUTO_SYNC_AT.clear()
+    result = calendar_sync_module.maybe_auto_sync("user-a")
+    assert result is not None
+    assert result.imported == 2
+    assert result.connected is True
+
+
+def test_maybe_auto_sync_second_call_within_window_throttled(monkeypatch):
+    from app.services import calendar_sync as calendar_sync_module
+
+    monkeypatch.setattr(
+        calendar_sync_module,
+        "sync_google_calendar",
+        lambda uid: calendar_sync_module.CalendarSyncResult(imported=1, connected=True),
+    )
+    calendar_sync_module._LAST_AUTO_SYNC_AT.clear()
+    r1 = calendar_sync_module.maybe_auto_sync("user-a")
+    r2 = calendar_sync_module.maybe_auto_sync("user-a")
+    assert r1 is not None
+    assert r2 is None
+
+
+def test_maybe_auto_sync_per_user_isolation(monkeypatch):
+    from app.services import calendar_sync as calendar_sync_module
+
+    monkeypatch.setattr(
+        calendar_sync_module,
+        "sync_google_calendar",
+        lambda uid: calendar_sync_module.CalendarSyncResult(imported=1, connected=True),
+    )
+    calendar_sync_module._LAST_AUTO_SYNC_AT.clear()
+    a = calendar_sync_module.maybe_auto_sync("user-a")
+    b = calendar_sync_module.maybe_auto_sync("user-b")
+    assert a is not None
+    assert b is not None
+
+
+def test_maybe_auto_sync_swallows_sync_exceptions(monkeypatch):
+    from app.services import calendar_sync as calendar_sync_module
+
+    def _boom(uid):
+        raise RuntimeError("google down")
+
+    monkeypatch.setattr(calendar_sync_module, "sync_google_calendar", _boom)
+    calendar_sync_module._LAST_AUTO_SYNC_AT.clear()
+    result = calendar_sync_module.maybe_auto_sync("user-a")
+    assert result is None
+
+
+def test_maybe_auto_sync_empty_user_id_returns_none(monkeypatch):
+    from app.services import calendar_sync as calendar_sync_module
+
+    called = {"n": 0}
+
+    def _sync(uid):
+        called["n"] += 1
+        return calendar_sync_module.CalendarSyncResult(imported=0, connected=True)
+
+    monkeypatch.setattr(calendar_sync_module, "sync_google_calendar", _sync)
+    calendar_sync_module._LAST_AUTO_SYNC_AT.clear()
+    assert calendar_sync_module.maybe_auto_sync("") is None
+    assert called["n"] == 0

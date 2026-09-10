@@ -679,3 +679,100 @@ def test_unread_count_for_creator_swallows_error(monkeypatch) -> None:
     fake = _install(monkeypatch)
     fake.raise_on = {"instagram_dm_threads"}
     assert instagram_dms.unread_count_for_creator("c1") == 0
+
+
+# ---- direction detection: strict triangulation (additive) ------------
+
+
+def test_ingest_outbound_by_sender_match_without_echo(monkeypatch) -> None:
+    """sender == connected IG account (no is_echo flag) is still
+    outbound; unread must not increment, no notification."""
+    fake = _install(monkeypatch)
+    fake.oauth_rows = [
+        {"user_id": "creator-1", "provider": "instagram", "provider_account_id": "acct-1"}
+    ]
+    stats = instagram_dms.ingest_webhook_payload({
+        "object": "instagram",
+        "entry": [{
+            "id": "acct-1",
+            "messaging": [{
+                "sender": {"id": "acct-1"},
+                "recipient": {"id": "peer-9"},
+                "timestamp": 1699999999000,
+                "message": {"mid": "m-strict-out", "text": "hey"},
+            }],
+        }],
+    })
+    assert stats["messages_ingested"] == 1
+    assert fake.messages[0]["direction"] == "outbound"
+    assert fake.threads[0]["unread_count"] == 0
+
+
+def test_ingest_inbound_only_when_recipient_is_connected_account(monkeypatch) -> None:
+    fake = _install(monkeypatch)
+    fake.oauth_rows = [
+        {"user_id": "creator-1", "provider": "instagram", "provider_account_id": "acct-1"}
+    ]
+    instagram_dms.ingest_webhook_payload({
+        "object": "instagram",
+        "entry": [{
+            "id": "acct-1",
+            "messaging": [{
+                "sender": {"id": "peer-99"},
+                "recipient": {"id": "acct-1"},
+                "timestamp": 1699999999000,
+                "message": {"mid": "m-strict-in", "text": "hi"},
+            }],
+        }],
+    })
+    assert fake.messages[0]["direction"] == "inbound"
+    assert fake.threads[0]["unread_count"] == 1
+
+
+def test_ingest_treats_messaging_recipient_id_variant_as_inbound(monkeypatch) -> None:
+    """Real Meta payload: entry.id (owner id) != messaging.recipient.id
+    because Instagram Login API uses two id-spaces. The message was
+    still routed to us via entry.id, so a peer sender means the
+    creator is the recipient. Must be classified inbound."""
+    fake = _install(monkeypatch)
+    fake.oauth_rows = [
+        {"user_id": "creator-1", "provider": "instagram", "provider_account_id": "acct-owner"}
+    ]
+    instagram_dms.ingest_webhook_payload({
+        "object": "instagram",
+        "entry": [{
+            "id": "acct-owner",  # our resolved owner id
+            "messaging": [{
+                "sender": {"id": "peer-99"},        # not us
+                "recipient": {"id": "acct-msg-recipient-id"},  # different id-space
+                "timestamp": 1699999999000,
+                "message": {"mid": "m-strict-inbound", "text": "hi"},
+            }],
+        }],
+    })
+    assert fake.messages[0]["direction"] == "inbound"
+    assert fake.threads[0]["unread_count"] == 1
+
+
+def test_ingest_drops_self_to_self_ambiguity(monkeypatch, caplog) -> None:
+    fake = _install(monkeypatch)
+    fake.oauth_rows = [
+        {"user_id": "creator-1", "provider": "instagram", "provider_account_id": "acct-1"}
+    ]
+    import logging
+    with caplog.at_level(logging.INFO):
+        stats = instagram_dms.ingest_webhook_payload({
+            "object": "instagram",
+            "entry": [{
+                "id": "acct-1",
+                "messaging": [{
+                    "sender": {"id": "acct-1"},
+                    "recipient": {"id": "acct-1"},
+                    "timestamp": 1699999999000,
+                    "message": {"mid": "m-self", "text": "??"},
+                }],
+            }],
+        })
+    assert stats["messages_ingested"] == 0
+    assert fake.messages == []
+    assert any("ambiguous_direction" in rec.message for rec in caplog.records)

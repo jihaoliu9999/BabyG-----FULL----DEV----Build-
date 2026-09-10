@@ -2588,14 +2588,21 @@ async def calendar_list(
     else:
         range_start = _week_start(selected)
         range_end = range_start + timedelta(days=7)
+    google_connection = oauth_connections.get_google_connection(session["user_id"])
+    google_connected = oauth_connections.google_calendar_connected(google_connection)
+    # Best-effort freshness: pull any new Google events into local
+    # bookings before the read. Rate-limited per-user by
+    # calendar_sync so navigation doesn't stampede Google. Never
+    # raises — throttled calls return None and the read below still
+    # renders whatever is already persisted.
+    if google_connected:
+        calendar_sync.maybe_auto_sync(session["user_id"])
     rows = bookings.list_for_user_range(
         session["user_id"],
         starts_before=_iso_utc(datetime.combine(range_end, time.min, tzinfo=UTC)),
         ends_after=_iso_utc(datetime.combine(range_start, time.min, tzinfo=UTC)),
         limit=500,
     )
-    google_connection = oauth_connections.get_google_connection(session["user_id"])
-    google_connected = oauth_connections.google_calendar_connected(google_connection)
     previous_date = (
         selected - timedelta(days=1)
         if view == "day"

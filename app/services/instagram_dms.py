@@ -508,8 +508,43 @@ def _persist_message(
         )
         return None
 
+    # Strict direction triangulation — no guessing.
+    #
+    # By the time we get here the entry-owner (ig_business_account_id)
+    # has already been resolved to our creator via
+    # _resolve_creator_from_ig_account. Meta's Instagram Login API
+    # uses two different id-spaces in the same webhook payload:
+    #   * entry.id             — stable owner id (== provider_account_id)
+    #   * messaging.recipient  — separate messaging-recipient id
+    # Both can represent "us" but with different values. We therefore
+    # trust the sender field (single-id-space triangulation):
+    #
+    #   * OUTBOUND when Meta marks the message as an echo, OR the
+    #     sender id equals the connected owner id.
+    #   * INBOUND when the sender id exists AND does not equal the
+    #     owner id — the entry was already routed to us, so a peer
+    #     sender means the message was sent TO us.
+    #   * AMBIGUOUS/INVALID otherwise (missing sender, or sender ==
+    #     recipient which is a self-to-self edge case). Ambiguous
+    #     events are dropped without persistence — they must NOT
+    #     create alerts, unread state, or badges. Logged with an
+    #     id_hint for triage.
     is_echo = bool(message.get("is_echo"))
-    if is_echo or sender_id == ig_business_account_id:
+    sender_is_us = bool(sender_id) and sender_id == ig_business_account_id
+    self_to_self = bool(sender_id) and sender_id == recipient_id
+    if self_to_self or not sender_id:
+        # Self-to-self and missing-sender are both invalid — drop
+        # without persistence, no unread bump, no notification.
+        logger.info(
+            "instagram_dms.message.dropped reason=ambiguous_direction "
+            "mid_hint=%s sender_is_us=%s self_to_self=%s is_echo=%s",
+            _id_hint(ig_message_id),
+            sender_is_us,
+            self_to_self,
+            is_echo,
+        )
+        return None
+    if is_echo or sender_is_us:
         direction = "outbound"
         peer_ig_id = recipient_id
         peer_username = str((msg.get("recipient") or {}).get("username") or "").strip()

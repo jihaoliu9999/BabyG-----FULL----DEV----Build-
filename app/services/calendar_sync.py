@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
@@ -10,6 +11,16 @@ from app.integrations import google_calendar
 from app.services import bookings, oauth_connections
 
 logger = logging.getLogger(__name__)
+
+# Throttle for auto-sync freshness: opening the calendar page
+# repeatedly must not stampede Google. Manual sync (the button)
+# bypasses this.
+AUTO_SYNC_MIN_INTERVAL_SECONDS = 120.0
+
+# Process-local last-sync timestamps. A multi-process deploy will
+# duplicate at worst one Google call per box per interval, which
+# is acceptable.
+_LAST_AUTO_SYNC_AT: dict[str, float] = {}
 
 
 @dataclass(frozen=True)
@@ -63,3 +74,26 @@ def sync_google_calendar(user_id: str) -> CalendarSyncResult:
         else:
             skipped += 1
     return CalendarSyncResult(imported=imported, skipped=skipped, connected=True)
+
+
+def maybe_auto_sync(user_id: str) -> CalendarSyncResult | None:
+    """Trigger a Google sync at most every AUTO_SYNC_MIN_INTERVAL_SECONDS
+    per user. Returns the sync result when the sync actually fires,
+    None when throttled or the user id is missing.
+
+    Never raises — callers use it as best-effort freshness on the
+    calendar render path so newly-added real Google events surface
+    without the creator having to tap the manual sync button.
+    """
+    if not user_id:
+        return None
+    now_mono = time.monotonic()
+    last = _LAST_AUTO_SYNC_AT.get(user_id)
+    if last is not None and (now_mono - last) < AUTO_SYNC_MIN_INTERVAL_SECONDS:
+        return None
+    _LAST_AUTO_SYNC_AT[user_id] = now_mono
+    try:
+        return sync_google_calendar(user_id)
+    except Exception:
+        logger.exception("Google Calendar auto-sync crashed for user %s", user_id)
+        return None
