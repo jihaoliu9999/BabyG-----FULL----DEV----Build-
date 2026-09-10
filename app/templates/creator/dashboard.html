@@ -151,25 +151,14 @@
   </section>
   {% endif %}
 
-  {# ---------------- 3. next ---------------- #}
+  {# ---------------- 3. current week ---------------- #}
   {% set _next = upcoming_bookings[0] if upcoming_bookings else None %}
   <section class="hv5-section">
     <div class="hv5-head">
-      <h2 class="hv5-head-title">next</h2>
+      <h2 class="hv5-head-title">calendar</h2>
       <a class="hv5-head-link" href="/creator/calendar">view calendar</a>
     </div>
-    {% if _next %}
-    <a class="hv5-next-row" href="/creator/calendar{% if _next.id %}/{{ _next.id }}{% endif %}">
-      <span class="hv5-next-time">
-        {%- if _next.starts_at -%}{{ _next.starts_at|short_time }}{%- else -%}tbd{%- endif -%}
-      </span>
-      <span class="hv5-next-divider" aria-hidden="true"></span>
-      <span class="hv5-next-body">
-        <strong>{{ _next.title or 'untitled event' }}</strong>
-        {% if _next.venue_name %}<small>{{ _next.venue_name }}</small>{% endif %}
-      </span>
-    </a>
-    {% elif not calendar_connected %}
+    {% if not calendar_connected %}
     <a class="hv5-next-row hv5-next-connect" href="/creator/profile/settings#integrations">
       <span class="hv5-brand hv5-brand-calendar" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none"><rect x="3.5" y="4.5" width="17" height="16" rx="2" fill="#fff" stroke="#4285f4" stroke-width="1.4"/><path d="M3.5 8.5h17" stroke="#4285f4" stroke-width="1.4"/><rect x="7.5" y="2.6" width="1.4" height="3.4" rx="0.7" fill="#4285f4"/><rect x="15.1" y="2.6" width="1.4" height="3.4" rx="0.7" fill="#4285f4"/></svg>
@@ -179,6 +168,55 @@
         <small>see calls and deadlines here</small>
       </span>
     </a>
+    {% else %}
+    <div class="creator-calendar-week-preview">
+      <div class="calendar-home-range">{{ calendar_grid.week_start.strftime('%b %d') }} - {{ calendar_grid.week_end.strftime('%b %d') }}</div>
+      <div class="calendar-mobile-days" aria-label="current week days">
+        {% for day in calendar_grid.week_days %}
+        <a class="{{ 'is-selected' if day.is_selected }} {{ 'is-today' if day.is_today }}" href="/creator/calendar?view=day&date={{ day.iso }}">
+          <span>{{ day.weekday }}</span><strong>{{ day.day }}</strong>
+        </a>
+        {% endfor %}
+      </div>
+      <div class="calendar-week-head">
+        <div class="calendar-time-gutter"></div>
+        {% for day in calendar_grid.week_days %}
+        <a class="calendar-day-head {{ 'is-today' if day.is_today }}" href="/creator/calendar?view=day&date={{ day.iso }}"><span>{{ day.weekday }}</span><strong>{{ day.day }}</strong></a>
+        {% endfor %}
+      </div>
+      <div class="calendar-all-day-row">
+        <div class="calendar-time-gutter"><span>all-day</span></div>
+        {% for day in calendar_grid.week_days %}
+        <div class="calendar-all-day-cell {{ 'is-selected' if day.is_selected }}">
+          {% for event in day.all_day_events[:2] %}<a href="/creator/calendar/{{ event.id }}" class="calendar-all-day-event">{{ event.title }}</a>{% endfor %}
+        </div>
+        {% endfor %}
+      </div>
+      <div class="calendar-time-grid calendar-home-grid">
+        <div class="calendar-time-column">
+          {% for hour in calendar_grid.hours %}{% if hour.hour >= 6 and hour.hour <= 22 %}<span style="top: calc(({{ hour.hour }} - 6) * var(--calendar-hour-h));">{{ hour.label }}</span>{% endif %}{% endfor %}
+        </div>
+        {% for day in calendar_grid.week_days %}
+        <div class="calendar-day-column {{ 'is-selected' if day.is_selected }}">
+          {% for hour in calendar_grid.hours %}{% if hour.hour >= 6 and hour.hour <= 22 %}<span class="calendar-hour-line" style="top: calc(({{ hour.hour }} - 6) * var(--calendar-hour-h));"></span>{% endif %}{% endfor %}
+          {% for event in day.timed_events %}
+          {% if event.start_dt.hour >= 6 and event.start_dt.hour <= 22 %}
+          <a href="/creator/calendar/{{ event.id }}" class="calendar-timed-event" style="top: {{ ((event.start_dt.hour * 60 + event.start_dt.minute - 360) / 1020 * 100) }}%; height: max(28px, {{ event.height_pct * 1440 / 1020 }}%); left: calc({{ event.left_pct }}% + 3px); width: calc({{ event.width_pct }}% - 6px);">
+            <strong>{{ event.title }}</strong>
+            <span>{{ event.time_label }}</span>
+          </a>
+          {% endif %}
+          {% endfor %}
+        </div>
+        {% endfor %}
+      </div>
+      {% if not upcoming_bookings %}
+      <a class="creator-calendar-empty calendar-home-empty" href="/creator/calendar">
+        <span><strong>nothing on the books</strong><small>your connected calendar has no events this week.</small></span>
+        <span class="creator-row-chevron" aria-hidden="true">&#8250;</span>
+      </a>
+      {% endif %}
+    </div>
     {% endif %}
   </section>
 

@@ -409,14 +409,14 @@ def test_home_v5_handled_watching_pair_is_mobile_safe() -> None:
 
 def test_home_v5_section_order_matches_spec() -> None:
     """The v5 section order is fixed:
-       status pill → primary → next → brief → handled/watching."""
+       status pill → primary → calendar → brief → handled/watching."""
     status_pos = DASHBOARD_TEMPLATE.index("hv5-status")
     # Primary card + clear state both live in the same section slot, one
     # rendered per request. Pick the earlier of whichever markers exist.
     primary_pos = DASHBOARD_TEMPLATE.index("hv5-primary")
     clear_pos = DASHBOARD_TEMPLATE.index("hv5-clear")
     primary_slot_pos = min(primary_pos, clear_pos)
-    next_pos = DASHBOARD_TEMPLATE.index(">next<")
+    next_pos = DASHBOARD_TEMPLATE.index(">calendar<")
     brief_pos = DASHBOARD_TEMPLATE.index(">brief<")
     pair_pos = DASHBOARD_TEMPLATE.index("hv5-pair")
     assert status_pos < primary_slot_pos < next_pos < brief_pos < pair_pos

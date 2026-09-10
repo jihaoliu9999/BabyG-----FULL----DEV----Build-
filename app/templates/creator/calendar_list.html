@@ -1,97 +1,131 @@
 {% extends "base.html" %}
 
-{% block title %}today - babyg{% endblock %}
+{% block title %}calendar - babyg{% endblock %}
 
 {% block content %}
-<main class="wrap calendar-v2-page">
-  <header class="calendar-v2-head">
+<div class="ambient-page calendar-page">
+<div class="wrap ambient-shell">
+  <div class="calendar-toolbar">
     <div>
-      <span class="mono">manager context</span>
-      <h1>today</h1>
+      <span class="mono eyebrow">calendar</span>
+      <h1>{% if calendar_view == 'month' %}{{ month_grid.month_label }}{% elif calendar_view == 'day' %}{{ selected_date.strftime('%a, %b %d') }}{% else %}{{ calendar_grid.week_start.strftime('%b %d') }} - {{ calendar_grid.week_end.strftime('%b %d') }}{% endif %}</h1>
     </div>
-    <a class="btn btn-lime btn-sm" href="/creator/calendar/new">add item</a>
-  </header>
+    <div class="calendar-toolbar-actions">
+      {% if google_connected %}<span class="status-pill"><span class="pulse-dot"></span> google synced</span>{% endif %}
+      <a class="btn btn-ghost btn-sm" href="/creator/calendar?view={{ calendar_view }}&date={{ previous_date.isoformat() }}">previous</a>
+      <a class="btn btn-ghost btn-sm" href="/creator/calendar?view={{ calendar_view }}">today</a>
+      <a class="btn btn-ghost btn-sm" href="/creator/calendar?view={{ calendar_view }}&date={{ next_date.isoformat() }}">next</a>
+      <a class="btn btn-lime btn-sm" href="/creator/calendar/new">add item</a>
+    </div>
+  </div>
 
   {% if calendar_notice %}
-  <div class="calendar-v2-notice">{{ calendar_notice }}</div>
+  <div class="calendar-state calendar-state-notice">{{ calendar_notice }}</div>
   {% endif %}
 
   {% if not google_connected %}
-  <section class="calendar-v2-connect">
-    <span class="mono">Google Calendar</span>
-    <h2>{% if google_configured %}Connect your real schedule.{% else %}Google Calendar is not configured yet.{% endif %}</h2>
-    <p>BabyG can only reason about calls and deadlines that exist in its database or connected calendar feed.</p>
+  <div class="calendar-state">
+    <div>
+      <span class="mono eyebrow">google calendar</span>
+      <p>{% if google_configured %}connect to pull your real schedule into babyg.{% else %}google calendar needs keys before it can connect.{% endif %}</p>
+    </div>
     {% if google_configured %}
-    <a class="btn btn-ghost btn-sm" href="/creator/google/connect?service=calendar&next=/creator/calendar">connect Google Calendar</a>
+    <a class="btn btn-ghost btn-sm" href="/creator/google/connect?service=calendar&next=/creator/calendar">connect google calendar</a>
     {% else %}
     <span class="badge badge-muted">not configured</span>
     {% endif %}
+  </div>
+  {% endif %}
+
+  <nav class="calendar-view-tabs" aria-label="calendar views">
+    <a class="{{ 'is-active' if calendar_view == 'day' }}" href="/creator/calendar?view=day&date={{ selected_date.isoformat() }}">day</a>
+    <a class="{{ 'is-active' if calendar_view == 'week' }}" href="/creator/calendar?view=week&date={{ selected_date.isoformat() }}">week</a>
+    <a class="{{ 'is-active' if calendar_view == 'month' }}" href="/creator/calendar?view=month&date={{ selected_date.isoformat() }}">month</a>
+  </nav>
+
+  {% if calendar_view in ['day', 'week'] %}
+  <section class="calendar-week-shell {{ 'calendar-day-mode' if calendar_view == 'day' }}" aria-label="{{ calendar_view }} calendar">
+    <div class="calendar-mobile-days" aria-label="current week days">
+      {% for day in calendar_grid.week_days %}
+      <a class="{{ 'is-selected' if day.is_selected }} {{ 'is-today' if day.is_today }}" href="/creator/calendar?view={{ calendar_view }}&date={{ day.iso }}">
+        <span>{{ day.weekday }}</span><strong>{{ day.day }}</strong>
+      </a>
+      {% endfor %}
+    </div>
+    <div class="calendar-week-head">
+      <div class="calendar-time-gutter"></div>
+      {% for day in calendar_grid.week_days %}
+      <a class="calendar-day-head {{ 'is-today' if day.is_today }} {{ 'is-selected' if day.is_selected }}" href="/creator/calendar?view=day&date={{ day.iso }}">
+        <span>{{ day.weekday }}</span><strong>{{ day.day }}</strong>
+      </a>
+      {% endfor %}
+    </div>
+    <div class="calendar-all-day-row">
+      <div class="calendar-time-gutter"><span>all-day</span></div>
+      {% for day in calendar_grid.week_days %}
+      <div class="calendar-all-day-cell {{ 'is-selected' if day.is_selected }}">
+        {% for event in day.all_day_events[:3] %}
+        <a href="/creator/calendar/{{ event.id }}" class="calendar-all-day-event">{{ event.title }}</a>
+        {% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+    <div class="calendar-time-grid">
+      <div class="calendar-time-column">
+        {% for hour in calendar_grid.hours %}<span style="top: calc({{ hour.hour }} * var(--calendar-hour-h));">{{ hour.label }}</span>{% endfor %}
+      </div>
+      {% for day in calendar_grid.week_days %}
+      <div class="calendar-day-column {{ 'is-selected' if day.is_selected }}">
+        {% for hour in calendar_grid.hours %}<span class="calendar-hour-line" style="top: calc({{ hour.hour }} * var(--calendar-hour-h));"></span>{% endfor %}
+        {% set timed_events = calendar_grid.selected_day.timed_events if calendar_view == 'day' else day.timed_events %}
+        {% if calendar_view == 'day' and not day.is_selected %}
+        {% else %}
+        {% for event in timed_events %}
+        <a href="/creator/calendar/{{ event.id }}" class="calendar-timed-event" style="top: {{ event.top_pct }}%; height: max(28px, {{ event.height_pct }}%); left: calc({{ event.left_pct }}% + 3px); width: calc({{ event.width_pct }}% - 6px);">
+          <strong>{{ event.title }}</strong>
+          <span>{{ event.time_label }}</span>
+        </a>
+        {% endfor %}
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% elif calendar_view == 'month' %}
+  <section class="calendar-month-shell" aria-label="month calendar">
+    <div class="calendar-month-weekdays">{% for label in ['mon','tue','wed','thu','fri','sat','sun'] %}<span>{{ label }}</span>{% endfor %}</div>
+    <div class="calendar-month-grid">
+      {% for day in month_grid.month_days %}
+      <a class="calendar-month-cell {{ 'is-outside' if not day.in_month }} {{ 'is-today' if day.is_today }}" href="/creator/calendar?view=day&date={{ day.iso }}">
+        <span>{{ day.day }}</span>
+        {% for event in day.events[:3] %}
+        <small>{{ event.title }}</small>
+        {% endfor %}
+      </a>
+      {% endfor %}
+    </div>
   </section>
   {% endif %}
 
-  {% set next = bookings[0] if bookings else none %}
-  <section class="calendar-v2-read" aria-label="BabyG calendar read">
-    <span class="mono">BabyG's read</span>
-    {% if next %}
-    <h2>Next up: {{ next.title }}</h2>
-    <p>{{ next.starts_at|short_dt }}{% if next.venue_name %} at {{ next.venue_name }}{% endif %}.</p>
-    <strong>
-      {% if next.status == 'pending' %}
-      Confirm this before it becomes a scheduling risk.
-      {% else %}
-      Review the context and keep the plan current.
-      {% endif %}
-    </strong>
-    {% else %}
-    <h2>No upcoming context in this view.</h2>
-    <p>{% if google_connected %}Sync Google Calendar or add a local deadline when something needs tracking.{% else %}Connect calendar or add a local item so BabyG can watch timing.{% endif %}</p>
-    {% endif %}
-  </section>
-
-  <nav class="calendar-v2-tabs" aria-label="calendar horizon">
-    <a class="{{ 'is-active' if horizon == 'upcoming' or not horizon }}" href="/creator/calendar?horizon=upcoming">upcoming</a>
-    <a class="{{ 'is-active' if horizon == 'past' }}" href="/creator/calendar?horizon=past">past</a>
-    <a class="{{ 'is-active' if horizon == 'all' }}" href="/creator/calendar?horizon=all">all</a>
-  </nav>
-
-  {% if bookings %}
-  <section class="calendar-v2-stack" aria-label="calendar items">
-    {% for b in bookings %}
-    <article class="calendar-v2-row">
-      <a class="calendar-v2-row-main" href="/creator/calendar/{{ b.id }}">
-        <span class="calendar-v2-type">{{ b.type }}</span>
-        <strong>{{ b.title }}</strong>
-        <small>{{ b.starts_at|short_dt }}{% if b.venue_name %} &middot; {{ b.venue_name }}{% endif %}</small>
-      </a>
-      <div class="calendar-v2-row-actions">
-        {% if b.google_event_id %}<span class="mono">google</span>{% endif %}
-        <a class="btn btn-ghost btn-sm" href="/creator/calendar/{{ b.id }}/edit">edit</a>
-        <form method="post" action="/creator/calendar/{{ b.id }}/cancel">
-          {% include "_partials/csrf.html" %}
-          <button type="submit" class="btn btn-ghost btn-sm">cancel</button>
-        </form>
-      </div>
-    </article>
-    {% endfor %}
-  </section>
-  {% else %}
-  <section class="calendar-v2-empty">
-    <span class="mono">nothing scheduled</span>
-    <p>{% if google_connected %}Sync Google Calendar or add a local item.{% else %}Connect Google Calendar or add a local item.{% endif %}</p>
-  </section>
+  {% if not bookings and google_connected %}
+  <div class="calendar-state calendar-empty-state">
+    <span class="mono">nothing scheduled.</span>
+    <p>this period has no real calendar events.</p>
+  </div>
   {% endif %}
 
   {% if google_connected %}
-  <div class="calendar-v2-provider-actions">
+  <div class="calendar-footer-actions">
     <form method="post" action="/creator/google/calendar/sync">
       {% include "_partials/csrf.html" %}
-      <button type="submit" class="btn btn-ghost btn-sm">sync Google now</button>
+      <button type="submit" class="btn btn-ghost btn-sm">sync google now</button>
     </form>
     <form method="post" action="/creator/google/calendar/disconnect">
       {% include "_partials/csrf.html" %}
-      <button type="submit" class="btn btn-ghost btn-sm">disconnect Calendar</button>
+      <button type="submit" class="btn btn-ghost btn-sm">disconnect calendar</button>
     </form>
   </div>
   {% endif %}
-</main>
+</div>
+</div>
 {% endblock %}

@@ -497,6 +497,14 @@ def list_deals(
         if stage and stage in STAGES:
             query = query.eq("stage", stage)
         rows = list(query.execute().data or [])
+        rows.sort(
+            key=lambda row: (
+                str(row.get("last_touch_at") or ""),
+                str(row.get("updated_at") or ""),
+                str(row.get("id") or ""),
+            ),
+            reverse=True,
+        )
     except Exception:
         logger.info("babyg_deals.list_deals_failed", exc_info=True)
         return []

@@ -1280,8 +1280,20 @@ def _format_now(*, user_now_iso: str | None, user_tz: str | None) -> str | None:
             dt = dt.astimezone(ZoneInfo(user_tz))
             tz_label = user_tz
         except (ZoneInfoNotFoundError, ValueError):
-            pass  # keep UTC label + whatever zone dt already carries
-    stamp = dt.strftime("%A, %b %-d, %Y · %-I:%M%p").lower()
+            try:
+                from dateutil import tz  # type: ignore[import-untyped]
+
+                fallback_tz = tz.gettz(user_tz)
+                if fallback_tz is not None:
+                    dt = dt.astimezone(fallback_tz)
+                    tz_label = user_tz
+            except Exception:
+                pass  # keep UTC label + whatever zone dt already carries
+    hour = dt.hour % 12 or 12
+    stamp = (
+        f"{dt.strftime('%A')}, {dt.strftime('%b')} {dt.day}, "
+        f"{dt.year} · {hour}:{dt.minute:02d}{dt.strftime('%p')}"
+    ).lower()
     return f"{stamp} ({tz_label})"
 
 

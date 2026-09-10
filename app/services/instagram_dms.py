@@ -55,11 +55,14 @@ already-persisted message with a fresher timestamp.
 
 from __future__ import annotations
 
+import json
 import logging
 from datetime import UTC, datetime
 from typing import Any
 
+from app.config import get_settings
 from app.core import supabase_client
+from app.integrations import anthropic_client
 from app.services import dm_briefs, notifications
 
 logger = logging.getLogger(__name__)
@@ -75,6 +78,17 @@ _MANAGER_ATTACHMENT_TYPES = {
     "audio",
     "file",
 }
+
+EVALUATION_SECTIONS = (
+    "Summary",
+    "Worth responding?",
+    "Why",
+    "Opportunity",
+    "Risk",
+    "Urgency",
+    "Missing information",
+    "Suggested next steps",
+)
 
 
 def list_threads_for_creator(user_id: str, *, limit: int = 30) -> list[dict[str, Any]]:
@@ -164,10 +178,7 @@ def manager_review_for_thread(
     stored message body + attachment metadata already persisted by the
     webhook path.
     """
-    peer = str(
-        thread.get("peer_username") or thread.get("ig_peer_user_id") or "instagram user"
-    ).strip()
-    peer_label = f"@{peer}" if peer and not peer.startswith("@") else peer
+    peer_label = sender_label(thread)
     latest = _latest_message(messages)
     latest_inbound = _latest_message(
         [m for m in messages if str(m.get("direction") or "") == "inbound"]
@@ -187,8 +198,8 @@ def manager_review_for_thread(
         next_step = "Open the shared media, confirm what they sent, then decide whether a reply is needed."
     elif body:
         read = "conversation needs a human read"
-        why = "BabyG has stored message text, but no clear business signal from the available words."
-        next_step = "Reply directly or ask BabyG to draft once you know the intent."
+        why = "babyg has stored message text, but no clear business signal from the available words."
+        next_step = "Read the latest Instagram text, then decide whether the conversation deserves a direct response."
     else:
         read = "conversation stored without readable content"
         why = "The webhook created a thread, but the latest stored item has neither text nor supported attachment metadata."
@@ -208,6 +219,136 @@ def manager_review_for_thread(
         "latest_received_at": (review_message or {}).get("received_at")
         or thread.get("last_message_at"),
         "latest_preview": _message_preview(body, attachment_label=attachment_label),
+    }
+
+
+def sender_label(thread: dict[str, Any]) -> str:
+    """Return a human label without turning numeric IG IDs into @handles."""
+    username = str(
+        thread.get("peer_username") or thread.get("sender_username") or ""
+    ).strip()
+    if username and not username.isdigit():
+        return f"@{username.lstrip('@')}"
+    identifier = str(
+        thread.get("ig_peer_user_id")
+        or thread.get("sender_instagram_id")
+        or username
+        or ""
+    ).strip()
+    if identifier:
+        return f"instagram user {identifier[-4:]}"
+    display_name = str(thread.get("sender_display_name") or "").strip()
+    return display_name or "instagram user"
+
+
+def latest_evaluation_for_thread(
+    user_id: str, thread_id: str
+) -> dict[str, Any] | None:
+    """Return the newest owner-scoped evaluation for one IG DM thread."""
+    try:
+        result = (
+            supabase_client.get_service_client()
+            .table("instagram_dm_evaluations")
+            .select("id,thread_id,message_id,creator_id,result,model_id,created_at")
+            .eq("creator_id", user_id)
+            .eq("thread_id", thread_id)
+            .order("created_at", desc=True)
+            .limit(1)
+            .execute()
+        )
+    except Exception:
+        logger.exception(
+            "instagram_dms.latest_evaluation_for_thread.failed user=%s thread=%s",
+            user_id,
+            thread_id,
+        )
+        return None
+    rows = list(getattr(result, "data", None) or [])
+    if not rows:
+        return None
+    row = rows[0]
+    result_obj = row.get("result") if isinstance(row.get("result"), dict) else {}
+    return {**row, "evaluation": _coerce_evaluation(result_obj)}
+
+
+def evaluate_thread_for_creator(user_id: str, thread_id: str) -> dict[str, Any]:
+    """Evaluate one stored Instagram DM thread for a creator.
+
+    This does not use native babyg DMs and never looks up another creator's
+    thread. The evaluator sees the persisted Instagram message text only.
+    """
+    thread = _get_thread_for_creator(user_id, thread_id)
+    if not thread:
+        return {"ok": False, "state": "ownership_failure"}
+
+    messages = list_messages_for_thread(user_id, thread_id, limit=40)
+    message = _latest_message(
+        [m for m in messages if str(m.get("direction") or "") == "inbound"]
+    ) or _latest_message(messages)
+    if not message:
+        return {"ok": False, "state": "empty_thread", "thread": thread}
+
+    body = str(message.get("body") or "").strip()
+    attachment_types = _attachment_types(message.get("attachments"))
+    if not body and not attachment_types:
+        return {"ok": False, "state": "empty_message", "thread": thread}
+
+    review = manager_review_for_thread(thread, messages)
+    prompt = _evaluation_prompt(
+        thread=thread,
+        review=review,
+        message=message,
+        body=body,
+        attachment_types=attachment_types,
+    )
+    try:
+        response = anthropic_client.complete_chat(
+            system_prompt=(
+                "You evaluate Instagram DMs for babyg. Do not draft a reply. "
+                "Use only the provided stored Instagram message evidence. "
+                "Return only a JSON object with these keys: summary, "
+                "worth_responding, why, opportunity, risk, urgency, "
+                "missing_information, suggested_next_steps."
+            ),
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=450,
+        )
+    except (
+        anthropic_client.ClaudeNotConfiguredError,
+        anthropic_client.ClaudeCallError,
+    ):
+        logger.exception(
+            "instagram_dms.evaluate_thread_for_creator.provider_failed user=%s thread=%s",
+            user_id,
+            thread_id,
+        )
+        return {"ok": False, "state": "provider_failure", "thread": thread}
+
+    raw = _parse_json_object(response.text)
+    evaluation = _coerce_evaluation(raw, body=body, review=review)
+    row = {
+        "creator_id": user_id,
+        "thread_id": thread_id,
+        "message_id": message.get("id"),
+        "result": evaluation,
+        "model_id": get_settings().anthropic_model,
+    }
+    try:
+        supabase_client.get_service_client().table("instagram_dm_evaluations").insert(
+            row
+        ).execute()
+    except Exception:
+        logger.exception(
+            "instagram_dms.evaluate_thread_for_creator.persist_failed user=%s thread=%s",
+            user_id,
+            thread_id,
+        )
+    return {
+        "ok": True,
+        "state": "success",
+        "thread": thread,
+        "message": message,
+        "evaluation": evaluation,
     }
 
 
@@ -712,6 +853,142 @@ def mark_thread_read_for_creator(*, user_id: str, thread_id: str) -> bool:
         )
         return False
     return bool(getattr(result, "data", None))
+
+
+def _get_thread_for_creator(user_id: str, thread_id: str) -> dict[str, Any] | None:
+    try:
+        result = (
+            supabase_client.get_service_client()
+            .table("instagram_dm_threads")
+            .select(
+                "id,creator_id,ig_thread_id,ig_peer_user_id,peer_username,"
+                "last_message_at,unread_count"
+            )
+            .eq("creator_id", user_id)
+            .eq("id", thread_id)
+            .limit(1)
+            .execute()
+        )
+    except Exception:
+        logger.exception(
+            "instagram_dms.get_thread_for_creator.failed user=%s thread=%s",
+            user_id,
+            thread_id,
+        )
+        return None
+    rows = list(getattr(result, "data", None) or [])
+    return rows[0] if rows else None
+
+
+def _evaluation_prompt(
+    *,
+    thread: dict[str, Any],
+    review: dict[str, Any],
+    message: dict[str, Any],
+    body: str,
+    attachment_types: list[str],
+) -> str:
+    return "\n".join(
+        [
+            "Evaluate this stored Instagram DM for a creator manager.",
+            "Do not draft a reply.",
+            f"Sender: {sender_label(thread)}",
+            f"Thread id: {thread.get('id')}",
+            f"Unread count: {thread.get('unread_count') or 0}",
+            f"Message id: {message.get('id')}",
+            f"Message time: {message.get('received_at') or 'unknown'}",
+            f"Message text: {body or '(no text stored)'}",
+            f"Attachments: {', '.join(attachment_types) if attachment_types else 'none'}",
+            f"Existing deterministic read: {review.get('read') or 'none'}",
+            "Return JSON only.",
+        ]
+    )
+
+
+def _parse_json_object(text: str) -> dict[str, Any]:
+    raw = str(text or "").strip()
+    if not raw:
+        return {}
+    try:
+        parsed = json.loads(raw)
+        return parsed if isinstance(parsed, dict) else {}
+    except json.JSONDecodeError:
+        start = raw.find("{")
+        end = raw.rfind("}")
+        if start == -1 or end == -1 or end <= start:
+            return {}
+    try:
+        parsed = json.loads(raw[start : end + 1])
+    except json.JSONDecodeError:
+        return {}
+    return parsed if isinstance(parsed, dict) else {}
+
+
+def _coerce_evaluation(
+    raw: dict[str, Any] | None,
+    *,
+    body: str = "",
+    review: dict[str, Any] | None = None,
+) -> dict[str, str]:
+    source = raw or {}
+    mapping = {
+        "Summary": ("summary", "Summary"),
+        "Worth responding?": ("worth_responding", "worthResponding", "Worth responding?"),
+        "Why": ("why", "Why"),
+        "Opportunity": ("opportunity", "Opportunity"),
+        "Risk": ("risk", "Risk"),
+        "Urgency": ("urgency", "Urgency"),
+        "Missing information": (
+            "missing_information",
+            "missingInformation",
+            "Missing information",
+        ),
+        "Suggested next steps": (
+            "suggested_next_steps",
+            "suggestedNextSteps",
+            "Suggested next steps",
+        ),
+    }
+    defaults = _evaluation_defaults(body=body, review=review or {})
+    output: dict[str, str] = {}
+    for label, keys in mapping.items():
+        value = next(
+            (
+                str(source.get(key)).strip()
+                for key in keys
+                if source.get(key) not in (None, "")
+            ),
+            "",
+        )
+        output[label] = value or defaults[label]
+    return output
+
+
+def _evaluation_defaults(
+    *, body: str, review: dict[str, Any]
+) -> dict[str, str]:
+    has_business_signal = _looks_like_collab_or_deal(body)
+    return {
+        "Summary": str(review.get("read") or "Stored Instagram conversation").strip(),
+        "Worth responding?": "yes" if body else "review first",
+        "Why": str(review.get("why") or "The evaluation is based on stored Instagram DM text.").strip(),
+        "Opportunity": (
+            "Potential paid collaboration, partnership, or creator opportunity."
+            if has_business_signal
+            else "No clear commercial opportunity is visible from the stored text."
+        ),
+        "Risk": "Sender identity, budget, scope, usage rights, and timeline are not yet verified.",
+        "Urgency": (
+            "time-sensitive"
+            if any(term in body.casefold() for term in ("today", "tomorrow", "asap", "urgent", "deadline"))
+            else "not urgent from the stored text"
+        ),
+        "Missing information": "Budget, scope, usage rights, deliverables, timeline, and brand identity.",
+        "Suggested next steps": str(
+            review.get("next_step")
+            or "Verify the sender and clarify the business details before responding."
+        ).strip(),
+    }
 
 
 def _timestamp_to_iso(value: Any) -> str:

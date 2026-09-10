@@ -20,20 +20,20 @@ logger = logging.getLogger(__name__)
 AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 TOKEN_URL = "https://oauth2.googleapis.com/token"
 REVOKE_URL = "https://oauth2.googleapis.com/revoke"
-EVENTS_URL = "https://www.googleapis.com/calendar/v3/calendars/primary/events"
+CALENDAR_LIST_URL = "https://www.googleapis.com/calendar/v3/users/me/calendarList"
+EVENTS_BASE_URL = "https://www.googleapis.com/calendar/v3/calendars"
+EVENTS_URL = f"{EVENTS_BASE_URL}/primary/events"
 DEFAULT_CALLBACK_PATH = "/creator/google/calendar/callback"
 CALENDAR_SCOPE = "https://www.googleapis.com/auth/calendar.events"
+# Legacy: pre-Slice-2 Gmail connections used the read-only scope. Kept
+# as a named constant so existing-user detection (and back-compat tests)
+# can still reference it. New Gmail connections request COMPOSE which
+# is required for drafts.create; READONLY is a strict subset of what
+# COMPOSE grants.
 GMAIL_READONLY_SCOPE = "https://www.googleapis.com/auth/gmail.readonly"
 GMAIL_COMPOSE_SCOPE = "https://www.googleapis.com/auth/gmail.compose"
 GMAIL_SEND_SCOPE = "https://www.googleapis.com/auth/gmail.send"
 GMAIL_SCOPE_PREFIX = "https://www.googleapis.com/auth/gmail."
-CALENDAR_REQUIRED_SCOPES = (CALENDAR_SCOPE,)
-GMAIL_REQUIRED_SCOPES = (
-    GMAIL_READONLY_SCOPE,
-    GMAIL_COMPOSE_SCOPE,
-    GMAIL_SEND_SCOPE,
-)
-ALLOWED_OAUTH_SCOPES = frozenset((*CALENDAR_REQUIRED_SCOPES, *GMAIL_REQUIRED_SCOPES))
 
 
 class GoogleCalendarError(RuntimeError):
@@ -56,25 +56,33 @@ def scopes() -> list[str]:
     raw = get_settings().google_oauth_scopes or ""
     parsed = [scope.strip() for scope in raw.replace(",", " ").split() if scope.strip()]
     if parsed:
-        return allowed_scopes(parsed) or [CALENDAR_SCOPE]
-    return list(CALENDAR_REQUIRED_SCOPES)
+        return parsed
+    return [CALENDAR_SCOPE]
 
 
 def scopes_for_services(services: list[str]) -> list[str]:
+    configured = allowed_scopes(scopes())
     selected: list[str] = []
     if "calendar" in services:
-        selected.extend(CALENDAR_REQUIRED_SCOPES)
+        selected.extend([scope for scope in configured if is_calendar_scope(scope)])
+        if not selected:
+            selected.append(CALENDAR_SCOPE)
     if "gmail" in services:
-        # Gmail is split deliberately: readonly powers inbox/thread context,
-        # compose stages approved drafts, and send gates approved sends.
-        selected.extend(GMAIL_REQUIRED_SCOPES)
+        gmail_scopes = [scope for scope in configured if is_gmail_scope(scope)]
+        # New Gmail connections grant COMPOSE for approved drafts and
+        # SEND for approved one-off sends. The action proposal system
+        # remains the runtime gate for every external write.
+        selected.extend(
+            gmail_scopes
+            or [GMAIL_READONLY_SCOPE, GMAIL_COMPOSE_SCOPE, GMAIL_SEND_SCOPE]
+        )
     return _dedupe(selected)
 
 
 def auth_url(state: str, *, scopes_override: list[str] | None = None) -> str:
     if not is_configured():
         raise GoogleCalendarError("Google OAuth is not configured")
-    selected_scopes = allowed_scopes(scopes_override or scopes())
+    selected_scopes = scopes_override or scopes()
     if not selected_scopes:
         raise GoogleCalendarError("Google OAuth scopes are not configured")
     params = {
@@ -98,16 +106,26 @@ def is_gmail_scope(scope: str) -> bool:
     return scope.startswith(GMAIL_SCOPE_PREFIX)
 
 
+def is_gmail_read_scope(scope: str) -> bool:
+    return scope == GMAIL_READONLY_SCOPE
+
+
+def allowed_scopes(scopes_to_check: list[str] | set[str] | tuple[str, ...]) -> list[str]:
+    allowed = {
+        CALENDAR_SCOPE,
+        GMAIL_READONLY_SCOPE,
+        GMAIL_COMPOSE_SCOPE,
+        GMAIL_SEND_SCOPE,
+    }
+    return _dedupe([scope for scope in scopes_to_check if scope in allowed])
+
+
 def is_gmail_compose_scope(scope: str) -> bool:
     return scope == GMAIL_COMPOSE_SCOPE
 
 
 def is_gmail_send_scope(scope: str) -> bool:
     return scope == GMAIL_SEND_SCOPE
-
-
-def allowed_scopes(scopes_to_check: list[str] | set[str] | tuple[str, ...]) -> list[str]:
-    return _dedupe([scope for scope in scopes_to_check if scope in ALLOWED_OAUTH_SCOPES])
 
 
 def has_calendar_scope(scopes_to_check: list[str] | set[str] | tuple[str, ...]) -> bool:
@@ -122,16 +140,18 @@ def has_gmail_compose_scope(
     return any(is_gmail_compose_scope(scope) for scope in scopes_to_check)
 
 
+def has_gmail_read_scope(
+    scopes_to_check: list[str] | set[str] | tuple[str, ...],
+) -> bool:
+    return any(is_gmail_read_scope(scope) for scope in scopes_to_check)
+
+
 def has_gmail_send_scope(
     scopes_to_check: list[str] | set[str] | tuple[str, ...],
 ) -> bool:
     """True only when gmail.send is present. Compose-only connections
     can draft but must reconnect before approved sends are available."""
     return any(is_gmail_send_scope(scope) for scope in scopes_to_check)
-
-
-def has_gmail_read_scope(scopes_to_check: list[str] | set[str] | tuple[str, ...]) -> bool:
-    return any(scope == GMAIL_READONLY_SCOPE for scope in scopes_to_check)
 
 
 def has_gmail_scope(scopes_to_check: list[str] | set[str] | tuple[str, ...]) -> bool:
@@ -174,43 +194,67 @@ def refresh_access_token(refresh_token: str) -> dict[str, Any]:
 
 
 def revoke_token(token: str) -> bool:
-    """Best-effort revocation at Google's `/revoke` endpoint.
-
-    Google's Limited Use policy requires the app to actively revoke the
-    grant when a user disconnects — deleting the token from our own DB
-    is not enough. Passing either the access token or the refresh token
-    revokes the entire user grant (all scopes) at Google.
-
-    Never raises: revocation is fire-and-forget. If Google's endpoint is
-    down or the token is already invalid we still want the local
-    disconnect to complete. Returns True on 200, False otherwise.
-    """
-    if not token:
+    clean_token = str(token or "").strip()
+    if not clean_token:
         return False
     try:
-        response = httpx.post(
-            REVOKE_URL,
-            data={"token": token},
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
-            timeout=6.0,
-        )
-    except httpx.HTTPError:
-        logger.info("google token revocation network error", exc_info=True)
-        return False
-    if response.status_code == 200:
-        return True
-    # 400 with "invalid_token" is fine — token was already revoked/expired.
-    logger.info(
-        "google token revocation returned %s: %s",
-        response.status_code,
-        response.text[:200],
-    )
-    return False
+        response = httpx.post(REVOKE_URL, data={"token": clean_token}, timeout=20.0)
+        response.raise_for_status()
+    except httpx.HTTPError as exc:
+        status = getattr(getattr(exc, "response", None), "status_code", "?")
+        logger.info("Google OAuth token revoke failed with status %s", status)
+        raise GoogleCalendarError("Google OAuth token revoke failed") from exc
+    return True
 
 
-def list_primary_events(
+def list_calendar_ids(access_token: str) -> list[str]:
+    """Return accessible calendar ids, falling back to primary.
+
+    Some existing connections only have the narrower calendar.events
+    scope. That scope can still read/write events on calendars the user
+    granted, but may be refused by calendarList. A refusal should not
+    break sync; it means we sync the primary calendar this connection can
+    already address.
+    """
+    headers = {"Authorization": f"Bearer {access_token}"}
+    params = {"minAccessRole": "reader", "showHidden": "false", "maxResults": "250"}
+    calendars: list[str] = []
+    page_token: str | None = None
+    while True:
+        request_params = dict(params)
+        if page_token:
+            request_params["pageToken"] = page_token
+        try:
+            response = httpx.get(
+                CALENDAR_LIST_URL,
+                params=request_params,
+                headers=headers,
+                timeout=20.0,
+            )
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            status = getattr(exc.response, "status_code", "?")
+            logger.info("Google Calendar calendarList.list failed with status %s", status)
+            return ["primary"]
+        except httpx.HTTPError as exc:
+            status = getattr(getattr(exc, "response", None), "status_code", "?")
+            logger.info("Google Calendar calendarList.list failed with status %s", status)
+            raise GoogleCalendarError("Google Calendar list request failed") from exc
+        data = response.json()
+        for item in data.get("items", []) if isinstance(data, dict) else []:
+            calendar_id = str((item or {}).get("id") or "").strip()
+            if calendar_id:
+                calendars.append(calendar_id)
+        page_token = str(data.get("nextPageToken") or "") if isinstance(data, dict) else ""
+        if not page_token:
+            break
+    return _dedupe(calendars) or ["primary"]
+
+
+def list_events(
     access_token: str,
     *,
+    calendar_id: str = "primary",
     time_min: datetime | None = None,
     time_max: datetime | None = None,
     max_results: int = 100,
@@ -224,18 +268,49 @@ def list_primary_events(
         "timeMin": _google_dt(time_min),
         "timeMax": _google_dt(time_max),
         "maxResults": str(max(1, min(max_results, 250))),
+        "showDeleted": "true",
     }
     headers = {"Authorization": f"Bearer {access_token}"}
+    items: list[dict[str, Any]] = []
+    page_token: str | None = None
+    url = f"{EVENTS_BASE_URL}/{calendar_id}/events"
     try:
-        response = httpx.get(EVENTS_URL, params=params, headers=headers, timeout=20.0)
-        response.raise_for_status()
+        while True:
+            request_params = dict(params)
+            if page_token:
+                request_params["pageToken"] = page_token
+            response = httpx.get(url, params=request_params, headers=headers, timeout=20.0)
+            response.raise_for_status()
+            data = response.json()
+            page_items = data.get("items", []) if isinstance(data, dict) else []
+            if isinstance(page_items, list):
+                items.extend(item for item in page_items if isinstance(item, dict))
+            page_token = str(data.get("nextPageToken") or "") if isinstance(data, dict) else ""
+            if not page_token:
+                break
     except httpx.HTTPError as exc:
         status = getattr(getattr(exc, "response", None), "status_code", "?")
         logger.info("Google Calendar events.list failed with status %s", status)
         raise GoogleCalendarError("Google Calendar events request failed") from exc
-    data = response.json()
-    items = data.get("items", [])
-    return items if isinstance(items, list) else []
+    for item in items:
+        item.setdefault("_babyg_calendar_id", calendar_id)
+    return items
+
+
+def list_primary_events(
+    access_token: str,
+    *,
+    time_min: datetime | None = None,
+    time_max: datetime | None = None,
+    max_results: int = 100,
+) -> list[dict[str, Any]]:
+    return list_events(
+        access_token,
+        calendar_id="primary",
+        time_min=time_min,
+        time_max=time_max,
+        max_results=max_results,
+    )
 
 
 def create_primary_event(
@@ -254,13 +329,6 @@ def create_primary_event(
     Must only be called by an approved action executor after explicit
     creator confirmation. This does not delete, update, invite guests,
     book restaurants, collect payment, or create paid reservations.
-
-    Optional visibility/transparency default to Google's own defaults
-    when omitted. The babyg agent uses
-    visibility='private' + transparency='opaque' for autonomous
-    holds — invisible to anyone else the creator shares their calendar
-    with, and busy-blocking so the creator's other tooling sees the
-    time reserved.
     """
     summary = " ".join(str(title or "").split())[:140]
     start = _clean_datetime(starts_at)
@@ -278,10 +346,12 @@ def create_primary_event(
         payload["description"] = description
     if venue:
         payload["location"] = venue
-    if visibility in ("default", "public", "private", "confidential"):
-        payload["visibility"] = visibility
-    if transparency in ("opaque", "transparent"):
-        payload["transparency"] = transparency
+    clean_visibility = str(visibility or "").strip()
+    clean_transparency = str(transparency or "").strip()
+    if clean_visibility:
+        payload["visibility"] = clean_visibility
+    if clean_transparency:
+        payload["transparency"] = clean_transparency
 
     headers = {
         "Authorization": f"Bearer {access_token}",
@@ -402,16 +472,19 @@ def _clean_event_id(value: str) -> str:
 
 def event_to_booking_payload(event: dict[str, Any]) -> dict[str, Any] | None:
     event_id = str(event.get("id") or "").strip()
-    if not event_id or event.get("status") == "cancelled":
+    if not event_id:
         return None
 
-    start = _event_time(event.get("start") or {})
+    start_obj = event.get("start") or {}
+    end_obj = event.get("end") or {}
+    start = _event_time(start_obj)
     if not start:
         return None
-    end = _event_time(event.get("end") or {})
+    end = _event_time(end_obj)
     summary = str(event.get("summary") or "untitled event").strip()[:140]
     location = str(event.get("location") or "").strip()[:160]
     description = str(event.get("description") or "").strip()[:2000]
+    calendar_id = str(event.get("_babyg_calendar_id") or "primary").strip()[:300]
 
     return {
         "title": summary or "untitled event",
@@ -419,10 +492,15 @@ def event_to_booking_payload(event: dict[str, Any]) -> dict[str, Any] | None:
         "starts_at": start,
         "ends_at": end,
         "notes": description or None,
-        "status": "confirmed",
+        "status": "cancelled" if event.get("status") == "cancelled" else "confirmed",
         "venue_name": location or None,
-        "google_calendar_id": "primary",
+        "google_calendar_id": calendar_id or "primary",
         "google_event_id": event_id,
+        "is_all_day": "date" in start_obj,
+        "google_timezone": _event_timezone(start_obj, end_obj),
+        "google_recurring_event_id": str(event.get("recurringEventId") or "").strip() or None,
+        "google_original_start_time": event.get("originalStartTime") or None,
+        "google_status": str(event.get("status") or "").strip()[:40] or None,
     }
 
 
@@ -454,6 +532,16 @@ def _event_time(value: dict[str, Any]) -> str | None:
     except ValueError:
         return None
     return datetime(all_day.year, all_day.month, all_day.day, tzinfo=UTC).isoformat()
+
+
+def _event_timezone(start: dict[str, Any], end: dict[str, Any]) -> str | None:
+    for value in (start, end):
+        if not isinstance(value, dict):
+            continue
+        tz = str(value.get("timeZone") or "").strip()
+        if tz:
+            return tz[:80]
+    return None
 
 
 def _clean_datetime(value: str | None) -> str:

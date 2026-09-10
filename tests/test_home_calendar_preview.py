@@ -168,6 +168,11 @@ def stub_dashboard(monkeypatch):
         lambda uid, **kw: list(state["bookings"]),
     )
     monkeypatch.setattr(
+        bookings_module,
+        "list_for_user_range",
+        lambda uid, **kw: list(state["bookings"]),
+    )
+    monkeypatch.setattr(
         oauth_module, "get_google_connection",
         lambda uid: {"connected": True} if (
             state["google_calendar_connected"] or state["google_gmail_connected"]
@@ -510,7 +515,7 @@ def test_status_pill_uses_caret_not_chevron(
 
 
 # ---------------------------------------------------------------------------
-# section 3: next
+# section 3: current week calendar
 # ---------------------------------------------------------------------------
 
 
@@ -520,7 +525,7 @@ def test_next_shows_connect_calendar_when_disconnected(
     _signed_in(client)
     r = client.get("/creator")
     assert r.status_code == 200
-    assert ">next<" in r.text
+    assert ">calendar<" in r.text
     assert "view calendar" in r.text
     assert "connect calendar" in r.text.lower()
 
@@ -530,25 +535,27 @@ def test_next_shows_first_booking_when_connected(
 ) -> None:
     _signed_in(client)
     stub_dashboard["google_calendar_connected"] = True
+    today = date.today()
     stub_dashboard["bookings"] = [
         {
             "id": "b-1",
             "title": "Brand intro call",
-            "starts_at": "2026-06-19T15:00:00Z",
+            "starts_at": f"{today.isoformat()}T15:00:00Z",
+            "ends_at": f"{today.isoformat()}T16:00:00Z",
             "venue_name": "Zoom",
         },
         {
             "id": "b-2",
             "title": "Studio shoot",
-            "starts_at": "2026-06-20T18:00:00Z",
+            "starts_at": f"{today.isoformat()}T18:00:00Z",
+            "ends_at": f"{today.isoformat()}T19:00:00Z",
         },
     ]
     r = client.get("/creator")
     assert r.status_code == 200
     assert "Brand intro call" in r.text
     assert 'href="/creator/calendar/b-1"' in r.text
-    # Only ONE next item on home — the rest live behind view-calendar.
-    assert "Studio shoot" not in r.text
+    assert "Studio shoot" in r.text
     # The connect-calendar row must not show when connected.
     assert "connect calendar" not in r.text.lower()
 
@@ -562,11 +569,11 @@ def test_next_hides_row_when_connected_with_no_bookings(
     r = client.get("/creator")
     assert r.status_code == 200
     # Section header + view-calendar still visible.
-    assert ">next<" in r.text
+    assert ">calendar<" in r.text
     assert "view calendar" in r.text
     # No connect prompt, no invented event row.
     assert "connect calendar" not in r.text.lower()
-    assert "hv5-next-row" not in r.text
+    assert "nothing on the books" in r.text
 
 
 # ---------------------------------------------------------------------------
@@ -695,7 +702,7 @@ def test_home_degrades_gracefully_when_bookings_service_errors(
     def _boom(*a, **kw):
         raise RuntimeError("supabase down")
 
-    monkeypatch.setattr(bookings_module, "list_for_user", _boom)
+    monkeypatch.setattr(bookings_module, "list_for_user_range", _boom)
     _signed_in(client)
     r = client.get("/creator")
     assert r.status_code == 200
@@ -710,13 +717,17 @@ def test_home_degrades_gracefully_when_bookings_service_errors(
 
 def test_calendar_preview_days_are_real_and_consecutive() -> None:
     days = creator_routes._calendar_preview_days(date(2026, 6, 29))
-    assert days == [
-        {"weekday": "Mon", "day": 29, "is_today": True},
-        {"weekday": "Tue", "day": 30, "is_today": False},
-        {"weekday": "Wed", "day": 1, "is_today": False},
-        {"weekday": "Thu", "day": 2, "is_today": False},
-        {"weekday": "Fri", "day": 3, "is_today": False},
+    assert [(day["weekday"], day["day"]) for day in days] == [
+        ("Mon", 29),
+        ("Tue", 30),
+        ("Wed", 1),
+        ("Thu", 2),
+        ("Fri", 3),
+        ("Sat", 4),
+        ("Sun", 5),
     ]
+    assert days[0]["is_today"] is True
+    assert days[0]["is_selected"] is True
 
 
 # ---------------------------------------------------------------------------

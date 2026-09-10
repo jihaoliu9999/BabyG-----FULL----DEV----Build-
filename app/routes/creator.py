@@ -12,7 +12,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from typing import Any
 
 from fastapi import (
@@ -131,16 +131,200 @@ async def _safe_call(fn, *args, _default=None, **kwargs):
 
 
 def _calendar_preview_days(today: date | None = None) -> list[dict[str, Any]]:
-    """Return the real five-day strip used by Creator Home."""
-    start = today or date.today()
+    """Return the seven-day current-week strip used by Creator Home."""
+    current = today or date.today()
+    start = current - timedelta(days=current.weekday())
     return [
         {
             "weekday": (start + timedelta(days=offset)).strftime("%a"),
             "day": (start + timedelta(days=offset)).day,
-            "is_today": offset == 0,
+            "date": (start + timedelta(days=offset)).isoformat(),
+            "is_today": (start + timedelta(days=offset)) == current,
+            "is_selected": (start + timedelta(days=offset)) == current,
         }
-        for offset in range(5)
+        for offset in range(7)
     ]
+
+
+def _parse_iso_dt(value: Any) -> datetime | None:
+    raw = str(value or "").strip()
+    if not raw:
+        return None
+    try:
+        parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
+
+
+def _iso_utc(value: datetime) -> str:
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=UTC)
+    return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
+
+
+def _week_start(value: date) -> date:
+    return value - timedelta(days=value.weekday())
+
+
+def _month_bounds(value: date) -> tuple[date, date]:
+    start = value.replace(day=1)
+    if start.month == 12:
+        end = start.replace(year=start.year + 1, month=1)
+    else:
+        end = start.replace(month=start.month + 1)
+    return start, end
+
+
+def _date_from_query(raw: str | None) -> date:
+    if raw:
+        try:
+            return date.fromisoformat(raw)
+        except ValueError:
+            pass
+    return date.today()
+
+
+def _event_end(start_dt: datetime, row: dict[str, Any]) -> datetime:
+    end_dt = _parse_iso_dt(row.get("ends_at"))
+    if end_dt and end_dt > start_dt:
+        return end_dt
+    return start_dt + timedelta(hours=1)
+
+
+def _time_label(value: datetime) -> str:
+    return value.strftime("%I:%M %p").lstrip("0").lower()
+
+
+def _event_vm(row: dict[str, Any]) -> dict[str, Any] | None:
+    start_dt = _parse_iso_dt(row.get("starts_at"))
+    if not start_dt:
+        return None
+    end_dt = _event_end(start_dt, row)
+    minutes = max(0, start_dt.hour * 60 + start_dt.minute)
+    duration = max(30, int((end_dt - start_dt).total_seconds() // 60))
+    return {
+        "id": row.get("id"),
+        "title": row.get("title") or "untitled event",
+        "type": row.get("type") or "event",
+        "starts_at": row.get("starts_at"),
+        "ends_at": row.get("ends_at"),
+        "start_dt": start_dt,
+        "end_dt": end_dt,
+        "date": start_dt.date().isoformat(),
+        "start_label": _time_label(start_dt),
+        "time_label": f"{_time_label(start_dt)} - {_time_label(end_dt)}",
+        "venue_name": row.get("venue_name"),
+        "google_event_id": row.get("google_event_id"),
+        "google_calendar_id": row.get("google_calendar_id"),
+        "is_all_day": bool(row.get("is_all_day")),
+        "is_multi_day": end_dt.date() > start_dt.date(),
+        "top_pct": minutes / (24 * 60) * 100,
+        "height_pct": min(100, duration / (24 * 60) * 100),
+    }
+
+
+def _overlap_layout(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    timed = sorted(events, key=lambda e: (e["start_dt"], e["end_dt"]))
+    active: list[dict[str, Any]] = []
+    for event in timed:
+        active = [item for item in active if item["end_dt"] > event["start_dt"]]
+        used = {int(item.get("overlap_col", 0)) for item in active}
+        col = 0
+        while col in used:
+            col += 1
+        event["overlap_col"] = col
+        active.append(event)
+        width = max(1, len(active))
+        for item in active:
+            item["overlap_total"] = max(int(item.get("overlap_total", 1)), width)
+    for event in timed:
+        total = max(1, int(event.get("overlap_total", 1)))
+        col = int(event.get("overlap_col", 0))
+        event["width_pct"] = 100 / total
+        event["left_pct"] = col * event["width_pct"]
+    return timed
+
+
+def _calendar_grid_context(rows: list[dict[str, Any]], selected: date) -> dict[str, Any]:
+    week_start = _week_start(selected)
+    week_days = [week_start + timedelta(days=i) for i in range(7)]
+    event_vms = [vm for row in rows if (vm := _event_vm(row))]
+    all_day_by_date: dict[str, list[dict[str, Any]]] = {
+        d.isoformat(): [] for d in week_days
+    }
+    timed_by_date: dict[str, list[dict[str, Any]]] = {
+        d.isoformat(): [] for d in week_days
+    }
+    for event in event_vms:
+        for day in week_days:
+            day_key = day.isoformat()
+            if event["start_dt"].date() <= day <= event["end_dt"].date():
+                if event["is_all_day"] or event["is_multi_day"]:
+                    all_day_by_date[day_key].append(event)
+                elif event["date"] == day_key:
+                    timed_by_date[day_key].append(event)
+    timed_by_date = {
+        key: _overlap_layout(value) for key, value in timed_by_date.items()
+    }
+    hours = [
+        {"label": f"{h % 12 or 12} {'am' if h < 12 else 'pm'}", "hour": h}
+        for h in range(24)
+    ]
+    return {
+        "selected_date": selected,
+        "week_start": week_start,
+        "week_end": week_days[-1],
+        "week_days": [
+            {
+                "date": d,
+                "iso": d.isoformat(),
+                "weekday": d.strftime("%a"),
+                "day": d.day,
+                "is_today": d == date.today(),
+                "is_selected": d == selected,
+                "all_day_events": all_day_by_date[d.isoformat()],
+                "timed_events": timed_by_date[d.isoformat()],
+            }
+            for d in week_days
+        ],
+        "hours": hours,
+        "selected_day": {
+            "iso": selected.isoformat(),
+            "all_day_events": all_day_by_date.get(selected.isoformat(), []),
+            "timed_events": timed_by_date.get(selected.isoformat(), []),
+        },
+    }
+
+
+def _month_context(rows: list[dict[str, Any]], selected: date) -> dict[str, Any]:
+    month_start, month_end = _month_bounds(selected)
+    grid_start = _week_start(month_start)
+    days = [grid_start + timedelta(days=i) for i in range(42)]
+    event_vms = [vm for row in rows if (vm := _event_vm(row))]
+    by_date: dict[str, list[dict[str, Any]]] = {d.isoformat(): [] for d in days}
+    for event in event_vms:
+        for day in days:
+            if event["start_dt"].date() <= day <= event["end_dt"].date():
+                by_date[day.isoformat()].append(event)
+    return {
+        "month_label": month_start.strftime("%B %Y"),
+        "month_start": month_start,
+        "month_end": month_end,
+        "month_days": [
+            {
+                "date": d,
+                "iso": d.isoformat(),
+                "day": d.day,
+                "in_month": d.month == selected.month,
+                "is_today": d == date.today(),
+                "events": by_date[d.isoformat()],
+            }
+            for d in days
+        ],
+    }
 
 
 def _active_social_platform(value: str | None) -> str:
@@ -169,6 +353,9 @@ async def dashboard(
         p for p in (profile.get("location_city"), profile.get("location_region")) if p
     ) or None
     user_id = session["user_id"]
+    today = date.today()
+    week_start = _week_start(today)
+    week_end = week_start + timedelta(days=7)
 
     (
         unread_notifs_all,
@@ -184,7 +371,11 @@ async def dashboard(
         _safe_call(notifications.list_unread, user_id, limit=8, _default=[]),
         _safe_call(network.list_incoming_pending, user_id, _default=[]),
         _safe_call(
-            bookings.list_for_user, user_id, horizon="upcoming", limit=4,
+            bookings.list_for_user_range,
+            user_id,
+            starts_before=_iso_utc(datetime.combine(week_end, time.min, tzinfo=UTC)),
+            ends_after=_iso_utc(datetime.combine(week_start, time.min, tzinfo=UTC)),
+            limit=120,
             _default=[],
         ),
         _safe_call(oauth_connections.get_google_connection, user_id, _default=None),
@@ -323,6 +514,7 @@ async def dashboard(
             "matched_picks": matched_picks,
             "needs_count": needs_count,
             "calendar_connected": calendar_connected,
+            "calendar_grid": _calendar_grid_context(upcoming_bookings, today),
             "daily_greeting": daily_greeting,
             "overnight_recap": overnight_recap,
             "ig_dm_unread_count": ig_dm_unread_count,
@@ -1179,6 +1371,7 @@ async def instagram_dm_inbox(
     threads = instagram_dms.list_threads_for_creator(session["user_id"], limit=30)
     thread_messages: dict[str, list[dict[str, Any]]] = {}
     thread_reviews: dict[str, dict[str, Any]] = {}
+    thread_evaluations: dict[str, dict[str, Any]] = {}
     for t in threads[:10]:  # only render inline for the newest 10
         thread_id = str(t["id"])
         thread_messages[thread_id] = instagram_dms.list_messages_for_thread(
@@ -1187,6 +1380,11 @@ async def instagram_dm_inbox(
         thread_reviews[thread_id] = instagram_dms.manager_review_for_thread(
             t, thread_messages[thread_id]
         )
+        saved_evaluation = instagram_dms.latest_evaluation_for_thread(
+            session["user_id"], thread_id
+        )
+        if saved_evaluation:
+            thread_evaluations[thread_id] = saved_evaluation
     return templates.TemplateResponse(
         request,
         "creator/instagram_dms.html",
@@ -1195,8 +1393,27 @@ async def instagram_dm_inbox(
             "threads": threads,
             "thread_messages": thread_messages,
             "thread_reviews": thread_reviews,
+            "thread_evaluations": thread_evaluations,
             "selected_thread_id": selected_thread_id,
         },
+    )
+
+
+@router.post("/creator/instagram/dms/{thread_id}/evaluate")
+async def instagram_dm_evaluate(
+    request: Request,
+    thread_id: str,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    result = instagram_dms.evaluate_thread_for_creator(session["user_id"], thread_id)
+    wants_json = request.headers.get("x-requested-with") == "fetch"
+    if wants_json:
+        status_code = 200 if result.get("ok") else 400
+        return JSONResponse(result, status_code=status_code)
+    suffix = "evaluated=1" if result.get("ok") else f"evaluate={result.get('state')}"
+    return RedirectResponse(
+        f"/creator/instagram/dms?thread={thread_id}&{suffix}#ig-thread-{thread_id}",
+        status_code=303,
     )
 
 
@@ -2354,19 +2571,57 @@ def _jobs_vocab():
 async def calendar_list(
     request: Request,
     horizon: str = Query("upcoming"),
+    view: str = Query("week"),
+    selected_date: str | None = Query(None, alias="date"),
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
-    if horizon not in ("upcoming", "past", "all"):
-        horizon = "upcoming"
-    rows = bookings.list_for_user(session["user_id"], horizon=horizon)
+    if view not in {"day", "week", "month"}:
+        view = "week"
+    selected = _date_from_query(selected_date)
+    if view == "day":
+        range_start = selected
+        range_end = selected + timedelta(days=1)
+    elif view == "month":
+        range_start, month_end = _month_bounds(selected)
+        range_start = _week_start(range_start)
+        range_end = _week_start(month_end) + timedelta(days=7)
+    else:
+        range_start = _week_start(selected)
+        range_end = range_start + timedelta(days=7)
+    rows = bookings.list_for_user_range(
+        session["user_id"],
+        starts_before=_iso_utc(datetime.combine(range_end, time.min, tzinfo=UTC)),
+        ends_after=_iso_utc(datetime.combine(range_start, time.min, tzinfo=UTC)),
+        limit=500,
+    )
     google_connection = oauth_connections.get_google_connection(session["user_id"])
     google_connected = oauth_connections.google_calendar_connected(google_connection)
+    previous_date = (
+        selected - timedelta(days=1)
+        if view == "day"
+        else selected - timedelta(days=7)
+        if view == "week"
+        else (_month_bounds(selected)[0] - timedelta(days=1)).replace(day=1)
+    )
+    next_date = (
+        selected + timedelta(days=1)
+        if view == "day"
+        else selected + timedelta(days=7)
+        if view == "week"
+        else _month_bounds(selected)[1]
+    )
     return templates.TemplateResponse(
         request,
         "creator/calendar_list.html",
         {
             "bookings": rows,
             "horizon": horizon,
+            "calendar_view": view,
+            "selected_date": selected,
+            "previous_date": previous_date,
+            "next_date": next_date,
+            "calendar_grid": _calendar_grid_context(rows, selected),
+            "month_grid": _month_context(rows, selected),
             "google_connected": google_connected,
             "google_configured": google_calendar.is_configured(),
             "calendar_notice": _calendar_notice(request),

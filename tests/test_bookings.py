@@ -37,6 +37,9 @@ def world(monkeypatch) -> FakeWorld:
         rows.sort(key=lambda b: b["starts_at"])
         return rows
 
+    def _list_for_user_range(uid, **_kwargs):
+        return _list_for_user(uid)
+
     def _get(bid):
         return w.bookings.get(bid)
 
@@ -59,6 +62,7 @@ def world(monkeypatch) -> FakeWorld:
         return _update(bid, user_id=user_id, payload={"status": "cancelled"})
 
     monkeypatch.setattr(bookings_module, "list_for_user", _list_for_user)
+    monkeypatch.setattr(bookings_module, "list_for_user_range", _list_for_user_range)
     monkeypatch.setattr(bookings_module, "get", _get)
     monkeypatch.setattr(bookings_module, "create", _create)
     monkeypatch.setattr(bookings_module, "update", _update)
@@ -98,7 +102,7 @@ def test_calendar_list_renders(client, world):
         "ends_at": None, "status": "confirmed", "venue_name": "Boia De",
         "notes": None, "created_at": "2026-05-07T00:00:00Z",
     }
-    r = client.get("/creator/calendar")
+    r = client.get("/creator/calendar?view=day&date=2099-05-07")
     assert r.status_code == 200
     assert "Dinner at Boia" in r.text
 

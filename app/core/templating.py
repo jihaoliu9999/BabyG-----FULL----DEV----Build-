@@ -314,7 +314,8 @@ def _dm_time(value):
         return ""
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=UTC)
-    return parsed.strftime("%-I:%M%p").lower()
+    hour = parsed.hour % 12 or 12
+    return f"{hour}:{parsed.minute:02d}{parsed.strftime('%p')}".lower()
 
 
 def _dm_day_sep(value):
@@ -352,8 +353,8 @@ def _dm_day_sep(value):
     if (today - parsed_day).days < 7:
         return parsed.strftime("%A").lower()
     if parsed.year == now.year:
-        return parsed.strftime("%b %-d").lower()
-    return parsed.strftime("%b %-d, %Y").lower()
+        return f"{parsed.strftime('%b')} {parsed.day}".lower()
+    return f"{parsed.strftime('%b')} {parsed.day}, {parsed.year}".lower()
 
 
 def _cached_state_int(request, attr: str):

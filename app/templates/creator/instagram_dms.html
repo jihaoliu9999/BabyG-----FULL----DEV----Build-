@@ -2,16 +2,6 @@
 
 {% block title %}instagram review - babyg{% endblock %}
 
-{% macro instagram_icon() -%}
-  <span class="ig-review-icon" aria-label="Instagram" title="Instagram">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <rect x="4" y="4" width="16" height="16" rx="5" />
-      <circle cx="12" cy="12" r="3.2" />
-      <path d="M17 7.2h.01" />
-    </svg>
-  </span>
-{%- endmacro %}
-
 {% block content %}
 <main class="wrap ig-review-page">
   <header class="ig-review-head">
@@ -19,13 +9,12 @@
       <span class="mono">manager review</span>
       <h1>instagram dms</h1>
     </div>
-    {{ instagram_icon() }}
   </header>
 
   {% if not threads %}
   <section class="ig-review-empty">
     <span class="mono">nothing ingested yet</span>
-    <h2>No Instagram conversations have reached BabyG.</h2>
+    <h2>No Instagram conversations have reached babyg.</h2>
     <p>After Instagram is connected and subscribed, real incoming DMs will appear here with manager context.</p>
     <a class="btn btn-ghost btn-sm" href="/creator/profile/settings">check Instagram connection</a>
   </section>
@@ -37,9 +26,8 @@
       {% for t in threads %}
       {% set review = thread_reviews.get(t.id|string) %}
       <a class="ig-thread-link {{ 'is-active' if selected_thread_id == (t.id|string) or (not selected_thread_id and loop.first) }}" href="/creator/instagram/dms?thread={{ t.id }}#ig-thread-{{ t.id }}">
-        {{ instagram_icon() }}
         <span>
-          <strong>{{ review.counterparty if review else (t.peer_username or t.ig_peer_user_id) }}</strong>
+          <strong>{{ review.counterparty if review else (t.peer_username or 'instagram user') }}</strong>
           <small>{{ review.read if review else 'conversation stored' }}</small>
         </span>
         {% if t.unread_count and t.unread_count > 0 %}
@@ -53,27 +41,39 @@
       {% for t in threads[:10] %}
       {% set thread_id = t.id|string %}
       {% set review = thread_reviews.get(thread_id) %}
+      {% set saved = thread_evaluations.get(thread_id) %}
+      {% set evaluation = saved.evaluation if saved else none %}
       {% set msgs = thread_messages.get(thread_id, []) %}
       <section class="ig-review-card" id="ig-thread-{{ t.id }}">
         <div class="ig-review-card-head">
           <div>
-            <span class="mono">instagram</span>
-            <h2>{{ review.counterparty if review else (t.peer_username or t.ig_peer_user_id) }}</h2>
+            <span class="mono">Instagram</span>
+            <h2>{{ review.counterparty if review else (t.peer_username or 'instagram user') }}</h2>
           </div>
           {% if selected_thread_id and selected_thread_id == thread_id %}
           <span class="ig-state">opened</span>
           {% elif t.unread_count and t.unread_count > 0 %}
           <span class="ig-state">{{ t.unread_count }} unread</span>
+          {% else %}
+          <span class="ig-state">read</span>
           {% endif %}
         </div>
 
         {% if review %}
         <div class="ig-manager-read">
-          <span class="mono">BabyG's read</span>
+          <span class="mono">babyg read</span>
           <h3>{{ review.read }}</h3>
           <p>{{ review.latest_preview }}</p>
         </div>
         <dl class="ig-review-facts">
+          <div>
+            <dt>source</dt>
+            <dd>Instagram DM</dd>
+          </div>
+          <div>
+            <dt>sender</dt>
+            <dd>{{ review.counterparty }}</dd>
+          </div>
           <div>
             <dt>why it matters</dt>
             <dd>{{ review.why }}</dd>
@@ -82,6 +82,12 @@
             <dt>next step</dt>
             <dd>{{ review.next_step }}</dd>
           </div>
+          {% if review.latest_received_at %}
+          <div>
+            <dt>latest</dt>
+            <dd>{{ review.latest_received_at|human_ago }}</dd>
+          </div>
+          {% endif %}
           {% if review.attachment_types %}
           <div>
             <dt>attachments</dt>
@@ -119,16 +125,32 @@
         </details>
         {% endif %}
 
-        <form method="post" action="/creator/bot" class="ig-review-action">
-          {% include "_partials/csrf.html" %}
-          <input type="hidden" name="message" value="Draft an Instagram reply to {{ review.counterparty if review else (t.peer_username or t.ig_peer_user_id) }} based on the stored conversation in thread {{ t.id }}." />
-          <button class="btn btn-primary btn-sm" type="submit">draft reply</button>
-          <a class="btn btn-ghost btn-sm" href="/creator/bot">ask BabyG</a>
-        </form>
+        <section class="ig-evaluation-panel">
+          <form method="post" action="/creator/instagram/dms/{{ thread_id }}/evaluate" class="ig-review-action" data-instagram-evaluate>
+            {% include "_partials/csrf.html" %}
+            <button class="btn btn-primary btn-sm" type="submit">Evaluate this message</button>
+          </form>
+          <div class="ig-evaluation-status" data-instagram-eval-status hidden></div>
+          <div class="ig-evaluation-grid" data-instagram-evaluation {% if not evaluation %}hidden{% endif %}>
+            {% if evaluation %}
+            {% for label in ["Summary", "Worth responding?", "Why", "Opportunity", "Risk", "Urgency", "Missing information", "Suggested next steps"] %}
+            <article>
+              <span class="mono">{{ label }}</span>
+              <p>{{ evaluation.get(label) }}</p>
+            </article>
+            {% endfor %}
+            {% endif %}
+          </div>
+        </section>
       </section>
       {% endfor %}
     </div>
   </section>
   {% endif %}
 </main>
+{% endblock %}
+
+{% block foot_scripts %}
+{{ super() }}
+<script src="{{ asset_url('js/instagram_evaluation.js') }}" defer></script>
 {% endblock %}

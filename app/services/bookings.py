@@ -57,6 +57,37 @@ def list_for_user(
     return getattr(result, "data", None) or []
 
 
+def list_for_user_range(
+    user_id: str,
+    *,
+    starts_before: str,
+    ends_after: str,
+    limit: int = 500,
+) -> list[dict[str, Any]]:
+    """Rows owned by user_id that overlap [ends_after, starts_before).
+
+    Includes events that start before the visible range and end inside it.
+    Rows with NULL ends_at are treated as point events at starts_at.
+    """
+    try:
+        result = (
+            supabase_client.get_service_client()
+            .table("bookings")
+            .select("*")
+            .eq("user_id", user_id)
+            .neq("status", "cancelled")
+            .lt("starts_at", starts_before)
+            .or_(f"ends_at.is.null,ends_at.gte.{ends_after}")
+            .order("starts_at", desc=False)
+            .limit(limit)
+            .execute()
+        )
+    except PostgrestAPIError:
+        logger.exception("bookings range list failed: %s", user_id)
+        return []
+    return getattr(result, "data", None) or []
+
+
 def get(booking_id: str) -> dict[str, Any] | None:
     try:
         result = (
@@ -100,11 +131,36 @@ def upsert_google_event(*, user_id: str, payload: dict[str, Any]) -> bool:
         result = (
             supabase_client.get_service_client()
             .table("bookings")
-            .upsert(body, on_conflict="user_id,google_event_id")
+            .upsert(body, on_conflict="user_id,google_calendar_id,google_event_id")
             .execute()
         )
     except PostgrestAPIError:
         logger.exception("bookings google upsert failed: %s", google_event_id)
+        return False
+    return bool(getattr(result, "data", None))
+
+
+def cancel_google_event(
+    *,
+    user_id: str,
+    google_calendar_id: str,
+    google_event_id: str,
+) -> bool:
+    """Mark one synced Google event cancelled for this user only."""
+    if not google_event_id:
+        return False
+    try:
+        result = (
+            supabase_client.get_service_client()
+            .table("bookings")
+            .update({"status": "cancelled", "google_status": "cancelled"})
+            .eq("user_id", user_id)
+            .eq("google_calendar_id", google_calendar_id or "primary")
+            .eq("google_event_id", google_event_id)
+            .execute()
+        )
+    except PostgrestAPIError:
+        logger.exception("bookings google cancel failed: %s", google_event_id)
         return False
     return bool(getattr(result, "data", None))
 
