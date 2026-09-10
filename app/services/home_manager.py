@@ -104,15 +104,25 @@ def build(
         instagram_connection=instagram_connection,
         ig_dm_unread_count=ig_dm_unread_count,
     )
-    brief = _brief(
+    if not needs_you and status.get("tone") == "attention":
+        needs_you.append(_status_attention_item(status))
+    brief_candidates = _brief(
         manager_activity=manager_activity,
         matched_picks=matched_picks,
         instagram_growth=instagram_growth or {},
         already_used_ids={str(item.get("id")) for item in needs_you if item.get("id")},
     )
+    primary_focus = needs_you[0] if needs_you else (brief_candidates[0] if brief_candidates else None)
+    primary_id = str((primary_focus or {}).get("id") or "")
+    brief = [
+        item
+        for item in brief_candidates
+        if str(item.get("id") or "") != primary_id
+    ]
     return {
         "status": status,
         "needs_you": needs_you[:3],
+        "primary_focus": primary_focus,
         "brief": brief[:3],
         "today": _today(upcoming_bookings, calendar_connected=calendar_connected),
         "handled": _handled(overnight_recap),
@@ -122,7 +132,7 @@ def build(
             upcoming_count=len(upcoming_bookings or []),
             ig_dm_unread_count=ig_dm_unread_count,
         ),
-        "clear": not needs_you and not brief,
+        "clear": primary_focus is None,
     }
 
 
@@ -146,9 +156,11 @@ def _manager_status(
         sources.append(
             {
                 "key": "babyg",
-                "label": "BabyG",
-                "state": "attention" if status == "failed" else "checked",
+                "label": "babyg",
+                "state": "attention" if status == "failed" else "healthy",
                 "detail": "latest agent cycle failed" if status == "failed" else status,
+                "href": "/creator/bot",
+                "action_label": "open babyg",
                 "checked_at": ended,
             }
         )
@@ -156,9 +168,11 @@ def _manager_status(
         sources.append(
             {
                 "key": "babyg",
-                "label": "BabyG",
-                "state": "checked",
+                "label": "babyg",
+                "state": "healthy",
                 "detail": str(latest_sweep.get("job_name") or "sweep"),
+                "href": "/creator/bot",
+                "action_label": "open babyg",
                 "checked_at": latest_sweep.get("ran_at"),
             }
         )
@@ -166,24 +180,30 @@ def _manager_status(
         sources.append(
             {
                 "key": "babyg",
-                "label": "BabyG",
+                "label": "babyg",
                 "state": "ready",
                 "detail": "no confirmed background check yet",
+                "href": "/creator/bot",
+                "action_label": "open babyg",
                 "checked_at": None,
             }
         )
 
     if instagram_connection:
+        state = "connected"
         detail = "connected"
         checked_at = (instagram_snapshot or {}).get("captured_at")
         if checked_at:
-            detail = "latest account snapshot"
+            state = "healthy"
+            detail = "account snapshot checked"
         sources.append(
             {
                 "key": "instagram",
                 "label": "Instagram",
-                "state": "connected",
+                "state": state,
                 "detail": detail,
+                "href": "/creator/instagram/dms",
+                "action_label": "open Instagram",
                 "checked_at": checked_at,
             }
         )
@@ -193,55 +213,63 @@ def _manager_status(
                 "key": "instagram",
                 "label": "Instagram",
                 "state": "disconnected",
-                "detail": "message monitoring unavailable",
+                "detail": "not connected",
                 "href": "/creator/instagram/connect?next=/creator",
+                "action_label": "connect",
                 "checked_at": None,
             }
         )
 
-    if google_connection:
-        connected_bits = []
-        if gmail_connected:
-            connected_bits.append("gmail")
-        if calendar_connected:
-            connected_bits.append("calendar")
-        sources.append(
-            {
-                "key": "google",
-                "label": "Google",
-                "state": "connected",
-                "detail": " + ".join(connected_bits) or "connected",
-                "checked_at": None,
-            }
-        )
-    else:
-        sources.append(
-            {
-                "key": "google",
-                "label": "Google",
-                "state": "disconnected",
-                "detail": "gmail and calendar not connected",
-                "href": "/creator/google/connect?service=calendar&service=gmail&next=/creator",
-                "checked_at": None,
-            }
-        )
+    sources.append(
+        {
+            "key": "gmail",
+            "label": "Gmail",
+            "state": "connected" if google_connection and gmail_connected else "disconnected",
+            "detail": "connected" if google_connection and gmail_connected else "not connected",
+            "href": "/creator/bot" if google_connection and gmail_connected else "/creator/google/connect?service=gmail&next=/creator",
+            "action_label": "open babyg" if google_connection and gmail_connected else "connect",
+            "checked_at": None,
+        }
+    )
+    sources.append(
+        {
+            "key": "calendar",
+            "label": "Calendar",
+            "state": "connected" if google_connection and calendar_connected else "disconnected",
+            "detail": "connected" if google_connection and calendar_connected else "not connected",
+            "href": "/creator/calendar" if google_connection and calendar_connected else "/creator/google/connect?service=calendar&next=/creator",
+            "action_label": "open calendar" if google_connection and calendar_connected else "connect",
+            "checked_at": None,
+        }
+    )
 
     checked_at = _latest_time(
         [
             s.get("checked_at")
             for s in sources
-            if s.get("state") in {"checked", "connected"} and s.get("checked_at")
+            if s.get("state") == "healthy" and s.get("checked_at")
         ]
     )
-    healthy_count = sum(1 for s in sources if s.get("state") in {"checked", "connected"})
+    connected_count = sum(1 for s in sources if s.get("state") in {"connected", "healthy"})
+    healthy_count = sum(1 for s in sources if s.get("state") == "healthy")
+    attention_count = sum(1 for s in sources if s.get("state") == "attention")
     if checked_at:
         relative = _relative_short(checked_at)
         headline = "checked just now" if relative == "just now" else f"checked {relative} ago"
+        summary = f"{healthy_count} source{'s' if healthy_count != 1 else ''} healthy"
+        tone = "healthy"
+    elif attention_count:
+        headline = "manager status"
+        summary = f"{attention_count} needs attention"
+        tone = "attention"
     else:
-        headline = "standing by"
+        headline = "manager status"
+        summary = f"{connected_count} connected"
+        tone = "connected" if connected_count else "neutral"
     return {
         "headline": headline,
-        "summary": f"{healthy_count} source{'s' if healthy_count != 1 else ''} connected",
+        "summary": summary,
+        "tone": tone,
         "sources": sources,
     }
 
@@ -357,6 +385,30 @@ def _needs_you(
         items.append(_item_from_notification(note, score=_PRIORITY_SCORE[priority]))
 
     return _rank(items)
+
+
+def _status_attention_item(status: dict[str, Any]) -> dict[str, Any]:
+    failing: dict[str, Any] = next(
+        (
+            source
+            for source in status.get("sources", [])
+            if source.get("state") == "attention"
+        ),
+        {},
+    )
+    label = str(failing.get("label") or "babyg")
+    detail = str(failing.get("detail") or "latest manager check needs review")
+    return _item(
+        id="status:manager-attention",
+        title=f"{label} needs attention",
+        body=detail,
+        href=str(failing.get("href") or "/creator/bot"),
+        source=str(failing.get("key") or "babyg"),
+        action_label="review",
+        priority="high",
+        score=340,
+        created_at=failing.get("checked_at"),
+    )
 
 
 def _brief(

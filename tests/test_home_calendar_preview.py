@@ -238,17 +238,18 @@ def test_home_renders_upcoming_events_when_present(
 ) -> None:
     _signed_in(client)
     stub_dashboard["calendar_connected"] = True
+    now = datetime.now(UTC)
     stub_dashboard["bookings"] = [
             {
                 "id": "b-1",
                 "title": "Brand intro call",
-                "starts_at": (datetime.now(UTC) + timedelta(hours=3)).isoformat(),
+                "starts_at": (now + timedelta(hours=3)).isoformat(),
                 "venue_name": "Zoom",
             },
             {
                 "id": "b-2",
                 "title": "Studio shoot",
-                "starts_at": (datetime.now(UTC) + timedelta(hours=6)).isoformat(),
+                "starts_at": (now + timedelta(hours=6)).isoformat(),
                 "venue_name": None,
             },
     ]
@@ -257,6 +258,8 @@ def test_home_renders_upcoming_events_when_present(
     assert "Brand intro call" in r.text
     assert "Studio shoot" in r.text
     assert 'href="/creator/calendar/b-1"' in r.text
+    assert (now + timedelta(hours=3)).strftime("%-I:%M%p").lower() in r.text
+    assert " · " not in r.text.split("Brand intro call", 1)[0]
     # Section is now titled "today" — the section header is on the page.
     assert ">today<" in r.text
     # The connect-calendar prompt must not also appear once connected.
@@ -306,7 +309,7 @@ def test_home_surfaces_manager_activity_with_deep_link(
     r = client.get("/creator")
 
     assert r.status_code == 200
-    assert "needs you" in r.text
+    assert 'aria-label="primary manager focus"' in r.text
     assert "you're clear" not in r.text.lower()
     assert "new instagram message from @brandco" in r.text
     assert (
@@ -396,9 +399,9 @@ def test_home_needs_you_ranks_real_pending_state(
     r = client.get("/creator")
 
     assert r.status_code == 200
-    assert "needs you" in r.text
+    assert 'aria-label="primary manager focus"' in r.text
     assert "wants to connect" in r.text
-    assert "BabyG's brief" in r.text
+    assert "babyg's brief" in r.text
     assert "Rooftop shoot" in r.text
     assert (
         'href="/creator/discover?bring_back_kind=opportunity&amp;bring_back_id=op-1"'
@@ -413,8 +416,9 @@ def test_home_status_shows_real_disconnected_integrations(
     r = client.get("/creator")
     assert r.status_code == 200
     assert 'href="/creator/instagram/connect?next=/creator"' in r.text
-    assert "message monitoring unavailable" in r.text.lower()
-    assert "gmail and calendar not connected" in r.text.lower()
+    assert "not connected" in r.text.lower()
+    assert "Gmail" in r.text
+    assert "Calendar" in r.text
 
 
 def test_home_ignores_social_platform_query_without_dead_links(
@@ -440,7 +444,7 @@ def test_home_renders_stored_instagram_growth_as_brief_not_live_analytics(
     stub_dashboard["instagram_growth"] = {"followers_count": 42}
     r = client.get("/creator")
     assert r.status_code == 200
-    assert "BabyG's brief" in r.text
+    assert 'aria-label="primary manager focus"' in r.text
     assert "Instagram followers are up" in r.text
     assert "+42 over the latest stored 7-day window" in r.text
     assert "top post signal" not in r.text

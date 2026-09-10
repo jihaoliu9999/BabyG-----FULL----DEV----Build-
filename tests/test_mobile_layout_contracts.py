@@ -378,19 +378,22 @@ def test_creator_home_v2_manager_cards_fit_mobile_labels() -> None:
     title_rule = APP_CSS.split(".is-creator-app .manager-card-title {", 1)[1].split(
         "}", 1
     )[0]
-    action_rule = APP_CSS.split(".is-creator-app .manager-card-action {", 1)[
+    focus_action_rule = APP_CSS.split(".is-creator-app .manager-focus-primary {", 1)[
+        1
+    ].split("}", 1)[0]
+    chevron_rule = APP_CSS.split(".is-creator-app .manager-card-chevron {", 1)[
         1
     ].split("}", 1)[0]
     mobile_rule = APP_CSS.split("@media (max-width: 430px) {", 1)[1]
 
     assert "min-width: 0" in card_rule
     assert "grid-template-columns: minmax(0, 1fr) auto" in card_rule
-    assert "grid-template-columns: 34px minmax(0, 1fr)" in main_rule
+    assert "grid-template-columns: 32px minmax(0, 1fr)" in main_rule
     assert "overflow-wrap: anywhere" in title_rule
-    assert "min-height: 40px" in action_rule
+    assert "min-height: 44px" in focus_action_rule
+    assert "font-size: 26px" in chevron_rule
     assert ".is-creator-app .manager-card" in mobile_rule
-    assert "grid-template-columns: minmax(0, 1fr)" in mobile_rule
-    assert "width: 100%" in mobile_rule
+    assert "min-height: 72px" in mobile_rule
 
 
 def test_creator_home_v2_removes_dashboard_analytics_and_shortcuts() -> None:
@@ -400,8 +403,9 @@ def test_creator_home_v2_removes_dashboard_analytics_and_shortcuts() -> None:
     assert "creator-home-shortcuts" not in DASHBOARD_TEMPLATE
     assert "creator-social-section" not in DASHBOARD_TEMPLATE
     assert "social_analytics" not in DASHBOARD_TEMPLATE
-    assert "BabyG's brief" in DASHBOARD_TEMPLATE
-    assert "needs you" in DASHBOARD_TEMPLATE
+    assert "babyg's brief" in DASHBOARD_TEMPLATE
+    assert "primary_focus" in DASHBOARD_TEMPLATE
+    assert "<h2>needs you</h2>" not in DASHBOARD_TEMPLATE
 
 
 def test_hidden_brand_topbar_does_not_reserve_mobile_space() -> None:

@@ -20,17 +20,34 @@
 {%- endmacro %}
 
 {% macro manager_item(item, extra_class='') -%}
-  <article class="manager-card priority-{{ item.priority }} {{ extra_class }}">
-    <a class="manager-card-main" href="{{ item.href }}">
+  <a class="manager-card priority-{{ item.priority }} {{ extra_class }}" href="{{ item.href }}">
+    <span class="manager-card-main">
       {{ source_icon(item.source) }}
       <span class="manager-card-copy">
         <span class="manager-card-title">{{ item.title|string|truncate(72, true, '...') }}</span>
         {% if item.body %}<span class="manager-card-body">{{ item.body|string|truncate(112, true, '...') }}</span>{% endif %}
         {% if item.created_at %}<span class="manager-card-time">{{ item.created_at|human_ago }}</span>{% endif %}
       </span>
-    </a>
-    <a class="manager-card-action" href="{{ item.href }}">{{ item.action_label }}</a>
-  </article>
+    </span>
+    <span class="manager-card-chevron" aria-hidden="true">&rsaquo;</span>
+  </a>
+{%- endmacro %}
+
+{% macro primary_focus(item) -%}
+  <section class="manager-focus priority-{{ item.priority }}" aria-label="primary manager focus">
+    <div class="manager-focus-head">
+      {{ source_icon(item.source) }}
+      <span>{{ item.source|replace('google', 'gmail') }}</span>
+      {% if item.created_at %}<time>{{ item.created_at|human_ago }}</time>{% endif %}
+    </div>
+    <div class="manager-focus-copy">
+      <h2>{{ item.title|string|truncate(86, true, '...') }}</h2>
+      {% if item.body %}<p>{{ item.body|string|truncate(150, true, '...') }}</p>{% endif %}
+    </div>
+    <div class="manager-focus-actions">
+      <a class="manager-focus-primary" href="{{ item.href }}">{{ item.action_label or 'review' }}</a>
+    </div>
+  </section>
 {%- endmacro %}
 
 {% block content %}
@@ -39,13 +56,16 @@
 
   <header class="creator-home-hero manager-hero">
     <div>
+      <a class="manager-home-wordmark" href="/creator" aria-label="babyg home">
+        <span>babyg</span>
+      </a>
       <h1 data-greeting-slots
           data-greet-morning="{{ daily_greeting.morning }}"
           data-greet-afternoon="{{ daily_greeting.afternoon }}"
           data-greet-evening="{{ daily_greeting.evening }}"
           data-greet-night="{{ daily_greeting.night }}">{{ daily_greeting.afternoon }}</h1>
       {% if home.status %}
-      <details class="manager-status">
+      <details class="manager-status tone-{{ home.status.tone or 'neutral' }}">
         <summary>
           <span class="manager-status-dot" aria-hidden="true"></span>
           <span>{{ home.status.headline }}</span>
@@ -53,12 +73,13 @@
         </summary>
         <div class="manager-status-panel">
           {% for source in home.status.sources %}
-          <a class="manager-status-row state-{{ source.state }}" href="{{ source.href or '#' }}" {% if not source.href %}aria-disabled="true"{% endif %}>
+          <a class="manager-status-row state-{{ source.state }}" href="{{ source.href }}">
             {{ source_icon(source.key) }}
             <span>
               <strong>{{ source.label }}</strong>
               <small>{{ source.detail }}{% if source.checked_at %} · {{ source.checked_at|human_ago }}{% endif %}</small>
             </span>
+            <em>{{ source.action_label or 'open' }} &rsaquo;</em>
           </a>
           {% endfor %}
         </div>
@@ -67,32 +88,26 @@
     </div>
   </header>
 
-  {% if home['clear'] %}
+  {% if home.primary_focus %}
+    {{ primary_focus(home.primary_focus) }}
+  {% elif home['clear'] %}
   <section class="manager-clear-state" aria-label="all clear">
-    <strong>you're clear.</strong>
-    <span>nothing needs your attention right now.</span>
-  </section>
-  {% endif %}
-
-  {% if home.needs_you %}
-  <section class="creator-home-section manager-section needs-section">
-    <div class="creator-home-section-head">
-      <h2>needs you</h2>
-      <span class="manager-section-count">{{ home.needs_you|length }}</span>
-    </div>
-    <div class="manager-stack">
-      {% for item in home.needs_you %}
-        {{ manager_item(item, 'needs-card') }}
-      {% endfor %}
-    </div>
+    <span class="manager-clear-check" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17l9-10"/></svg>
+    </span>
+    <span class="manager-clear-copy">
+      <strong>you're clear.</strong>
+      <span>nothing needs your attention right now.</span>
+    </span>
+    <small>all caught up</small>
   </section>
   {% endif %}
 
   {% if home.brief %}
   <section class="creator-home-section manager-section">
     <div class="creator-home-section-head">
-      <h2>BabyG's brief</h2>
-      <a href="/creator/performance" class="creator-home-link">evidence</a>
+      <h2>babyg's brief</h2>
+      <a href="/creator/performance" class="creator-home-link">evidence &rsaquo;</a>
     </div>
     <div class="manager-stack">
       {% for item in home.brief %}
@@ -106,50 +121,59 @@
   <section class="creator-home-section manager-section">
     <div class="creator-home-section-head">
       <h2>today</h2>
-      <a href="/creator/calendar" class="creator-home-link">calendar</a>
+      <a href="/creator/calendar" class="creator-home-link">view calendar &rsaquo;</a>
     </div>
     {% if home.today.events %}
     <div class="manager-today-list">
       {% for ev in home.today.events %}
       <a class="manager-today-row" href="/creator/calendar{% if ev.id %}/{{ ev.id }}{% endif %}">
-        {{ source_icon('calendar') }}
-        <span>
-          <strong>{{ ev.starts_at|short_dt if ev.starts_at else 'time tbd' }}</strong>
-          <small>{{ ev.title }}{% if ev.venue_name %} · {{ ev.venue_name }}{% endif %}</small>
+        <time>{{ ev.starts_at|dm_time if ev.starts_at else 'time tbd' }}</time>
+        <span class="manager-today-rule" aria-hidden="true"></span>
+        <span class="manager-today-copy">
+          <strong>{{ ev.title }}</strong>
+          {% if ev.venue_name %}<small>{{ ev.venue_name }}</small>{% endif %}
         </span>
       </a>
       {% endfor %}
     </div>
     {% else %}
-    <a class="manager-empty-link" href="/creator/profile/settings">
+    <a class="manager-empty-link" href="/creator/google/connect?service=calendar&next=/creator">
       {{ source_icon('calendar') }}
-      <span>connect calendar so BabyG can see calls and deadlines.</span>
+      <span>connect calendar to see calls and deadlines.</span>
+      <em aria-hidden="true">&rsaquo;</em>
     </a>
     {% endif %}
   </section>
   {% endif %}
 
-  {% if home.handled %}
-  <section class="creator-home-section manager-section manager-compact-section">
-    <a class="manager-compact-row" href="{{ home.handled.href }}">
-      <span>
-        <small>{{ home.handled.label }}</small>
-        <strong>{{ home.handled.summary }}</strong>
-      </span>
-      <em>activity</em>
-    </a>
-  </section>
-  {% endif %}
-
-  {% if home.watching %}
-  <section class="creator-home-section manager-section manager-compact-section">
-    <a class="manager-compact-row watching" href="{{ home.watching.href }}">
-      <span>
-        <small>watching</small>
-        <strong>{{ home.watching.summary|replace('watching ', '') }}</strong>
-      </span>
-      <em>open</em>
-    </a>
+  {% if home.handled or home.watching %}
+  <section class="creator-home-section manager-section manager-proof-section" aria-label="babyg activity">
+    <div class="manager-proof-grid">
+      {% if home.handled %}
+      <a class="manager-compact-row handled" href="{{ home.handled.href }}">
+        <span class="manager-proof-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5 10 17l9-10"/></svg>
+        </span>
+        <span>
+          <small>babyg handled</small>
+          <strong>{{ home.handled.summary }}</strong>
+        </span>
+        <em aria-hidden="true">&rsaquo;</em>
+      </a>
+      {% endif %}
+      {% if home.watching %}
+      <a class="manager-compact-row watching" href="{{ home.watching.href }}">
+        <span class="manager-proof-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="3.5"/><circle cx="16.5" cy="15.5" r="3.5"/><path d="M9 15 12 7l3 8M10.5 12h3"/></svg>
+        </span>
+        <span>
+          <small>watching</small>
+          <strong>{{ home.watching.summary|replace('watching ', '') }}</strong>
+        </span>
+        <em aria-hidden="true">&rsaquo;</em>
+      </a>
+      {% endif %}
+    </div>
   </section>
   {% endif %}
 

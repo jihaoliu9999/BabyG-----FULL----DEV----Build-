@@ -37,12 +37,16 @@ def test_home_build_empty_state_uses_only_status_not_fake_alerts() -> None:
 
     assert home["clear"] is True
     assert home["needs_you"] == []
+    assert home["primary_focus"] is None
     assert home["brief"] == []
     assert [source["state"] for source in home["status"]["sources"]] == [
         "ready",
         "disconnected",
         "disconnected",
+        "disconnected",
     ]
+    assert home["status"]["headline"] == "manager status"
+    assert home["status"]["summary"] == "0 connected"
 
 
 def test_home_build_keeps_instagram_dm_manager_alert_eligible() -> None:
@@ -64,6 +68,7 @@ def test_home_build_keeps_instagram_dm_manager_alert_eligible() -> None:
     )
 
     assert home["clear"] is False
+    assert home["primary_focus"]["id"] == "ig-note-1"
     assert home["needs_you"][0]["id"] == "ig-note-1"
     assert home["needs_you"][0]["source"] == "instagram"
     assert home["needs_you"][0]["href"] == "/creator/instagram/dms?thread=thread-1"
@@ -78,6 +83,26 @@ def test_home_status_does_not_say_just_now_ago() -> None:
     )
 
     assert home["status"]["headline"] == "checked just now"
+    assert home["status"]["summary"] == "1 source healthy"
+    instagram = next(s for s in home["status"]["sources"] if s["key"] == "instagram")
+    assert instagram["state"] == "healthy"
+
+
+def test_home_failed_manager_check_replaces_clear_state() -> None:
+    home = home_manager.build(
+        **_base_kwargs(
+            latest_agent_cycle={
+                "status": "failed",
+                "cycle_started_at": "2026-09-09T12:00:00Z",
+                "cycle_ended_at": "2026-09-09T12:05:00Z",
+            }
+        )
+    )
+
+    assert home["clear"] is False
+    assert home["primary_focus"]["id"] == "status:manager-attention"
+    assert home["primary_focus"]["title"] == "babyg needs attention"
+    assert home["primary_focus"]["href"] == "/creator/bot"
 
 
 def test_home_build_defensively_excludes_native_dm_manager_leaks() -> None:
@@ -108,6 +133,7 @@ def test_home_build_defensively_excludes_native_dm_manager_leaks() -> None:
     )
 
     assert home["clear"] is True
+    assert home["primary_focus"] is None
     assert home["needs_you"] == []
     assert home["brief"] == []
 
