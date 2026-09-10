@@ -138,6 +138,7 @@ class InstagramAccount:
     ig_user_id: str
     username: str | None
     name: str | None
+    graph_account_id: str | None = None
 
 
 @dataclass(frozen=True)
@@ -246,21 +247,29 @@ def resolve_business_account(access_token: str) -> InstagramAccount:
     detail = _graph_get(
         "/me",
         access_token,
-        params={"fields": "id,username,name,account_type"},
+        params={"fields": "id,user_id,username,name,account_type"},
     )
-    ig_user_id = str(detail.get("id") or "").strip()
+    graph_account_id = str(detail.get("id") or "").strip()
+    ig_user_id = str(detail.get("user_id") or graph_account_id).strip()
     if not ig_user_id:
-        raise InstagramError("Instagram /me response missing id")
+        raise InstagramError("Instagram /me response missing account id")
     account_type = str(detail.get("account_type") or "").strip().upper()
     if account_type not in _ELIGIBLE_ACCOUNT_TYPES:
         raise InstagramIneligibleAccountError(
             "Instagram connection requires an Instagram Business or "
             "Creator account."
         )
+    if graph_account_id and graph_account_id != ig_user_id:
+        logger.info(
+            "instagram_meta.resolve_account.id_shape graph_id_hint=%s user_id_hint=%s",
+            _id_hint(graph_account_id),
+            _id_hint(ig_user_id),
+        )
     return InstagramAccount(
         ig_user_id=ig_user_id,
         username=_str_or_none(detail.get("username"), max_len=80),
         name=_str_or_none(detail.get("name"), max_len=120),
+        graph_account_id=graph_account_id or None,
     )
 
 

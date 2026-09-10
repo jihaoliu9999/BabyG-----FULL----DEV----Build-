@@ -148,7 +148,10 @@ def test_save_instagram_connection_writes_expected_payload(monkeypatch):
         lambda token, *, ig_user_id: subscribed.append((token, ig_user_id)) or True,
     )
     account = instagram_meta.InstagramAccount(
-        ig_user_id="ig-1784", username="miacreates", name="Mia"
+        ig_user_id="17841440333695396",
+        username="miacreates",
+        name="Mia",
+        graph_account_id="28475339705441642",
     )
     ok = oauth_connections.save_instagram_connection(
         "creator-1",
@@ -159,7 +162,7 @@ def test_save_instagram_connection_writes_expected_payload(monkeypatch):
         ig_account=account,
     )
     assert ok is True
-    assert subscribed == [("long-token", "ig-1784")]
+    assert subscribed == [("long-token", "17841440333695396")]
     assert len(store["upserts"]) == 1
     upsert = store["upserts"][0]
     assert upsert["table"] == "oauth_connections"
@@ -168,7 +171,7 @@ def test_save_instagram_connection_writes_expected_payload(monkeypatch):
     assert payload["provider"] == "instagram"
     assert payload["access_token"] == "long-token"
     assert payload["scopes"] == list(instagram_meta.SCOPES)
-    assert payload["provider_account_id"] == "ig-1784"
+    assert payload["provider_account_id"] == "17841440333695396"
     assert payload["refresh_token"] is None
     assert payload["expires_at"]  # ISO timestamp
     assert upsert["kwargs"]["on_conflict"] == "user_id,provider"

@@ -293,6 +293,72 @@ def test_ingest_persists_inbound_message_and_creates_thread(monkeypatch) -> None
     assert fake.notifications == []
 
 
+def test_ingest_resolves_actual_instagram_login_webhook_user_id_shape(
+    monkeypatch,
+) -> None:
+    fake = _install(monkeypatch)
+    fake.oauth_rows = [
+        {
+            "user_id": "creator-1",
+            "provider": "instagram",
+            "provider_account_id": "17841440333695396",
+        }
+    ]
+
+    stats = instagram_dms.ingest_webhook_payload({
+        "object": "instagram",
+        "entry": [{
+            "id": "17841440333695396",
+            "messaging": [{
+                "sender": {"id": "812345678901234"},
+                "recipient": {"id": "28475339705441642"},
+                "timestamp": 1699999999000,
+                "message": {"mid": "m-actual-shape", "text": "paid collab rates?"},
+            }],
+        }],
+    })
+
+    assert stats["messages_ingested"] == 1
+    assert stats["dropped_no_creator"] == 0
+    assert fake.threads[0]["creator_id"] == "creator-1"
+    assert fake.threads[0]["ig_thread_id"] == "812345678901234"
+    assert fake.messages[0]["ig_message_id"] == "m-actual-shape"
+    assert fake.messages[0]["direction"] == "inbound"
+    assert len(fake.notifications) == 1
+
+
+def test_ingest_does_not_route_by_messaging_recipient_id(monkeypatch, caplog) -> None:
+    fake = _install(monkeypatch)
+    fake.oauth_rows = [
+        {
+            "user_id": "creator-1",
+            "provider": "instagram",
+            "provider_account_id": "28475339705441642",
+        }
+    ]
+
+    with caplog.at_level(logging.INFO):
+        stats = instagram_dms.ingest_webhook_payload({
+            "object": "instagram",
+            "entry": [{
+                "id": "17841440333695396",
+                "messaging": [{
+                    "sender": {"id": "812345678901234"},
+                    "recipient": {"id": "28475339705441642"},
+                    "timestamp": 1699999999000,
+                    "message": {"mid": "m-no-recipient-fallback", "text": "hi"},
+                }],
+            }],
+        })
+
+    assert stats["messages_ingested"] == 0
+    assert stats["dropped_no_creator"] == 1
+    assert fake.messages == []
+    assert fake.notifications == []
+    log_text = "\n".join(r.getMessage() for r in caplog.records)
+    assert "instagram_dms.resolve_creator.not_found" in log_text
+
+
 def test_ingest_important_inbound_message_creates_manager_notification(
     monkeypatch,
 ) -> None:

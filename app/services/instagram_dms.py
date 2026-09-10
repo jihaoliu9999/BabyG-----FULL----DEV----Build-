@@ -13,12 +13,12 @@ is logged and swallowed.
   "object": "instagram",
   "entry": [
     {
-      "id": "<ig_business_account_id>",   // whose account received it
+      "id": "<ig_user_id_of_connected_account>", // whose account received it
       "time": 1699999999,
       "messaging": [
         {
           "sender":    {"id": "<ig_user_id_of_peer>"},
-          "recipient": {"id": "<ig_business_account_id>"},
+          "recipient": {"id": "<messaging_recipient_id>"},
           "timestamp": 1699999999123,
           "message": {
             "mid": "<ig_message_id>",
@@ -292,7 +292,12 @@ def _ingest_entry(entry: dict[str, Any], stats: dict[str, int]) -> None:
 def _resolve_creator_from_ig_account(ig_account_id: str) -> str | None:
     """Look up the babyg creator whose oauth_connections row for
     provider='instagram' has provider_account_id matching this
-    IG business account id."""
+    stable Instagram owner id from the webhook entry.
+
+    Do not resolve from messaging.sender.id or messaging.recipient.id:
+    those are conversation participant identifiers and can differ from
+    the owner id that OAuth returns as /me.user_id.
+    """
     try:
         result = (
             supabase_client.get_service_client()

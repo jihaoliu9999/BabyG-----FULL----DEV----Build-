@@ -237,6 +237,24 @@ def test_resolve_business_account_accepts_business_type(monkeypatch):
     assert account.name == "Mia"
 
 
+def test_resolve_business_account_prefers_webhook_user_id(monkeypatch):
+    monkeypatch.setattr(
+        httpx,
+        "get",
+        lambda *a, **kw: _ok_response(
+            {
+                "id": "28475339705441642",
+                "user_id": "17841440333695396",
+                "username": "garrettreynoldsfl",
+                "account_type": "MEDIA_CREATOR",
+            }
+        ),
+    )
+    account = instagram_meta.resolve_business_account("TOKEN")
+    assert account.ig_user_id == "17841440333695396"
+    assert account.graph_account_id == "28475339705441642"
+
+
 def test_resolve_business_account_accepts_media_creator_type(monkeypatch):
     """Creator accounts (MEDIA_CREATOR) are the IG-app-side equivalent
     of a Business account for our purposes — same insights surface."""
