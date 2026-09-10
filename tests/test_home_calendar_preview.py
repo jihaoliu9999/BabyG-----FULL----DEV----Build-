@@ -34,6 +34,9 @@ from app.services import (
     bookings as bookings_module,
 )
 from app.services import (
+    calendar_sync as calendar_sync_module,
+)
+from app.services import (
     discover as discover_module,
 )
 from app.services import (
@@ -209,6 +212,21 @@ def stub_dashboard(monkeypatch):
         "performance_view",
         lambda uid, **kw: state["performance_view"],
     )
+    # Track calls to the calendar auto-sync so tests can assert whether
+    # Home actually triggered a freshness refresh. Tests can flip
+    # `state["auto_sync_should_fire"]` to see whether the route calls
+    # into it.
+    calendar_sync_module._LAST_AUTO_SYNC_AT.clear()
+    auto_sync_calls: list[str] = []
+    state["auto_sync_calls"] = auto_sync_calls
+
+    def _stub_maybe_auto_sync(uid: str):
+        auto_sync_calls.append(uid)
+        return calendar_sync_module.CalendarSyncResult(
+            imported=0, connected=True
+        )
+
+    monkeypatch.setattr(calendar_sync_module, "maybe_auto_sync", _stub_maybe_auto_sync)
     return state
 
 
@@ -794,3 +812,123 @@ def test_settings_page_renders(client: TestClient, stub_dashboard) -> None:
     assert "settings" in r.text
     assert "edit profile" in r.text
     assert "deal preferences" in r.text
+
+
+# ---------------------------------------------------------------------------
+# home v5 — brief renders before calendar, and calendar is compact on mobile
+# ---------------------------------------------------------------------------
+
+
+def test_home_triggers_calendar_auto_sync_when_google_connected(
+    client: TestClient, stub_dashboard
+) -> None:
+    """The Home render must call calendar_sync.maybe_auto_sync so a
+    freshly-added Google Calendar event lands in bookings before the
+    read fires. Without this, Home shows stale calendar data
+    indefinitely (bug: real Friday event never appears)."""
+    _signed_in(client)
+    stub_dashboard["google_calendar_connected"] = True
+    r = client.get("/creator")
+    assert r.status_code == 200
+    assert stub_dashboard["auto_sync_calls"] == ["u-1"]
+
+
+def test_home_skips_calendar_auto_sync_when_google_not_connected(
+    client: TestClient, stub_dashboard
+) -> None:
+    _signed_in(client)
+    r = client.get("/creator")
+    assert r.status_code == 200
+    assert stub_dashboard["auto_sync_calls"] == []
+
+
+def test_home_brief_renders_before_calendar(
+    client: TestClient, stub_dashboard
+) -> None:
+    """The mandated home v5 order is:
+       status -> primary -> brief -> calendar -> handled/watching.
+    Locks brief above calendar so a future refactor cannot swap
+    them silently."""
+    _signed_in(client)
+    stub_dashboard["ig_dm_unread"] = 1  # forces a brief row to render
+    stub_dashboard["google_calendar_connected"] = True
+    r = client.get("/creator")
+    assert r.status_code == 200
+    brief_pos = r.text.find(">brief<")
+    calendar_pos = r.text.find('data-home-calendar')
+    assert brief_pos != -1
+    assert calendar_pos != -1
+    assert brief_pos < calendar_pos
+
+
+def test_home_mobile_calendar_omits_hourly_grid_markup_footprint(
+    client: TestClient, stub_dashboard
+) -> None:
+    """Mobile Home must not render the giant 6am-10pm hourly timeline
+    inside the compact list block. The `.creator-home-day-list`
+    container is the mobile canonical event surface."""
+    _signed_in(client)
+    stub_dashboard["google_calendar_connected"] = True
+    r = client.get("/creator")
+    assert r.status_code == 200
+    # The compact per-day list block is present.
+    assert 'data-home-day-events' in r.text
+    assert 'creator-home-day-list' in r.text
+    # The full hourly grid is still in the template (kept for desktop)
+    # but is behind a mobile-hide CSS rule scoped to
+    # [data-home-calendar]. The route must render both.
+    assert 'data-home-calendar' in r.text
+
+
+def test_home_mobile_calendar_renders_all_seven_day_cells(
+    client: TestClient, stub_dashboard
+) -> None:
+    _signed_in(client)
+    stub_dashboard["google_calendar_connected"] = True
+    r = client.get("/creator")
+    assert r.status_code == 200
+    # Each of the seven days gets a data-home-day cell.
+    day_cell_count = r.text.count('data-home-day="')
+    assert day_cell_count == 7
+
+
+def test_home_mobile_calendar_shows_nothing_scheduled_when_empty(
+    client: TestClient, stub_dashboard
+) -> None:
+    _signed_in(client)
+    stub_dashboard["google_calendar_connected"] = True
+    # No bookings at all.
+    stub_dashboard["bookings"] = []
+    r = client.get("/creator")
+    assert r.status_code == 200
+    # `nothing scheduled` appears at least once (empty-day placeholder).
+    assert "nothing scheduled" in r.text
+
+
+def test_home_mobile_calendar_all_day_event_shows_all_day_label(
+    client: TestClient, stub_dashboard
+) -> None:
+    """Real all-day events render with the `ALL DAY` prefix per spec."""
+    from datetime import date
+    from datetime import timedelta as _td
+    _signed_in(client)
+    stub_dashboard["google_calendar_connected"] = True
+    # Anchor to today's date in the fixture so the event lands inside
+    # the current week window.
+    today = date.today()
+    stub_dashboard["bookings"] = [
+        {
+            "id": "b-1",
+            "title": "shoot day",
+            # ISO-only (no `T`) triggers the all-day code path in
+            # _event_vm's date-only branch.
+            "starts_at": today.isoformat(),
+            "ends_at": (today + _td(days=1)).isoformat(),
+            "type": "event",
+            "status": "confirmed",
+        }
+    ]
+    r = client.get("/creator")
+    assert r.status_code == 200
+    assert "ALL DAY" in r.text
+    assert "shoot day" in r.text

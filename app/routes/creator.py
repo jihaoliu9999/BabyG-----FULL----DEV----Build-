@@ -357,11 +357,26 @@ async def dashboard(
     week_start = _week_start(today)
     week_end = week_start + timedelta(days=7)
 
+    # Pull the Google connection FIRST — the home calendar section
+    # renders from persisted bookings, so we must let a throttled
+    # Google sync run before the parallel bookings.list_for_user_range
+    # read below. Without this, a Google event added in the user's
+    # calendar after the last manual sync never appears on Home
+    # until the user opens /creator/calendar or taps sync.
+    #
+    # maybe_auto_sync is per-user-throttled (120s), so repeated Home
+    # opens don't stampede Google — the first Home open per interval
+    # pays the sync cost, subsequent renders return None cheaply.
+    google_connection = await _safe_call(
+        oauth_connections.get_google_connection, user_id, _default=None
+    )
+    if oauth_connections.google_calendar_connected(google_connection):
+        await asyncio.to_thread(calendar_sync.maybe_auto_sync, user_id)
+
     (
         unread_notifs_all,
         pending_connections,
         upcoming_bookings,
-        google_connection,
         matched_picks,
         pending_actions_all,
         unread_dm_n,
@@ -378,7 +393,6 @@ async def dashboard(
             limit=120,
             _default=[],
         ),
-        _safe_call(oauth_connections.get_google_connection, user_id, _default=None),
         _safe_call(
             discover.list_cards,
             viewer_id=user_id,

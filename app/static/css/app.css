@@ -14156,3 +14156,131 @@ body:has(.dm-thread-composer-box input:focus) .creator-tabbar {
 @media (prefers-reduced-motion: reduce) {
   .creator-home.hv5 .hv5-btn { transition: none; }
 }
+
+/* ==================================================================== */
+/* Home v5 — mobile calendar section (Home dashboard only).             */
+/*                                                                      */
+/* Desktop layout is untouched: the existing `.calendar-week-head`,     */
+/* `.calendar-all-day-row`, and `.calendar-time-grid.calendar-home-grid`*/
+/* keep rendering the week hourly grid at >= 768px.                     */
+/*                                                                      */
+/* On mobile the Home calendar collapses to:                            */
+/*   ROW A — header row (already handled by .hv5-head)                  */
+/*   ROW B — 7-day strip (existing .calendar-mobile-days)               */
+/*   ROW C — compact selected-day event list (new .creator-home-day-*) */
+/*                                                                      */
+/* The full hourly grid is hidden on mobile so the section stays        */
+/* compact.                                                             */
+/* ==================================================================== */
+
+/* Mobile-only default: the new compact list is visible; the desktop
+   week grid + all-day row + hourly grid are hidden. */
+@media (max-width: 767px) {
+  .creator-home.hv5 [data-home-calendar] .calendar-home-range { display: none; }
+  .creator-home.hv5 [data-home-calendar] .calendar-week-head,
+  .creator-home.hv5 [data-home-calendar] .calendar-all-day-row,
+  .creator-home.hv5 [data-home-calendar] .calendar-time-grid,
+  .creator-home.hv5 [data-home-calendar] .calendar-home-empty {
+    display: none !important;
+  }
+
+  /* 7-day strip. Existing .calendar-mobile-days is styled globally;
+     just enforce equal 7-cell fit inside the home box and lift the
+     today/selected accents so mobile matches the spec. */
+  .creator-home.hv5 [data-home-calendar] .calendar-mobile-days {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 4px;
+    padding: 8px 4px;
+    margin: 0 0 8px;
+    border-radius: 12px;
+    background: var(--surface-1, rgba(255,255,255,0.03));
+    border: 1px solid var(--border-subtle, rgba(255,255,255,0.08));
+  }
+  .creator-home.hv5 [data-home-calendar] .calendar-mobile-days a {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 6px 0;
+    border-radius: 8px;
+    min-width: 0;
+    color: inherit;
+    text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .creator-home.hv5 [data-home-calendar] .calendar-mobile-days a span {
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink-dim, rgba(255,255,255,0.48));
+  }
+  .creator-home.hv5 [data-home-calendar] .calendar-mobile-days a strong {
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--ink, #fff);
+  }
+  .creator-home.hv5 [data-home-calendar] .calendar-mobile-days a.is-today strong {
+    color: var(--accent, #ff3b6b);
+  }
+  .creator-home.hv5 [data-home-calendar] .calendar-mobile-days a.is-selected {
+    background: rgba(255,255,255,0.06);
+  }
+
+  /* Compact selected-day event list. */
+  .creator-home.hv5 [data-home-calendar] .creator-home-day-events {
+    margin: 6px 0 0;
+  }
+  .creator-home.hv5 [data-home-calendar] .creator-home-day-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 6px;
+  }
+  .creator-home.hv5 [data-home-calendar] .creator-home-day-list li a {
+    display: grid;
+    grid-template-columns: 78px minmax(0, 1fr);
+    align-items: baseline;
+    gap: 10px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    background: var(--surface-1, rgba(255,255,255,0.03));
+    border: 1px solid var(--border-subtle, rgba(255,255,255,0.08));
+    color: inherit;
+    text-decoration: none;
+    min-height: 40px;
+  }
+  .creator-home.hv5 [data-home-calendar] .creator-home-day-time {
+    font-size: 11.5px;
+    letter-spacing: 0.02em;
+    color: var(--ink-dim, rgba(255,255,255,0.55));
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  .creator-home.hv5 [data-home-calendar] .creator-home-day-title {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--ink, #fff);
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow-wrap: anywhere;
+    line-height: 1.3;
+  }
+  .creator-home.hv5 [data-home-calendar] .creator-home-day-empty {
+    padding: 6px 12px;
+    color: var(--ink-dim, rgba(255,255,255,0.5));
+    font-size: 13px;
+    font-style: italic;
+    list-style: none;
+  }
+}
+
+/* Desktop keeps the compact list hidden — the hourly grid renders
+   instead. */
+@media (min-width: 768px) {
+  .creator-home.hv5 [data-home-calendar] .creator-home-day-events { display: none; }
+}

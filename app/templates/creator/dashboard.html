@@ -5,11 +5,12 @@
 {% block content %}
 {# home v5 — matches the mobile spec screenshot.
 
-   Section order (fixed):
-     1. babyg status pill (● babyg · N connected ›) + expanded rows
+   Section order (fixed, mobile canonical):
+     1. babyg status pill (● babyg · N connected) + expanded rows
      2. primary manager update (or compact clear state)
-     3. next (one calendar item, or a connect row, or nothing)
-     4. brief (up to 3 rows, real data only)
+     3. brief (up to 3 rows, real data only)
+     4. calendar (compact week strip + selected-day events on mobile;
+        desktop keeps the existing week hourly grid)
      5. handled + watching (two compact side-by-side cards)
 
    Every value comes from real state via home_briefing service.
@@ -151,9 +152,39 @@
   </section>
   {% endif %}
 
-  {# ---------------- 3. current week ---------------- #}
-  {% set _next = upcoming_bookings[0] if upcoming_bookings else None %}
+  {# ---------------- 3. brief ---------------- #}
+  {% if home_v5_brief %}
   <section class="hv5-section">
+    <div class="hv5-head">
+      <h2 class="hv5-head-title">brief</h2>
+      <a class="hv5-head-link" href="/creator/discover">view all</a>
+    </div>
+    <div class="hv5-brief">
+      {% for row in home_v5_brief %}
+      <a class="hv5-brief-row" href="{{ row.href }}" data-slot="{{ row.slot }}">
+        <span class="hv5-brief-icon" aria-hidden="true">
+          {% if row.slot == 'performance' %}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-8"/><path d="M22 20H2"/></svg>
+          {% elif row.slot == 'instagram' %}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17" cy="7" r="1" fill="currentColor" stroke="none"/></svg>
+          {% elif row.slot == 'opportunity' %}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21h6"/><path d="M12 17v4"/><path d="M7 8a5 5 0 1 1 10 0c0 3-3 4-3 6H10c0-2-3-3-3-6z"/></svg>
+          {% else %}
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 3"/></svg>
+          {% endif %}
+        </span>
+        <span class="hv5-brief-body">
+          <strong>{{ row.title }}</strong>
+          {% if row.detail %}<small>{{ row.detail }}</small>{% endif %}
+        </span>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {# ---------------- 4. calendar ---------------- #}
+  <section class="hv5-section" data-home-calendar>
     <div class="hv5-head">
       <h2 class="hv5-head-title">calendar</h2>
       <a class="hv5-head-link" href="/creator/calendar">view calendar</a>
@@ -171,13 +202,50 @@
     {% else %}
     <div class="creator-calendar-week-preview">
       <div class="calendar-home-range">{{ calendar_grid.week_start.strftime('%b %d') }} - {{ calendar_grid.week_end.strftime('%b %d') }}</div>
-      <div class="calendar-mobile-days" aria-label="current week days">
+      {# 7-day strip — visible on BOTH mobile + desktop. Tapping a day
+         on mobile updates the selected-day event list below (via
+         creator_home_calendar.js). #}
+      <div class="calendar-mobile-days" aria-label="current week days" data-home-day-strip>
         {% for day in calendar_grid.week_days %}
-        <a class="{{ 'is-selected' if day.is_selected }} {{ 'is-today' if day.is_today }}" href="/creator/calendar?view=day&date={{ day.iso }}">
-          <span>{{ day.weekday }}</span><strong>{{ day.day }}</strong>
+        <a class="{{ 'is-selected' if day.is_today }} {{ 'is-today' if day.is_today }}"
+           href="/creator/calendar?view=day&date={{ day.iso }}"
+           data-home-day="{{ day.iso }}">
+          <span>{{ day.weekday|upper }}</span><strong>{{ day.day }}</strong>
         </a>
         {% endfor %}
       </div>
+      {# MOBILE — compact selected-day event list. One block per day is
+         rendered; JS toggles visibility. All hidden except today by
+         default. Never shows the hourly grid. #}
+      <div class="creator-home-day-events" data-home-day-events>
+        {% for day in calendar_grid.week_days %}
+        <ol class="creator-home-day-list"
+            data-home-day-list="{{ day.iso }}"
+            {% if not day.is_today %}hidden{% endif %}>
+          {% for event in day.all_day_events %}
+          <li>
+            <a href="/creator/calendar/{{ event.id }}">
+              <span class="creator-home-day-time">ALL DAY</span>
+              <span class="creator-home-day-title">{{ event.title }}</span>
+            </a>
+          </li>
+          {% endfor %}
+          {% for event in day.timed_events %}
+          <li>
+            <a href="/creator/calendar/{{ event.id }}">
+              <span class="creator-home-day-time">{{ event.time_label }}</span>
+              <span class="creator-home-day-title">{{ event.title }}</span>
+            </a>
+          </li>
+          {% endfor %}
+          {% if not day.all_day_events and not day.timed_events %}
+          <li class="creator-home-day-empty"><span>nothing scheduled</span></li>
+          {% endif %}
+        </ol>
+        {% endfor %}
+      </div>
+      {# DESKTOP — original week hourly grid, preserved verbatim. Hidden
+         on mobile via CSS. #}
       <div class="calendar-week-head">
         <div class="calendar-time-gutter"></div>
         {% for day in calendar_grid.week_days %}
@@ -220,37 +288,6 @@
     {% endif %}
   </section>
 
-  {# ---------------- 4. brief ---------------- #}
-  {% if home_v5_brief %}
-  <section class="hv5-section">
-    <div class="hv5-head">
-      <h2 class="hv5-head-title">brief</h2>
-      <a class="hv5-head-link" href="/creator/discover">view all</a>
-    </div>
-    <div class="hv5-brief">
-      {% for row in home_v5_brief %}
-      <a class="hv5-brief-row" href="{{ row.href }}" data-slot="{{ row.slot }}">
-        <span class="hv5-brief-icon" aria-hidden="true">
-          {% if row.slot == 'performance' %}
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-8"/><path d="M22 20H2"/></svg>
-          {% elif row.slot == 'instagram' %}
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17" cy="7" r="1" fill="currentColor" stroke="none"/></svg>
-          {% elif row.slot == 'opportunity' %}
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21h6"/><path d="M12 17v4"/><path d="M7 8a5 5 0 1 1 10 0c0 3-3 4-3 6H10c0-2-3-3-3-6z"/></svg>
-          {% else %}
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 3"/></svg>
-          {% endif %}
-        </span>
-        <span class="hv5-brief-body">
-          <strong>{{ row.title }}</strong>
-          {% if row.detail %}<small>{{ row.detail }}</small>{% endif %}
-        </span>
-      </a>
-      {% endfor %}
-    </div>
-  </section>
-  {% endif %}
-
   {# ---------------- 5. handled + watching ---------------- #}
   <section class="hv5-section hv5-pair">
     <a class="hv5-tile hv5-tile-handled" href="/creator/bot">
@@ -290,4 +327,5 @@
 
 {% block foot_scripts %}
 <script src="/static/js/creator_home_carousel.js" defer></script>
+<script src="/static/js/creator_home_calendar.js" defer></script>
 {% endblock %}
