@@ -44,6 +44,41 @@
   </nav>
 
   {% if calendar_view in ['day', 'week'] %}
+  {# MOBILE-ONLY selected-day event list. Mirrors home's compact
+     pattern — 7-day strip + one <ol> for the selected day. Hidden on
+     desktop via CSS; the desktop hourly grid below is hidden on
+     mobile via CSS. Never renders a mobile hourly canvas. #}
+  <section class="calendar-mobile-list" aria-label="selected day events">
+    <div class="calendar-mobile-days" aria-label="current week days">
+      {% for day in calendar_grid.week_days %}
+      <a class="{{ 'is-selected' if day.is_selected }} {{ 'is-today' if day.is_today }}"
+         href="/creator/calendar?view={{ calendar_view }}&date={{ day.iso }}">
+        <span>{{ day.weekday }}</span><strong>{{ day.day }}</strong>
+      </a>
+      {% endfor %}
+    </div>
+    <ol class="calendar-mobile-day-events" aria-label="events on selected day">
+      {% for event in calendar_grid.selected_day.all_day_events %}
+      <li>
+        <a href="/creator/calendar/{{ event.id }}">
+          <span class="calendar-mobile-day-time">ALL DAY</span>
+          <span class="calendar-mobile-day-title">{{ event.title }}</span>
+        </a>
+      </li>
+      {% endfor %}
+      {% for event in calendar_grid.selected_day.timed_events %}
+      <li>
+        <a href="/creator/calendar/{{ event.id }}">
+          <span class="calendar-mobile-day-time">{{ event.time_label }}</span>
+          <span class="calendar-mobile-day-title">{{ event.title }}</span>
+        </a>
+      </li>
+      {% endfor %}
+      {% if not calendar_grid.selected_day.all_day_events and not calendar_grid.selected_day.timed_events %}
+      <li class="calendar-mobile-day-empty"><span>nothing scheduled</span></li>
+      {% endif %}
+    </ol>
+  </section>
   <section class="calendar-week-shell {{ 'calendar-day-mode' if calendar_view == 'day' }}" aria-label="{{ calendar_view }} calendar">
     <div class="calendar-mobile-days" aria-label="current week days">
       {% for day in calendar_grid.week_days %}

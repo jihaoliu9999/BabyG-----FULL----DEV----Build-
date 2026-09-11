@@ -1012,28 +1012,47 @@ def test_full_calendar_mobile_toolbar_reflow_present() -> None:
     assert "grid-template-columns: repeat(3, minmax(0, 1fr))" in css
 
 
-def test_full_calendar_mobile_week_hides_seven_column_head() -> None:
+def test_full_calendar_mobile_hides_entire_hourly_canvas() -> None:
+    """Mobile calendar must NEVER render the desktop hourly grid — its
+    ~1400px vertical timeline is the giant canvas the user rejected.
+    The whole .calendar-week-shell (week head + all-day row + time
+    grid) is hidden at mobile widths; the compact list block below
+    is the only mobile surface."""
     css = _css()
-    assert (
-        ".calendar-page .calendar-week-shell:not(.calendar-day-mode) .calendar-week-head"
-        in css
-    )
-    assert (
-        ".calendar-page .calendar-week-shell:not(.calendar-day-mode) .calendar-all-day-row"
-        in css
-    )
+    assert ".calendar-page .calendar-week-shell {" in css
+    # The rule inside the mobile @media block sets display: none for
+    # the week shell (matched with the surrounding !important).
+    assert "display: none !important" in css
 
 
-def test_full_calendar_mobile_week_shows_only_selected_day_column() -> None:
+def test_full_calendar_mobile_renders_compact_selected_day_list() -> None:
+    """Home-parity compact list is the mobile canonical surface: a
+    7-day strip + a flat list of the selected day's events, not an
+    hourly grid."""
     css = _css()
-    assert (
-        ".calendar-page .calendar-week-shell:not(.calendar-day-mode) .calendar-time-grid .calendar-day-column {"
-        in css
-    )
-    assert (
-        ".calendar-page .calendar-week-shell:not(.calendar-day-mode) .calendar-time-grid .calendar-day-column.is-selected {"
-        in css
-    )
+    # Wrapper is off by default and turned on inside the mobile block.
+    assert ".calendar-mobile-list { display: none; }" in css
+    assert ".calendar-page .calendar-mobile-list {" in css
+    # The event list styles the two columns (time label + title).
+    assert ".calendar-page .calendar-mobile-day-events {" in css
+    assert ".calendar-page .calendar-mobile-day-time {" in css
+    assert ".calendar-page .calendar-mobile-day-title {" in css
+    # Empty-state row is styled.
+    assert ".calendar-page .calendar-mobile-day-empty {" in css
+
+
+def test_full_calendar_mobile_footer_actions_grid_and_narrow_stack() -> None:
+    """sync google now + disconnect calendar sit in a 2-column grid so
+    they never overlap; at <=359px they stack full-width so labels
+    still fit the smallest supported phone."""
+    css = _css()
+    assert ".calendar-page .calendar-footer-actions {" in css
+    # 2-column grid inside the mobile block.
+    footer_block = css.split(".calendar-page .calendar-footer-actions {", 1)[1]
+    footer_block = footer_block.split("}", 1)[0]
+    assert "grid-template-columns: repeat(2, minmax(0, 1fr))" in footer_block
+    # Extra guard: 359px override stacks them.
+    assert "@media (max-width: 359px)" in css
 
 
 def test_full_calendar_mobile_month_is_seven_column_compact_grid() -> None:

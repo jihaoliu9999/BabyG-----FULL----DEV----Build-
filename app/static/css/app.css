@@ -14302,105 +14302,111 @@ body:has(.dm-thread-composer-box input:focus) .creator-tabbar {
 /*   month — 7-col date grid, compact cells                             */
 /* ==================================================================== */
 
+/* Desktop-only: hide the mobile compact list. .calendar-mobile-list is
+   the new home-parity block; keeping it out of the desktop flow means
+   desktop always shows the full week/day timeline. */
+.calendar-mobile-list { display: none; }
+
 @media (max-width: 767px) {
   .calendar-page { padding: 12px 14px calc(88px + env(safe-area-inset-bottom, 0px)) !important; }
 
-  /* Toolbar — ROW 1: title left, google synced pill right.
-     ROW 2: 4 nav/action buttons in equal-width grid.
-     Achieved by anchoring the pill to the top-right of the toolbar so
-     the title flows underneath naturally without touching desktop. */
+  /* Toolbar — ROW 1: eyebrow + title (title wraps if long).
+     ROW 2: 4 equal-height nav/action buttons in a single 4-col grid.
+     ROW 3 (below, .calendar-view-tabs): 3 equal-height view pills.
+     The google-synced pill is absolutely positioned to the top-right
+     so the header row stays compact even on 320px. */
   .calendar-page .calendar-toolbar {
     position: relative;
     display: block !important;
-    padding: 6px 0 !important;
+    padding: 4px 0 !important;
   }
-  .calendar-page .calendar-toolbar > div:first-child { min-width: 0; padding-right: 110px; }
-  .calendar-page .calendar-toolbar h1 { font-size: 22px !important; margin: 2px 0 8px !important; overflow-wrap: anywhere; }
+  .calendar-page .calendar-toolbar > div:first-child {
+    min-width: 0;
+    padding-right: 110px;
+  }
+  .calendar-page .calendar-toolbar h1 {
+    font-size: 20px !important;
+    margin: 2px 0 6px !important;
+    overflow-wrap: anywhere;
+    line-height: 1.15;
+  }
   .calendar-page .calendar-toolbar .eyebrow { font-size: 10.5px !important; }
 
+  /* 4 button top row — 320px must fit prev / today / next / add.
+     Equal-height, equal-width, evenly-spaced with 6px gap. */
   .calendar-page .calendar-toolbar-actions {
     display: grid !important;
     grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
     gap: 6px !important;
-    padding: 6px 0 4px !important;
+    padding: 4px 0 4px !important;
   }
-  /* Move the google-synced pill up to the top-right of the toolbar so
-     ROW 2 stays a clean 4-button grid. Position + margin lets it sit
-     inside the toolbar box without breaking the desktop layout. */
   .calendar-page .calendar-toolbar-actions .status-pill {
     position: absolute;
     top: 2px;
     right: 0;
-    font-size: 11px !important;
-    padding: 3px 8px !important;
-    height: 22px !important;
+    font-size: 10.5px !important;
+    padding: 2px 8px !important;
+    height: 20px !important;
     display: inline-flex; align-items: center; gap: 4px;
     white-space: nowrap;
   }
   .calendar-page .calendar-toolbar-actions .btn {
     padding: 0 !important;
-    height: 34px !important;
-    font-size: 12.5px !important;
+    height: 30px !important;
+    font-size: 12px !important;
     display: inline-flex; align-items: center; justify-content: center;
     white-space: nowrap;
     min-width: 0;
+    letter-spacing: 0.01em;
   }
 
-  /* View tabs — ROW 3: 3 equal-width pill anchors. */
+  /* View tabs (day / week / month) — three equal-height pills matching
+     the top row visual weight. */
   .calendar-page .calendar-view-tabs {
     display: grid !important;
     grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
     gap: 6px !important;
-    margin: 6px 0 8px !important;
+    margin: 4px 0 8px !important;
     overflow: visible !important;
   }
   .calendar-page .calendar-view-tabs a {
     padding: 0 !important;
-    height: 32px !important;
+    height: 30px !important;
     display: inline-flex; align-items: center; justify-content: center;
-    font-size: 12.5px !important;
+    font-size: 12px !important;
     text-align: center;
     white-space: nowrap;
   }
 
   /* State messages */
-  .calendar-page .calendar-state { padding: 10px 12px !important; border-radius: 12px !important; font-size: 13px !important; gap: 8px !important; }
-
-  /* Footer actions (sync/disconnect) */
-  .calendar-page .calendar-footer-actions {
-    display: flex; flex-wrap: wrap; gap: 6px; padding-top: 8px;
-  }
-  .calendar-page .calendar-footer-actions .btn {
-    padding: 0 12px !important; height: 30px !important; font-size: 12px !important;
+  .calendar-page .calendar-state {
+    padding: 10px 12px !important;
+    border-radius: 12px !important;
+    font-size: 13px !important;
+    gap: 8px !important;
   }
 
-  /* ---- WEEK mobile: 7-day strip + selected-day timeline only ---- */
-  .calendar-page .calendar-week-shell:not(.calendar-day-mode) .calendar-week-head,
-  .calendar-page .calendar-week-shell:not(.calendar-day-mode) .calendar-all-day-row {
+  /* ---- WEEK + DAY mobile: hide the entire hourly canvas. The compact
+     list below (.calendar-mobile-list) is the only thing that shows.
+     This drops ~1400px of empty grid off the mobile viewport. ---- */
+  .calendar-page .calendar-week-shell {
     display: none !important;
   }
-  /* Timeline grid keeps rendering but on mobile week we collapse it
-     to the single selected day's column (hide all non-selected). */
-  .calendar-page .calendar-week-shell:not(.calendar-day-mode) .calendar-time-grid {
-    grid-template-columns: 44px 1fr !important;
-  }
-  .calendar-page .calendar-week-shell:not(.calendar-day-mode) .calendar-time-grid .calendar-day-column {
-    display: none !important;
-  }
-  .calendar-page .calendar-week-shell:not(.calendar-day-mode) .calendar-time-grid .calendar-day-column.is-selected {
+  .calendar-page .calendar-mobile-list {
     display: block !important;
+    margin: 0 0 12px !important;
   }
-  .calendar-page .calendar-mobile-days {
+  .calendar-page .calendar-mobile-list .calendar-mobile-days {
     display: grid !important;
     grid-template-columns: repeat(7, minmax(0, 1fr)) !important;
     gap: 4px !important;
     padding: 8px 4px !important;
-    margin: 0 0 8px !important;
+    margin: 0 0 10px !important;
     border-radius: 12px;
     border: 1px solid var(--border-subtle, rgba(255,255,255,0.08));
     background: var(--surface-1, rgba(255,255,255,0.03));
   }
-  .calendar-page .calendar-mobile-days a {
+  .calendar-page .calendar-mobile-list .calendar-mobile-days a {
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     gap: 2px;
     padding: 6px 0;
@@ -14409,30 +14415,65 @@ body:has(.dm-thread-composer-box input:focus) .creator-tabbar {
     color: inherit; text-decoration: none;
     -webkit-tap-highlight-color: transparent;
   }
-  .calendar-page .calendar-mobile-days a span {
+  .calendar-page .calendar-mobile-list .calendar-mobile-days a span {
     font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
     color: var(--ink-dim, rgba(255,255,255,0.48));
   }
-  .calendar-page .calendar-mobile-days a strong {
+  .calendar-page .calendar-mobile-list .calendar-mobile-days a strong {
     font-size: 14px; font-weight: 500;
   }
-  .calendar-page .calendar-mobile-days a.is-today strong { color: var(--accent, #ff3b6b); }
-  .calendar-page .calendar-mobile-days a.is-selected { background: rgba(255,255,255,0.06); }
+  .calendar-page .calendar-mobile-list .calendar-mobile-days a.is-today strong {
+    color: var(--accent, #ff3b6b);
+  }
+  .calendar-page .calendar-mobile-list .calendar-mobile-days a.is-selected {
+    background: rgba(255,255,255,0.06);
+  }
 
-  /* ---- DAY mobile: single column, keep vertical timeline ---- */
-  .calendar-page .calendar-week-shell.calendar-day-mode .calendar-week-head,
-  .calendar-page .calendar-week-shell.calendar-day-mode .calendar-all-day-row {
-    grid-template-columns: 44px 1fr !important;
+  /* Selected-day event list — flat, compact, no hourly grid. Mirrors
+     the home compact-day pattern. */
+  .calendar-page .calendar-mobile-day-events {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
   }
-  .calendar-page .calendar-week-shell.calendar-day-mode .calendar-week-head .calendar-day-head:not(.is-selected),
-  .calendar-page .calendar-week-shell.calendar-day-mode .calendar-all-day-row .calendar-all-day-cell:not(.is-selected) {
-    display: none !important;
+  .calendar-page .calendar-mobile-day-events li a {
+    display: grid;
+    grid-template-columns: 70px 1fr;
+    gap: 10px;
+    align-items: center;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: var(--surface-1, rgba(255,255,255,0.03));
+    border: 1px solid var(--border-subtle, rgba(255,255,255,0.06));
+    color: inherit;
+    text-decoration: none;
+    min-height: 44px;
   }
-  .calendar-page .calendar-week-shell.calendar-day-mode .calendar-time-grid {
-    grid-template-columns: 44px 1fr !important;
+  .calendar-page .calendar-mobile-day-time {
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink-dim, rgba(255,255,255,0.55));
+    white-space: nowrap;
   }
-  .calendar-page .calendar-week-shell.calendar-day-mode .calendar-time-grid .calendar-day-column:not(.is-selected) {
-    display: none !important;
+  .calendar-page .calendar-mobile-day-title {
+    font-size: 13.5px;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+  .calendar-page .calendar-mobile-day-empty {
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px dashed var(--border-subtle, rgba(255,255,255,0.08));
+    color: var(--ink-dim, rgba(255,255,255,0.55));
+    font-size: 12.5px;
+    text-align: center;
   }
 
   /* ---- MONTH mobile: compact 7-col date grid ---- */
@@ -14460,5 +14501,36 @@ body:has(.dm-thread-composer-box input:focus) .creator-tabbar {
   .calendar-page .calendar-month-cell small {
     font-size: 10px; line-height: 1.2;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+
+  /* Footer actions (sync google now / disconnect calendar). Grid so the
+     two buttons split the width evenly with a consistent gap; at 320px
+     wrap stacks them full-width without touching the safe-area gutter. */
+  .calendar-page .calendar-footer-actions {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    gap: 8px !important;
+    padding: 12px 0 4px !important;
+    margin-top: 4px !important;
+  }
+  .calendar-page .calendar-footer-actions form {
+    margin: 0;
+    display: contents;
+  }
+  .calendar-page .calendar-footer-actions .btn {
+    padding: 0 !important;
+    height: 34px !important;
+    font-size: 12px !important;
+    display: inline-flex; align-items: center; justify-content: center;
+    white-space: nowrap;
+    width: 100%;
+  }
+}
+
+/* Narrowest phone widths (<=359px, e.g. iPhone SE 1st gen): stack the
+   two footer buttons vertically so labels never truncate. */
+@media (max-width: 359px) {
+  .calendar-page .calendar-footer-actions {
+    grid-template-columns: 1fr !important;
   }
 }

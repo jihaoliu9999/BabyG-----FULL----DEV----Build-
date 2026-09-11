@@ -173,6 +173,49 @@ def test_calendar_cancel(client, world):
     assert world.bookings[bid]["status"] == "cancelled"
 
 
+def test_calendar_list_renders_mobile_compact_list_markup(client, world):
+    """Mobile calendar page must ship the compact 7-day + selected-day
+    event list markup. Locks the home-parity mobile surface — server
+    must always emit it, mobile CSS gates visibility."""
+    _signed_in(client, role="creator", user_id="c-1")
+    bid = str(uuid4())
+    world.bookings[bid] = {
+        "id": bid, "user_id": "c-1", "title": "Compact list item",
+        "type": "event", "starts_at": "2099-05-07T14:00:00Z",
+        "ends_at": None, "status": "confirmed", "venue_name": None,
+        "notes": None, "created_at": "2026-05-07T00:00:00Z",
+    }
+    r = client.get("/creator/calendar?view=week&date=2099-05-07")
+    assert r.status_code == 200
+    # New mobile-compact wrapper is emitted server-side.
+    assert 'class="calendar-mobile-list"' in r.text
+    # Compact event list block for the selected day.
+    assert "calendar-mobile-day-events" in r.text
+    # The event under the selected day renders.
+    assert "Compact list item" in r.text
+
+
+def test_calendar_list_empty_selected_day_shows_nothing_scheduled(client, world):
+    """Empty state on mobile compact list — never a blank canvas."""
+    _signed_in(client, role="creator", user_id="c-1")
+    r = client.get("/creator/calendar?view=week&date=2099-05-07")
+    assert r.status_code == 200
+    assert "calendar-mobile-day-empty" in r.text
+    assert "nothing scheduled" in r.text
+
+
+def test_calendar_list_still_renders_desktop_hourly_grid(client, world):
+    """Desktop path must still ship the hourly grid — the mobile
+    compact block is additive, not a replacement."""
+    _signed_in(client, role="creator", user_id="c-1")
+    r = client.get("/creator/calendar?view=week&date=2099-05-07")
+    assert r.status_code == 200
+    # Desktop hourly canvas markers remain in the DOM (CSS hides on mobile).
+    assert "calendar-week-shell" in r.text
+    assert "calendar-week-head" in r.text
+    assert "calendar-time-grid" in r.text
+
+
 def test_calendar_requires_creator(client, world):
     _signed_in(client, role="operator", user_id="op-1")
     r = client.get("/creator/calendar")
