@@ -10,6 +10,7 @@ in the full design but were removed when brand was deferred to v1.5
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import re
 from datetime import UTC, date, datetime, time, timedelta, tzinfo
@@ -342,6 +343,15 @@ def _month_context(
         for day in days:
             if event["start_dt"].date() <= day <= event["end_dt"].date():
                 by_date[day.isoformat()].append(event)
+    # Chronological order per day — the month cells show the earliest
+    # two events + a "+N" overflow chip, and the bottom sheet lists the
+    # same events in the same order for consistency.
+    for key, day_events in by_date.items():
+        day_events.sort(key=lambda ev: (
+            not ev["is_all_day"],
+            ev["start_dt"],
+        ))
+        by_date[key] = day_events
     return {
         "month_label": month_start.strftime("%B %Y"),
         "month_start": month_start,
@@ -2630,12 +2640,13 @@ def _jobs_vocab():
 async def calendar_list(
     request: Request,
     horizon: str = Query("upcoming"),
-    view: str = Query("week"),
     selected_date: str | None = Query(None, alias="date"),
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
-    if view not in {"day", "week", "month"}:
-        view = "week"
+    """Dedicated calendar page. Month-only — day and week views were
+    removed in the redesign. `?view=` is deliberately no longer read;
+    any legacy links fall back to the month view. The Home calendar
+    preview is unchanged and continues to link back to this page."""
     google_connection = oauth_connections.get_google_connection(session["user_id"])
     google_connected = oauth_connections.google_calendar_connected(google_connection)
     # Best-effort freshness: pull any new Google events into local
@@ -2655,55 +2666,52 @@ async def calendar_list(
     )
     today = calendar_sync.today_in_zone(user_tz)
     selected = _date_from_query(selected_date, fallback_today=today)
-    if view == "day":
-        range_start = selected
-        range_end = selected + timedelta(days=1)
-    elif view == "month":
-        range_start, month_end = _month_bounds(selected)
-        range_start = _week_start(range_start)
-        range_end = _week_start(month_end) + timedelta(days=7)
-    else:
-        range_start = _week_start(selected)
-        range_end = range_start + timedelta(days=7)
+    # 6-week grid window used by _month_context. Bookings query has
+    # to span the visible grid so events on the leading/trailing
+    # outside-of-month rows still render.
+    month_start, month_end = _month_bounds(selected)
+    grid_start = _week_start(month_start)
+    grid_end = _week_start(month_end) + timedelta(days=7)
     rows = bookings.list_for_user_range(
         session["user_id"],
-        starts_before=_iso_utc(datetime.combine(range_end, time.min, tzinfo=UTC)),
-        ends_after=_iso_utc(datetime.combine(range_start, time.min, tzinfo=UTC)),
+        starts_before=_iso_utc(datetime.combine(grid_end, time.min, tzinfo=UTC)),
+        ends_after=_iso_utc(datetime.combine(grid_start, time.min, tzinfo=UTC)),
         limit=500,
     )
-    previous_date = (
-        selected - timedelta(days=1)
-        if view == "day"
-        else selected - timedelta(days=7)
-        if view == "week"
-        else (_month_bounds(selected)[0] - timedelta(days=1)).replace(day=1)
+    previous_date = (month_start - timedelta(days=1)).replace(day=1)
+    next_date = month_end
+    month_grid = _month_context(
+        rows, selected, today=today, tz_name=user_tz
     )
-    next_date = (
-        selected + timedelta(days=1)
-        if view == "day"
-        else selected + timedelta(days=7)
-        if view == "week"
-        else _month_bounds(selected)[1]
-    )
+    # Compact per-day events payload for the bottom sheet. Only
+    # display-safe fields (id/title/time_label/is_all_day) — no notes,
+    # venue, description. Sort each day chronologically so the sheet
+    # matches the visible cell previews.
+    events_by_day: dict[str, list[dict[str, Any]]] = {}
+    for day in month_grid["month_days"]:
+        events_by_day[day["iso"]] = [
+            {
+                "id": ev.get("id"),
+                "title": ev.get("title") or "untitled event",
+                "time_label": None if ev.get("is_all_day") else ev.get("time_label"),
+                "is_all_day": bool(ev.get("is_all_day")),
+            }
+            for ev in day["events"]
+        ]
     return templates.TemplateResponse(
         request,
         "creator/calendar_list.html",
         {
             "bookings": rows,
             "horizon": horizon,
-            "calendar_view": view,
             "selected_date": selected,
             "previous_date": previous_date,
             "next_date": next_date,
-            "calendar_grid": _calendar_grid_context(
-                rows, selected, today=today, tz_name=user_tz
-            ),
-            "month_grid": _month_context(
-                rows, selected, today=today, tz_name=user_tz
-            ),
+            "month_grid": month_grid,
             "google_connected": google_connected,
             "google_configured": google_calendar.is_configured(),
             "calendar_notice": _calendar_notice(request),
+            "calendar_events_json": json.dumps(events_by_day),
         },
     )
 
@@ -3056,6 +3064,115 @@ async def calendar_new_form(
             "error": None,
             "vocab": {"types": list(bookings.TYPES)},
         },
+    )
+
+
+@router.post("/creator/calendar/quick-add")
+async def calendar_quick_add(
+    request: Request,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    """Bottom-sheet `+ add` handler on /creator/calendar.
+
+    Event-only — babyg has no local task/deadline model yet, so the
+    add sheet deliberately omits a `type` selector. When Google
+    Calendar is connected we use the existing
+    ``google_calendar.create_primary_event`` write path and mirror
+    the event into ``bookings`` via ``upsert_google_event`` so the
+    row is owned by the canonical Google-synced calendar. When
+    Google is not connected we fall back to a local booking so
+    creators without Google can still schedule things.
+    """
+    form = await request.form()
+    title = str(form.get("title") or "").strip()[:140]
+    date_raw = str(form.get("date") or "").strip()[:10]
+    time_raw = str(form.get("time") or "").strip()[:5]
+    all_day = str(form.get("all_day") or "").strip() in {"1", "true", "on"}
+    notes = str(form.get("notes") or "").strip()[:2000]
+
+    if not title:
+        return JSONResponse({"error": "title required"}, status_code=400)
+    try:
+        day = date.fromisoformat(date_raw)
+    except ValueError:
+        return JSONResponse({"error": "date invalid"}, status_code=400)
+    if not all_day and not time_raw:
+        return JSONResponse({"error": "time required"}, status_code=400)
+
+    user_id = session["user_id"]
+    user_tz = calendar_sync.effective_timezone(user_id)
+    tzinfo_: tzinfo = UTC
+    if user_tz:
+        try:
+            tzinfo_ = ZoneInfo(user_tz)
+        except (ZoneInfoNotFoundError, ValueError):
+            tzinfo_ = UTC
+
+    if all_day:
+        starts_dt = datetime(day.year, day.month, day.day, 0, 0, tzinfo=tzinfo_)
+        ends_dt = starts_dt + timedelta(days=1)
+    else:
+        try:
+            hh, mm = time_raw.split(":", 1)
+            starts_dt = datetime(
+                day.year, day.month, day.day, int(hh), int(mm), tzinfo=tzinfo_
+            )
+        except (ValueError, TypeError):
+            return JSONResponse({"error": "time invalid"}, status_code=400)
+        ends_dt = starts_dt + timedelta(hours=1)
+
+    starts_iso = starts_dt.astimezone(UTC).isoformat().replace("+00:00", "Z")
+    ends_iso = ends_dt.astimezone(UTC).isoformat().replace("+00:00", "Z")
+
+    google_conn = oauth_connections.get_google_connection(user_id)
+    if oauth_connections.google_calendar_connected(google_conn) and not all_day:
+        token = oauth_connections.access_token_for_google(user_id)
+        try:
+            event_id = google_calendar.create_primary_event(
+                token or "",
+                title=title,
+                starts_at=starts_iso,
+                ends_at=ends_iso,
+                notes=notes or None,
+            )
+        except google_calendar.GoogleCalendarError as exc:
+            logger.info("calendar_quick_add.google_error %s", str(exc)[:200])
+            return JSONResponse(
+                {"error": "google calendar rejected the event"},
+                status_code=502,
+            )
+        bookings.upsert_google_event(
+            user_id=user_id,
+            payload={
+                "title": title,
+                "type": "event",
+                "starts_at": starts_iso,
+                "ends_at": ends_iso,
+                "notes": notes or None,
+                "status": "confirmed",
+                "google_calendar_id": "primary",
+                "google_event_id": event_id,
+                "is_all_day": False,
+                "google_timezone": user_tz,
+            },
+        )
+    else:
+        bookings.create(
+            user_id=user_id,
+            payload={
+                "title": title,
+                "type": "event",
+                "starts_at": starts_iso,
+                "ends_at": ends_iso,
+                "notes": notes or None,
+                "status": "confirmed",
+                "is_all_day": all_day,
+                "google_timezone": user_tz,
+            },
+        )
+
+    return RedirectResponse(
+        f"/creator/calendar?date={day.isoformat()}", status_code=303
     )
 
 

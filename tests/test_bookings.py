@@ -173,47 +173,118 @@ def test_calendar_cancel(client, world):
     assert world.bookings[bid]["status"] == "cancelled"
 
 
-def test_calendar_list_renders_mobile_compact_list_markup(client, world):
-    """Mobile calendar page must ship the compact 7-day + selected-day
-    event list markup. Locks the home-parity mobile surface — server
-    must always emit it, mobile CSS gates visibility."""
+def test_calendar_list_is_month_only(client, world):
+    """/creator/calendar is now a month-only page. Day/week views,
+    the view selector, the hourly grid, the header add-item button,
+    and the sync/disconnect footer are all removed. A month event
+    still renders as a preview inside its cell."""
     _signed_in(client, role="creator", user_id="c-1")
     bid = str(uuid4())
     world.bookings[bid] = {
-        "id": bid, "user_id": "c-1", "title": "Compact list item",
+        "id": bid, "user_id": "c-1", "title": "Month event",
         "type": "event", "starts_at": "2099-05-07T14:00:00Z",
         "ends_at": None, "status": "confirmed", "venue_name": None,
         "notes": None, "created_at": "2026-05-07T00:00:00Z",
     }
-    r = client.get("/creator/calendar?view=week&date=2099-05-07")
+    r = client.get("/creator/calendar?date=2099-05-07")
     assert r.status_code == 200
-    # New mobile-compact wrapper is emitted server-side.
-    assert 'class="calendar-mobile-list"' in r.text
-    # Compact event list block for the selected day.
-    assert "calendar-mobile-day-events" in r.text
-    # The event under the selected day renders.
-    assert "Compact list item" in r.text
+    body = r.text
+    # Month-only wrapper renders and the event surfaces inside its cell.
+    assert "calendar-month-only-page" in body
+    assert "calendar-month-grid" in body
+    assert "Month event" in body
+    # Day/week/hourly-grid markup is gone.
+    assert "calendar-week-shell" not in body
+    assert "calendar-week-head" not in body
+    assert "calendar-time-grid" not in body
+    assert "calendar-view-tabs" not in body
+    assert "calendar-mobile-list" not in body
+    # Header no longer carries the `add item` button or the
+    # sync/disconnect footer actions.
+    assert "/creator/calendar/new" not in body
+    assert "/creator/google/calendar/sync" not in body
+    assert "/creator/google/calendar/disconnect" not in body
 
 
-def test_calendar_list_empty_selected_day_shows_nothing_scheduled(client, world):
-    """Empty state on mobile compact list — never a blank canvas."""
+def test_calendar_list_header_has_prev_today_next_nav(client, world):
+    """Header ROW 2 = month title + previous/today/next controls only."""
     _signed_in(client, role="creator", user_id="c-1")
-    r = client.get("/creator/calendar?view=week&date=2099-05-07")
+    r = client.get("/creator/calendar?date=2099-05-07")
     assert r.status_code == 200
-    assert "calendar-mobile-day-empty" in r.text
-    assert "nothing scheduled" in r.text
+    assert "calendar-month-nav-btn" in r.text
+    # previous / today / next anchors are present with matching hrefs.
+    assert 'href="/creator/calendar?date=2099-04-01"' in r.text
+    assert 'href="/creator/calendar?date=2099-06-01"' in r.text
+    assert 'href="/creator/calendar"' in r.text
 
 
-def test_calendar_list_still_renders_desktop_hourly_grid(client, world):
-    """Desktop path must still ship the hourly grid — the mobile
-    compact block is additive, not a replacement."""
+def test_calendar_list_emits_bottom_sheet_markup(client, world):
+    """Tapping a day opens a bottom sheet — the template must emit
+    both the day-detail and add-event sheet containers plus the JSON
+    events payload for the JS to render into the day sheet."""
     _signed_in(client, role="creator", user_id="c-1")
-    r = client.get("/creator/calendar?view=week&date=2099-05-07")
+    r = client.get("/creator/calendar?date=2099-05-07")
     assert r.status_code == 200
-    # Desktop hourly canvas markers remain in the DOM (CSS hides on mobile).
-    assert "calendar-week-shell" in r.text
-    assert "calendar-week-head" in r.text
-    assert "calendar-time-grid" in r.text
+    body = r.text
+    assert 'data-cal-sheet="day"' in body
+    assert 'data-cal-sheet="add"' in body
+    assert 'id="calendar-month-events-data"' in body
+    assert 'data-cal-month-grid' in body
+    assert '/static/js/creator_calendar_month.js' in body
+
+
+def test_calendar_list_month_cell_shows_max_two_event_previews(client, world):
+    """A month cell renders at most 2 event chips + a `+N` overflow."""
+    _signed_in(client, role="creator", user_id="c-1")
+    for i in range(5):
+        bid = str(uuid4())
+        world.bookings[bid] = {
+            "id": bid, "user_id": "c-1", "title": f"Evt {i}",
+            "type": "event",
+            "starts_at": f"2099-05-07T{10 + i:02d}:00:00Z",
+            "ends_at": None, "status": "confirmed", "venue_name": None,
+            "notes": None, "created_at": "2026-05-07T00:00:00Z",
+        }
+    r = client.get("/creator/calendar?date=2099-05-07")
+    assert r.status_code == 200
+    # +3 overflow chip appears for 5 events - 2 shown = 3 hidden.
+    assert "+3" in r.text
+    assert "calendar-month-cell-more" in r.text
+
+
+def test_calendar_quick_add_requires_title(client, world):
+    _signed_in(client, role="creator", user_id="c-1")
+    r = client.post(
+        "/creator/calendar/quick-add",
+        data={"title": "", "date": "2099-05-07", "time": "10:00"},
+    )
+    assert r.status_code == 400
+
+
+def test_calendar_quick_add_requires_time_when_not_all_day(client, world):
+    _signed_in(client, role="creator", user_id="c-1")
+    r = client.post(
+        "/creator/calendar/quick-add",
+        data={"title": "Test", "date": "2099-05-07"},
+    )
+    assert r.status_code == 400
+
+
+def test_calendar_quick_add_all_day_persists_local_booking(client, world):
+    _signed_in(client, role="creator", user_id="c-1")
+    r = client.post(
+        "/creator/calendar/quick-add",
+        data={
+            "title": "All-day thing",
+            "date": "2099-05-07",
+            "all_day": "1",
+        },
+    )
+    assert r.status_code == 303
+    assert any(
+        b["title"] == "All-day thing" and b.get("is_all_day")
+        for b in world.bookings.values()
+    )
 
 
 def test_calendar_requires_creator(client, world):
