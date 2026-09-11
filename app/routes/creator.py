@@ -3125,16 +3125,32 @@ async def calendar_quick_add(
     ends_iso = ends_dt.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
     google_conn = oauth_connections.get_google_connection(user_id)
-    if oauth_connections.google_calendar_connected(google_conn) and not all_day:
+    google_connected = oauth_connections.google_calendar_connected(google_conn)
+    if google_connected:
+        # Both timed and all-day events go through the existing real
+        # Google write path when the user is connected — no local-only
+        # duplicate row.  All-day uses Google's start.date / end.date
+        # payload shape via create_primary_event(all_day=True) so the
+        # visible calendar date never round-trips through UTC.
         token = oauth_connections.access_token_for_google(user_id)
         try:
-            event_id = google_calendar.create_primary_event(
-                token or "",
-                title=title,
-                starts_at=starts_iso,
-                ends_at=ends_iso,
-                notes=notes or None,
-            )
+            if all_day:
+                event_id = google_calendar.create_primary_event(
+                    token or "",
+                    title=title,
+                    starts_at=day.isoformat(),
+                    ends_at=(day + timedelta(days=1)).isoformat(),
+                    notes=notes or None,
+                    all_day=True,
+                )
+            else:
+                event_id = google_calendar.create_primary_event(
+                    token or "",
+                    title=title,
+                    starts_at=starts_iso,
+                    ends_at=ends_iso,
+                    notes=notes or None,
+                )
         except google_calendar.GoogleCalendarError as exc:
             logger.info("calendar_quick_add.google_error %s", str(exc)[:200])
             return JSONResponse(
@@ -3152,7 +3168,7 @@ async def calendar_quick_add(
                 "status": "confirmed",
                 "google_calendar_id": "primary",
                 "google_event_id": event_id,
-                "is_all_day": False,
+                "is_all_day": all_day,
                 "google_timezone": user_tz,
             },
         )

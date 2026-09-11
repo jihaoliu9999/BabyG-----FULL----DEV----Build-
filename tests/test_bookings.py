@@ -287,6 +287,208 @@ def test_calendar_quick_add_all_day_persists_local_booking(client, world):
     )
 
 
+# ---- Google-connected quick-add → real Google write path ----------
+# When the user's Google calendar is connected, BOTH timed and all-day
+# events must flow through google_calendar.create_primary_event and
+# then be persisted via upsert_google_event on the returned event id.
+# The all-day path uses Google's start.date / end.date payload shape
+# and never round-trips through UTC midnight — that's the shift bug
+# the sync fix already landed for reads; this write path preserves it.
+
+
+def _wire_google_connected(monkeypatch):
+    """Route a quick-add through the Google-connected branch. Returns
+    a captured-calls dict so each test can assert what was written."""
+    calls: dict[str, Any] = {
+        "google_payload": None,
+        "google_kwargs": None,
+        "upsert_payload": None,
+        "local_create_payload": None,
+    }
+    monkeypatch.setattr(
+        oauth_module,
+        "get_google_connection",
+        lambda uid: {"provider": "google", "access_token": "tok"},
+    )
+    monkeypatch.setattr(
+        oauth_module, "google_calendar_connected", lambda conn: True
+    )
+    monkeypatch.setattr(
+        oauth_module, "access_token_for_google", lambda uid: "tok"
+    )
+    monkeypatch.setattr(
+        calendar_sync_module, "effective_timezone", lambda uid: "America/New_York"
+    )
+    monkeypatch.setattr(calendar_sync_module, "maybe_auto_sync", lambda uid: None)
+
+    def _create_primary_event(token, **kwargs):
+        calls["google_kwargs"] = kwargs
+        return "gcal-created-evt-1"
+
+    monkeypatch.setattr(
+        google_calendar_module, "create_primary_event", _create_primary_event
+    )
+
+    def _upsert(*, user_id, payload):
+        calls["upsert_payload"] = {**payload, "user_id": user_id}
+        return True
+
+    monkeypatch.setattr(bookings_module, "upsert_google_event", _upsert)
+
+    def _local_create(*, user_id, payload):
+        calls["local_create_payload"] = {**payload, "user_id": user_id}
+        return "local-should-not-happen"
+
+    monkeypatch.setattr(bookings_module, "create", _local_create)
+    return calls
+
+
+def test_calendar_quick_add_google_timed_event_writes_to_google(
+    client, world, monkeypatch
+):
+    calls = _wire_google_connected(monkeypatch)
+    _signed_in(client, role="creator", user_id="c-1")
+
+    r = client.post(
+        "/creator/calendar/quick-add",
+        data={
+            "title": "Brand call",
+            "date": "2099-05-07",
+            "time": "10:00",
+        },
+    )
+
+    assert r.status_code == 303
+    # Timed event went through the Google write path.
+    assert calls["google_kwargs"] is not None
+    assert calls["google_kwargs"]["title"] == "Brand call"
+    assert not calls["google_kwargs"].get("all_day")
+    # Google's returned event id was persisted through the canonical
+    # google-synced upsert path.
+    assert calls["upsert_payload"]["google_event_id"] == "gcal-created-evt-1"
+    assert calls["upsert_payload"]["google_calendar_id"] == "primary"
+    # No parallel local-only row was created.
+    assert calls["local_create_payload"] is None
+
+
+def test_calendar_quick_add_google_all_day_event_writes_to_google(
+    client, world, monkeypatch
+):
+    calls = _wire_google_connected(monkeypatch)
+    _signed_in(client, role="creator", user_id="c-1")
+
+    r = client.post(
+        "/creator/calendar/quick-add",
+        data={
+            "title": "Shoot day",
+            "date": "2099-05-07",
+            "all_day": "1",
+        },
+    )
+
+    assert r.status_code == 303
+    # All-day event STILL routed through the Google write path.
+    assert calls["google_kwargs"] is not None
+    assert calls["google_kwargs"]["all_day"] is True
+    # Google's all-day payload uses ISO dates (start.date / end.date
+    # semantics), never UTC datetimes.
+    assert calls["google_kwargs"]["starts_at"] == "2099-05-07"
+    # Google's end.date is exclusive (day after last day of event).
+    assert calls["google_kwargs"]["ends_at"] == "2099-05-08"
+    # Persisted through upsert path (the canonical google-synced row),
+    # NOT the local-only bookings.create fallback.
+    assert calls["upsert_payload"] is not None
+    assert calls["upsert_payload"]["google_event_id"] == "gcal-created-evt-1"
+    assert calls["upsert_payload"]["is_all_day"] is True
+    assert calls["local_create_payload"] is None
+
+
+def test_calendar_quick_add_google_all_day_preserves_selected_calendar_date(
+    client, world, monkeypatch
+):
+    """All-day event on Sep 7 must stay on Sep 7 in the user's calendar
+    timezone. The stored timestamptz anchors midnight to the calendar
+    zone so the local calendar date matches the day the user tapped."""
+    calls = _wire_google_connected(monkeypatch)
+    _signed_in(client, role="creator", user_id="c-1")
+
+    r = client.post(
+        "/creator/calendar/quick-add",
+        data={
+            "title": "Shoot day",
+            "date": "2099-05-07",
+            "all_day": "1",
+        },
+    )
+
+    assert r.status_code == 303
+    # Google sees the raw selected date — no UTC round-trip.
+    assert calls["google_kwargs"]["starts_at"] == "2099-05-07"
+    # The upsert row's stored timestamptz anchors midnight to the
+    # user's calendar zone (America/New_York in this test), so when
+    # re-interpreted at render time in the same zone the local
+    # calendar date resolves back to Sep 7 rather than sliding back
+    # to Sep 6. In EDT (UTC-4) that stores as 04:00Z; DST-independent
+    # check: the UTC time is on or after 04:00Z on Sep 7 and before
+    # 06:00Z on Sep 7, which excludes both Sep 6 and Sep 8.
+    stored = calls["upsert_payload"]["starts_at"]
+    assert stored.startswith("2099-05-07T0")
+    assert not stored.startswith("2099-05-06")
+    assert not stored.startswith("2099-05-08")
+    # Redirect lands on Sep 7 so the month view stays parked there.
+    assert r.headers["location"].endswith("?date=2099-05-07")
+
+
+def test_calendar_quick_add_google_all_day_never_creates_duplicate_local_row(
+    client, world, monkeypatch
+):
+    """Guard against the earlier bug where all-day fell through to a
+    local-only bookings.create. Only upsert_google_event must fire
+    when Google is connected — never both."""
+    calls = _wire_google_connected(monkeypatch)
+    _signed_in(client, role="creator", user_id="c-1")
+
+    client.post(
+        "/creator/calendar/quick-add",
+        data={
+            "title": "Shoot day",
+            "date": "2099-05-07",
+            "all_day": "1",
+        },
+    )
+
+    assert calls["upsert_payload"] is not None
+    assert calls["local_create_payload"] is None
+
+
+def test_google_calendar_create_primary_event_all_day_payload_shape(monkeypatch):
+    """Lock the Google-side payload shape for all-day events: uses
+    start.date / end.date, never start.dateTime / end.dateTime, and
+    end.date is Google's exclusive next-day."""
+    captured: dict[str, Any] = {}
+
+    def _post(url, *, json, headers, timeout):
+        captured["json"] = json
+        return _CalendarResp(200, {"id": "gcal-all-day"})
+
+    monkeypatch.setattr(google_calendar_module.httpx, "post", _post)
+
+    event_id = google_calendar_module.create_primary_event(
+        "tok",
+        title="Shoot day",
+        starts_at="2099-05-07",
+        ends_at="2099-05-08",
+        all_day=True,
+    )
+
+    assert event_id == "gcal-all-day"
+    payload = captured["json"]
+    assert payload["start"] == {"date": "2099-05-07"}
+    assert payload["end"] == {"date": "2099-05-08"}
+    assert "dateTime" not in payload["start"]
+    assert "dateTime" not in payload["end"]
+
+
 def test_calendar_requires_creator(client, world):
     _signed_in(client, role="operator", user_id="op-1")
     r = client.get("/creator/calendar")

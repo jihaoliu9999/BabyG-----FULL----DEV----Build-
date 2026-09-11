@@ -355,23 +355,49 @@ def create_primary_event(
     location: str | None = None,
     visibility: str | None = None,
     transparency: str | None = None,
+    all_day: bool = False,
 ) -> str:
     """Create one Google Calendar event. Returns the Google event id.
 
-    Must only be called by an approved action executor after explicit
-    creator confirmation. This does not delete, update, invite guests,
-    book restaurants, collect payment, or create paid reservations.
+    When ``all_day`` is False (the default) ``starts_at`` / ``ends_at``
+    are datetime strings and Google receives ``start.dateTime`` /
+    ``end.dateTime``.
+
+    When ``all_day`` is True ``starts_at`` and ``ends_at`` are ISO date
+    strings (``YYYY-MM-DD``) and Google receives ``start.date`` /
+    ``end.date`` — the correct all-day payload shape. Per Google's
+    semantics ``end.date`` is exclusive (the day AFTER the last day the
+    event covers), so a same-day all-day event passes tomorrow's ISO
+    date as ``ends_at``. The date is never round-tripped through UTC
+    midnight in this path — that's the shift bug the sync fix landed
+    for read; this write path preserves it too.
+
+    Must only be called by an approved action executor (agent write or
+    the /creator/calendar quick-add form) after explicit creator
+    intent. This does not delete, update, invite guests, book
+    restaurants, collect payment, or create paid reservations.
     """
     summary = " ".join(str(title or "").split())[:140]
-    start = _clean_datetime(starts_at)
-    end = _clean_datetime(ends_at) if ends_at else _default_end(start)
-    if not summary or not start:
+    if not summary:
         raise GoogleCalendarError("Google Calendar event missing title or start")
-    payload: dict[str, Any] = {
-        "summary": summary,
-        "start": {"dateTime": start},
-        "end": {"dateTime": end},
-    }
+    if all_day:
+        start_date = _clean_all_day_date(starts_at)
+        end_date = _clean_all_day_date(ends_at) if ends_at else _next_day_iso(start_date)
+        payload: dict[str, Any] = {
+            "summary": summary,
+            "start": {"date": start_date},
+            "end": {"date": end_date},
+        }
+    else:
+        start = _clean_datetime(starts_at)
+        end = _clean_datetime(ends_at) if ends_at else _default_end(start)
+        if not start:
+            raise GoogleCalendarError("Google Calendar event missing title or start")
+        payload = {
+            "summary": summary,
+            "start": {"dateTime": start},
+            "end": {"dateTime": end},
+        }
     description = str(notes or "").strip()[:2000]
     venue = str(location or "").strip()[:160]
     if description:
@@ -628,6 +654,36 @@ def _clean_datetime(value: str | None) -> str:
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=UTC)
     return parsed.astimezone(UTC).isoformat().replace("+00:00", "Z")
+
+
+def _clean_all_day_date(value: str | None) -> str:
+    """Parse an ISO date (`YYYY-MM-DD`) for Google's all-day payload.
+
+    Never round-trips through UTC — that's the shift bug this write
+    path is deliberately avoiding. Raises ``GoogleCalendarError`` on
+    an invalid or missing date rather than silently substituting a
+    fallback.
+    """
+    raw = str(value or "").strip()[:10]
+    if not raw:
+        raise GoogleCalendarError("Google Calendar all-day date missing")
+    try:
+        parsed = date.fromisoformat(raw)
+    except ValueError as exc:
+        raise GoogleCalendarError("Google Calendar all-day date invalid") from exc
+    return parsed.isoformat()
+
+
+def _next_day_iso(iso_date: str) -> str:
+    """Return the ISO date of the day AFTER ``iso_date``.
+
+    Google's all-day payload uses an EXCLUSIVE end date (per iCal
+    semantics): a same-day all-day event on 2026-09-11 sends
+    ``end.date = 2026-09-12``. When quick-add omits ``ends_at`` the
+    call site can use this helper.
+    """
+    parsed = date.fromisoformat(iso_date)
+    return (parsed + timedelta(days=1)).isoformat()
 
 
 def _default_end(starts_at: str) -> str:
