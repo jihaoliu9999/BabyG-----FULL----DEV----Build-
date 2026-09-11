@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, date, datetime, timedelta
+from datetime import tzinfo as _tzinfo
 from typing import Any
 from urllib.parse import urlencode
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
@@ -589,14 +590,17 @@ def _event_time(
     # still resolves to the same local date. Storing at UTC midnight
     # would slide the event one day back for any user west of UTC.
     tz_name = str(value.get("timeZone") or default_timezone or "").strip()
-    tzinfo = UTC
+    # Annotated as the abstract tzinfo so both timezone.utc and
+    # ZoneInfo are legal narrowings — otherwise mypy pins the type
+    # to timezone on first assignment and rejects the ZoneInfo case.
+    zone: _tzinfo = UTC
     if tz_name:
         try:
-            tzinfo = ZoneInfo(tz_name)
+            zone = ZoneInfo(tz_name)
         except (ZoneInfoNotFoundError, ValueError):
-            tzinfo = UTC
+            zone = UTC
     return datetime(
-        all_day.year, all_day.month, all_day.day, tzinfo=tzinfo
+        all_day.year, all_day.month, all_day.day, tzinfo=zone
     ).isoformat()
 
 
