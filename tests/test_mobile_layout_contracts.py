@@ -551,11 +551,11 @@ def test_babyg_guide_is_tap_friendly_and_replaces_old_dm_prompts() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Nav-speed contracts — patch 2B
+# Nav-speed contracts
 #
-# These lock in the non-blocking-fonts + prefetch + watermark-priority
-# pattern so a well-meaning template edit does not silently re-block
-# first paint on every page.
+# These lock in the non-blocking-fonts + watermark-priority pattern
+# without allowing authenticated document routes to be fetched before a
+# user explicitly navigates to them.
 # ---------------------------------------------------------------------------
 
 
@@ -576,21 +576,29 @@ def test_google_fonts_link_is_non_blocking() -> None:
     assert "<noscript>" in BASE_TEMPLATE
 
 
-def test_role_shells_prefetch_top_nav_destinations() -> None:
-    """Each role's shell prefetches its top nav destinations so the
-    first click after landing is close to instant."""
+def test_role_shells_do_not_prefetch_authenticated_documents() -> None:
+    """Authenticated app routes must not execute through speculative
+    document prefetch. Real navigation links stay intact."""
     for path in (
         "/creator/discover",
         "/creator/bot",
         "/creator/dm",
         "/creator/profile/settings",
+        "/brand",
         "/brand/discover",
         "/brand/profile",
         "/operator",
     ):
-        assert f'rel="prefetch" href="{path}"' in BASE_TEMPLATE, (
-            f"missing prefetch link for {path}"
-        )
+        assert f'rel="prefetch" href="{path}"' not in BASE_TEMPLATE
+        assert f'href="{path}" as="document"' not in BASE_TEMPLATE
+
+    for path in (
+        "/creator/discover",
+        "/creator/bot",
+        "/creator/dm",
+        "/creator/profile/settings",
+    ):
+        assert f'href="{path}"' in BASE_TEMPLATE
 
 
 def test_watermark_imgs_use_low_priority_async_decode() -> None:

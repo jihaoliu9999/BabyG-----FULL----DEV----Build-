@@ -27,22 +27,6 @@
   <link rel="stylesheet" href="{{ asset_url('css/babyg-design/styles.css') }}" />
   {% endif %}
   <link rel="stylesheet" href="{{ asset_url('css/app.css') }}" />
-  {# rel=prefetch on the top nav destinations. Browsers fetch these in
-     idle time so the FIRST click into a role's shell is close to instant.
-     Same-origin only, GET-only routes — never a POST/mutating URL. #}
-  {% set _cp = request.url.path if request is defined else '' %}
-  {% if _cp.startswith('/creator') %}
-  <link rel="prefetch" href="/creator/discover" as="document" />
-  <link rel="prefetch" href="/creator/bot" as="document" />
-  <link rel="prefetch" href="/creator/dm" as="document" />
-  <link rel="prefetch" href="/creator/profile/settings" as="document" />
-  {% elif _cp.startswith('/brand') %}
-  <link rel="prefetch" href="/brand" as="document" />
-  <link rel="prefetch" href="/brand/discover" as="document" />
-  <link rel="prefetch" href="/brand/profile" as="document" />
-  {% elif _cp.startswith('/operator') %}
-  <link rel="prefetch" href="/operator" as="document" />
-  {% endif %}
   {% block head_extra %}{% endblock %}
 </head>
 {% set cp = request.url.path if request is defined else "" %}
