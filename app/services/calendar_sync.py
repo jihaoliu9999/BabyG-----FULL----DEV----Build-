@@ -5,7 +5,8 @@ from __future__ import annotations
 import logging
 import time
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from app.integrations import google_calendar
 from app.services import bookings, oauth_connections
@@ -17,10 +18,20 @@ logger = logging.getLogger(__name__)
 # bypasses this.
 AUTO_SYNC_MIN_INTERVAL_SECONDS = 120.0
 
+# Timezone cache: primary calendar timezone lookups are cheap but
+# still hit the network. Cache per-user for the same throttle window
+# as auto-sync so a Home render + Calendar render inside the same
+# window don't fire two lookups.
+TIMEZONE_CACHE_TTL_SECONDS = 900.0
+
 # Process-local last-sync timestamps. A multi-process deploy will
 # duplicate at worst one Google call per box per interval, which
 # is acceptable.
 _LAST_AUTO_SYNC_AT: dict[str, float] = {}
+
+# Process-local timezone cache: user_id -> (expires_at_monotonic, tz_name or None).
+# Sync also refreshes this when it fetches the primary calendar timezone.
+_TIMEZONE_CACHE: dict[str, tuple[float, str | None]] = {}
 
 
 @dataclass(frozen=True)
@@ -48,6 +59,17 @@ def sync_google_calendar(user_id: str) -> CalendarSyncResult:
     if not token:
         logger.info("calendar_sync.error user=%s reason=not_connected", user_id)
         return CalendarSyncResult(error="not_connected")
+    # Prime the primary-calendar timezone before pulling events so the
+    # payload builder can anchor all-day dates in the correct zone. A
+    # failure returns None; downstream still runs, all-day events just
+    # fall back to UTC anchoring as before.
+    primary_tz = google_calendar.get_primary_calendar_timezone(token)
+    _remember_timezone(user_id, primary_tz)
+    logger.info(
+        "calendar_sync.timezone user=%s has_tz=%s",
+        user_id,
+        "yes" if primary_tz else "no",
+    )
     now = datetime.now(UTC)
     time_min = now - timedelta(days=30)
     time_max = now + timedelta(days=180)
@@ -87,7 +109,9 @@ def sync_google_calendar(user_id: str) -> CalendarSyncResult:
     skipped = 0
     cancelled = 0
     for event in events:
-        payload = google_calendar.event_to_booking_payload(event)
+        payload = google_calendar.event_to_booking_payload(
+            event, default_timezone=primary_tz
+        )
         if not payload:
             skipped += 1
             continue
@@ -127,6 +151,71 @@ def _id_hint(value: str) -> str:
     if len(raw) <= 12:
         return raw
     return raw[:6] + "..." + raw[-6:]
+
+
+def _remember_timezone(user_id: str, tz_name: str | None) -> None:
+    """Cache a per-user primary-calendar timezone lookup."""
+    if not user_id:
+        return
+    _TIMEZONE_CACHE[user_id] = (
+        time.monotonic() + TIMEZONE_CACHE_TTL_SECONDS,
+        tz_name or None,
+    )
+
+
+def effective_timezone(user_id: str) -> str | None:
+    """Return the user's effective calendar IANA timezone, or None.
+
+    Priority per product spec:
+      1. Google Calendar primary calendar timezone (fetched on demand,
+         cached in-process for TIMEZONE_CACHE_TTL_SECONDS).
+      2. None — caller falls back to UTC. babyg does not currently
+         persist a per-user timezone anywhere else, so there is no
+         second source to consult; when Google is not connected the
+         calendar is empty anyway, and UTC is the safe fallback.
+
+    Never raises. Never logs the timezone value. A missing token, a
+    disconnected connection, or an HTTP failure all resolve to None.
+    """
+    if not user_id:
+        return None
+    entry = _TIMEZONE_CACHE.get(user_id)
+    now_mono = time.monotonic()
+    if entry is not None and entry[0] > now_mono:
+        return entry[1]
+    try:
+        token = oauth_connections.access_token_for_google(user_id)
+    except Exception:
+        logger.exception("calendar_sync.effective_timezone token lookup failed")
+        _remember_timezone(user_id, None)
+        return None
+    if not token:
+        _remember_timezone(user_id, None)
+        return None
+    tz_name: str | None = None
+    try:
+        tz_name = google_calendar.get_primary_calendar_timezone(token)
+    except Exception:
+        logger.exception("calendar_sync.effective_timezone lookup crashed")
+        tz_name = None
+    _remember_timezone(user_id, tz_name)
+    return tz_name
+
+
+def today_in_zone(tz_name: str | None) -> date:
+    """Today's calendar date resolved in ``tz_name``, UTC fallback.
+
+    Used everywhere we need the current calendar day (today highlight,
+    week boundaries, month bounds). Never raises. An unknown timezone
+    name falls back to UTC rather than the server's local clock — the
+    server timezone must never determine the visible day.
+    """
+    if tz_name:
+        try:
+            return datetime.now(ZoneInfo(tz_name)).date()
+        except (ZoneInfoNotFoundError, ValueError):
+            pass
+    return datetime.now(UTC).date()
 
 
 def maybe_auto_sync(user_id: str) -> CalendarSyncResult | None:

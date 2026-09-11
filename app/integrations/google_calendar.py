@@ -10,6 +10,7 @@ import logging
 from datetime import UTC, date, datetime, timedelta
 from typing import Any
 from urllib.parse import urlencode
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import httpx
 
@@ -251,6 +252,36 @@ def list_calendar_ids(access_token: str) -> list[str]:
     return _dedupe(calendars) or ["primary"]
 
 
+def get_primary_calendar_timezone(access_token: str) -> str | None:
+    """Return the IANA timezone of the user's primary Google calendar.
+
+    Used to anchor the effective calendar day for a user. Never
+    raises — a lookup failure returns None so the caller falls back
+    to whatever it already had (persisted zone or UTC). Never logs
+    the access token or the timezone at ERROR level.
+    """
+    if not str(access_token or "").strip():
+        return None
+    headers = {"Authorization": f"Bearer {access_token}"}
+    url = f"{EVENTS_BASE_URL}/primary"
+    try:
+        response = httpx.get(url, headers=headers, timeout=20.0)
+        response.raise_for_status()
+    except httpx.HTTPError as exc:
+        status = getattr(getattr(exc, "response", None), "status_code", "?")
+        logger.info(
+            "Google Calendar primary tz lookup failed with status %s", status
+        )
+        return None
+    data = response.json()
+    if not isinstance(data, dict):
+        return None
+    tz = str(data.get("timeZone") or "").strip()
+    if not tz:
+        return None
+    return tz[:80]
+
+
 def list_events(
     access_token: str,
     *,
@@ -470,21 +501,38 @@ def _clean_event_id(value: str) -> str:
     return raw
 
 
-def event_to_booking_payload(event: dict[str, Any]) -> dict[str, Any] | None:
+def event_to_booking_payload(
+    event: dict[str, Any],
+    *,
+    default_timezone: str | None = None,
+) -> dict[str, Any] | None:
+    """Translate a Google event into a bookings-table row.
+
+    ``default_timezone`` is the calendar-level IANA zone (primary
+    calendar's timeZone) used when an all-day event carries no per-event
+    timeZone field of its own. It anchors midnight of the all-day date
+    to that zone so a `2026-09-10` all-day event stored as timestamptz
+    and later re-interpreted in the same zone still resolves to
+    Sep 10 rather than sliding a day backward.
+    """
     event_id = str(event.get("id") or "").strip()
     if not event_id:
         return None
 
     start_obj = event.get("start") or {}
     end_obj = event.get("end") or {}
-    start = _event_time(start_obj)
+    start = _event_time(start_obj, default_timezone=default_timezone)
     if not start:
         return None
-    end = _event_time(end_obj)
+    end = _event_time(end_obj, default_timezone=default_timezone)
     summary = str(event.get("summary") or "untitled event").strip()[:140]
     location = str(event.get("location") or "").strip()[:160]
     description = str(event.get("description") or "").strip()[:2000]
     calendar_id = str(event.get("_babyg_calendar_id") or "primary").strip()[:300]
+
+    stored_timezone = _event_timezone(start_obj, end_obj) or (
+        default_timezone[:80] if default_timezone else None
+    )
 
     return {
         "title": summary or "untitled event",
@@ -497,7 +545,7 @@ def event_to_booking_payload(event: dict[str, Any]) -> dict[str, Any] | None:
         "google_calendar_id": calendar_id or "primary",
         "google_event_id": event_id,
         "is_all_day": "date" in start_obj,
-        "google_timezone": _event_timezone(start_obj, end_obj),
+        "google_timezone": stored_timezone,
         "google_recurring_event_id": str(event.get("recurringEventId") or "").strip() or None,
         "google_original_start_time": event.get("originalStartTime") or None,
         "google_status": str(event.get("status") or "").strip()[:40] or None,
@@ -518,7 +566,11 @@ def _post_token(payload: dict[str, str]) -> dict[str, Any]:
     return data
 
 
-def _event_time(value: dict[str, Any]) -> str | None:
+def _event_time(
+    value: dict[str, Any],
+    *,
+    default_timezone: str | None = None,
+) -> str | None:
     if not isinstance(value, dict):
         return None
     date_time = value.get("dateTime")
@@ -531,7 +583,21 @@ def _event_time(value: dict[str, Any]) -> str | None:
         all_day = date.fromisoformat(str(date_value))
     except ValueError:
         return None
-    return datetime(all_day.year, all_day.month, all_day.day, tzinfo=UTC).isoformat()
+    # All-day events carry a calendar date but no clock time. Anchor
+    # midnight of that date to the calendar's local zone so the stored
+    # timestamptz, when re-interpreted in the same zone at render time,
+    # still resolves to the same local date. Storing at UTC midnight
+    # would slide the event one day back for any user west of UTC.
+    tz_name = str(value.get("timeZone") or default_timezone or "").strip()
+    tzinfo = UTC
+    if tz_name:
+        try:
+            tzinfo = ZoneInfo(tz_name)
+        except (ZoneInfoNotFoundError, ValueError):
+            tzinfo = UTC
+    return datetime(
+        all_day.year, all_day.month, all_day.day, tzinfo=tzinfo
+    ).isoformat()
 
 
 def _event_timezone(start: dict[str, Any], end: dict[str, Any]) -> str | None:

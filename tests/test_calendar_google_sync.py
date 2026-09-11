@@ -68,6 +68,11 @@ def test_sync_cancels_deleted_google_events(monkeypatch):
     calls: dict[str, Any] = {}
 
     monkeypatch.setattr(calendar_sync.oauth_connections, "access_token_for_google", lambda _u: "tok")
+    monkeypatch.setattr(
+        calendar_sync.google_calendar,
+        "get_primary_calendar_timezone",
+        lambda _t: None,
+    )
     monkeypatch.setattr(calendar_sync.google_calendar, "list_calendar_ids", lambda _t: ["cal-1"])
     monkeypatch.setattr(
         calendar_sync.google_calendar,
@@ -188,6 +193,11 @@ def test_sync_emits_start_calendars_and_complete_logs(monkeypatch, caplog):
     )
     monkeypatch.setattr(
         calendar_sync_module.google_calendar,
+        "get_primary_calendar_timezone",
+        lambda token: None,
+    )
+    monkeypatch.setattr(
+        calendar_sync_module.google_calendar,
         "list_calendar_ids",
         lambda token: ["primary", "work@group.calendar.google.com"],
     )
@@ -207,7 +217,7 @@ def test_sync_emits_start_calendars_and_complete_logs(monkeypatch, caplog):
     monkeypatch.setattr(
         calendar_sync_module.google_calendar,
         "event_to_booking_payload",
-        lambda ev: {
+        lambda ev, **_kw: {
             "google_calendar_id": ev["_babyg_calendar_id"],
             "google_event_id": ev["id"],
             "starts_at": "2026-09-10T10:00:00Z",
@@ -251,6 +261,11 @@ def test_sync_error_log_names_reason(monkeypatch, caplog):
 
     monkeypatch.setattr(
         calendar_sync_module.google_calendar,
+        "get_primary_calendar_timezone",
+        lambda token: None,
+    )
+    monkeypatch.setattr(
+        calendar_sync_module.google_calendar,
         "list_calendar_ids",
         _boom,
     )
@@ -281,6 +296,225 @@ def test_sync_not_connected_logs_reason(monkeypatch, caplog):
     assert "calendar_sync.error user=creator-3 reason=not_connected" in log_text
 
 
+# ---- timezone correctness ------------------------------------------
+# Anchors for the "wrong day highlighted" and "all-day event drifted"
+# bugs. Server UTC must never determine the visible day.
+
+
+def test_get_primary_calendar_timezone_returns_zone(monkeypatch):
+    calls: list[str] = []
+
+    def _get(url, *, headers, timeout):
+        calls.append(url)
+        return _Resp({"id": "primary", "timeZone": "America/New_York"})
+
+    monkeypatch.setattr(google_calendar.httpx, "get", _get)
+
+    tz = google_calendar.get_primary_calendar_timezone("tok")
+
+    assert tz == "America/New_York"
+    assert calls[0].endswith("/calendars/primary")
+
+
+def test_get_primary_calendar_timezone_returns_none_on_error(monkeypatch):
+    import httpx as _httpx
+
+    def _get(url, *, headers, timeout):
+        request = _httpx.Request("GET", url)
+        response = _httpx.Response(401, request=request)
+        raise _httpx.HTTPStatusError("401", request=request, response=response)
+
+    monkeypatch.setattr(google_calendar.httpx, "get", _get)
+
+    assert google_calendar.get_primary_calendar_timezone("tok") is None
+
+
+def test_all_day_event_anchors_to_calendar_timezone_not_utc():
+    """The wrong-day bug: an all-day event on Sep 10 stored at UTC
+    midnight resolves to Sep 9 in New York. Anchor midnight to the
+    calendar's local zone so the local calendar date is preserved."""
+    payload = google_calendar.event_to_booking_payload(
+        {
+            "id": "evt-1",
+            "_babyg_calendar_id": "cal-1",
+            "summary": "All-day shoot",
+            "status": "confirmed",
+            "start": {"date": "2026-09-10"},
+            "end": {"date": "2026-09-11"},
+        },
+        default_timezone="America/New_York",
+    )
+    assert payload is not None
+    assert payload["is_all_day"] is True
+    assert payload["google_timezone"] == "America/New_York"
+    # Sep 10 midnight NY (EDT = UTC-4) — NOT Sep 10 UTC midnight
+    # which would resolve to Sep 9 20:00 EDT.
+    assert payload["starts_at"].startswith("2026-09-10T00:00:00")
+    assert "-04:00" in payload["starts_at"] or "-05:00" in payload["starts_at"]
+
+
+def test_all_day_event_prefers_event_timezone_over_default():
+    payload = google_calendar.event_to_booking_payload(
+        {
+            "id": "evt-2",
+            "_babyg_calendar_id": "cal-1",
+            "start": {"date": "2026-09-10", "timeZone": "America/Los_Angeles"},
+            "end": {"date": "2026-09-11", "timeZone": "America/Los_Angeles"},
+        },
+        default_timezone="America/New_York",
+    )
+    assert payload is not None
+    assert payload["google_timezone"] == "America/Los_Angeles"
+    assert "-07:00" in payload["starts_at"] or "-08:00" in payload["starts_at"]
+
+
+def test_all_day_event_falls_back_to_utc_when_no_timezone():
+    """No timezone information anywhere — UTC is the safe fallback.
+    Callers that care about the visible day must supply a timezone."""
+    payload = google_calendar.event_to_booking_payload(
+        {
+            "id": "evt-3",
+            "_babyg_calendar_id": "cal-1",
+            "start": {"date": "2026-09-10"},
+            "end": {"date": "2026-09-11"},
+        }
+    )
+    assert payload is not None
+    assert payload["is_all_day"] is True
+    assert payload["google_timezone"] is None
+    assert payload["starts_at"].startswith("2026-09-10T00:00:00")
+    assert "+00:00" in payload["starts_at"]
+
+
+def test_sync_passes_primary_timezone_to_payload_builder(monkeypatch):
+    from app.services import calendar_sync as calendar_sync_module
+
+    captured: dict[str, Any] = {}
+
+    monkeypatch.setattr(
+        calendar_sync_module.oauth_connections,
+        "access_token_for_google",
+        lambda _u: "tok",
+    )
+    monkeypatch.setattr(
+        calendar_sync_module.google_calendar,
+        "get_primary_calendar_timezone",
+        lambda _t: "America/New_York",
+    )
+    monkeypatch.setattr(
+        calendar_sync_module.google_calendar,
+        "list_calendar_ids",
+        lambda _t: ["primary"],
+    )
+    monkeypatch.setattr(
+        calendar_sync_module.google_calendar,
+        "list_events",
+        lambda *_a, **_kw: [
+            {"id": "e1", "_babyg_calendar_id": "primary", "start": {"date": "2026-09-10"}}
+        ],
+    )
+
+    def _payload(ev, *, default_timezone=None):
+        captured["default_timezone"] = default_timezone
+        return {
+            "google_event_id": ev["id"],
+            "google_calendar_id": ev["_babyg_calendar_id"],
+            "starts_at": "2026-09-10T00:00:00-04:00",
+            "status": "confirmed",
+        }
+
+    monkeypatch.setattr(
+        calendar_sync_module.google_calendar,
+        "event_to_booking_payload",
+        _payload,
+    )
+    monkeypatch.setattr(
+        calendar_sync_module.bookings,
+        "upsert_google_event",
+        lambda *, user_id, payload: True,
+    )
+
+    calendar_sync_module.sync_google_calendar("user-tz-1")
+
+    assert captured["default_timezone"] == "America/New_York"
+
+
+def test_effective_timezone_returns_google_primary(monkeypatch):
+    from app.services import calendar_sync as calendar_sync_module
+
+    calendar_sync_module._TIMEZONE_CACHE.clear()
+    monkeypatch.setattr(
+        calendar_sync_module.oauth_connections,
+        "access_token_for_google",
+        lambda uid: "tok",
+    )
+    monkeypatch.setattr(
+        calendar_sync_module.google_calendar,
+        "get_primary_calendar_timezone",
+        lambda _t: "America/New_York",
+    )
+
+    assert calendar_sync_module.effective_timezone("u-1") == "America/New_York"
+
+
+def test_effective_timezone_none_when_no_token(monkeypatch):
+    from app.services import calendar_sync as calendar_sync_module
+
+    calendar_sync_module._TIMEZONE_CACHE.clear()
+    monkeypatch.setattr(
+        calendar_sync_module.oauth_connections,
+        "access_token_for_google",
+        lambda uid: None,
+    )
+    assert calendar_sync_module.effective_timezone("u-2") is None
+
+
+def test_effective_timezone_cached_across_calls(monkeypatch):
+    from app.services import calendar_sync as calendar_sync_module
+
+    calendar_sync_module._TIMEZONE_CACHE.clear()
+    calls = {"n": 0}
+
+    def _lookup(_t):
+        calls["n"] += 1
+        return "Europe/London"
+
+    monkeypatch.setattr(
+        calendar_sync_module.oauth_connections,
+        "access_token_for_google",
+        lambda uid: "tok",
+    )
+    monkeypatch.setattr(
+        calendar_sync_module.google_calendar,
+        "get_primary_calendar_timezone",
+        _lookup,
+    )
+    a = calendar_sync_module.effective_timezone("u-3")
+    b = calendar_sync_module.effective_timezone("u-3")
+    assert a == "Europe/London"
+    assert b == "Europe/London"
+    assert calls["n"] == 1
+
+
+def test_today_in_zone_uses_named_zone():
+    from app.services import calendar_sync as calendar_sync_module
+
+    # Same wall-clock moment resolves to different calendar days
+    # depending on the zone. Any tz-aware "today" fits into a
+    # +/- 1-day window around UTC's current date.
+    today_ny = calendar_sync_module.today_in_zone("America/New_York")
+    today_utc = calendar_sync_module.today_in_zone(None)
+    assert abs((today_utc - today_ny).days) <= 1
+
+
+def test_today_in_zone_unknown_zone_falls_back_to_utc():
+    from app.services import calendar_sync as calendar_sync_module
+
+    fallback = calendar_sync_module.today_in_zone("Not/A/Zone")
+    utc_today = calendar_sync_module.today_in_zone(None)
+    assert fallback == utc_today
+
+
 def test_sync_id_hint_never_leaks_full_calendar_id(monkeypatch, caplog):
     """The log helper masks all but the first 6 + last 6 characters of
     each opaque id. Verify a Google-style calendar id never appears
@@ -293,6 +527,11 @@ def test_sync_id_hint_never_leaks_full_calendar_id(monkeypatch, caplog):
         lambda uid: "TOKEN",
     )
     long_cal_id = "verylongcalendarid_1234567890@group.calendar.google.com"
+    monkeypatch.setattr(
+        calendar_sync_module.google_calendar,
+        "get_primary_calendar_timezone",
+        lambda token: None,
+    )
     monkeypatch.setattr(
         calendar_sync_module.google_calendar,
         "list_calendar_ids",

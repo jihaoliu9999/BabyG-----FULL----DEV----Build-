@@ -12,8 +12,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
-from datetime import UTC, date, datetime, time, timedelta
+from datetime import UTC, date, datetime, time, timedelta, tzinfo
 from typing import Any
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import (
     APIRouter,
@@ -178,13 +179,13 @@ def _month_bounds(value: date) -> tuple[date, date]:
     return start, end
 
 
-def _date_from_query(raw: str | None) -> date:
+def _date_from_query(raw: str | None, *, fallback_today: date | None = None) -> date:
     if raw:
         try:
             return date.fromisoformat(raw)
         except ValueError:
             pass
-    return date.today()
+    return fallback_today or date.today()
 
 
 def _event_end(start_dt: datetime, row: dict[str, Any]) -> datetime:
@@ -198,29 +199,44 @@ def _time_label(value: datetime) -> str:
     return value.strftime("%I:%M %p").lstrip("0").lower()
 
 
-def _event_vm(row: dict[str, Any]) -> dict[str, Any] | None:
+def _event_vm(
+    row: dict[str, Any], *, tz_name: str | None = None
+) -> dict[str, Any] | None:
     start_dt = _parse_iso_dt(row.get("starts_at"))
     if not start_dt:
         return None
     end_dt = _event_end(start_dt, row)
-    minutes = max(0, start_dt.hour * 60 + start_dt.minute)
-    duration = max(30, int((end_dt - start_dt).total_seconds() // 60))
+    # Convert to the viewer's effective calendar zone before deriving
+    # calendar-day + wall-clock fields — server UTC must never decide
+    # what day an event lands on. Timezone precedence: caller-provided
+    # user tz -> the event's persisted google_timezone -> UTC.
+    view_tz = tz_name or str(row.get("google_timezone") or "").strip() or None
+    view_tzinfo: tzinfo = UTC
+    if view_tz:
+        try:
+            view_tzinfo = ZoneInfo(view_tz)
+        except (ZoneInfoNotFoundError, ValueError):
+            view_tzinfo = UTC
+    local_start = start_dt.astimezone(view_tzinfo)
+    local_end = end_dt.astimezone(view_tzinfo)
+    minutes = max(0, local_start.hour * 60 + local_start.minute)
+    duration = max(30, int((local_end - local_start).total_seconds() // 60))
     return {
         "id": row.get("id"),
         "title": row.get("title") or "untitled event",
         "type": row.get("type") or "event",
         "starts_at": row.get("starts_at"),
         "ends_at": row.get("ends_at"),
-        "start_dt": start_dt,
-        "end_dt": end_dt,
-        "date": start_dt.date().isoformat(),
-        "start_label": _time_label(start_dt),
-        "time_label": f"{_time_label(start_dt)} - {_time_label(end_dt)}",
+        "start_dt": local_start,
+        "end_dt": local_end,
+        "date": local_start.date().isoformat(),
+        "start_label": _time_label(local_start),
+        "time_label": f"{_time_label(local_start)} - {_time_label(local_end)}",
         "venue_name": row.get("venue_name"),
         "google_event_id": row.get("google_event_id"),
         "google_calendar_id": row.get("google_calendar_id"),
         "is_all_day": bool(row.get("is_all_day")),
-        "is_multi_day": end_dt.date() > start_dt.date(),
+        "is_multi_day": local_end.date() > local_start.date(),
         "top_pct": minutes / (24 * 60) * 100,
         "height_pct": min(100, duration / (24 * 60) * 100),
     }
@@ -248,10 +264,20 @@ def _overlap_layout(events: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return timed
 
 
-def _calendar_grid_context(rows: list[dict[str, Any]], selected: date) -> dict[str, Any]:
+def _calendar_grid_context(
+    rows: list[dict[str, Any]],
+    selected: date,
+    *,
+    today: date | None = None,
+    tz_name: str | None = None,
+) -> dict[str, Any]:
+    """Build the week grid. ``today`` is the effective calendar today
+    (resolved in the user's calendar timezone by the caller). Falling
+    back to date.today() would re-introduce the server-timezone bug."""
     week_start = _week_start(selected)
     week_days = [week_start + timedelta(days=i) for i in range(7)]
-    event_vms = [vm for row in rows if (vm := _event_vm(row))]
+    event_vms = [vm for row in rows if (vm := _event_vm(row, tz_name=tz_name))]
+    effective_today = today or date.today()
     all_day_by_date: dict[str, list[dict[str, Any]]] = {
         d.isoformat(): [] for d in week_days
     }
@@ -283,7 +309,7 @@ def _calendar_grid_context(rows: list[dict[str, Any]], selected: date) -> dict[s
                 "iso": d.isoformat(),
                 "weekday": d.strftime("%a"),
                 "day": d.day,
-                "is_today": d == date.today(),
+                "is_today": d == effective_today,
                 "is_selected": d == selected,
                 "all_day_events": all_day_by_date[d.isoformat()],
                 "timed_events": timed_by_date[d.isoformat()],
@@ -299,11 +325,18 @@ def _calendar_grid_context(rows: list[dict[str, Any]], selected: date) -> dict[s
     }
 
 
-def _month_context(rows: list[dict[str, Any]], selected: date) -> dict[str, Any]:
+def _month_context(
+    rows: list[dict[str, Any]],
+    selected: date,
+    *,
+    today: date | None = None,
+    tz_name: str | None = None,
+) -> dict[str, Any]:
     month_start, month_end = _month_bounds(selected)
     grid_start = _week_start(month_start)
     days = [grid_start + timedelta(days=i) for i in range(42)]
-    event_vms = [vm for row in rows if (vm := _event_vm(row))]
+    event_vms = [vm for row in rows if (vm := _event_vm(row, tz_name=tz_name))]
+    effective_today = today or date.today()
     by_date: dict[str, list[dict[str, Any]]] = {d.isoformat(): [] for d in days}
     for event in event_vms:
         for day in days:
@@ -319,7 +352,7 @@ def _month_context(rows: list[dict[str, Any]], selected: date) -> dict[str, Any]
                 "iso": d.isoformat(),
                 "day": d.day,
                 "in_month": d.month == selected.month,
-                "is_today": d == date.today(),
+                "is_today": d == effective_today,
                 "events": by_date[d.isoformat()],
             }
             for d in days
@@ -353,9 +386,6 @@ async def dashboard(
         p for p in (profile.get("location_city"), profile.get("location_region")) if p
     ) or None
     user_id = session["user_id"]
-    today = date.today()
-    week_start = _week_start(today)
-    week_end = week_start + timedelta(days=7)
 
     # Pull the Google connection FIRST — the home calendar section
     # renders from persisted bookings, so we must let a throttled
@@ -370,8 +400,21 @@ async def dashboard(
     google_connection = await _safe_call(
         oauth_connections.get_google_connection, user_id, _default=None
     )
-    if oauth_connections.google_calendar_connected(google_connection):
+    google_connected_early = oauth_connections.google_calendar_connected(
+        google_connection
+    )
+    if google_connected_early:
         await asyncio.to_thread(calendar_sync.maybe_auto_sync, user_id)
+
+    # Anchor "today" and the visible week to the user's effective
+    # calendar timezone (primary Google calendar tz -> UTC fallback).
+    # Server UTC must never determine the day highlight.
+    user_tz = (
+        calendar_sync.effective_timezone(user_id) if google_connected_early else None
+    )
+    today = calendar_sync.today_in_zone(user_tz)
+    week_start = _week_start(today)
+    week_end = week_start + timedelta(days=7)
 
     (
         unread_notifs_all,
@@ -448,7 +491,7 @@ async def dashboard(
     unread_notifs = [n for n in unread_notifs_all if n.get("kind") not in manager_kinds]
     non_dm_unread_total = len(unread_notifs)
 
-    calendar_connected = oauth_connections.google_calendar_connected(google_connection)
+    calendar_connected = google_connected_early
 
     # Prime the request-scoped cache the tabbar template globals read so
     # they don't fire their own supabase calls. Both globals check
@@ -528,7 +571,9 @@ async def dashboard(
             "matched_picks": matched_picks,
             "needs_count": needs_count,
             "calendar_connected": calendar_connected,
-            "calendar_grid": _calendar_grid_context(upcoming_bookings, today),
+            "calendar_grid": _calendar_grid_context(
+                upcoming_bookings, today, today=today, tz_name=user_tz
+            ),
             "daily_greeting": daily_greeting,
             "overnight_recap": overnight_recap,
             "ig_dm_unread_count": ig_dm_unread_count,
@@ -2591,7 +2636,25 @@ async def calendar_list(
 ) -> Response:
     if view not in {"day", "week", "month"}:
         view = "week"
-    selected = _date_from_query(selected_date)
+    google_connection = oauth_connections.get_google_connection(session["user_id"])
+    google_connected = oauth_connections.google_calendar_connected(google_connection)
+    # Best-effort freshness: pull any new Google events into local
+    # bookings before the read. Rate-limited per-user by
+    # calendar_sync so navigation doesn't stampede Google. Never
+    # raises — throttled calls return None and the read below still
+    # renders whatever is already persisted.
+    if google_connected:
+        calendar_sync.maybe_auto_sync(session["user_id"])
+    # Effective timezone resolves after auto-sync so the primed
+    # cache is warm; date parsing below uses it so "?date=" defaults
+    # to today in the user's calendar zone, not server UTC.
+    user_tz = (
+        calendar_sync.effective_timezone(session["user_id"])
+        if google_connected
+        else None
+    )
+    today = calendar_sync.today_in_zone(user_tz)
+    selected = _date_from_query(selected_date, fallback_today=today)
     if view == "day":
         range_start = selected
         range_end = selected + timedelta(days=1)
@@ -2602,15 +2665,6 @@ async def calendar_list(
     else:
         range_start = _week_start(selected)
         range_end = range_start + timedelta(days=7)
-    google_connection = oauth_connections.get_google_connection(session["user_id"])
-    google_connected = oauth_connections.google_calendar_connected(google_connection)
-    # Best-effort freshness: pull any new Google events into local
-    # bookings before the read. Rate-limited per-user by
-    # calendar_sync so navigation doesn't stampede Google. Never
-    # raises — throttled calls return None and the read below still
-    # renders whatever is already persisted.
-    if google_connected:
-        calendar_sync.maybe_auto_sync(session["user_id"])
     rows = bookings.list_for_user_range(
         session["user_id"],
         starts_before=_iso_utc(datetime.combine(range_end, time.min, tzinfo=UTC)),
@@ -2641,8 +2695,12 @@ async def calendar_list(
             "selected_date": selected,
             "previous_date": previous_date,
             "next_date": next_date,
-            "calendar_grid": _calendar_grid_context(rows, selected),
-            "month_grid": _month_context(rows, selected),
+            "calendar_grid": _calendar_grid_context(
+                rows, selected, today=today, tz_name=user_tz
+            ),
+            "month_grid": _month_context(
+                rows, selected, today=today, tz_name=user_tz
+            ),
             "google_connected": google_connected,
             "google_configured": google_calendar.is_configured(),
             "calendar_notice": _calendar_notice(request),
