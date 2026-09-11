@@ -15,6 +15,7 @@ Service calls are stubbed so we never hit Supabase.
 from __future__ import annotations
 
 from datetime import date
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -66,6 +67,14 @@ from app.services import (
 from app.services import (
     stats_merge as stats_merge_module,
 )
+
+# Portable repo-root anchor. This test file lives at
+# tests/test_home_calendar_preview.py, so parents[1] is the repo
+# root regardless of the checkout location (local dev laptops,
+# GitHub Actions, Railway CI, docker builds).
+REPO_ROOT = Path(__file__).resolve().parents[1]
+APP_CSS = REPO_ROOT / "app" / "static" / "css" / "app.css"
+HOME_CALENDAR_JS = REPO_ROOT / "app" / "static" / "js" / "creator_home_calendar.js"
 
 
 @pytest.fixture()
@@ -969,9 +978,7 @@ def test_home_day_picker_js_uses_closest_selector(monkeypatch) -> None:
     getAttribute-on-target ancestor-walking mis-fired on iOS Safari
     when the tap landed on the inner <strong>. The fixed script
     uses element.closest() to hop straight to the anchor."""
-    js_path = "/home/user/BabyG-----FULL----DEV----Build-/app/static/js/creator_home_calendar.js"
-    with open(js_path) as f:
-        src = f.read()
+    src = HOME_CALENDAR_JS.read_text()
     assert ".closest(" in src
     assert "preventDefault" in src
     assert "stopPropagation" in src
@@ -980,9 +987,7 @@ def test_home_day_picker_js_uses_closest_selector(monkeypatch) -> None:
 def test_home_day_picker_js_binds_per_cell_not_delegation(monkeypatch) -> None:
     """Direct per-cell binding is the mobile-Safari-safe pattern.
     Lock the shape."""
-    js_path = "/home/user/BabyG-----FULL----DEV----Build-/app/static/js/creator_home_calendar.js"
-    with open(js_path) as f:
-        src = f.read()
+    src = HOME_CALENDAR_JS.read_text()
     # Function that binds a single cell exists.
     assert "function bindCell" in src or "function attach" in src
 
@@ -993,8 +998,7 @@ def test_home_day_picker_js_binds_per_cell_not_delegation(monkeypatch) -> None:
 
 
 def _css() -> str:
-    with open("/home/user/BabyG-----FULL----DEV----Build-/app/static/css/app.css") as f:
-        return f.read()
+    return APP_CSS.read_text()
 
 
 def test_full_calendar_mobile_toolbar_reflow_present() -> None:
