@@ -74,34 +74,13 @@ def test_message_pinning_does_not_scroll_the_document() -> None:
     assert ".bot-messages" in pin_function
 
 
-def test_discover_swipe_animates_from_drag_position_without_snap_back() -> None:
-    """Swiping past threshold must continue the animation from the
-    finger's release position, not reset the card to center for one
-    frame before the leaving animation starts (the "glitchy" rebound
-    the user reported)."""
-    pointerup_block = DISCOVER_JS.split(
-        'card.addEventListener("pointerup",', 1
-    )[1].split(
-        'card.addEventListener("pointercancel"', 1
-    )[0]
-    # No unconditional pre-threshold `transform = ""` reset — the reset
-    # is now gated inside the below-threshold branch.
-    lines_before_threshold = pointerup_block.split("Math.abs(delta) < 80", 1)[0]
-    assert 'card.style.transform = ""' not in lines_before_threshold
-    # Above-threshold branch animates the leaving transform inline.
-    assert 'card.style.opacity = "0"' in pointerup_block
-    assert "translateX(" in pointerup_block
-
-
-def test_discover_pointerdown_gates_on_busy_and_current_card() -> None:
-    """A rapid tap while a previous swipe is animating must not start
-    a fresh drag on a stale card."""
-    pointerdown_block = DISCOVER_JS.split(
-        'card.addEventListener("pointerdown",', 1
-    )[1].split(
-        'card.addEventListener("pointermove"', 1
-    )[0]
-    assert "if (busy || card !== currentCard())" in pointerdown_block
+def test_discover_no_longer_uses_swipe_or_drag_interactions() -> None:
+    """Discover is now a normal vertical feed, not a one-card swipe UI."""
+    assert 'card.addEventListener("pointerdown"' not in DISCOVER_JS
+    assert 'card.addEventListener("pointerup"' not in DISCOVER_JS
+    assert 'card.addEventListener("pointermove"' not in DISCOVER_JS
+    assert 'data-swipe-form' not in DISCOVER_TEMPLATE
+    assert 'data-action-dock' not in DISCOVER_TEMPLATE
 
 
 def test_mobile_controls_keep_ios_safe_font_size() -> None:

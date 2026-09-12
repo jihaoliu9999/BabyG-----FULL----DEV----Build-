@@ -75,6 +75,7 @@ async def discover_page(
             "discover_base_path": "/creator/discover",
             "discover_swipe_path": "/creator/discover/swipe",
             "discover_undo_path": "/creator/discover/undo",
+            "discover_post_path": "/creator/opportunities/new",
         },
     )
 

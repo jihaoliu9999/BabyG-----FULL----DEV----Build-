@@ -17,6 +17,7 @@ from fastapi.testclient import TestClient
 from app.core.security import SESSION_COOKIE, write_session
 from app.main import app
 from app.routes import brand as brand_routes
+from app.services import discover as discover_module
 from app.services import dms as dms_module
 from app.services import jobs as jobs_module
 from app.services import network as network_module
@@ -346,6 +347,41 @@ def test_campaigns_create_rejects_missing_title(
     assert r.status_code == 400
     assert "required" in r.text.lower()
     assert stub_brand["created_listings"] == []
+
+
+def test_brand_discover_uses_shared_text_modes_and_campaign_post(
+    client: TestClient, stub_brand, monkeypatch
+) -> None:
+    cards = [
+        {
+            "card_kind": "brand",
+            "card_id": "00000000-0000-0000-0000-000000000010",
+            "owner_user_id": "00000000-0000-0000-0000-000000000010",
+            "title": "Studio North",
+            "subtitle": "fashion",
+            "image_url": None,
+            "location_label": "Miami, FL",
+            "tags": ["fashion", "events", "music", "extra"],
+            "created_at": "2026-06-17T12:00:00Z",
+            "description": "venue group",
+            "profile_handle": "studionorth",
+            "primary_platform": "instagram",
+            "follower_range": None,
+            "detail_path": "/brand/discover/brand/00000000-0000-0000-0000-000000000010",
+            "relevance_reasons": [],
+        }
+    ]
+    monkeypatch.setattr(discover_module, "list_cards", lambda **kwargs: cards)
+    monkeypatch.setattr(discover_module, "last_undoable_pass", lambda uid: None)
+    monkeypatch.setattr(discover_module, "record_action", lambda **kwargs: True)
+    _signed_in(client, role="brand")
+    r = client.get("/brand/discover?kind=opportunity")
+    assert r.status_code == 200
+    assert 'href="/brand/campaigns/new">+ post</a>' in r.text
+    assert 'href="/brand/discover?kind=creator"' in r.text
+    assert 'href="/brand/discover?kind=brand"' in r.text
+    assert 'href="/brand/discover?kind=all"' not in r.text
+    assert ">all</a>" not in r.text
 
 
 # ---------------------------------------------------------------------------

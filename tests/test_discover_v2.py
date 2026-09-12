@@ -32,12 +32,12 @@ def _card(kind: str = "opportunity", **overrides: Any) -> dict[str, Any]:
         "subtitle": "verified brand" if kind == "brand" else "fashion · New York",
         "image_url": None,
         "location_label": "New York, NY",
-        "tags": ["fashion", "lifestyle"],
+        "tags": ["fashion", "lifestyle", "reels", "extra"],
         "created_at": "2026-06-17T12:00:00Z",
         "description": "Create two short-form videos for a summer launch.",
-        "profile_handle": None,
+        "profile_handle": "atelierfig" if kind == "creator" else None,
         "follower_range": None,
-        "primary_platform": None,
+        "primary_platform": "instagram" if kind == "creator" else None,
         "verification_status": "verified" if kind == "brand" else None,
         "compensation_type": "flat_rate" if kind == "opportunity" else None,
         "compensation_text": "$750 flat rate" if kind == "opportunity" else None,
@@ -125,10 +125,37 @@ def test_discover_renders_mobile_first_mixed_stack(client, discover_world):
     assert response.status_code == 200
     assert "Summer campaign" in response.text
     assert "Atelier Fig" in response.text
-    assert 'data-action-dock' in response.text
+    assert 'data-discover-feed' in response.text
+    assert 'data-action-dock' not in response.text
+    assert 'data-swipe-form' not in response.text
     assert 'data-card-kind="opportunity"' in response.text
     assert "discover.js" in response.text
     assert discover_world["actions"][0]["action_type"] == "viewed"
+
+
+def test_discover_nav_uses_locked_text_modes(client, discover_world):
+    _signed_in(client)
+    response = client.get("/creator/discover")
+    assert response.status_code == 200
+    assert 'href="/creator/discover?kind=all"' not in response.text
+    assert ">all</a>" not in response.text
+    assert "for you" not in response.text.lower()
+    assert 'href="/creator/discover?kind=creator"' in response.text
+    assert 'href="/creator/discover?kind=brand"' in response.text
+    assert 'href="/creator/discover?kind=opportunity"' in response.text
+    assert 'class="discover-kind-tabs"' in response.text
+
+
+def test_discover_filter_panel_is_secondary(client, discover_world):
+    _signed_in(client)
+    response = client.get("/creator/discover?kind=creator&category=fashion")
+    assert response.status_code == 200
+    assert 'data-filter-toggle aria-expanded="false"' in response.text
+    assert 'data-filter-panel' in response.text
+    assert 'name="category"' in response.text
+    assert 'name="location"' in response.text
+    assert ">apply filters</button>" in response.text
+    assert ">clear</a>" in response.text
 
 
 def test_discover_filters_are_forwarded(client, discover_world, monkeypatch):
@@ -150,6 +177,67 @@ def test_discover_filters_are_forwarded(client, discover_world, monkeypatch):
     assert seen["location"] == "brooklyn"
     assert seen["budget_min"] == 500
     assert seen["budget_max"] == 2000
+
+
+def test_discover_profile_card_is_centered_and_limits_tags(client, discover_world):
+    _signed_in(client)
+    response = client.get("/creator/discover?kind=creator")
+    assert response.status_code == 200
+    assert 'class="discover-profile-avatar"' in response.text
+    assert 'class="discover-card-type">creator</div>' in response.text
+    assert ">connect</button>" in response.text
+    assert "https://www.instagram.com/atelierfig" in response.text
+    assert ">fashion</span>" in response.text
+    assert ">lifestyle</span>" in response.text
+    assert ">reels</span>" in response.text
+    assert ">extra</span>" not in response.text
+    assert "@atelierfig" not in response.text
+    assert ">instagram<" not in response.text.lower()
+
+
+def test_discover_brand_card_supports_icon_only_social_when_present(
+    client, discover_world
+):
+    discover_world["cards"][:] = [
+        _card(
+            "brand",
+            primary_platform="instagram",
+            profile_handle="studiohouse",
+            title="Studio House",
+            description="activewear brand",
+        )
+    ]
+    _signed_in(client)
+    response = client.get("/creator/discover?kind=brand")
+    assert response.status_code == 200
+    assert "Studio House" in response.text
+    assert "https://www.instagram.com/studiohouse" in response.text
+    assert "@studiohouse" not in response.text
+    assert ">instagram<" not in response.text.lower()
+
+
+def test_discover_profile_without_social_omits_social_control(client, discover_world):
+    discover_world["cards"][:] = [
+        _card("creator", primary_platform=None, profile_handle=None)
+    ]
+    _signed_in(client)
+    response = client.get("/creator/discover?kind=creator")
+    assert response.status_code == 200
+    assert "discover-social-link" not in response.text
+
+
+def test_discover_opportunity_mode_has_integrated_post_and_real_price(
+    client, discover_world
+):
+    _signed_in(client)
+    response = client.get("/creator/discover?kind=opportunity")
+    assert response.status_code == 200
+    assert 'class="discover-mode-focus"' in response.text
+    assert 'href="/creator/opportunities/new">+ post</a>' in response.text
+    assert "floating" not in response.text.lower()
+    assert "starting price" in response.text
+    assert "$750" in response.text
+    assert ">interested</button>" in response.text
 
 
 def test_discover_requires_creator_role(client, discover_world):

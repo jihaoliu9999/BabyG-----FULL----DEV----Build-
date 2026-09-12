@@ -314,7 +314,7 @@ async def dm_page(
 @router.get("/discover", response_class=HTMLResponse)
 async def discover_page(
     request: Request,
-    kind: str = Query("creator"),
+    kind: str = Query("all"),
     category: str | None = Query(None),
     location: str | None = Query(None),
     budget_min: int | None = Query(None, ge=0),
@@ -357,10 +357,6 @@ async def discover_page(
             "profile": profile,
             "cards": cards,
             "active_kind": kind_clean,
-            "discover_tabs": [
-                ("creator", "people"),
-                ("opportunity", "opportunities"),
-            ],
             "category": category or "",
             "location": location or "",
             "budget_min": budget_min,
@@ -369,6 +365,7 @@ async def discover_page(
             "discover_base_path": "/brand/discover",
             "discover_swipe_path": "/brand/discover/swipe",
             "discover_undo_path": "/brand/discover/undo",
+            "discover_post_path": "/brand/campaigns/new",
             "discover_title": "discover",
         },
     )
@@ -394,7 +391,7 @@ async def discover_swipe(
     card = discover.get_card(card_kind=target_kind_clean, card_id=target_card_id)
     if card is None or card["owner_user_id"] == session["user_id"]:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-    if card["card_kind"] not in {"creator", "opportunity"}:
+    if card["card_kind"] not in {"creator", "brand", "opportunity"}:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
 
     expected_primary = "interested" if card["card_kind"] == "opportunity" else "connected"
@@ -496,6 +493,25 @@ async def discover_opportunity_detail(
     if not profile.get("onboarding_completed_at"):
         return RedirectResponse("/onboarding/brand", status_code=302)
     card = discover.get_card(card_kind="opportunity", card_id=opportunity_id)
+    if card is None or card["owner_user_id"] == session["user_id"]:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    return templates.TemplateResponse(
+        request,
+        "brand/discover_detail.html",
+        {"profile": profile, "card": _brand_card(card)},
+    )
+
+
+@router.get("/discover/brand/{brand_user_id}", response_class=HTMLResponse)
+async def discover_brand_detail(
+    brand_user_id: str,
+    request: Request,
+    session: SessionPayload = Depends(require_role("brand")),
+) -> Response:
+    profile = profiles.get_brand_profile(session["user_id"]) or {}
+    if not profile.get("onboarding_completed_at"):
+        return RedirectResponse("/onboarding/brand", status_code=302)
+    card = discover.get_card(card_kind="brand", card_id=brand_user_id)
     if card is None or card["owner_user_id"] == session["user_id"]:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     return templates.TemplateResponse(
@@ -632,8 +648,7 @@ def _clean_chip_list(
 
 
 def _brand_discover_kind(value: str | None) -> str:
-    kind = discover.clean_kind(value)
-    return kind if kind in {"creator", "opportunity"} else "creator"
+    return discover.clean_kind(value)
 
 
 def _brand_discover_cards(
@@ -658,7 +673,7 @@ def _brand_discover_cards(
         viewer_tags=viewer_tags,
         prioritize=prioritize,
     )
-    return [_brand_card(card) for card in cards if card["card_kind"] in {"creator", "opportunity"}]
+    return [_brand_card(card) for card in cards]
 
 
 def _brand_card(card: dict) -> dict:
@@ -670,6 +685,8 @@ def _brand_card(card: dict) -> dict:
 def _brand_detail_path(card: dict) -> str:
     if card["card_kind"] == "opportunity":
         return f"/brand/discover/opportunity/{card['card_id']}"
+    if card["card_kind"] == "brand":
+        return f"/brand/discover/brand/{card['card_id']}"
     return f"/brand/discover/creator/{card['card_id']}"
 
 
