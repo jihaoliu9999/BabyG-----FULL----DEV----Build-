@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.datastructures import Headers
@@ -20,6 +20,7 @@ from starlette.middleware.gzip import GZipMiddleware
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.config import get_settings
+from app.core.tabbar_priming import prime_creator_tabbar
 from app.core.templating import templates
 from app.routes import abuse as abuse_routes
 from app.routes import auth as auth_routes
@@ -90,9 +91,17 @@ def create_app() -> FastAPI:
     app.include_router(marketing_routes.router)
     app.include_router(auth_routes.router)
     app.include_router(onboarding_routes.router)
-    app.include_router(creator_routes.router)
-    app.include_router(discover_routes.router)
-    app.include_router(opportunities_routes.router)
+    # Every router below whose paths render the creator app shell
+    # (base.html + creator_tabbar) primes the tabbar badge counts
+    # once per GET request so template-global renders reuse them
+    # instead of firing three uncached Supabase reads each. See
+    # ``app/core/tabbar_priming.py`` for the full behavior contract.
+    _creator_shell_deps = [Depends(prime_creator_tabbar)]
+    app.include_router(creator_routes.router, dependencies=_creator_shell_deps)
+    app.include_router(discover_routes.router, dependencies=_creator_shell_deps)
+    app.include_router(
+        opportunities_routes.router, dependencies=_creator_shell_deps
+    )
     app.include_router(brand_routes.router)
     app.include_router(operator_routes.router)
     app.include_router(abuse_routes.router)

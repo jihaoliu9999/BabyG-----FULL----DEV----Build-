@@ -362,17 +362,26 @@ def _cached_state_int(request, attr: str):
 
     We can't just `hasattr(request.state, attr)` because a MagicMock
     (used in a few tests that render partials directly) returns True
-    for every attribute lookup. Explicitly check for an int in the
-    attribute's __dict__ so only real writes count as cache hits.
+    for every attribute lookup.
+
+    Starlette's real ``State`` class keeps attribute writes inside an
+    internal ``_state`` dict, so we probe there first. For simpler
+    test doubles (``SimpleNamespace``, plain dataclasses) we fall
+    back to ``__dict__``. Either way, only real writes count — a
+    MagicMock exposes neither as a real ``dict`` so both checks
+    short-circuit to ``None``.
     """
     state = getattr(request, "state", None)
     if state is None:
         return None
-    stash = getattr(state, "__dict__", None)
-    if not isinstance(stash, dict):
-        return None
-    value = stash.get(attr)
-    return value if isinstance(value, int) else None
+    for slot in ("_state", "__dict__"):
+        stash = getattr(state, slot, None)
+        if isinstance(stash, dict) and attr in stash:
+            value = stash[attr]
+            if isinstance(value, int):
+                return value
+            return None
+    return None
 
 
 def _store_state_int(request, attr: str, value: int) -> None:
