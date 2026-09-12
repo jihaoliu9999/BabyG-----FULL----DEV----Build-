@@ -135,24 +135,20 @@
 <section class="discover" data-discover-root>
   <header class="discover-head">
     <h1>discover</h1>
-    <button class="discover-filter-toggle" type="button" data-filter-toggle aria-expanded="false" aria-controls="discover-filters">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M6 14v6"/></svg>
-      <span class="sr-only">filters</span>
-    </button>
+    <div class="discover-head-actions">
+      {% if active_kind == 'opportunity' and can_post %}
+      <a class="discover-post-link" href="{{ discover_post_path }}">+ post</a>
+      {% endif %}
+      <button class="discover-filter-toggle" type="button" data-filter-toggle aria-expanded="false" aria-controls="discover-filters">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10M14 4v6M6 14v6"/></svg>
+        <span class="sr-only">filters</span>
+      </button>
+    </div>
   </header>
-
-  {% if active_kind == 'opportunity' %}
-  <div class="discover-mode-focus">
-    <span>opportunities</span>
-    {% if can_post %}<a href="{{ discover_post_path }}">+ post</a>{% endif %}
-  </div>
-  {% endif %}
 
   <nav class="discover-kind-tabs" aria-label="discover mode">
     {% for value, label in [('creator', 'creators'), ('brand', 'brands'), ('opportunity', 'opportunities')] %}
-      {% if not (active_kind == 'opportunity' and value == 'opportunity') %}
-      <a href="{{ active_query(value)|trim }}" class="{{ 'active' if active_kind == value }}" {% if active_kind == value %}aria-current="page"{% endif %}>{{ label }}</a>
-      {% endif %}
+    <a href="{{ active_query(value)|trim }}" class="{{ 'active' if active_kind == value }}" {% if active_kind == value %}aria-current="page"{% endif %}>{{ label }}</a>
     {% endfor %}
   </nav>
 

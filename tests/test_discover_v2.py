@@ -232,12 +232,66 @@ def test_discover_opportunity_mode_has_integrated_post_and_real_price(
     _signed_in(client)
     response = client.get("/creator/discover?kind=opportunity")
     assert response.status_code == 200
-    assert 'class="discover-mode-focus"' in response.text
-    assert 'href="/creator/opportunities/new">+ post</a>' in response.text
+    # Follow-up: `+ post` is integrated into the header actions slot
+    # next to the filter toggle so the nav row does not restructure
+    # when opportunities is selected. The old `.discover-mode-focus`
+    # row is gone.
+    assert 'class="discover-mode-focus"' not in response.text
+    assert 'class="discover-post-link"' in response.text
+    assert 'href="/creator/opportunities/new"' in response.text
     assert "floating" not in response.text.lower()
     assert "starting price" in response.text
     assert "$750" in response.text
     assert ">interested</button>" in response.text
+
+
+def test_discover_kind_tabs_are_stable_across_active_kind(client, discover_world):
+    """Follow-up: nav must show creators / brands / opportunities in
+    the same shape regardless of which kind is currently active. The
+    active tab is decorated with `.active` (and `aria-current`) but
+    is NEVER removed or replaced with a different chrome — that was
+    the layout-shift the follow-up spec called out."""
+    _signed_in(client)
+    for kind in ("creator", "brand", "opportunity"):
+        response = client.get(f"/creator/discover?kind={kind}")
+        assert response.status_code == 200
+        body = response.text
+        assert 'href="/creator/discover?kind=creator"' in body
+        assert 'href="/creator/discover?kind=brand"' in body
+        assert 'href="/creator/discover?kind=opportunity"' in body
+        # The old restructuring row must NOT appear.
+        assert 'class="discover-mode-focus"' not in body
+
+
+def test_discover_head_hides_mobile_heading_via_scoped_css() -> None:
+    """The large `discover` h1 is retained in the DOM (for a11y +
+    desktop) but hidden at mobile widths. Lock the CSS rule so a
+    future edit doesn't reintroduce the redundant heading on phone
+    layouts."""
+    from pathlib import Path
+    css = (
+        Path(__file__).resolve().parents[1]
+        / "app" / "static" / "css" / "app.css"
+    ).read_text()
+    assert ".discover-head h1 { display: none; }" in css
+    # The scoped mobile media query must contain the hide rule so
+    # desktop is not affected.
+    mobile_blocks = css.split("@media (max-width: 767px)")
+    assert any(
+        ".discover-head h1 { display: none; }" in blk
+        for blk in mobile_blocks[1:]
+    )
+
+
+def test_discover_post_link_css_class_is_defined() -> None:
+    """The integrated `+ post` slot has its own style class so the
+    header layout row stays stable when opportunities is active."""
+    from pathlib import Path
+    css = (
+        Path(__file__).resolve().parents[1]
+        / "app" / "static" / "css" / "app.css"
+    ).read_text()
+    assert ".discover-post-link {" in css
 
 
 def test_discover_requires_creator_role(client, discover_world):

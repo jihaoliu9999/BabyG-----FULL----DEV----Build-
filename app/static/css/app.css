@@ -15408,3 +15408,45 @@ body:has(.dm-thread-composer-box input:focus) .creator-tabbar {
     padding: 8px 10px;
   }
 }
+
+/* Discover follow-up (surgical): mobile heading trim + stable nav.
+   Applies ONLY to .discover on /creator/discover. The desktop
+   heading, the filter toggle button, the kind tabs, and the filter
+   panel are all preserved. Delta:
+     - Hide the large `discover` h1 at mobile widths so the tab strip
+       is the primary chrome.
+     - Tighten .discover top spacing since the heading no longer
+       occupies its own row.
+     - New `.discover-post-link` slot lives in the header's right
+       side next to the filter toggle when kind=opportunity, so the
+       nav row does NOT restructure or insert an extra row between
+       header and tabs.  */
+@media (max-width: 767px) {
+  .discover-head h1 { display: none; }
+  .discover-head {
+    justify-content: flex-end;
+    min-height: 40px;
+    margin: 0 0 4px;
+  }
+  .discover {
+    padding-top: 8px;
+  }
+}
+.discover-post-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: var(--accent, #ff5f7d);
+  color: #fff;
+  font-size: 13.5px;
+  font-weight: 650;
+  text-decoration: none;
+  letter-spacing: 0.01em;
+}
+.discover-post-link:hover,
+.discover-post-link:focus-visible {
+  background: var(--accent-hover, #e8455f);
+}
