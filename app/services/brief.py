@@ -170,7 +170,12 @@ def _item_from_proposal(row: dict[str, Any]) -> dict[str, Any] | None:
     source = _source_from_proposal(row, preview)
     if source is None:
         return None
+    # Pass 3 §Specific heading rule: Gmail sweep-generated proposals
+    # stash a factual title in ``preview.title`` (e.g. "draft reply
+    # to Acme"). Prefer it over less-specific fields; fall through
+    # to the older key names only when title is missing.
     summary = _first_nonempty(
+        preview.get("title"),
         preview.get("summary"),
         preview.get("brief"),
         preview.get("subject"),
@@ -187,6 +192,10 @@ def _item_from_proposal(row: dict[str, Any]) -> dict[str, Any] | None:
         preview,
         kind="proposal",
     )
+    # Pass 3 no-fake-fallback: exclude if no specific factual
+    # heading is available from the persisted preview.
+    if not what:
+        return None
     # Business state derives from the real ``action_proposals.status``
     # column (migration 0012). This is the ONLY code path where a
     # Brief item can be ``in_progress`` — babyg has actually kicked
@@ -278,6 +287,10 @@ def _item_from_notification(row: dict[str, Any]) -> dict[str, Any] | None:
     body = _shorten(str(row.get("body") or "").strip(), 200)
     metadata = row.get("metadata") if isinstance(row.get("metadata"), dict) else {}
     what = _shape_what_happened(source, title, metadata, kind=kind)
+    # Pass 3 no-fake-fallback: exclude if no specific factual
+    # heading is available from the persisted notification.
+    if not what:
+        return None
     # Business-matter grouping keys — the highest-value stable
     # identifier a notification row exposes for aggregation. Order
     # mirrors spec §3: source_thread_id first, then
@@ -336,11 +349,17 @@ def _actions_for_proposal(
 
     actions: list[dict[str, Any]] = []
 
-    # Gmail send path — reuse the existing bot-messages confirm
-    # endpoint. Preserves autonomy + safety gates unchanged.
+    # Gmail send/draft path — reuse the existing bot-messages
+    # confirm endpoint. Preserves autonomy + safety gates unchanged.
+    # The label reflects what the underlying executor actually does:
+    # `gmail.create_draft` creates a draft in Gmail; the other two
+    # send. Sweep-generated proposals (from `sweep_gmail_briefs`)
+    # do NOT carry a `source_message_id` and therefore only expose
+    # `ask babyg` — the manager chat is the confirmation surface
+    # for autonomous proposals, per §Absolute Freezes.
     if (
         source == "gmail"
-        and action_type in {"gmail.send_email", "gmail.send_draft"}
+        and action_type in {"gmail.send_email", "gmail.send_draft", "gmail.create_draft"}
         and source_message_id
     ):
         actions.append(
@@ -572,6 +591,16 @@ def _is_brief_worthy(
     # native DM alert — the Brief surfaces native DMs elsewhere.
     if kind == "new_dm" and source != "instagram":
         return False
+    # Pass 3 §Instagram intelligence: business relevance for
+    # Instagram DMs is signaled by ``notifications.priority`` (the
+    # ingest layer sets ``high`` for collab/deal keywords or a
+    # post/reel attachment, else ``normal``). Casual chatter /
+    # reactions / compliments come in as ``normal`` and MUST NOT
+    # reach Brief.
+    if source == "instagram" and kind == "new_dm":
+        priority = str(row.get("priority") or "normal").strip().lower()
+        if priority not in {"high", "urgent"}:
+            return False
     return not (source == "instagram" and _looks_like_raw_instagram_count(row))
 
 
@@ -780,22 +809,17 @@ def _shape_what_happened(
     *,
     kind: str | None = None,
 ) -> str:
-    """Return the 'what happened' one-liner. Prefers the concrete
-    summary from the source. Never fabricates: an empty summary
-    yields a calm generic string that still tells the user *which
-    channel* the item came from."""
+    """Return the 'what happened' one-liner sourced ONLY from real
+    persisted data.
+
+    Pass 3 no-fake-fallback: if the underlying source did not
+    provide a specific factual summary, return an empty string.
+    The caller (``_item_from_notification`` / ``_item_from_proposal``)
+    then excludes the item entirely — per spec `NO fake/fallback
+    matters`, empty is better than a manufactured heading.
+    """
     meta = metadata if isinstance(metadata, dict) else {}
-    text = _shorten(_specific_summary(source, summary, meta, kind), 140)
-    if text:
-        return text
-    fallback = {
-        "gmail": "a new gmail thread needs a decision",
-        "instagram": "a new instagram inquiry needs a look",
-        "calendar": "a calendar update needs attention",
-        "babyg": "a babyg update needs review",
-        "system": "an update is waiting",
-    }
-    return fallback[source]
+    return _shorten(_specific_summary(source, summary, meta, kind), 140)
 
 
 def _specific_summary(
@@ -889,19 +913,30 @@ def _looks_like_raw_processing_count(summary: str) -> bool:
 
 
 def _source_label(source: BriefSource) -> str:
+    # Pass 3 §Platform casing (LOCKED):
+    #   Instagram   Gmail   babyg   Calendar
+    # babyg is ALWAYS lowercase; every other platform is Title-cased
+    # verbatim as the product spec dictates. No CSS rule may
+    # uppercase these labels — see the removal of
+    # `text-transform: uppercase` in `.brief-item-source-label` and
+    # `.bot-brief-context-source`.
     labels = {
-        "gmail": "GMAIL",
-        "instagram": "INSTAGRAM",
+        "gmail": "Gmail",
+        "instagram": "Instagram",
         "babyg": "babyg",
-        "calendar": "CALENDAR",
+        "calendar": "Calendar",
         "system": "babyg",
     }
     return labels.get(source, "babyg")
 
 
 def _gmail_send_label(action_type: str) -> str:
-    if action_type == "gmail.send_draft":
-        return "send reply"
+    # `gmail.create_draft` creates a Gmail draft in the user's
+    # account; the other two send. Labels reflect what the executor
+    # actually does — never claim a send when the underlying action
+    # only prepares a draft.
+    if action_type == "gmail.create_draft":
+        return "draft reply"
     return "send reply"
 
 

@@ -343,7 +343,8 @@ def test_instagram_new_dm_with_persisted_manager_context_is_brief_eligible(
     )
     item = brief_service.build_brief("u1")["needs_you"][0]
     assert item["source"] == "instagram"
-    assert item["source_label"] == "INSTAGRAM"
+    # Pass 3 §Platform casing (LOCKED): Instagram Title-cased.
+    assert item["source_label"] == "Instagram"
     assert item["what_happened"] == "@nike asked for campaign rates"
     assert brief_service.home_preview_rows("u1")[0]["slot"] == "instagram"
 
@@ -398,15 +399,16 @@ def test_source_resolution_prefers_persisted_provider_metadata(monkeypatch):
     )
     item = brief_service.build_brief("u1")["needs_you"][0]
     assert item["source"] == "instagram"
-    assert item["source_label"] == "INSTAGRAM"
+    # Pass 3 §Platform casing (LOCKED).
+    assert item["source_label"] == "Instagram"
 
 
 @pytest.mark.parametrize(
     ("source_provider", "kind", "underlying_type", "expected_source", "expected_label"),
     [
-        ("instagram", "manager_alert", "instagram_dm_message", "instagram", "INSTAGRAM"),
-        ("gmail", "manager_alert", "gmail_thread", "gmail", "GMAIL"),
-        (None, "booking_reminder", "booking", "calendar", "CALENDAR"),
+        ("instagram", "manager_alert", "instagram_dm_message", "instagram", "Instagram"),
+        ("gmail", "manager_alert", "gmail_thread", "gmail", "Gmail"),
+        (None, "booking_reminder", "booking", "calendar", "Calendar"),
         (None, "connection_request", "network_connection", "babyg", "babyg"),
     ],
 )
@@ -651,7 +653,8 @@ def test_calendar_notification_uses_calendar_label_and_view_event_action(
     )
     item = brief_service.build_brief("u1")["needs_you"][0]
     assert item["source"] == "calendar"
-    assert item["source_label"] == "CALENDAR"
+    # Pass 3 §Platform casing (LOCKED).
+    assert item["source_label"] == "Calendar"
     assert item["what_happened"] == "Campaign call tomorrow at 2:00 PM"
     assert any(a["label"] == "view event" for a in item["actions"])
 
@@ -852,7 +855,8 @@ def test_resolve_brief_context_uses_notification_source_and_heading(monkeypatch)
     )
     assert ctx is not None
     assert ctx["source"] == "calendar"
-    assert ctx["source_label"] == "CALENDAR"
+    # Pass 3 §Platform casing (LOCKED).
+    assert ctx["source_label"] == "Calendar"
     assert ctx["summary"] == "Campaign call tomorrow at 2:00 PM"
 
 
@@ -1659,3 +1663,268 @@ def test_pass2_bot_prompts_still_max_four_and_instagram_never_sends() -> None:
         brief_context={"source": "gmail", "summary": "acme"}
     )
     assert 1 <= len(gmail_chips) <= 4
+
+
+# ---------------------------------------------------------------------------
+# Pass 3 — restore real Gmail + Instagram intelligence
+#
+# The spec locks four gaps that Pass 2 left open:
+#   1. Instagram DMs only reach Brief when priority is high/urgent.
+#   2. Gmail sweep-generated proposals expose a factual `preview.title`
+#      heading, and the `gmail.create_draft` action_type is send-eligible.
+#   3. Platform casing is `Instagram`, `Gmail`, `Calendar` (Title-cased)
+#      and `babyg` (always lowercase). No CSS uppercases these labels.
+#   4. Unknown/unresolvable sources are EXCLUDED — never rebranded as
+#      babyg — and fallback icons render the babyg mark, never a
+#      generic clock SVG.
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("priority", "expected_empty"),
+    [
+        ("normal", True),   # casual DM → excluded
+        ("low", True),      # casual DM → excluded
+        (None, True),       # missing priority defaults to normal → excluded
+        ("high", False),    # collab/deal keyword → surfaced
+        ("urgent", False),  # explicit urgent → surfaced
+    ],
+)
+def test_instagram_new_dm_priority_filter(monkeypatch, priority, expected_empty):
+    """The Instagram DM ingest layer sets ``priority='high'`` for
+    collab/deal keywords or reel/post attachments; everything else
+    stays ``normal``. The Brief consumer path must respect that
+    signal: only high/urgent reaches the Brief. Casual chatter is
+    not a business matter and MUST NOT show up."""
+    row = {
+        "id": "notif-ig-priority",
+        "kind": "new_dm",
+        "title": "@nike sent a message",
+        "body": None,
+        "source_provider": "instagram",
+        "source_thread_id": "ig-thread-priority",
+        "underlying_type": "instagram_dm_message",
+        "underlying_id": "msg-priority",
+        "link_path": "/creator/instagram/dms?thread=ig-thread-priority",
+        "is_read": False,
+        "created_at": "2026-09-14T12:00:00Z",
+    }
+    if priority is not None:
+        row["priority"] = priority
+    monkeypatch.setattr(
+        action_proposals_module,
+        "list_pending_for_user",
+        lambda *, user_id, limit=10: [],
+    )
+    monkeypatch.setattr(
+        notifications_module,
+        "list_for_user",
+        lambda user_id, *, limit=50, include_archived=False: [row],
+    )
+    view = brief_service.build_brief("u1")
+    assert view["empty"] is expected_empty
+
+
+def test_gmail_sweep_proposal_uses_preview_title_as_heading(monkeypatch):
+    """`sweep_gmail_briefs` stashes a factual title in
+    ``preview.title`` (e.g. "draft reply to Acme about the Q4
+    campaign") — the Brief must prefer it over the less specific
+    ``summary``/``subject`` fields."""
+    proposal = {
+        "id": "prop-sweep-1",
+        "action_type": "gmail.create_draft",
+        "provider": "google",
+        "preview": {
+            "title": "draft reply to Acme about the Q4 campaign",
+            "summary": "acme q4",
+            "subject": "Q4 campaign",
+            "to": "acme@example.com",
+            "body": "Sure, happy to.",
+            "thread_id": "thr-42",
+        },
+        "source_message_id": "bot-msg-sweep-1",
+        "created_at": "2026-09-14T12:00:00Z",
+    }
+    monkeypatch.setattr(
+        action_proposals_module,
+        "list_pending_for_user",
+        lambda *, user_id, limit=10: [proposal],
+    )
+    monkeypatch.setattr(
+        notifications_module,
+        "list_for_user",
+        lambda user_id, *, limit=50, include_archived=False: [],
+    )
+    item = brief_service.build_brief("u1")["needs_you"][0]
+    assert item["what_happened"] == "draft reply to Acme about the Q4 campaign"
+
+
+def test_gmail_create_draft_action_type_is_send_eligible(monkeypatch):
+    """`gmail.create_draft` is the action_type Gmail's sweep produces.
+    It must land on the Brief with a real send/draft action pointing
+    at the existing bot confirm endpoint — the manager chat is still
+    the confirmation surface."""
+    proposal = {
+        "id": "prop-create-draft",
+        "action_type": "gmail.create_draft",
+        "provider": "google",
+        "preview": {"title": "draft reply to Acme"},
+        "source_message_id": "bot-msg-cd",
+        "created_at": "2026-09-14T12:00:00Z",
+    }
+    monkeypatch.setattr(
+        action_proposals_module,
+        "list_pending_for_user",
+        lambda *, user_id, limit=10: [proposal],
+    )
+    monkeypatch.setattr(
+        notifications_module,
+        "list_for_user",
+        lambda user_id, *, limit=50, include_archived=False: [],
+    )
+    item = brief_service.build_brief("u1")["needs_you"][0]
+    labels = {a["label"]: a for a in item["actions"]}
+    # `gmail.create_draft` labels as "draft reply" — never claim a
+    # send when the executor only prepares a draft.
+    assert "draft reply" in labels
+    assert labels["draft reply"]["endpoint"] == "/creator/bot/actions/bot-msg-cd/confirm"
+    assert labels["draft reply"]["method"] == "POST"
+
+
+def test_gmail_sweep_proposal_without_source_message_id_hides_send_action(
+    monkeypatch,
+):
+    """Autonomous sweep proposals that persist WITHOUT a
+    ``source_message_id`` cannot use the bot confirm endpoint — the
+    Brief must fall back to ``ask babyg`` only. The manager chat is
+    the confirmation surface for autonomous proposals per the
+    manager-architecture freeze."""
+    proposal = {
+        "id": "prop-sweep-noid",
+        "action_type": "gmail.create_draft",
+        "provider": "google",
+        "preview": {"title": "draft reply to Acme"},
+        "source_message_id": None,
+        "created_at": "2026-09-14T12:00:00Z",
+    }
+    monkeypatch.setattr(
+        action_proposals_module,
+        "list_pending_for_user",
+        lambda *, user_id, limit=10: [proposal],
+    )
+    monkeypatch.setattr(
+        notifications_module,
+        "list_for_user",
+        lambda user_id, *, limit=50, include_archived=False: [],
+    )
+    item = brief_service.build_brief("u1")["needs_you"][0]
+    labels = [a["label"] for a in item["actions"]]
+    assert "draft reply" not in labels
+    assert "send reply" not in labels
+    assert labels == ["ask babyg"]
+
+
+def test_gmail_proposal_with_no_persisted_heading_is_excluded(monkeypatch):
+    """No factual heading available (no title/summary/brief/subject)
+    → item is EXCLUDED. No fake fallback text like "a new gmail
+    thread needs a decision" may appear — spec §NO fake/fallback
+    matters."""
+    proposal = {
+        "id": "prop-nofact",
+        "action_type": "gmail.send_email",
+        "provider": "google",
+        "preview": {},
+        "source_message_id": "bot-msg-x",
+        "created_at": "2026-09-14T12:00:00Z",
+    }
+    monkeypatch.setattr(
+        action_proposals_module,
+        "list_pending_for_user",
+        lambda *, user_id, limit=10: [proposal],
+    )
+    monkeypatch.setattr(
+        notifications_module,
+        "list_for_user",
+        lambda user_id, *, limit=50, include_archived=False: [],
+    )
+    view = brief_service.build_brief("u1")
+    assert view["empty"] is True
+
+
+def test_no_fake_fallback_strings_in_source_module() -> None:
+    """The known-bad fake fallback strings from Pass 2 are gone
+    from the brief service source. Grepping the module is the
+    cheapest way to keep them out — a well-meaning refactor
+    that reintroduces them is caught before deploy."""
+    src = (REPO / "app" / "services" / "brief.py").read_text()
+    for banned in (
+        "a new gmail thread needs a decision",
+        "a new instagram inquiry needs a look",
+        "a calendar update needs attention",
+        "a babyg update needs review",
+        "an update is waiting",
+    ):
+        assert banned not in src, f"forbidden fake fallback still present: {banned!r}"
+
+
+def test_platform_casing_is_locked() -> None:
+    """The four platform labels are locked at the source level.
+    babyg is ALWAYS lowercase; every other platform is Title-cased.
+    Any change to this rule breaks the product spec."""
+    assert brief_service._source_label("instagram") == "Instagram"
+    assert brief_service._source_label("gmail") == "Gmail"
+    assert brief_service._source_label("calendar") == "Calendar"
+    assert brief_service._source_label("babyg") == "babyg"
+    # ``system`` maps to babyg (still lowercase).
+    assert brief_service._source_label("system") == "babyg"
+
+
+def test_platform_label_css_does_not_uppercase() -> None:
+    """`.brief-item-source-label` and `.bot-brief-context-source`
+    MUST NOT carry ``text-transform: uppercase`` — the visual
+    casing IS the product spec, delivered by ``_source_label``."""
+    import re
+    css = APP_CSS.read_text()
+    for cls in (".brief-item-source-label", ".bot-brief-context-source"):
+        block = css.split(cls + " {", 1)[1].split("}", 1)[0]
+        # Strip /* ... */ comments before scanning declarations —
+        # the rule may legally carry a comment that names the
+        # banned declaration.
+        stripped = re.sub(r"/\*.*?\*/", "", block, flags=re.DOTALL)
+        assert "text-transform: uppercase" not in stripped, (
+            f"{cls} must not use text-transform: uppercase — see Pass 3"
+        )
+
+
+def test_brief_template_fallback_icon_is_babyg_mark() -> None:
+    """The unknown-source branch in the brief page renders the
+    babyg mark image, never a clock/generic SVG. Unknown sources
+    are excluded upstream so this branch normally does not fire —
+    but if it does, the fallback is the brand mark."""
+    tpl = BRIEF_TEMPLATE.read_text()
+    fallback_block = tpl.split("{%- else -%}", 1)[1].split("{%- endif -%}", 1)[0]
+    assert "logo-bg.png" in fallback_block
+    # No stray clock/generic SVG lands in the fallback.
+    assert "<svg" not in fallback_block
+
+
+def test_bot_context_strip_fallback_icon_is_babyg_mark() -> None:
+    """Same rule for the manager context strip on /creator/bot —
+    fallback icon is the babyg mark, not a clock SVG."""
+    tpl = (REPO / "app" / "templates" / "creator" / "bot.html").read_text()
+    strip_block = tpl.split("bot-brief-context-icon", 1)[1].split("</span>", 1)[0]
+    else_block = strip_block.split("{% else %}", 1)[1]
+    assert "logo-bg.png" in else_block
+    # The fallback branch must not smuggle in another SVG.
+    assert "<svg" not in else_block
+
+
+def test_dashboard_home_brief_fallback_icon_is_babyg_mark() -> None:
+    """Home Brief carousel row's fallback icon is also the babyg
+    mark — no clock/generic SVG in the else branch of the source
+    switch."""
+    tpl = DASHBOARD_TEMPLATE.read_text()
+    icon_block = tpl.split('class="hv5-brief-icon"', 1)[1].split("</span>", 1)[0]
+    else_block = icon_block.split("{% else %}", 1)[1]
+    assert "logo-bg.png" in else_block
+    assert "<svg" not in else_block

@@ -14580,6 +14580,15 @@ body:has(.dm-thread-composer-box input:focus) .creator-tabbar {
 .creator-home.hv5 .hv5-brief-row:first-child { border-top: 0; }
 .creator-home.hv5 .hv5-brief-icon { color: #ff3b6b; }
 .creator-home.hv5 .hv5-brief-icon svg { width: 24px; height: 24px; }
+/* Pass 3 §Platform icons (LOCKED): fallback for unknown sources is
+   the babyg mark, never a generic clock. Sized to match the SVGs
+   above so the row height stays stable. */
+.creator-home.hv5 .hv5-brief-icon img.hv5-brief-mark {
+  width: 24px;
+  height: 24px;
+  object-fit: contain;
+  border-radius: 6px;
+}
 .creator-home.hv5 .hv5-brief-body { display: grid; gap: 3px; min-width: 0; }
 .creator-home.hv5 .hv5-brief-body strong {
   font-size: 14.5px; font-weight: 500;
@@ -15771,13 +15780,27 @@ body:has(.dm-thread-composer-box input:focus) .creator-tabbar {
   height: 14px;
 }
 .bot-brief-context-source {
+  /* Pass 3 §Platform casing (LOCKED): labels come pre-cased from
+     `_source_label` — `Instagram`, `Gmail`, `Calendar`, `babyg`.
+     NO `text-transform: uppercase` may live on this rule; the
+     visual casing IS the product spec. */
   font-family: var(--mono);
   font-size: 10.5px;
   letter-spacing: 0.1em;
-  text-transform: uppercase;
   color: var(--ink-dim, rgba(255,255,255,0.55));
   white-space: nowrap;
   flex-shrink: 0;
+}
+.bot-brief-context-icon img {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+}
+.bot-brief-context-mark {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
+  border-radius: 4px;
 }
 .bot-brief-context-sep {
   color: var(--ink-dim, rgba(255,255,255,0.35));

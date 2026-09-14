@@ -170,7 +170,11 @@
           {% elif row.slot == 'calendar' %}
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="4.5" width="17" height="16" rx="2"/><path d="M3.5 8.5h17"/><rect x="7.5" y="2.6" width="1.4" height="3.4" rx="0.7"/><rect x="15.1" y="2.6" width="1.4" height="3.4" rx="0.7"/></svg>
           {% else %}
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 3"/></svg>
+            {# Home Brief fallback icon: reached only for the `babyg`
+               slot (unknown sources are excluded upstream by
+               brief_service). Renders the babyg lockup mark — never
+               a generic clock. #}
+            <img src="{{ asset_url('assets/logo-bg.png') }}" alt="" class="hv5-brief-mark" />
           {% endif %}
         </span>
         <span class="hv5-brief-body">
