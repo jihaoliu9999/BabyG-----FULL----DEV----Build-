@@ -15571,34 +15571,11 @@ body:has(.dm-thread-composer-box input:focus) .creator-tabbar {
   width: 100%;
   max-width: 720px;
   margin: 0 auto;
-  padding: 6px 14px calc(var(--tabbar-h, 64px) + env(safe-area-inset-bottom, 0px) + 24px);
-}
-
-.brief-head {
-  padding: calc(env(safe-area-inset-top, 0px) + 10px) 0 6px;
-  margin: 0 0 8px;
-}
-.brief-head-title {
-  margin: 0;
-  font-size: 22px;
-  font-weight: 650;
-  line-height: 1.1;
-  color: var(--ink, #fff);
-  letter-spacing: 0;
-  text-transform: lowercase;
+  padding: max(4px, env(safe-area-inset-top, 0px)) 14px calc(var(--tabbar-h, 64px) + env(safe-area-inset-bottom, 0px) + 24px);
 }
 
 .brief-section {
-  margin: 12px 0 18px;
-}
-.brief-section-title {
-  margin: 0 0 8px;
-  font-family: var(--mono);
-  font-size: 10.5px;
-  font-weight: 500;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--ink-dim, var(--text-tertiary, rgba(255,255,255,0.55)));
+  margin: 0 0 18px;
 }
 .brief-section-body {
   display: flex;
@@ -15637,6 +15614,11 @@ body:has(.dm-thread-composer-box input:focus) .creator-tabbar {
 .brief-item-icon svg {
   width: 18px;
   height: 18px;
+}
+.brief-item-icon img {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
 }
 .brief-item-source-label {
   font-family: var(--mono);
@@ -15729,12 +15711,10 @@ body:has(.dm-thread-composer-box input:focus) .creator-tabbar {
 }
 
 .brief-empty {
-  margin: 24px 0;
-  padding: 18px 14px;
-  border: 1px dashed var(--hairline, rgba(255,255,255,0.08));
+  margin: 4px 0 0;
+  padding: 12px 14px;
   border-radius: 14px;
   color: var(--ink-dim, rgba(255,255,255,0.6));
-  text-align: center;
   font-size: 13.5px;
 }
 

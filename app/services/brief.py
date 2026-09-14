@@ -47,7 +47,7 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime, timedelta
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 from app.services import action_proposals, notifications
 
@@ -160,16 +160,14 @@ def _items_from_action_proposals(user_id: str) -> list[dict[str, Any]]:
 
 
 def _item_from_proposal(row: dict[str, Any]) -> dict[str, Any]:
-    action_type = str(row.get("action_type") or "").strip()
-    source = _ACTION_TYPE_SOURCE.get(action_type, "babyg")
     preview = row.get("preview") or {}
     if not isinstance(preview, dict):
         preview = {}
+    source = _source_from_proposal(row, preview)
     summary = _first_nonempty(
         preview.get("summary"),
         preview.get("brief"),
         preview.get("subject"),
-        row.get("action_type"),
     )
     recommendation = _first_nonempty(
         preview.get("recommendation"),
@@ -177,7 +175,12 @@ def _item_from_proposal(row: dict[str, Any]) -> dict[str, Any]:
         preview.get("body_preview"),
         preview.get("body"),
     )
-    what = _shape_what_happened(source, summary, preview)
+    what = _shape_what_happened(
+        source,
+        summary,
+        preview,
+        kind="proposal",
+    )
     # Business state derives from the real ``action_proposals.status``
     # column (migration 0012). This is the ONLY code path where a
     # Brief item can be ``in_progress`` — babyg has actually kicked
@@ -210,7 +213,9 @@ def _item_from_proposal(row: dict[str, Any]) -> dict[str, Any]:
         "what_happened": what,
         "recommendation": _shorten(recommendation, 200),
         "actions": _actions_for_proposal(row, source),
-        "ask_babyg_href": f"/creator/bot?brief=proposal:{row.get('id')}",
+        "ask_babyg_href": (
+            f"/creator/bot?brief=proposal:{row.get('id')}" if row.get("id") else None
+        ),
         "created_at": row.get("created_at"),
         # Proposals rarely carry a shared thread identity; if one is
         # attached via preview.thread_id we surface it for grouping,
@@ -246,20 +251,9 @@ def _items_from_notifications(user_id: str) -> list[dict[str, Any]]:
 
 def _item_from_notification(row: dict[str, Any]) -> dict[str, Any] | None:
     kind = str(row.get("kind") or "").strip()
-    source_provider = str(row.get("source_provider") or "").strip().lower()
-    if not _is_brief_worthy(kind, source_provider):
+    source = _source_from_notification(row)
+    if not _is_brief_worthy(kind, source, row):
         return None
-    source: BriefSource
-    if source_provider == "instagram":
-        source = "instagram"
-    elif source_provider == "gmail":
-        source = "gmail"
-    elif kind == "booking_reminder":
-        source = "calendar"
-    elif kind == "connection_request":
-        source = "babyg"
-    else:
-        source = "babyg"
     # Pass 2 §2 lifecycle correction:
     # SEEN != IN PROGRESS. Opening a notification does not mean the
     # underlying business action has begun. Every manager-worthy
@@ -274,7 +268,8 @@ def _item_from_notification(row: dict[str, Any]) -> dict[str, Any] | None:
     priority = str(row.get("priority") or "normal").strip().lower()
     title = _shorten(str(row.get("title") or "").strip(), 140)
     body = _shorten(str(row.get("body") or "").strip(), 200)
-    what = _shape_what_happened(source, title, row.get("metadata"))
+    metadata = row.get("metadata") if isinstance(row.get("metadata"), dict) else {}
+    what = _shape_what_happened(source, title, metadata, kind=kind)
     # Business-matter grouping keys — the highest-value stable
     # identifier a notification row exposes for aggregation. Order
     # mirrors spec §3: source_thread_id first, then
@@ -294,13 +289,16 @@ def _item_from_notification(row: dict[str, Any]) -> dict[str, Any] | None:
         "what_happened": what,
         "recommendation": body,
         "actions": _actions_for_notification(row, source),
-        "ask_babyg_href": f"/creator/bot?brief=notif:{row.get('id')}",
+        "ask_babyg_href": (
+            f"/creator/bot?brief=notif:{row.get('id')}" if row.get("id") else None
+        ),
         "created_at": row.get("created_at"),
         "link_path": str(row.get("link_path") or "").strip() or None,
         "source_thread_id": source_thread_id,
         "underlying_type": underlying_type,
         "underlying_id": underlying_id,
-        "source_provider": source_provider or None,
+        "source_provider": str(row.get("source_provider") or source or "").strip().lower()
+        or None,
     }
 
 
@@ -346,17 +344,15 @@ def _actions_for_proposal(
             }
         )
 
-    # ask babyg — every Brief item exposes this. It's the doorway
-    # into the existing canonical manager with the current topic
-    # pre-loaded via ``?brief=proposal:<id>``.
-    actions.append(
-        {
-            "label": "ask babyg",
-            "method": "GET",
-            "endpoint": f"/creator/bot?brief=proposal:{proposal_id}",
-            "style": "ghost",
-        }
-    )
+    if proposal_id:
+        actions.append(
+            {
+                "label": "ask babyg",
+                "method": "GET",
+                "endpoint": f"/creator/bot?brief=proposal:{proposal_id}",
+                "style": "ghost",
+            }
+        )
     return actions
 
 
@@ -371,6 +367,7 @@ def _actions_for_notification(
     """
     actions: list[dict[str, Any]] = []
     link_path = str(row.get("link_path") or "").strip()
+    valid_link = _valid_internal_href(link_path)
 
     if source == "instagram":
         # Instagram business inquiries can be drafted/reviewed but
@@ -378,44 +375,45 @@ def _actions_for_notification(
         # inquiry surface uses whatever the notification's link_path
         # already resolves to (owned by the manager notification
         # pipeline, not by this Brief service).
-        if link_path:
+        if valid_link:
             actions.append(
                 {
                     "label": "review inquiry",
                     "method": "GET",
-                    "endpoint": link_path,
+                    "endpoint": valid_link,
                     "style": "primary",
                 }
             )
     elif source == "calendar":
-        if link_path:
+        if valid_link:
             actions.append(
                 {
-                    "label": "confirm",
+                    "label": "view event",
                     "method": "GET",
-                    "endpoint": link_path,
+                    "endpoint": valid_link,
                     "style": "primary",
                 }
             )
-    elif link_path:
+    elif valid_link:
         actions.append(
             {
                 "label": "review",
                 "method": "GET",
-                "endpoint": link_path,
+                "endpoint": valid_link,
                 "style": "primary",
             }
         )
 
     notif_id = str(row.get("id") or "").strip()
-    actions.append(
-        {
-            "label": "ask babyg",
-            "method": "GET",
-            "endpoint": f"/creator/bot?brief=notif:{notif_id}",
-            "style": "ghost",
-        }
-    )
+    if notif_id:
+        actions.append(
+            {
+                "label": "ask babyg",
+                "method": "GET",
+                "endpoint": f"/creator/bot?brief=notif:{notif_id}",
+                "style": "ghost",
+            }
+        )
     return actions
 
 
@@ -424,7 +422,123 @@ def _actions_for_notification(
 # ---------------------------------------------------------------------------
 
 
-def _is_brief_worthy(kind: str, source_provider: str) -> bool:
+def _source_from_proposal(
+    row: dict[str, Any], preview: dict[str, Any]
+) -> BriefSource:
+    """Resolve proposal source from persisted fields only.
+
+    Order matches the product contract: explicit source, metadata,
+    provider/action type, known relationship, then native babyg.
+    """
+    explicit = _known_source(row.get("source_provider"))
+    if explicit:
+        return explicit
+
+    metadata_source = _source_from_metadata(preview) or _source_from_metadata(
+        row.get("metadata")
+    )
+    if metadata_source:
+        return metadata_source
+
+    action_type = str(row.get("action_type") or "").strip()
+    action_source = _ACTION_TYPE_SOURCE.get(action_type)
+    if action_source:
+        return action_source
+
+    provider = str(row.get("provider") or "").strip().lower()
+    if provider in {"instagram", "gmail", "calendar"}:
+        return cast(BriefSource, provider)
+    if provider == "google":
+        if action_type.startswith("gmail."):
+            return "gmail"
+        if action_type.startswith("calendar."):
+            return "calendar"
+
+    return _source_from_underlying(row) or "babyg"
+
+
+def _source_from_notification(row: dict[str, Any]) -> BriefSource:
+    explicit = _known_source(row.get("source_provider"))
+    if explicit:
+        return explicit
+
+    metadata_source = _source_from_metadata(row.get("metadata"))
+    if metadata_source:
+        return metadata_source
+
+    kind = str(row.get("kind") or "").strip()
+    if kind == "booking_reminder":
+        return "calendar"
+    if kind == "connection_request":
+        return "babyg"
+
+    return _source_from_underlying(row) or "babyg"
+
+
+def _source_from_metadata(metadata: Any) -> BriefSource | None:
+    if not isinstance(metadata, dict):
+        return None
+    for key in (
+        "source_provider",
+        "provider",
+        "source",
+        "platform",
+        "channel",
+    ):
+        source = _known_source(metadata.get(key))
+        if source:
+            return source
+    return None
+
+
+def _source_from_underlying(row: dict[str, Any]) -> BriefSource | None:
+    underlying_type = str(row.get("underlying_type") or "").strip().lower()
+    underlying_id = str(row.get("underlying_id") or "").strip()
+    link_path = str(row.get("link_path") or "").strip().lower()
+    if underlying_type and underlying_id:
+        if underlying_type.startswith("instagram_"):
+            return "instagram"
+        if underlying_type.startswith("gmail_"):
+            return "gmail"
+        if underlying_type.startswith("calendar_") or underlying_type == "booking":
+            return "calendar"
+        if underlying_type.startswith("dm_"):
+            return "babyg"
+    if link_path.startswith("/creator/instagram/"):
+        return "instagram"
+    if link_path.startswith("/creator/calendar"):
+        return "calendar"
+    if link_path.startswith("/creator/connections") or link_path.startswith(
+        "/creator/network"
+    ):
+        return "babyg"
+    return None
+
+
+def _known_source(value: Any) -> BriefSource | None:
+    source = str(value or "").strip().lower()
+    if source in {"gmail", "instagram", "calendar", "babyg", "system"}:
+        return cast(BriefSource, source)
+    if source in {"google_calendar", "google-calendar"}:
+        return "calendar"
+    if source in {"google_gmail", "google-gmail"}:
+        return "gmail"
+    return None
+
+
+def _valid_internal_href(value: str) -> str | None:
+    href = value.strip()
+    lowered = href.lower()
+    if not href or href == "#" or lowered.startswith("javascript:"):
+        return None
+    if not href.startswith("/") or href.startswith("//"):
+        return None
+    return href
+
+
+def _is_brief_worthy(
+    kind: str, source: BriefSource, row: dict[str, Any]
+) -> bool:
     """Filter noise. Only manager-worthy notifications belong on
     the Brief page — casual/generic system notices don't.
 
@@ -446,7 +560,36 @@ def _is_brief_worthy(kind: str, source_provider: str) -> bool:
         return False
     # A `new_dm` without an explicit source_provider is a legacy
     # native DM alert — the Brief surfaces native DMs elsewhere.
-    return not (kind == "new_dm" and not source_provider)
+    if kind == "new_dm" and source != "instagram":
+        return False
+    return not (source == "instagram" and _looks_like_raw_instagram_count(row))
+
+
+def _looks_like_raw_instagram_count(row: dict[str, Any]) -> bool:
+    raw_metadata = row.get("metadata")
+    metadata: dict[str, Any] = raw_metadata if isinstance(raw_metadata, dict) else {}
+    marker = _first_nonempty(
+        metadata.get("summary_type"),
+        metadata.get("event_type"),
+        metadata.get("category"),
+    ).lower()
+    if marker in {"raw_unread_count", "unread_count", "sync_count"}:
+        return True
+    title = str(row.get("title") or "").strip().lower()
+    body = str(row.get("body") or "").strip().lower()
+    text = f"{title} {body}"
+    raw_tokens = (
+        "new instagram dms",
+        "new instagram dm",
+        "unread instagram",
+        "instagram unread",
+        "caught ",
+    )
+    return any(token in text for token in raw_tokens) and not (
+        row.get("source_event_id")
+        or row.get("source_thread_id")
+        or row.get("underlying_id")
+    )
 
 
 def _group_into_matters(
@@ -621,38 +764,129 @@ def _first_nonempty(*values: Any) -> str:
 
 
 def _shape_what_happened(
-    source: BriefSource, summary: str, metadata: Any
+    source: BriefSource,
+    summary: str,
+    metadata: Any,
+    *,
+    kind: str | None = None,
 ) -> str:
     """Return the 'what happened' one-liner. Prefers the concrete
     summary from the source. Never fabricates: an empty summary
     yields a calm generic string that still tells the user *which
     channel* the item came from."""
-    text = _shorten(summary, 140)
+    meta = metadata if isinstance(metadata, dict) else {}
+    text = _shorten(_specific_summary(source, summary, meta, kind), 140)
     if text:
         return text
     fallback = {
         "gmail": "a new gmail thread needs a decision",
         "instagram": "a new instagram inquiry needs a look",
         "calendar": "a calendar update needs attention",
-        "babyg": "a manager update is waiting",
+        "babyg": "a babyg update needs review",
         "system": "an update is waiting",
     }
-    # metadata is unused here today but reserved for a future pass
-    # that reads structured business context (sender / amount /
-    # deadline) into the surface line without inventing content.
-    _ = metadata
     return fallback[source]
+
+
+def _specific_summary(
+    source: BriefSource,
+    summary: str,
+    metadata: dict[str, Any],
+    kind: str | None,
+) -> str:
+    if kind == "connection_request":
+        if _is_generic_connection_summary(summary):
+            name = _connection_identity(metadata)
+            return f"New connection request from {name}" if name else "New connection request"
+        return summary
+    if _looks_like_raw_processing_count(summary):
+        return ""
+    if source == "instagram":
+        return _instagram_summary(summary, metadata)
+    if source == "gmail":
+        return _first_nonempty(
+            summary,
+            metadata.get("summary"),
+            metadata.get("subject"),
+            metadata.get("sender_name"),
+            metadata.get("from_name"),
+        )
+    if source == "calendar":
+        return _first_nonempty(
+            summary,
+            metadata.get("event_title"),
+            metadata.get("title"),
+            metadata.get("summary"),
+        )
+    return summary
+
+
+def _instagram_summary(summary: str, metadata: dict[str, Any]) -> str:
+    if summary:
+        return summary
+    peer = _first_nonempty(
+        metadata.get("peer_username"),
+        metadata.get("username"),
+        metadata.get("sender_username"),
+        metadata.get("counterparty"),
+    )
+    if peer:
+        peer_label = peer if peer.startswith("@") else f"@{peer}"
+        attachment_types = metadata.get("attachment_types")
+        if isinstance(attachment_types, list) and attachment_types:
+            label = str(attachment_types[0] or "").strip().lower()
+            if label:
+                return f"{peer_label} shared an instagram {label}"
+        return f"{peer_label} sent an instagram message"
+    return ""
+
+
+def _connection_identity(metadata: dict[str, Any]) -> str:
+    return _first_nonempty(
+        metadata.get("requester_name"),
+        metadata.get("display_name"),
+        metadata.get("from_name"),
+        metadata.get("sender_name"),
+        metadata.get("peer_name"),
+        metadata.get("counterparty"),
+    )
+
+
+def _is_generic_connection_summary(summary: str) -> bool:
+    clean = summary.strip().lower().rstrip(".")
+    return clean in {
+        "",
+        "someone wants to connect",
+        "new connection request",
+        "connection request",
+    }
+
+
+def _looks_like_raw_processing_count(summary: str) -> bool:
+    clean = summary.strip().lower()
+    return any(
+        token in clean
+        for token in (
+            "processed ",
+            "handled ",
+            "caught ",
+            " unread ",
+            "new activity",
+            "business activity",
+            "something needs your attention",
+        )
+    )
 
 
 def _source_label(source: BriefSource) -> str:
     labels = {
-        "gmail": "gmail",
-        "instagram": "instagram",
-        "babyg": "babyg",
-        "calendar": "calendar",
-        "system": "babyg",
+        "gmail": "GMAIL",
+        "instagram": "INSTAGRAM",
+        "babyg": "BABYG",
+        "calendar": "CALENDAR",
+        "system": "BABYG",
     }
-    return labels.get(source, "babyg")
+    return labels.get(source, "BABYG")
 
 
 def _gmail_send_label(action_type: str) -> str:
@@ -695,11 +929,9 @@ def resolve_brief_context(
             return None
         if not row:
             return None
-        source = _ACTION_TYPE_SOURCE.get(
-            str(row.get("action_type") or ""), "babyg"
-        )
         preview = row.get("preview") or {}
         preview = preview if isinstance(preview, dict) else {}
+        source = _source_from_proposal(row, preview)
         summary = _first_nonempty(
             preview.get("summary"),
             preview.get("brief"),
@@ -710,7 +942,12 @@ def resolve_brief_context(
             "id": str(row.get("id")),
             "source": source,
             "source_label": _source_label(source),
-            "summary": _shorten(summary, 140),
+            "summary": _shape_what_happened(
+                source,
+                summary,
+                preview,
+                kind="proposal",
+            ),
             "recommendation": _shorten(
                 _first_nonempty(
                     preview.get("recommendation"),
@@ -732,22 +969,20 @@ def resolve_brief_context(
             return None
         if not row:
             return None
-        source_provider = str(
-            row.get("source_provider") or ""
-        ).strip().lower()
-        notif_source: BriefSource
-        if source_provider == "instagram":
-            notif_source = "instagram"
-        elif source_provider == "gmail":
-            notif_source = "gmail"
-        else:
-            notif_source = "babyg"
+        notif_source = _source_from_notification(row)
+        metadata = row.get("metadata") if isinstance(row.get("metadata"), dict) else {}
+        title = _shorten(str(row.get("title") or "").strip(), 140)
         return {
             "kind": "notification",
             "id": str(row.get("id")),
             "source": notif_source,
             "source_label": _source_label(notif_source),
-            "summary": _shorten(str(row.get("title") or ""), 140),
+            "summary": _shape_what_happened(
+                notif_source,
+                title,
+                metadata,
+                kind=str(row.get("kind") or ""),
+            ),
             "recommendation": _shorten(str(row.get("body") or ""), 200),
         }
     return None

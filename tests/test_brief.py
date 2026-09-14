@@ -98,7 +98,8 @@ def test_brief_page_loads_for_authenticated_creator(client, brief_world):
     r = client.get("/creator/brief")
     assert r.status_code == 200
     assert 'class="brief-page"' in r.text
-    assert 'class="brief-head-title">brief' in r.text
+    assert 'class="brief-head-title">brief' not in r.text
+    assert 'class="brief-section-title"' not in r.text
 
 
 # ---------------------------------------------------------------------------
@@ -137,6 +138,19 @@ def test_brief_template_uses_lowercase_babyg() -> None:
     assert "BabyG" not in tpl
 
 
+def test_brief_template_uses_babyg_mark_not_generic_clock() -> None:
+    tpl = BRIEF_TEMPLATE.read_text()
+    assert '<img src="/static/assets/logo-bg.png" alt="" />' in tpl
+    assert "M12 8v4l3 3" not in tpl
+
+
+def test_brief_template_has_no_dead_href_patterns() -> None:
+    tpl = BRIEF_TEMPLATE.read_text()
+    assert 'href="#"' not in tpl
+    assert "javascript:void" not in tpl
+    assert "safe_url" in tpl
+
+
 # ---------------------------------------------------------------------------
 # Empty state — spec section 16
 # ---------------------------------------------------------------------------
@@ -150,6 +164,45 @@ def test_brief_page_empty_state_is_calm_and_truthful(client, brief_world):
     # No fake business items when nothing real exists.
     for token in ("acme", "$3,500", "@brand"):
         assert token.lower() not in r.text.lower()
+
+
+def test_brief_page_keeps_per_card_state_without_top_section_label(
+    client, monkeypatch
+):
+    _signed_in(client)
+    monkeypatch.setattr(
+        action_proposals_module,
+        "list_pending_for_user",
+        lambda *, user_id, limit=10: [],
+    )
+    monkeypatch.setattr(
+        notifications_module,
+        "list_for_user",
+        lambda user_id, *, limit=50, include_archived=False: [
+            {
+                "id": "notif-ig-state",
+                "kind": "manager_alert",
+                "title": "@nike asked for campaign rates",
+                "body": "Confirm deliverables and usage before quoting.",
+                "source_provider": "instagram",
+                "source_event_id": "instagram:message:m-1",
+                "source_thread_id": "ig-thread-1",
+                "underlying_type": "instagram_dm_message",
+                "underlying_id": "msg-1",
+                "link_path": "/creator/instagram/dms?thread=ig-thread-1",
+                "is_read": False,
+                "priority": "high",
+                "created_at": "2026-09-14T12:00:00Z",
+            }
+        ],
+    )
+    r = client.get("/creator/brief")
+    assert r.status_code == 200
+    assert 'class="brief-section-title"' not in r.text
+    assert "brief-section-needs-label" not in r.text
+    assert "brief-head-title" not in r.text
+    assert "needs you" in r.text
+    assert "@nike asked for campaign rates" in r.text
 
 
 # ---------------------------------------------------------------------------
@@ -258,6 +311,147 @@ def test_instagram_item_never_exposes_send_action(monkeypatch):
     assert "ask babyg" in labels
 
 
+def test_instagram_new_dm_with_persisted_manager_context_is_brief_eligible(
+    monkeypatch,
+):
+    """Meaningful Instagram DM notifications from the persisted
+    manager path must appear in both the full Brief and Home preview."""
+    notif = {
+        "id": "notif-ig-business",
+        "kind": "new_dm",
+        "title": "@nike asked for campaign rates",
+        "body": "Confirm deliverables and usage before quoting.",
+        "source_provider": "instagram",
+        "source_event_id": "instagram:message:m-business",
+        "source_thread_id": "ig-thread-business",
+        "underlying_type": "instagram_dm_message",
+        "underlying_id": "ig-message-row",
+        "link_path": "/creator/instagram/dms?thread=ig-thread-business",
+        "is_read": False,
+        "priority": "high",
+        "created_at": "2026-09-14T12:00:00Z",
+    }
+    monkeypatch.setattr(
+        action_proposals_module,
+        "list_pending_for_user",
+        lambda *, user_id, limit=10: [],
+    )
+    monkeypatch.setattr(
+        notifications_module,
+        "list_for_user",
+        lambda user_id, *, limit=50, include_archived=False: [notif],
+    )
+    item = brief_service.build_brief("u1")["needs_you"][0]
+    assert item["source"] == "instagram"
+    assert item["source_label"] == "INSTAGRAM"
+    assert item["what_happened"] == "@nike asked for campaign rates"
+    assert brief_service.home_preview_rows("u1")[0]["slot"] == "instagram"
+
+
+def test_raw_instagram_unread_count_is_excluded(monkeypatch):
+    """A raw unread-count row is not a business-evaluated Brief matter."""
+    monkeypatch.setattr(
+        action_proposals_module,
+        "list_pending_for_user",
+        lambda *, user_id, limit=10: [],
+    )
+    monkeypatch.setattr(
+        notifications_module,
+        "list_for_user",
+        lambda user_id, *, limit=50, include_archived=False: [
+            {
+                "id": "notif-ig-raw",
+                "kind": "manager_alert",
+                "title": "caught 2 new instagram dms",
+                "body": None,
+                "source_provider": "instagram",
+                "metadata": {"summary_type": "raw_unread_count"},
+                "is_read": False,
+                "created_at": "2026-09-14T12:00:00Z",
+            }
+        ],
+    )
+    assert brief_service.build_brief("u1")["empty"] is True
+
+
+def test_source_resolution_prefers_persisted_provider_metadata(monkeypatch):
+    proposal = {
+        "id": "prop-provider-meta",
+        "action_type": "unknown.action",
+        "provider": "babyg",
+        "preview": {
+            "source_provider": "instagram",
+            "summary": "@agency asked about usage rights",
+        },
+        "source_message_id": None,
+        "created_at": "2026-09-14T12:00:00Z",
+    }
+    monkeypatch.setattr(
+        action_proposals_module,
+        "list_pending_for_user",
+        lambda *, user_id, limit=10: [proposal],
+    )
+    monkeypatch.setattr(
+        notifications_module,
+        "list_for_user",
+        lambda user_id, *, limit=50, include_archived=False: [],
+    )
+    item = brief_service.build_brief("u1")["needs_you"][0]
+    assert item["source"] == "instagram"
+    assert item["source_label"] == "INSTAGRAM"
+
+
+@pytest.mark.parametrize(
+    ("source_provider", "kind", "underlying_type", "expected_source", "expected_label"),
+    [
+        ("instagram", "manager_alert", "instagram_dm_message", "instagram", "INSTAGRAM"),
+        ("gmail", "manager_alert", "gmail_thread", "gmail", "GMAIL"),
+        (None, "booking_reminder", "booking", "calendar", "CALENDAR"),
+        (None, "connection_request", "network_connection", "babyg", "BABYG"),
+    ],
+)
+def test_notification_platform_labels_from_persisted_source(
+    monkeypatch,
+    source_provider,
+    kind,
+    underlying_type,
+    expected_source,
+    expected_label,
+):
+    notif = {
+        "id": f"notif-{expected_source}",
+        "kind": kind,
+        "title": f"{expected_label} persisted item",
+        "body": None,
+        "source_provider": source_provider,
+        "underlying_type": underlying_type,
+        "underlying_id": f"{expected_source}-1",
+        "link_path": (
+            "/creator/instagram/dms"
+            if expected_source == "instagram"
+            else "/creator/connections"
+        ),
+        "is_read": False,
+        "priority": "normal",
+        "created_at": "2026-09-14T12:00:00Z",
+    }
+    monkeypatch.setattr(
+        action_proposals_module,
+        "list_pending_for_user",
+        lambda *, user_id, limit=10: [],
+    )
+    monkeypatch.setattr(
+        notifications_module,
+        "list_for_user",
+        lambda user_id, *, limit=50, include_archived=False: [notif],
+    )
+    item = brief_service.build_brief("u1")["needs_you"][0]
+    assert item["source"] == expected_source
+    assert item["source_label"] == expected_label
+    if expected_source != "babyg":
+        assert item["source_label"] != "BABYG"
+
+
 def test_native_dm_new_dm_without_source_provider_is_excluded(monkeypatch):
     """Legacy `new_dm` rows without an explicit source_provider are
     NOT surfaced as Instagram — that would misattribute a native
@@ -284,6 +478,126 @@ def test_native_dm_new_dm_without_source_provider_is_excluded(monkeypatch):
     )
     view = brief_service.build_brief("u1")
     assert view["empty"] is True
+
+
+def test_connection_request_heading_uses_identity_when_persisted(monkeypatch):
+    notif = {
+        "id": "notif-conn-jordan",
+        "kind": "connection_request",
+        "title": "Someone wants to connect.",
+        "body": None,
+        "source_provider": None,
+        "metadata": {"requester_name": "Jordan"},
+        "link_path": "/creator/connections",
+        "is_read": False,
+        "priority": "normal",
+        "created_at": "2026-09-14T12:00:00Z",
+    }
+    monkeypatch.setattr(
+        action_proposals_module,
+        "list_pending_for_user",
+        lambda *, user_id, limit=10: [],
+    )
+    monkeypatch.setattr(
+        notifications_module,
+        "list_for_user",
+        lambda user_id, *, limit=50, include_archived=False: [notif],
+    )
+    item = brief_service.build_brief("u1")["needs_you"][0]
+    assert item["source"] == "babyg"
+    assert item["source_label"] == "BABYG"
+    assert item["what_happened"] == "New connection request from Jordan"
+
+
+def test_connection_request_without_identity_uses_safe_specific_fallback(
+    monkeypatch,
+):
+    notif = {
+        "id": "notif-conn-generic",
+        "kind": "connection_request",
+        "title": "Someone wants to connect.",
+        "body": None,
+        "source_provider": None,
+        "metadata": {},
+        "link_path": "/creator/connections",
+        "is_read": False,
+        "priority": "normal",
+        "created_at": "2026-09-14T12:00:00Z",
+    }
+    monkeypatch.setattr(
+        action_proposals_module,
+        "list_pending_for_user",
+        lambda *, user_id, limit=10: [],
+    )
+    monkeypatch.setattr(
+        notifications_module,
+        "list_for_user",
+        lambda user_id, *, limit=50, include_archived=False: [notif],
+    )
+    item = brief_service.build_brief("u1")["needs_you"][0]
+    assert item["what_happened"] == "New connection request"
+    assert "Someone wants to connect." not in item["what_happened"]
+
+
+def test_review_action_requires_valid_internal_destination(monkeypatch):
+    monkeypatch.setattr(
+        action_proposals_module,
+        "list_pending_for_user",
+        lambda *, user_id, limit=10: [],
+    )
+    monkeypatch.setattr(
+        notifications_module,
+        "list_for_user",
+        lambda user_id, *, limit=50, include_archived=False: [
+            {
+                "id": "notif-dead-review",
+                "kind": "connection_request",
+                "title": "New connection request",
+                "body": None,
+                "link_path": "#",
+                "is_read": False,
+                "priority": "normal",
+                "created_at": "2026-09-14T12:00:00Z",
+            }
+        ],
+    )
+    item = brief_service.build_brief("u1")["needs_you"][0]
+    assert "review" not in [a["label"] for a in item["actions"]]
+    assert all(a["endpoint"] != "#" for a in item["actions"])
+    assert all(not a["endpoint"].startswith("javascript:") for a in item["actions"])
+    assert [a["label"] for a in item["actions"]] == ["ask babyg"]
+
+
+def test_calendar_notification_uses_calendar_label_and_view_event_action(
+    monkeypatch,
+):
+    notif = {
+        "id": "notif-cal",
+        "kind": "booking_reminder",
+        "title": "Campaign call tomorrow at 2:00 PM",
+        "body": None,
+        "source_provider": None,
+        "metadata": {"event_title": "Campaign call tomorrow at 2:00 PM"},
+        "link_path": "/creator/calendar?date=2026-09-15",
+        "is_read": False,
+        "priority": "normal",
+        "created_at": "2026-09-14T12:00:00Z",
+    }
+    monkeypatch.setattr(
+        action_proposals_module,
+        "list_pending_for_user",
+        lambda *, user_id, limit=10: [],
+    )
+    monkeypatch.setattr(
+        notifications_module,
+        "list_for_user",
+        lambda user_id, *, limit=50, include_archived=False: [notif],
+    )
+    item = brief_service.build_brief("u1")["needs_you"][0]
+    assert item["source"] == "calendar"
+    assert item["source_label"] == "CALENDAR"
+    assert item["what_happened"] == "Campaign call tomorrow at 2:00 PM"
+    assert any(a["label"] == "view event" for a in item["actions"])
 
 
 def test_read_notification_stays_needs_you_but_marks_seen(monkeypatch):
@@ -462,6 +776,45 @@ def test_resolve_brief_context_scopes_to_owner(monkeypatch):
     ) is None
 
 
+def test_resolve_brief_context_uses_notification_source_and_heading(monkeypatch):
+    monkeypatch.setattr(
+        notifications_module,
+        "list_for_user",
+        lambda user_id, *, limit=200, include_archived=False: [
+            {
+                "id": "notif-cal-context",
+                "kind": "booking_reminder",
+                "title": "Campaign call tomorrow at 2:00 PM",
+                "body": None,
+                "metadata": {"event_title": "Campaign call tomorrow at 2:00 PM"},
+            }
+        ],
+    )
+    ctx = brief_service.resolve_brief_context(
+        brief_key="notif:notif-cal-context",
+        user_id="owner",
+    )
+    assert ctx is not None
+    assert ctx["source"] == "calendar"
+    assert ctx["source_label"] == "CALENDAR"
+    assert ctx["summary"] == "Campaign call tomorrow at 2:00 PM"
+
+
+def test_resolve_brief_context_invalid_or_foreign_id_leaks_nothing(monkeypatch):
+    monkeypatch.setattr(
+        notifications_module,
+        "list_for_user",
+        lambda user_id, *, limit=200, include_archived=False: [],
+    )
+    assert (
+        brief_service.resolve_brief_context(
+            brief_key="notif:foreign-secret", user_id="owner"
+        )
+        is None
+    )
+    assert brief_service.resolve_brief_context(brief_key="notif:", user_id="owner") is None
+
+
 # ---------------------------------------------------------------------------
 # Chip contract — spec section 10
 # ---------------------------------------------------------------------------
@@ -525,9 +878,21 @@ def test_brief_css_is_scoped_and_present() -> None:
     # State pills.
     assert ".brief-item-state-needs {" in css
     assert ".brief-item-state-progress {" in css
+    assert ".brief-head-title" not in css
+    assert ".brief-section-title" not in css
+    assert "padding: max(4px, env(safe-area-inset-top, 0px))" in css
     # Mobile-scoped tweaks are inside a media query.
     mobile_blocks = css.split("@media (max-width: 767px)")
     assert any(".brief-page {" in blk for blk in mobile_blocks[1:])
+
+
+def test_brief_layout_has_no_reserved_title_or_section_header_blocks() -> None:
+    tpl = BRIEF_TEMPLATE.read_text()
+    css = APP_CSS.read_text()
+    assert "brief-head" not in tpl
+    assert "brief-section-title" not in tpl
+    assert "brief-section-needs-label" not in tpl
+    assert ".brief-head" not in css
 
 
 def test_no_authenticated_document_prefetch_reintroduced() -> None:
@@ -1040,6 +1405,133 @@ def test_grouping_preserves_correct_source_and_actions(monkeypatch):
     labels = [a["label"] for a in item["actions"]]
     assert "send reply" not in labels
     assert "review inquiry" in labels
+
+
+def test_grouping_preserves_valid_ask_babyg_and_primary_action(monkeypatch):
+    monkeypatch.setattr(
+        action_proposals_module,
+        "list_pending_for_user",
+        lambda *, user_id, limit=10: [],
+    )
+    monkeypatch.setattr(
+        notifications_module,
+        "list_for_user",
+        lambda user_id, *, limit=50, include_archived=False: [
+            {
+                "id": "n-old",
+                "kind": "new_dm",
+                "title": "@nike asked for rates",
+                "body": None,
+                "source_provider": "instagram",
+                "source_event_id": "instagram:message:old",
+                "source_thread_id": "ig-thread-1",
+                "underlying_type": "instagram_dm_message",
+                "underlying_id": "msg-old",
+                "link_path": "/creator/instagram/dms?thread=ig-thread-1",
+                "is_read": False,
+                "priority": "normal",
+                "created_at": "2026-09-14T10:00:00Z",
+            },
+            {
+                "id": "n-new",
+                "kind": "new_dm",
+                "title": "@nike shared a $4,000 budget",
+                "body": "Ask for usage before quoting.",
+                "source_provider": "instagram",
+                "source_event_id": "instagram:message:new",
+                "source_thread_id": "ig-thread-1",
+                "underlying_type": "instagram_dm_message",
+                "underlying_id": "msg-new",
+                "link_path": "/creator/instagram/dms?thread=ig-thread-1",
+                "is_read": False,
+                "priority": "high",
+                "created_at": "2026-09-14T12:00:00Z",
+            },
+        ],
+    )
+    item = brief_service.build_brief("u1")["needs_you"][0]
+    assert item["what_happened"] == "@nike shared a $4,000 budget"
+    endpoints = {a["label"]: a["endpoint"] for a in item["actions"]}
+    assert endpoints["review inquiry"] == "/creator/instagram/dms?thread=ig-thread-1"
+    assert endpoints["ask babyg"] == "/creator/bot?brief=notif:n-new"
+
+
+def test_duplicate_native_connection_ids_collapse(monkeypatch):
+    monkeypatch.setattr(
+        action_proposals_module,
+        "list_pending_for_user",
+        lambda *, user_id, limit=10: [],
+    )
+    monkeypatch.setattr(
+        notifications_module,
+        "list_for_user",
+        lambda user_id, *, limit=50, include_archived=False: [
+            {
+                "id": "n-conn-old",
+                "kind": "connection_request",
+                "title": "Someone wants to connect.",
+                "metadata": {"requester_name": "Jordan"},
+                "underlying_type": "network_connection",
+                "underlying_id": "conn-1",
+                "link_path": "/creator/connections",
+                "is_read": False,
+                "priority": "normal",
+                "created_at": "2026-09-14T10:00:00Z",
+            },
+            {
+                "id": "n-conn-new",
+                "kind": "connection_request",
+                "title": "Someone wants to connect.",
+                "metadata": {"requester_name": "Jordan"},
+                "underlying_type": "network_connection",
+                "underlying_id": "conn-1",
+                "link_path": "/creator/connections",
+                "is_read": False,
+                "priority": "normal",
+                "created_at": "2026-09-14T11:00:00Z",
+            },
+        ],
+    )
+    items = brief_service.build_brief("u1")["needs_you"]
+    assert len(items) == 1
+    assert items[0]["matter_event_count"] == 2
+
+
+def test_distinct_native_connection_ids_stay_separate(monkeypatch):
+    monkeypatch.setattr(
+        action_proposals_module,
+        "list_pending_for_user",
+        lambda *, user_id, limit=10: [],
+    )
+    monkeypatch.setattr(
+        notifications_module,
+        "list_for_user",
+        lambda user_id, *, limit=50, include_archived=False: [
+            {
+                "id": "n-conn-a",
+                "kind": "connection_request",
+                "title": "New connection request",
+                "underlying_type": "network_connection",
+                "underlying_id": "conn-a",
+                "link_path": "/creator/connections",
+                "is_read": False,
+                "priority": "normal",
+                "created_at": "2026-09-14T10:00:00Z",
+            },
+            {
+                "id": "n-conn-b",
+                "kind": "connection_request",
+                "title": "New connection request",
+                "underlying_type": "network_connection",
+                "underlying_id": "conn-b",
+                "link_path": "/creator/connections",
+                "is_read": False,
+                "priority": "normal",
+                "created_at": "2026-09-14T11:00:00Z",
+            },
+        ],
+    )
+    assert len(brief_service.build_brief("u1")["needs_you"]) == 2
 
 
 # ---------------------------------------------------------------------------

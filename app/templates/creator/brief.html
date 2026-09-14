@@ -15,7 +15,7 @@
   {%- elif source == 'calendar' -%}
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="16" rx="2"/><path d="M3.5 8.5h17"/><rect x="7.5" y="2.6" width="1.4" height="3.4" rx="0.7"/><rect x="15.1" y="2.6" width="1.4" height="3.4" rx="0.7"/></svg>
   {%- else -%}
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 3"/></svg>
+    <img src="/static/assets/logo-bg.png" alt="" />
   {%- endif -%}
 {%- endmacro %}
 
@@ -31,7 +31,7 @@
   </header>
 
   <p class="brief-item-what">{{ item.what_happened }}</p>
-  {% if item.recommendation %}<p class="brief-item-rec">babyg: {{ item.recommendation }}</p>{% endif %}
+  {% if item.recommendation %}<p class="brief-item-rec">{{ item.recommendation }}</p>{% endif %}
 
   {% if item.actions %}
   <div class="brief-item-actions" role="group" aria-label="actions">
@@ -52,31 +52,17 @@
 
 {% block content %}
 <section class="brief-page" data-brief-page>
-  {# Compact page header — mobile owns safe-area, desktop stays quiet. #}
-  <header class="brief-head">
-    <h1 class="brief-head-title">brief</h1>
-  </header>
-
   {% if brief.empty %}
   <div class="brief-empty">
     <p>nothing needs your attention.</p>
   </div>
   {% endif %}
 
-  {% if brief.needs_you %}
-  <section class="brief-section brief-section-needs" aria-labelledby="brief-section-needs-label">
-    <h2 class="brief-section-title" id="brief-section-needs-label">needs you</h2>
+  {% set brief_items = (brief.needs_you or []) + (brief.in_progress or []) %}
+  {% if brief_items %}
+  <section class="brief-section" aria-label="brief items">
     <div class="brief-section-body">
-      {% for item in brief.needs_you %}{{ brief_item(item) }}{% endfor %}
-    </div>
-  </section>
-  {% endif %}
-
-  {% if brief.in_progress %}
-  <section class="brief-section brief-section-progress" aria-labelledby="brief-section-progress-label">
-    <h2 class="brief-section-title" id="brief-section-progress-label">in progress</h2>
-    <div class="brief-section-body">
-      {% for item in brief.in_progress %}{{ brief_item(item) }}{% endfor %}
+      {% for item in brief_items %}{{ brief_item(item) }}{% endfor %}
     </div>
   </section>
   {% endif %}
