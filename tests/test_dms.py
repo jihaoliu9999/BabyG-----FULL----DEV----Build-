@@ -350,7 +350,8 @@ def _pinned_index(html: str) -> int:
 
 def test_creator_dm_list_renders_pinned_babyg_entry(client, world):
     """The DM inbox emits the pinned babyg entry with the exact
-    label text and role subtitle mandated by the product spec."""
+    one-line layout mandated by the mobile redesign: avatar +
+    ``babyg`` name + ``AI MANAGER`` badge, no subtitle."""
     _signed_in(client, role="creator", user_id="c-1")
     world.add_creator(user_id="c-1")
 
@@ -360,7 +361,12 @@ def test_creator_dm_list_renders_pinned_babyg_entry(client, world):
     assert 'class="dm-inbox-pinned"' in r.text
     assert 'href="/creator/bot"' in r.text
     assert 'class="dm-inbox-pinned-name">babyg' in r.text
-    assert 'class="dm-inbox-pinned-role">your ai manager' in r.text
+    assert 'class="dm-inbox-pinned-badge"' in r.text
+    assert 'AI MANAGER' in r.text
+    # Old two-line subtitle must NOT be present.
+    assert 'your ai manager' not in r.text
+    assert 'class="dm-inbox-pinned-role"' not in r.text
+    assert 'class="dm-inbox-pinned-body"' not in r.text
     # No fake unread badge, no fake preview, no fake activity text.
     assert 'dm-inbox-pinned-count' not in r.text
     assert 'dm-inbox-pinned-preview' not in r.text
@@ -478,6 +484,167 @@ def test_pinned_row_links_verbatim_to_existing_manager_route() -> None:
     pinned_block_start = dm_list.find('class="dm-inbox-pinned"')
     pinned_block = dm_list[pinned_block_start - 200:pinned_block_start + 800]
     assert 'href="/creator/bot"' in pinned_block
+
+
+# ---------------------------------------------------------------------------
+# Mobile inbox redesign — compact top-of-page.
+#
+# Locks the compact page header, tightened search topbar padding, and
+# the one-line pinned babyg row structure.
+# ---------------------------------------------------------------------------
+
+
+def test_mobile_inbox_contains_compact_messages_header(client, world):
+    """Mobile page ships a compact `messages` header above search.
+    Desktop CSS keeps this element hidden."""
+    _signed_in(client, role="creator", user_id="c-1")
+    world.add_creator(user_id="c-1")
+
+    r = client.get("/creator/dm")
+
+    assert r.status_code == 200
+    assert 'class="dm-inbox-mobile-header"' in r.text
+    assert 'class="dm-inbox-mobile-title">messages' in r.text
+
+
+def test_mobile_inbox_source_order_header_then_search_then_pinned_then_list(
+    client, world,
+):
+    """Locked page order: mobile header -> search topbar -> pinned
+    babyg row -> conversation list."""
+    _signed_in(client, role="creator", user_id="c-1")
+    world.add_creator(user_id="c-1")
+    world.add_creator(user_id="c-2", full_name="Anna Reyes")
+    _seed_thread(world, a="c-2", b="c-1", body="hello", sender="c-2")
+
+    r = client.get("/creator/dm")
+
+    text = r.text
+    header_at = text.find('class="dm-inbox-mobile-header"')
+    topbar_at = text.find('class="dm-inbox-topbar"')
+    pinned_at = text.find('class="dm-inbox-pinned"')
+    list_at = text.find('<ul class="dm-inbox-list"')
+    assert header_at >= 0 and topbar_at >= 0 and pinned_at >= 0 and list_at >= 0
+    assert header_at < topbar_at < pinned_at < list_at
+
+
+def test_pinned_row_is_single_line_structure() -> None:
+    """The pinned row is a flat, one-line container: name and badge
+    are siblings of the avatar, NOT nested in a two-line body. Locks
+    the DOM shape so a future edit cannot re-introduce a subtitle
+    row."""
+    from pathlib import Path
+
+    dm_list = (
+        Path(__file__).resolve().parents[1]
+        / "app" / "templates" / "creator" / "dm_list.html"
+    ).read_text()
+    start = dm_list.find('class="dm-inbox-pinned"')
+    end = dm_list.find("</a>", start)
+    pinned = dm_list[start:end]
+    # Exactly one name span and one badge span.
+    assert pinned.count('class="dm-inbox-pinned-name"') == 1
+    assert pinned.count('class="dm-inbox-pinned-badge"') == 1
+    # No two-line body wrapper.
+    assert 'dm-inbox-pinned-body' not in pinned
+    # No chevron icon SVG lingering.
+    assert 'dm-inbox-pinned-icon' not in pinned
+    # AI MANAGER label text is present verbatim.
+    assert '>AI MANAGER<' in pinned
+
+
+def test_mobile_topbar_padding_is_tightened_no_dead_space() -> None:
+    """The legacy `.dm-inbox-topbar` mobile rule reserved
+    `calc(max(52px, safe-area-inset-top) + 18px)` of top padding —
+    the "dead space" the redesign removes. The compact mobile
+    header now owns the safe-area cushion, so the mobile topbar
+    padding is tight (single-digit px). Locks the CSS override."""
+    from pathlib import Path
+
+    css = (
+        Path(__file__).resolve().parents[1]
+        / "app" / "static" / "css" / "app.css"
+    ).read_text()
+    # The mobile override for the topbar is scoped inside the
+    # 767px media block and drops the top padding to single digits.
+    mobile_blocks = css.split("@media (max-width: 767px)")
+    matched = False
+    for block in mobile_blocks[1:]:
+        if ".dm-inbox .dm-inbox-topbar {" in block[:4000]:
+            rule_start = block.find(".dm-inbox .dm-inbox-topbar {") + len(
+                ".dm-inbox .dm-inbox-topbar {"
+            )
+            rule_end = block.find("}", rule_start)
+            rule = block[rule_start:rule_end]
+            assert "padding: 2px 14px 8px !important" in rule
+            matched = True
+            break
+    assert matched, "mobile .dm-inbox-topbar override not found"
+
+
+def test_mobile_compact_header_is_scoped_to_mobile_only() -> None:
+    """The `.dm-inbox-mobile-header` element must be `display: none`
+    at desktop and visible only inside the mobile media query so
+    the desktop DM inbox layout is byte-identical to before."""
+    from pathlib import Path
+
+    css = (
+        Path(__file__).resolve().parents[1]
+        / "app" / "static" / "css" / "app.css"
+    ).read_text()
+    assert ".dm-inbox-mobile-header { display: none; }" in css
+    mobile_blocks = css.split("@media (max-width: 767px)")
+    assert any(
+        ".dm-inbox-mobile-header {" in block for block in mobile_blocks[1:]
+    )
+
+
+def test_pinned_badge_ai_manager_label_is_uppercase_and_scoped() -> None:
+    """Lock the badge CSS shape so the `AI MANAGER` label reads as
+    a small uppercase pill rather than a decorative card."""
+    from pathlib import Path
+
+    css = (
+        Path(__file__).resolve().parents[1]
+        / "app" / "static" / "css" / "app.css"
+    ).read_text()
+    mobile_blocks = css.split("@media (max-width: 767px)")
+    matched = False
+    for block in mobile_blocks[1:]:
+        if ".dm-inbox-pinned-badge {" in block[:4000]:
+            rule_start = block.find(".dm-inbox-pinned-badge {") + len(
+                ".dm-inbox-pinned-badge {"
+            )
+            rule_end = block.find("}", rule_start)
+            rule = block[rule_start:rule_end]
+            assert "text-transform: uppercase" in rule
+            assert "border-radius: 999px" in rule
+            assert "white-space: nowrap" in rule
+            assert "letter-spacing:" in rule
+            matched = True
+            break
+    assert matched, "mobile .dm-inbox-pinned-badge rule not found"
+
+
+def test_native_dm_rows_still_render_real_preview_and_timestamp(client, world):
+    """Regression guard: the redesign only touches the top of the
+    inbox. Real names, previews, timestamps, and unread state on
+    the native DM rows underneath are untouched."""
+    _signed_in(client, role="creator", user_id="c-1")
+    world.add_creator(user_id="c-1")
+    world.add_creator(user_id="c-2", full_name="Anna Reyes")
+    _seed_thread(
+        world, a="c-2", b="c-1", body="hi from anna", sender="c-2"
+    )
+
+    r = client.get("/creator/dm")
+
+    assert r.status_code == 200
+    assert "Anna Reyes" in r.text
+    assert "hi from anna" in r.text
+    # dm-inbox-time slot is emitted for each row (real timestamps
+    # come from t.last_message_at via the human_ago filter).
+    assert "dm-inbox-time" in r.text
 
 
 def test_creator_dm_thread_marks_messages_read(client, world, monkeypatch):

@@ -658,29 +658,28 @@ def test_creator_mobile_typography_is_not_visually_squeezed() -> None:
         assert "font-size: clamp" not in rule
 
 
-def test_dm_inbox_pinned_babyg_row_is_mobile_only_and_grid_shaped() -> None:
+def test_dm_inbox_pinned_babyg_row_is_mobile_only_and_one_line_shaped() -> None:
     """The pinned babyg row inside the DM inbox is a mobile-only
-    doorway into /creator/bot. Locks the CSS so a future edit
-    can't:
+    doorway into /creator/bot. Locks the compact one-line layout:
 
-    - Make the row visible on desktop (would clash with the
-      existing sidebar/tabbar babyg entry).
-    - Break the 3-column grid (44px avatar + 1fr body + 20px chevron).
-    - Fall below the 44px iOS tap-target requirement.
+    - Hidden on desktop so the sidebar/tabbar babyg entry stays
+      the canonical desktop doorway.
+    - Flex-row with wrap disabled at mobile so avatar + name +
+      ``AI MANAGER`` badge stay on one line.
+    - min-height 54px (inside the 52-58px spec).
     """
     assert ".dm-inbox-pinned { display: none; }" in APP_CSS
-    # Inside the mobile media block: the row becomes a 3-column grid
-    # sized for touch.
+    # Inside the mobile media block: the row becomes a flex row
+    # sized for touch, with the badge and name as inline siblings.
     mobile_blocks = APP_CSS.split("@media (max-width: 767px)")
     matched = False
     for block in mobile_blocks[1:]:
-        if ".dm-inbox-pinned {" in block[:2000] and "grid" in block[:2000]:
-            # Grab the whole rule so we can inspect the properties.
+        if ".dm-inbox-pinned {" in block[:4000] and "display: flex" in block[:4000]:
             start = block.find(".dm-inbox-pinned {") + len(".dm-inbox-pinned {")
             end = block.find("}", start)
             rule = block[start:end]
-            assert "grid-template-columns: 44px 1fr 20px" in rule
-            assert "min-height: 64px" in rule
+            assert "display: flex" in rule
+            assert "min-height: 54px" in rule
             matched = True
             break
     assert matched, "mobile .dm-inbox-pinned rule not found"

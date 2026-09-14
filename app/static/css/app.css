@@ -15452,42 +15452,73 @@ body:has(.dm-thread-composer-box input:focus) .creator-tabbar {
 }
 
 /* ==================================================================== */
-/* DM inbox: mobile-only pinned babyg entry.                             */
+/* DM inbox: mobile-only compact top-of-page (header + tight search +    */
+/* one-line pinned babyg row).                                            */
 /*                                                                       */
-/* Adds a doorway from /creator/dm into the existing /creator/bot         */
-/* manager. The row is hidden on desktop (>=768px) because the desktop   */
-/* tabbar already exposes babyg. All rules are scoped under              */
-/* `.dm-inbox-pinned` so no existing DM row, no bot template, and no     */
-/* other page is affected.                                                */
+/* Every rule below is scoped under mobile widths and under either       */
+/* `.dm-inbox-mobile-header` or `.dm-inbox-pinned*`. The desktop DM      */
+/* inbox is byte-identical to before — the compact header stays          */
+/* `display: none`, the pinned row stays `display: none`, and the        */
+/* legacy `.dm-inbox-topbar` desktop padding is not touched.             */
 /* ==================================================================== */
 
+.dm-inbox-mobile-header { display: none; }
 .dm-inbox-pinned { display: none; }
 
 @media (max-width: 767px) {
-  .dm-inbox-pinned {
-    display: grid;
-    grid-template-columns: 44px 1fr 20px;
+  /* Compact mobile page header. Owns the safe-area inset so the
+     search bar can shed its old ~70px top padding. Height stays
+     inside the 44-52px target excluding the safe-area cushion. */
+  .dm-inbox-mobile-header {
+    display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 14px 14px;
-    margin: 0 0 4px;
-    border-bottom: 1px solid var(--hairline-strong, rgba(255,255,255,0.08));
-    background: linear-gradient(
-      180deg,
-      rgba(255,255,255,0.025),
-      rgba(255,255,255,0)
-    );
+    padding: calc(env(safe-area-inset-top, 0px) + 10px) 14px 6px;
+    background: transparent;
+    border-bottom: 0;
+  }
+  .dm-inbox-mobile-title {
+    margin: 0;
+    font-size: 22px;
+    font-weight: 650;
+    line-height: 1.1;
+    color: var(--ink, #fff);
+    letter-spacing: 0;
+    text-transform: lowercase;
+  }
+
+  /* Tighten the topbar now that the header owns the safe-area
+     cushion. The legacy 52px+18px+10px padding-top is the "dead
+     space" the redesign specifically calls out. */
+  .dm-inbox .dm-inbox-topbar {
+    padding: 2px 14px 8px !important;
+    border-bottom: 0;
+  }
+  .dm-inbox .dm-inbox-search {
+    min-height: 42px;
+    height: 42px;
+  }
+
+  /* One-line pinned babyg row: avatar (38px) + `babyg` + AI MANAGER
+     badge. No subtitle, no chevron, no second line. Target row
+     height stays inside 52-58px per spec. */
+  .dm-inbox-pinned {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 14px;
+    margin: 2px 0 6px;
+    background: rgba(255, 255, 255, 0.02);
+    border-top: 1px solid var(--hairline, rgba(255,255,255,0.06));
+    border-bottom: 1px solid var(--hairline, rgba(255,255,255,0.06));
     color: inherit;
     text-decoration: none;
-    min-height: 64px;
+    min-height: 54px;
     -webkit-tap-highlight-color: transparent;
   }
-  .dm-inbox-pinned:active {
-    background: rgba(255,255,255,0.03);
-  }
+  .dm-inbox-pinned:active { background: rgba(255,255,255,0.03); }
   .dm-inbox-pinned-avatar {
-    width: 44px;
-    height: 44px;
+    width: 38px;
+    height: 38px;
     display: inline-grid;
     place-items: center;
     border-radius: 999px;
@@ -15496,15 +15527,9 @@ body:has(.dm-thread-composer-box input:focus) .creator-tabbar {
     flex-shrink: 0;
   }
   .dm-inbox-pinned-avatar img {
-    width: 28px;
-    height: 28px;
+    width: 26px;
+    height: 26px;
     object-fit: contain;
-  }
-  .dm-inbox-pinned-body {
-    display: flex;
-    flex-direction: column;
-    min-width: 0;
-    gap: 2px;
   }
   .dm-inbox-pinned-name {
     font-size: 15.5px;
@@ -15512,20 +15537,23 @@ body:has(.dm-thread-composer-box input:focus) .creator-tabbar {
     color: var(--ink, #fff);
     letter-spacing: 0;
     line-height: 1.2;
+    white-space: nowrap;
   }
-  .dm-inbox-pinned-role {
-    font-size: 12.5px;
-    color: var(--ink-dim, var(--text-tertiary, rgba(255,255,255,0.5)));
-    text-transform: lowercase;
-    line-height: 1.2;
-  }
-  .dm-inbox-pinned-icon {
-    color: var(--ink-dim, var(--text-tertiary, rgba(255,255,255,0.5)));
-    display: inline-grid;
-    place-items: center;
-  }
-  .dm-inbox-pinned-icon svg {
-    width: 18px;
-    height: 18px;
+  .dm-inbox-pinned-badge {
+    display: inline-flex;
+    align-items: center;
+    height: 20px;
+    padding: 0 8px;
+    border: 1px solid var(--hairline-strong, rgba(255,255,255,0.09));
+    border-radius: 999px;
+    color: var(--ink-dim, var(--text-tertiary, rgba(255,255,255,0.6)));
+    background: rgba(255, 255, 255, 0.02);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    white-space: nowrap;
+    flex-shrink: 0;
   }
 }
+

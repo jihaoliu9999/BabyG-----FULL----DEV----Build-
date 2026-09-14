@@ -4,6 +4,14 @@
 
 {% block content %}
 <section class="dm-inbox" data-dm-inbox>
+  {# Compact mobile page header. Hidden on desktop where the shared
+     creator sidebar already labels the surface. Owns the safe-area
+     inset so the search bar below can drop its huge legacy top
+     padding on mobile. #}
+  <header class="dm-inbox-mobile-header" aria-hidden="false">
+    <h1 class="dm-inbox-mobile-title">messages</h1>
+  </header>
+
   <div class="dm-inbox-topbar">
     <form class="dm-inbox-search" action="/creator/dm" method="get" role="search">
       <label class="sr-only" for="creator-dm-search">Search conversations</label>
@@ -17,18 +25,15 @@
      canonical babyg manager route/template/service architecture is
      untouched. Hidden on desktop via CSS because the desktop tabbar
      already exposes babyg; mobile users get the additional inbox
-     entry point per the "move the doorway, not the room" spec. #}
-  <a class="dm-inbox-pinned" href="/creator/bot" data-dm-pinned aria-label="open babyg, your ai manager">
+     entry point per the "move the doorway, not the room" spec.
+     One-line structure: avatar + `babyg` + `AI MANAGER` badge. No
+     subtitle, no fake activity, no fake unread state. #}
+  <a class="dm-inbox-pinned" href="/creator/bot" data-dm-pinned aria-label="open babyg — ai manager">
     <span class="dm-inbox-pinned-avatar" aria-hidden="true">
       <img src="{{ asset_url('assets/logo-bg.png') }}" alt="" />
     </span>
-    <span class="dm-inbox-pinned-body">
-      <span class="dm-inbox-pinned-name">babyg</span>
-      <span class="dm-inbox-pinned-role">your ai manager</span>
-    </span>
-    <span class="dm-inbox-pinned-icon" aria-hidden="true">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
-    </span>
+    <span class="dm-inbox-pinned-name">babyg</span>
+    <span class="dm-inbox-pinned-badge" data-pinned-badge>AI MANAGER</span>
   </a>
 
   {% if threads %}
