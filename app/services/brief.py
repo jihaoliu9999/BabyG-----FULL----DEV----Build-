@@ -156,14 +156,20 @@ def _items_from_action_proposals(user_id: str) -> list[dict[str, Any]]:
     except Exception:
         logger.exception("brief.list_action_proposals.failed user=%s", user_id)
         return []
-    return [_item_from_proposal(row) for row in rows if isinstance(row, dict)]
+    return [
+        item
+        for row in rows
+        if isinstance(row, dict) and (item := _item_from_proposal(row))
+    ]
 
 
-def _item_from_proposal(row: dict[str, Any]) -> dict[str, Any]:
+def _item_from_proposal(row: dict[str, Any]) -> dict[str, Any] | None:
     preview = row.get("preview") or {}
     if not isinstance(preview, dict):
         preview = {}
     source = _source_from_proposal(row, preview)
+    if source is None:
+        return None
     summary = _first_nonempty(
         preview.get("summary"),
         preview.get("brief"),
@@ -253,6 +259,8 @@ def _item_from_notification(row: dict[str, Any]) -> dict[str, Any] | None:
     kind = str(row.get("kind") or "").strip()
     source = _source_from_notification(row)
     if not _is_brief_worthy(kind, source, row):
+        return None
+    if source is None:
         return None
     # Pass 2 §2 lifecycle correction:
     # SEEN != IN PROGRESS. Opening a notification does not mean the
@@ -424,7 +432,7 @@ def _actions_for_notification(
 
 def _source_from_proposal(
     row: dict[str, Any], preview: dict[str, Any]
-) -> BriefSource:
+) -> BriefSource | None:
     """Resolve proposal source from persisted fields only.
 
     Order matches the product contract: explicit source, metadata,
@@ -454,10 +462,10 @@ def _source_from_proposal(
         if action_type.startswith("calendar."):
             return "calendar"
 
-    return _source_from_underlying(row) or "babyg"
+    return _source_from_underlying(row)
 
 
-def _source_from_notification(row: dict[str, Any]) -> BriefSource:
+def _source_from_notification(row: dict[str, Any]) -> BriefSource | None:
     explicit = _known_source(row.get("source_provider"))
     if explicit:
         return explicit
@@ -472,7 +480,7 @@ def _source_from_notification(row: dict[str, Any]) -> BriefSource:
     if kind == "connection_request":
         return "babyg"
 
-    return _source_from_underlying(row) or "babyg"
+    return _source_from_underlying(row)
 
 
 def _source_from_metadata(metadata: Any) -> BriefSource | None:
@@ -537,7 +545,7 @@ def _valid_internal_href(value: str) -> str | None:
 
 
 def _is_brief_worthy(
-    kind: str, source: BriefSource, row: dict[str, Any]
+    kind: str, source: BriefSource | None, row: dict[str, Any]
 ) -> bool:
     """Filter noise. Only manager-worthy notifications belong on
     the Brief page — casual/generic system notices don't.
@@ -557,6 +565,8 @@ def _is_brief_worthy(
         "performance_spike",
     }
     if kind not in manager_kinds:
+        return False
+    if source is None:
         return False
     # A `new_dm` without an explicit source_provider is a legacy
     # native DM alert — the Brief surfaces native DMs elsewhere.
@@ -882,11 +892,11 @@ def _source_label(source: BriefSource) -> str:
     labels = {
         "gmail": "GMAIL",
         "instagram": "INSTAGRAM",
-        "babyg": "BABYG",
+        "babyg": "babyg",
         "calendar": "CALENDAR",
-        "system": "BABYG",
+        "system": "babyg",
     }
-    return labels.get(source, "BABYG")
+    return labels.get(source, "babyg")
 
 
 def _gmail_send_label(action_type: str) -> str:
@@ -932,6 +942,8 @@ def resolve_brief_context(
         preview = row.get("preview") or {}
         preview = preview if isinstance(preview, dict) else {}
         source = _source_from_proposal(row, preview)
+        if source is None:
+            return None
         summary = _first_nonempty(
             preview.get("summary"),
             preview.get("brief"),
@@ -970,6 +982,8 @@ def resolve_brief_context(
         if not row:
             return None
         notif_source = _source_from_notification(row)
+        if notif_source is None:
+            return None
         metadata = row.get("metadata") if isinstance(row.get("metadata"), dict) else {}
         title = _shorten(str(row.get("title") or "").strip(), 140)
         return {

@@ -407,7 +407,7 @@ def test_source_resolution_prefers_persisted_provider_metadata(monkeypatch):
         ("instagram", "manager_alert", "instagram_dm_message", "instagram", "INSTAGRAM"),
         ("gmail", "manager_alert", "gmail_thread", "gmail", "GMAIL"),
         (None, "booking_reminder", "booking", "calendar", "CALENDAR"),
-        (None, "connection_request", "network_connection", "babyg", "BABYG"),
+        (None, "connection_request", "network_connection", "babyg", "babyg"),
     ],
 )
 def test_notification_platform_labels_from_persisted_source(
@@ -449,7 +449,7 @@ def test_notification_platform_labels_from_persisted_source(
     assert item["source"] == expected_source
     assert item["source_label"] == expected_label
     if expected_source != "babyg":
-        assert item["source_label"] != "BABYG"
+        assert item["source_label"] != "babyg"
 
 
 def test_native_dm_new_dm_without_source_provider_is_excluded(monkeypatch):
@@ -505,7 +505,7 @@ def test_connection_request_heading_uses_identity_when_persisted(monkeypatch):
     )
     item = brief_service.build_brief("u1")["needs_you"][0]
     assert item["source"] == "babyg"
-    assert item["source_label"] == "BABYG"
+    assert item["source_label"] == "babyg"
     assert item["what_happened"] == "New connection request from Jordan"
 
 
@@ -537,6 +537,62 @@ def test_connection_request_without_identity_uses_safe_specific_fallback(
     item = brief_service.build_brief("u1")["needs_you"][0]
     assert item["what_happened"] == "New connection request"
     assert "Someone wants to connect." not in item["what_happened"]
+
+
+def test_unknown_notification_source_is_excluded_not_mapped_to_babyg(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        action_proposals_module,
+        "list_pending_for_user",
+        lambda *, user_id, limit=10: [],
+    )
+    monkeypatch.setattr(
+        notifications_module,
+        "list_for_user",
+        lambda user_id, *, limit=50, include_archived=False: [
+            {
+                "id": "notif-unknown",
+                "kind": "manager_alert",
+                "title": "Business activity",
+                "body": None,
+                "source_provider": None,
+                "metadata": {},
+                "link_path": "/creator/notifications",
+                "is_read": False,
+                "priority": "normal",
+                "created_at": "2026-09-14T12:00:00Z",
+            }
+        ],
+    )
+    view = brief_service.build_brief("u1")
+    assert view["empty"] is True
+
+
+def test_unknown_action_proposal_source_is_excluded_not_mapped_to_babyg(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        action_proposals_module,
+        "list_pending_for_user",
+        lambda *, user_id, limit=10: [
+            {
+                "id": "prop-unknown",
+                "action_type": "unknown.action",
+                "provider": "",
+                "preview": {"summary": "unknown proposal"},
+                "source_message_id": None,
+                "created_at": "2026-09-14T12:00:00Z",
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        notifications_module,
+        "list_for_user",
+        lambda user_id, *, limit=50, include_archived=False: [],
+    )
+    view = brief_service.build_brief("u1")
+    assert view["empty"] is True
 
 
 def test_review_action_requires_valid_internal_destination(monkeypatch):
@@ -880,6 +936,8 @@ def test_brief_css_is_scoped_and_present() -> None:
     assert ".brief-item-state-progress {" in css
     assert ".brief-head-title" not in css
     assert ".brief-section-title" not in css
+    source_label_block = css.split(".brief-item-source-label {", 1)[1].split("}", 1)[0]
+    assert "text-transform" not in source_label_block
     assert "padding: max(4px, env(safe-area-inset-top, 0px))" in css
     # Mobile-scoped tweaks are inside a media query.
     mobile_blocks = css.split("@media (max-width: 767px)")

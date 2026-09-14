@@ -15624,7 +15624,6 @@ body:has(.dm-thread-composer-box input:focus) .creator-tabbar {
   font-family: var(--mono);
   font-size: 10.5px;
   letter-spacing: 0.1em;
-  text-transform: uppercase;
   color: var(--ink-dim, rgba(255,255,255,0.55));
 }
 .brief-item-state {
