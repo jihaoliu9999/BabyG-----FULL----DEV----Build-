@@ -434,7 +434,6 @@ async def dashboard(
         pending_actions_all,
         unread_dm_n,
         instagram_connection,
-        performance_view,
     ) = await asyncio.gather(
         _safe_call(notifications.list_unread, user_id, limit=8, _default=[]),
         _safe_call(network.list_incoming_pending, user_id, _default=[]),
@@ -467,15 +466,14 @@ async def dashboard(
         # instead of firing its own supabase query at render time.
         _safe_call(dms.unread_count_for_user, user_id, _default=0),
         _safe_call(oauth_connections.get_instagram_connection, user_id, _default=None),
-        _safe_call(
-            stats_merge.performance_view,
-            user_id,
-            ig_limit=5,
-            _default=stats_merge.PerformanceView(
-                rows=[],
-                instagram_status=stats_merge.IG_STATUS_ERROR,
-            ),
-        ),
+        # NOTE: the previous `stats_merge.performance_view` gather
+        # slot was dropped in Pass 2. Its only consumer was the old
+        # Home brief_rows helper, which the new brief_service.
+        # home_preview_rows path replaces. Fetching the Meta
+        # performance snapshot per Home render just to discard the
+        # result would be an unnecessary live Meta refresh (spec
+        # §24). If a future pass restores a performance signal on
+        # Home, wire it back in explicitly.
     )
 
     # Overnight recap — "here's what babyg did while you were away".
@@ -537,11 +535,15 @@ async def dashboard(
         unread_notifs=unread_notifs_all,
         _default=[],
     )
-    home_v5_brief = home_briefing.brief_rows(
-        matched_picks=matched_picks,
-        ig_dm_unread_count=int(ig_dm_unread_count or 0),
-        overnight_recap=overnight_recap,
-        performance_view=performance_view,
+    # Pass 2 §1: Home Brief consumes the SAME aggregation as
+    # /creator/brief. No separate intelligence system, no raw
+    # activity/processing rows, no filler. The legacy home_briefing
+    # helper remains defined for other tests but is no longer part
+    # of the rendered Home data source.
+    from app.services import brief as brief_service
+
+    home_v5_brief = await _safe_call(
+        brief_service.home_preview_rows, user_id, _default=[]
     )
     home_v5_handled_count = await _safe_call(
         home_briefing.handled_today, user_id, _default=0

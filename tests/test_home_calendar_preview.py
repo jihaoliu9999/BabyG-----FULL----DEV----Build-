@@ -121,6 +121,7 @@ def stub_dashboard(monkeypatch):
         "handled_today": 0,
         "overnight_recap": None,
         "unread_notifs": [],
+        "brief_rows": [],
         "performance_view": stats_merge_module.PerformanceView(
             rows=[],
             instagram_status=stats_merge_module.IG_STATUS_NOT_CONNECTED,
@@ -220,6 +221,17 @@ def stub_dashboard(monkeypatch):
         stats_merge_module,
         "performance_view",
         lambda uid, **kw: state["performance_view"],
+    )
+    # Pass 2 §1: Home Brief carousel is sourced from brief_service.
+    # Tests seed `state["brief_rows"]` with the exact rows they want
+    # to appear; the old ig_dm_unread / overnight_recap flow no
+    # longer builds Home Brief rows.
+    from app.services import brief as brief_service_module
+
+    monkeypatch.setattr(
+        brief_service_module,
+        "home_preview_rows",
+        lambda uid: list(state["brief_rows"]),
     )
     # Track calls to the calendar auto-sync so tests can assert whether
     # Home actually triggered a freshness refresh. Tests can flip
@@ -618,33 +630,47 @@ def test_brief_is_hidden_when_no_real_signals(
     assert ">brief<" not in r.text
 
 
-def test_brief_surfaces_real_ig_unread(
+def test_brief_no_longer_generated_from_raw_ig_unread_count(
     client: TestClient, stub_dashboard
 ) -> None:
+    """Pass 2 §1: Home Brief must no longer create rows from raw
+    Instagram unread counts (or any other processing-style signal).
+    Setting `ig_dm_unread` alone MUST NOT produce a Brief row —
+    Home now consumes the same business-matter aggregation as
+    /creator/brief. The IG unread badge/count features remain
+    available elsewhere (e.g. the tabbar, home briefing sub-
+    surfaces); this test only asserts that raw activity numbers
+    never surface as Brief business matters."""
     _signed_in(client)
     stub_dashboard["ig_dm_unread"] = 3
+    # brief_rows deliberately left empty — no real business matter.
+    stub_dashboard["brief_rows"] = []
     r = client.get("/creator")
     assert r.status_code == 200
-    assert ">brief<" in r.text
-    assert "3 unread instagram dms" in r.text
-    assert 'href="/creator/instagram/dms"' in r.text
+    # Brief section does not render because there are no real
+    # business matters.
+    assert "hv5-brief-row" not in r.text
+    # The forbidden processing copy never appears.
+    assert "3 unread instagram dms" not in r.text
+    assert "caught" not in r.text.lower()
 
 
 def test_brief_caps_at_three_rows(client: TestClient, stub_dashboard) -> None:
+    """The template renders every row `brief_service.home_preview_rows`
+    returns. The service itself caps at HOME_PREVIEW_MAX (=3) — see
+    `test_home_preview_rows_max_three` in tests/test_brief.py.
+    Here we assert the template preserves that cap by rendering
+    exactly 3 rows when the service returns 3."""
     _signed_in(client)
-    stub_dashboard["ig_dm_unread"] = 2
-    stub_dashboard["matched_picks"] = [
-        {"card_id": "op-1", "card_kind": "opportunity", "title": "Rooftop shoot"},
+    stub_dashboard["brief_rows"] = [
+        {
+            "slot": "gmail",
+            "title": f"reply ready #{i}",
+            "detail": "gmail · reply ready",
+            "href": "/creator/brief",
+        }
+        for i in range(3)
     ]
-    stub_dashboard["overnight_recap"] = {
-        "headlines": [
-            "ran 2 thinking cycles",
-            "updated your memory 1 time",
-            "extra headline four",
-            "extra headline five",
-        ],
-        "counts": {},
-    }
     r = client.get("/creator")
     assert r.status_code == 200
     # Exactly 3 hv5-brief-row anchors, never 4+.
@@ -859,7 +885,15 @@ def test_home_brief_renders_before_calendar(
     Locks brief above calendar so a future refactor cannot swap
     them silently."""
     _signed_in(client)
-    stub_dashboard["ig_dm_unread"] = 1  # forces a brief row to render
+    # Pass 2 §1: seed one brief row so the section renders.
+    stub_dashboard["brief_rows"] = [
+        {
+            "slot": "instagram",
+            "title": "@nike asked for rates",
+            "detail": "instagram · new inquiry",
+            "href": "/creator/brief",
+        }
+    ]
     stub_dashboard["google_calendar_connected"] = True
     r = client.get("/creator")
     assert r.status_code == 200

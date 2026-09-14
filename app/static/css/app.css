@@ -15753,3 +15753,70 @@ body:has(.dm-thread-composer-box input:focus) .creator-tabbar {
     padding: 0 10px;
   }
 }
+
+/* ==================================================================== */
+/* /creator/bot — compact ?brief=<id> context strip (Pass 2 §4).         */
+/*                                                                       */
+/* Rendered only when the manager was opened with a valid brief         */
+/* context. One line, mobile-first, no card/hero/dismiss. Every rule    */
+/* is scoped under `.bot-brief-context*` — no other bot markup, no      */
+/* other page, no other selector is affected.                            */
+/* ==================================================================== */
+
+.bot-brief-context {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  margin: 6px 14px 4px;
+  padding: 6px 10px;
+  border: 1px solid var(--hairline, rgba(255,255,255,0.06));
+  border-radius: 999px;
+  background: var(--surface-1, rgba(255,255,255,0.02));
+  color: var(--ink-dim, rgba(255,255,255,0.75));
+  font-size: 12.5px;
+  line-height: 1.2;
+  min-width: 0;
+  overflow: hidden;
+}
+.bot-brief-context-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  color: var(--ink-dim, rgba(255,255,255,0.65));
+  flex-shrink: 0;
+}
+.bot-brief-context-icon svg {
+  width: 14px;
+  height: 14px;
+}
+.bot-brief-context-source {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-dim, rgba(255,255,255,0.55));
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.bot-brief-context-sep {
+  color: var(--ink-dim, rgba(255,255,255,0.35));
+  flex-shrink: 0;
+}
+.bot-brief-context-summary {
+  color: var(--ink, #fff);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+@media (max-width: 767px) {
+  .bot-brief-context {
+    margin-left: 12px;
+    margin-right: 12px;
+    padding: 5px 10px;
+    font-size: 12px;
+  }
+}

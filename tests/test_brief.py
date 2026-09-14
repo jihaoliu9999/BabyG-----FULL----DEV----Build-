@@ -286,11 +286,13 @@ def test_native_dm_new_dm_without_source_provider_is_excluded(monkeypatch):
     assert view["empty"] is True
 
 
-def test_in_progress_items_carry_read_notification_source(monkeypatch):
-    """A manager notification the creator has already opened (
-    `is_read=true`) lands in the in-progress section, not needs-you.
-    Lifecycle maps to existing `is_read`/`archived_at` columns —
-    no schema change."""
+def test_read_notification_stays_needs_you_but_marks_seen(monkeypatch):
+    """Pass 2 §2 lifecycle correction: opening a notification does
+    not mean the underlying business action has begun. A read
+    notification stays ``needs_you`` and only flips its attention
+    flag to ``seen=true``. Only real business-action state (
+    ``action_proposals.status`` ∈ {confirmed, executing}) can move
+    a Brief item to ``in_progress``."""
     notif = {
         "id": "notif-ig-2",
         "kind": "manager_alert",
@@ -313,12 +315,17 @@ def test_in_progress_items_carry_read_notification_source(monkeypatch):
         lambda user_id, *, limit=50, include_archived=False: [notif],
     )
     view = brief_service.build_brief("u1")
-    assert view["needs_you"] == []
-    assert len(view["in_progress"]) == 1
+    assert view["in_progress"] == []
+    assert len(view["needs_you"]) == 1
+    item = view["needs_you"][0]
+    assert item["state"] == "needs_you"
+    assert item["seen"] is True
 
 
 def test_ranking_puts_needs_you_first_then_priority(monkeypatch):
-    """needs_you > in_progress; within needs_you, urgent > normal."""
+    """needs_you > in_progress; within needs_you, urgent > normal.
+    Both notification rows now stay needs_you (seen/unseen carried
+    separately); only the urgent one leads."""
     monkeypatch.setattr(
         action_proposals_module,
         "list_pending_for_user",
@@ -347,13 +354,13 @@ def test_ranking_puts_needs_you_first_then_priority(monkeypatch):
                 "created_at": "2026-09-14T11:00:00Z",
             },
             {
-                "id": "n-progress",
+                "id": "n-normal",
                 "kind": "manager_alert",
-                "title": "older read item",
+                "title": "older normal item",
                 "source_provider": "instagram",
                 "link_path": "/creator/instagram/dms",
                 "is_read": True,
-                "priority": "urgent",
+                "priority": "normal",
                 "created_at": "2026-09-14T13:00:00Z",
             },
         ],
@@ -361,9 +368,10 @@ def test_ranking_puts_needs_you_first_then_priority(monkeypatch):
     view = brief_service.build_brief("u1")
     # Urgent needs_you must beat normal needs_you.
     assert view["needs_you"][0]["id"] == "notif:n-urgent"
-    # A read (in-progress) item never leads.
+    # Both notification rows stay needs_you (read != in_progress).
     assert all(it["state"] == "needs_you" for it in view["needs_you"])
-    assert view["in_progress"][0]["id"] == "notif:n-progress"
+    # No in_progress because no proposal is confirmed/executing.
+    assert view["in_progress"] == []
 
 
 # ---------------------------------------------------------------------------
@@ -556,3 +564,548 @@ def test_bot_route_accepts_brief_query_param_via_source() -> None:
     assert "resolve_brief_context" in src
     # And passes the result into compute_prompts.
     assert "brief_context=brief_context" in src
+
+
+# ===========================================================================
+# Pass 2 — Home unification, lifecycle correctness, matter grouping, and the
+# manager context strip.
+# ===========================================================================
+
+
+# ---------------------------------------------------------------------------
+# Home unification (Pass 2 §1)
+# ---------------------------------------------------------------------------
+
+
+def test_dashboard_route_consumes_brief_service_not_home_briefing_brief_rows() -> None:
+    """Home Brief carousel must be sourced from the same aggregation
+    as /creator/brief. The old `home_briefing.brief_rows()` path is
+    no longer used to build the Home carousel — this locks the call
+    site."""
+    src = (REPO / "app" / "routes" / "creator.py").read_text()
+    assert "brief_service.home_preview_rows" in src
+    # And the old brief_rows(...) call is gone from the dashboard body.
+    dashboard_body = src.split("async def dashboard", 1)[1].split(
+        "\nasync def ", 1
+    )[0]
+    assert "home_briefing.brief_rows(" not in dashboard_body
+
+
+def test_home_preview_rows_max_three(monkeypatch):
+    """Home carousel caps at HOME_PREVIEW_MAX (=3) — never filler."""
+    proposals = [
+        {
+            "id": f"p-{i}",
+            "action_type": "gmail.send_email",
+            "preview": {"summary": f"item {i}"},
+            "source_message_id": f"m-{i}",
+            "created_at": f"2026-09-14T12:0{i}:00Z",
+        }
+        for i in range(5)
+    ]
+    monkeypatch.setattr(
+        action_proposals_module,
+        "list_pending_for_user",
+        lambda *, user_id, limit=10: proposals,
+    )
+    monkeypatch.setattr(
+        notifications_module,
+        "list_for_user",
+        lambda user_id, *, limit=50, include_archived=False: [],
+    )
+    rows = brief_service.home_preview_rows("u1")
+    assert len(rows) == 3
+
+
+def test_home_preview_rows_two_matters_renders_two(monkeypatch):
+    """When only 2 legitimate matters exist, Home renders 2 — never
+    padded to 3."""
+    monkeypatch.setattr(
+        action_proposals_module,
+        "list_pending_for_user",
+        lambda *, user_id, limit=10: [
+            {
+                "id": "p-a",
+                "action_type": "gmail.send_email",
+                "preview": {"summary": "reply to Sarah"},
+                "source_message_id": "m-a",
+                "created_at": "2026-09-14T12:00:00Z",
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        notifications_module,
+        "list_for_user",
+        lambda user_id, *, limit=50, include_archived=False: [
+            {
+                "id": "n-a",
+                "kind": "manager_alert",
+                "title": "@nike asked for rates",
+                "source_provider": "instagram",
+                "link_path": "/creator/instagram/dms",
+                "is_read": False,
+                "priority": "high",
+                "created_at": "2026-09-14T11:00:00Z",
+            }
+        ],
+    )
+    rows = brief_service.home_preview_rows("u1")
+    assert len(rows) == 2
+
+
+def test_home_preview_rows_zero_matters_returns_empty(monkeypatch):
+    monkeypatch.setattr(
+        action_proposals_module,
+        "list_pending_for_user",
+        lambda *, user_id, limit=10: [],
+    )
+    monkeypatch.setattr(
+        notifications_module,
+        "list_for_user",
+        lambda user_id, *, limit=50, include_archived=False: [],
+    )
+    assert brief_service.home_preview_rows("u1") == []
+
+
+def test_home_preview_rows_use_source_slots(monkeypatch):
+    """Home carousel icons switch on new source slots: gmail /
+    instagram / calendar / babyg. Old ``performance`` / ``opportunity``
+    / ``recap`` slots are gone from this data source."""
+    monkeypatch.setattr(
+        action_proposals_module,
+        "list_pending_for_user",
+        lambda *, user_id, limit=10: [
+            {
+                "id": "p-gmail",
+                "action_type": "gmail.send_email",
+                "preview": {"summary": "reply ready"},
+                "source_message_id": "m-gmail",
+                "created_at": "2026-09-14T12:00:00Z",
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        notifications_module,
+        "list_for_user",
+        lambda user_id, *, limit=50, include_archived=False: [
+            {
+                "id": "n-ig",
+                "kind": "manager_alert",
+                "title": "@nike asked for rates",
+                "source_provider": "instagram",
+                "link_path": "/creator/instagram/dms",
+                "is_read": False,
+                "priority": "normal",
+                "created_at": "2026-09-14T11:00:00Z",
+            }
+        ],
+    )
+    rows = brief_service.home_preview_rows("u1")
+    slots = {r["slot"] for r in rows}
+    assert slots.issubset({"gmail", "instagram", "calendar", "babyg"})
+    for r in rows:
+        assert r["slot"] not in {"performance", "opportunity", "recap"}
+
+
+def test_home_preview_rows_link_at_brief_page(monkeypatch):
+    """Every Home preview row links to the dedicated Brief page —
+    Home is the compressed preview, `/creator/brief` is the deeper
+    view."""
+    monkeypatch.setattr(
+        action_proposals_module,
+        "list_pending_for_user",
+        lambda *, user_id, limit=10: [
+            {
+                "id": "p",
+                "action_type": "gmail.send_email",
+                "preview": {"summary": "x"},
+                "source_message_id": "m",
+                "created_at": "2026-09-14T12:00:00Z",
+            }
+        ],
+    )
+    monkeypatch.setattr(
+        notifications_module,
+        "list_for_user",
+        lambda user_id, *, limit=50, include_archived=False: [],
+    )
+    rows = brief_service.home_preview_rows("u1")
+    assert all(r["href"] == "/creator/brief" for r in rows)
+
+
+def test_dashboard_view_all_still_targets_brief_page() -> None:
+    """Locked from Pass 1 — the view-all link must remain
+    /creator/brief after the Pass 2 changes."""
+    tpl = DASHBOARD_TEMPLATE.read_text()
+    assert 'class="hv5-head-link" href="/creator/brief">view all' in tpl
+
+
+# ---------------------------------------------------------------------------
+# Lifecycle correction (Pass 2 §2)
+# ---------------------------------------------------------------------------
+
+
+def test_proposal_confirmed_status_maps_to_in_progress(monkeypatch):
+    """Real business action state moves the item to in_progress —
+    NOT is_read. A ``confirmed`` action proposal is the executor
+    warming up; ``executing`` is the executor mid-flight. Both
+    truthfully mean "babyg has started this and is waiting"."""
+    monkeypatch.setattr(
+        action_proposals_module,
+        "list_pending_for_user",
+        lambda *, user_id, limit=10: [
+            {
+                "id": "p-conf",
+                "action_type": "gmail.send_email",
+                "preview": {"summary": "queued"},
+                "source_message_id": "m",
+                "status": "confirmed",
+                "created_at": "2026-09-14T12:00:00Z",
+            },
+            {
+                "id": "p-exec",
+                "action_type": "gmail.send_email",
+                "preview": {"summary": "sending"},
+                "source_message_id": "m2",
+                "status": "executing",
+                "created_at": "2026-09-14T12:01:00Z",
+            },
+        ],
+    )
+    monkeypatch.setattr(
+        notifications_module,
+        "list_for_user",
+        lambda user_id, *, limit=50, include_archived=False: [],
+    )
+    view = brief_service.build_brief("u1")
+    assert view["needs_you"] == []
+    states = sorted(it["state"] for it in view["in_progress"])
+    assert states == ["in_progress", "in_progress"]
+
+
+def test_notification_is_read_never_produces_in_progress(monkeypatch):
+    """Any combination of is_read on notification rows still yields
+    only needs_you items. No notification alone can move to
+    in_progress — that requires an action_proposals row."""
+    monkeypatch.setattr(
+        action_proposals_module,
+        "list_pending_for_user",
+        lambda *, user_id, limit=10: [],
+    )
+    monkeypatch.setattr(
+        notifications_module,
+        "list_for_user",
+        lambda user_id, *, limit=50, include_archived=False: [
+            {
+                "id": "n-1",
+                "kind": "manager_alert",
+                "title": "unseen",
+                "source_provider": "instagram",
+                "link_path": "/x",
+                "is_read": False,
+                "priority": "normal",
+                "created_at": "2026-09-14T12:00:00Z",
+            },
+            {
+                "id": "n-2",
+                "kind": "manager_alert",
+                "title": "seen",
+                "source_provider": "instagram",
+                "link_path": "/x",
+                "is_read": True,
+                "priority": "normal",
+                "created_at": "2026-09-14T11:00:00Z",
+            },
+        ],
+    )
+    view = brief_service.build_brief("u1")
+    assert view["in_progress"] == []
+    assert len(view["needs_you"]) == 2
+
+
+def test_seen_flag_is_independent_of_business_state(monkeypatch):
+    """``seen`` reflects whether the creator has opened the row.
+    ``state`` reflects the business action state. They are two
+    axes and never collapsed."""
+    monkeypatch.setattr(
+        action_proposals_module,
+        "list_pending_for_user",
+        lambda *, user_id, limit=10: [],
+    )
+    monkeypatch.setattr(
+        notifications_module,
+        "list_for_user",
+        lambda user_id, *, limit=50, include_archived=False: [
+            {
+                "id": "seen-still-needs",
+                "kind": "manager_alert",
+                "title": "read but unresolved",
+                "source_provider": "instagram",
+                "link_path": "/x",
+                "is_read": True,
+                "priority": "normal",
+                "created_at": "2026-09-14T12:00:00Z",
+            }
+        ],
+    )
+    item = brief_service.build_brief("u1")["needs_you"][0]
+    assert item["seen"] is True
+    assert item["state"] == "needs_you"
+
+
+# ---------------------------------------------------------------------------
+# Business-matter grouping (Pass 2 §3)
+# ---------------------------------------------------------------------------
+
+
+def test_multiple_events_same_thread_collapse_to_one_matter(monkeypatch):
+    """Three IG events on the SAME source_thread_id collapse to ONE
+    Brief item. The newest event donates the current summary; the
+    priority is promoted to the strongest present."""
+    thread_id = "b3a5ffff-0000-0000-0000-000000000042"
+    monkeypatch.setattr(
+        action_proposals_module,
+        "list_pending_for_user",
+        lambda *, user_id, limit=10: [],
+    )
+    monkeypatch.setattr(
+        notifications_module,
+        "list_for_user",
+        lambda user_id, *, limit=50, include_archived=False: [
+            {
+                "id": "n-1",
+                "kind": "manager_alert",
+                "title": "@nike asked for rates",
+                "source_provider": "instagram",
+                "source_thread_id": thread_id,
+                "link_path": "/creator/instagram/dms",
+                "is_read": False,
+                "priority": "normal",
+                "created_at": "2026-09-14T10:00:00Z",
+            },
+            {
+                "id": "n-2",
+                "kind": "manager_alert",
+                "title": "@nike shared a $4,000 budget",
+                "source_provider": "instagram",
+                "source_thread_id": thread_id,
+                "link_path": "/creator/instagram/dms",
+                "is_read": False,
+                "priority": "high",
+                "created_at": "2026-09-14T11:00:00Z",
+            },
+            {
+                "id": "n-3",
+                "kind": "manager_alert",
+                "title": "@nike wants 30-day usage",
+                "source_provider": "instagram",
+                "source_thread_id": thread_id,
+                "link_path": "/creator/instagram/dms",
+                "is_read": False,
+                "priority": "urgent",
+                "created_at": "2026-09-14T12:00:00Z",
+            },
+        ],
+    )
+    view = brief_service.build_brief("u1")
+    assert len(view["needs_you"]) == 1
+    item = view["needs_you"][0]
+    # Newest event donates the current summary.
+    assert "30-day usage" in item["what_happened"]
+    # Priority is promoted to the strongest present.
+    assert item["priority"] == "urgent"
+    # Group carries the truthful event count.
+    assert item["matter_event_count"] == 3
+
+
+def test_unrelated_threads_same_sender_stay_separate(monkeypatch):
+    """Two different source_thread_id values from what could be the
+    same handle are TWO business matters — never conflated by
+    sender alone."""
+    monkeypatch.setattr(
+        action_proposals_module,
+        "list_pending_for_user",
+        lambda *, user_id, limit=10: [],
+    )
+    monkeypatch.setattr(
+        notifications_module,
+        "list_for_user",
+        lambda user_id, *, limit=50, include_archived=False: [
+            {
+                "id": "n-a",
+                "kind": "manager_alert",
+                "title": "campaign A inquiry",
+                "source_provider": "instagram",
+                "source_thread_id": "thread-a",
+                "link_path": "/creator/instagram/dms",
+                "is_read": False,
+                "priority": "normal",
+                "created_at": "2026-09-14T12:00:00Z",
+            },
+            {
+                "id": "n-b",
+                "kind": "manager_alert",
+                "title": "campaign B inquiry",
+                "source_provider": "instagram",
+                "source_thread_id": "thread-b",
+                "link_path": "/creator/instagram/dms",
+                "is_read": False,
+                "priority": "normal",
+                "created_at": "2026-09-14T11:00:00Z",
+            },
+        ],
+    )
+    view = brief_service.build_brief("u1")
+    assert len(view["needs_you"]) == 2
+
+
+def test_grouping_falls_back_to_row_id_when_no_thread_identity(monkeypatch):
+    """A notification without source_thread_id or underlying
+    identity still renders — grouping falls back to the Brief row
+    id and never accidentally merges unrelated matters."""
+    monkeypatch.setattr(
+        action_proposals_module,
+        "list_pending_for_user",
+        lambda *, user_id, limit=10: [],
+    )
+    monkeypatch.setattr(
+        notifications_module,
+        "list_for_user",
+        lambda user_id, *, limit=50, include_archived=False: [
+            {
+                "id": "n-loose-1",
+                "kind": "manager_alert",
+                "title": "one-off inquiry",
+                "source_provider": "instagram",
+                "link_path": "/x",
+                "is_read": False,
+                "priority": "normal",
+                "created_at": "2026-09-14T12:00:00Z",
+            },
+            {
+                "id": "n-loose-2",
+                "kind": "manager_alert",
+                "title": "another one-off",
+                "source_provider": "instagram",
+                "link_path": "/x",
+                "is_read": False,
+                "priority": "normal",
+                "created_at": "2026-09-14T11:00:00Z",
+            },
+        ],
+    )
+    view = brief_service.build_brief("u1")
+    assert len(view["needs_you"]) == 2
+
+
+def test_grouping_preserves_correct_source_and_actions(monkeypatch):
+    """Grouped matter still carries the correct source label and
+    still exposes the correct action set — Instagram STILL never
+    gets a send action."""
+    monkeypatch.setattr(
+        action_proposals_module,
+        "list_pending_for_user",
+        lambda *, user_id, limit=10: [],
+    )
+    monkeypatch.setattr(
+        notifications_module,
+        "list_for_user",
+        lambda user_id, *, limit=50, include_archived=False: [
+            {
+                "id": "n-1",
+                "kind": "manager_alert",
+                "title": "hi",
+                "source_provider": "instagram",
+                "source_thread_id": "t-42",
+                "link_path": "/creator/instagram/dms",
+                "is_read": False,
+                "priority": "normal",
+                "created_at": "2026-09-14T10:00:00Z",
+            },
+            {
+                "id": "n-2",
+                "kind": "manager_alert",
+                "title": "budget update",
+                "source_provider": "instagram",
+                "source_thread_id": "t-42",
+                "link_path": "/creator/instagram/dms",
+                "is_read": False,
+                "priority": "normal",
+                "created_at": "2026-09-14T11:00:00Z",
+            },
+        ],
+    )
+    item = brief_service.build_brief("u1")["needs_you"][0]
+    assert item["source"] == "instagram"
+    labels = [a["label"] for a in item["actions"]]
+    assert "send reply" not in labels
+    assert "review inquiry" in labels
+
+
+# ---------------------------------------------------------------------------
+# Manager context strip (Pass 2 §4)
+# ---------------------------------------------------------------------------
+
+
+def test_bot_template_ships_context_strip_conditional() -> None:
+    """The context strip renders ONLY when brief_context is set on
+    the template. The bot template still ships a compact placeholder
+    that is scoped by the `{% if brief_context %}` guard so /creator/bot
+    opened normally shows no strip."""
+    tpl = (REPO / "app" / "templates" / "creator" / "bot.html").read_text()
+    assert 'class="bot-brief-context"' in tpl
+    assert 'data-bot-brief-context' in tpl
+    assert "{% if brief_context %}" in tpl
+
+
+def test_bot_template_context_strip_does_not_dump_body() -> None:
+    """The strip surfaces only the compact source label + summary.
+    The full recommendation, raw message body, and any provider
+    payload MUST NOT be rendered — the strip is a one-line topic
+    label."""
+    tpl = (REPO / "app" / "templates" / "creator" / "bot.html").read_text()
+    strip_block = tpl.split('class="bot-brief-context"', 1)[1].split("</div>", 1)[0]
+    assert "recommendation" not in strip_block
+    # The strip renders summary, source_label, and an icon — nothing else.
+    assert "brief_context.summary" in strip_block
+    assert "brief_context.source_label" in strip_block
+
+
+def test_bot_context_strip_css_is_scoped_and_present() -> None:
+    css = APP_CSS.read_text()
+    assert ".bot-brief-context {" in css
+    assert ".bot-brief-context-source {" in css
+    assert ".bot-brief-context-summary {" in css
+    # Mobile-scoped tweaks exist.
+    mobile_blocks = css.split("@media (max-width: 767px)")
+    assert any(".bot-brief-context {" in blk for blk in mobile_blocks[1:])
+
+
+# ---------------------------------------------------------------------------
+# Existing safeguards re-locked after Pass 2 edits.
+# ---------------------------------------------------------------------------
+
+
+def test_no_authenticated_document_prefetch_after_pass2() -> None:
+    dashboard = DASHBOARD_TEMPLATE.read_text()
+    bot_tpl = (REPO / "app" / "templates" / "creator" / "bot.html").read_text()
+    brief_tpl = BRIEF_TEMPLATE.read_text()
+    for path in ("/creator/brief", "/creator/bot", "/creator/discover"):
+        assert f'rel="prefetch" href="{path}"' not in dashboard
+        assert f'rel="prefetch" href="{path}"' not in bot_tpl
+        assert f'rel="prefetch" href="{path}"' not in brief_tpl
+
+
+def test_pass2_bot_prompts_still_max_four_and_instagram_never_sends() -> None:
+    """Regression re-lock — Pass 1 chip contract survives Pass 2."""
+    ig_chips = bot_prompts_module.compute_prompts(
+        brief_context={"source": "instagram", "summary": "@nike"}
+    )
+    assert 1 <= len(ig_chips) <= 4
+    for chip in ig_chips:
+        assert "send" not in chip["text"].lower() or "email" in chip["text"].lower()
+
+    gmail_chips = bot_prompts_module.compute_prompts(
+        brief_context={"source": "gmail", "summary": "acme"}
+    )
+    assert 1 <= len(gmail_chips) <= 4

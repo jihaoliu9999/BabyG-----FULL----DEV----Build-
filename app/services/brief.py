@@ -89,11 +89,13 @@ def build_brief(user_id: str) -> dict[str, Any]:
     items.extend(_items_from_action_proposals(user_id))
     items.extend(_items_from_notifications(user_id))
 
-    # Dedupe by (source_provider, source_event_id) or by
-    # (underlying_type, underlying_id) where present. The same
-    # business development must not show up as both a manager alert
-    # AND a related action proposal, per spec section 15.
-    items = _dedupe_by_event(items)
+    # Group multiple real events belonging to the same business
+    # matter into one evolving Brief item (spec §3). Prefers
+    # ``source_thread_id`` when the underlying rows share one, then
+    # ``(source_provider, underlying_type, underlying_id)``. The
+    # standalone Brief row id is the final fallback so nothing is
+    # lost when no thread identity exists.
+    items = _group_into_matters(items)
 
     # Rank by (state, priority, created_at desc). needs-you rows
     # come first; within a state, urgent > high > normal > low;
@@ -111,14 +113,25 @@ def build_brief(user_id: str) -> dict[str, Any]:
     }
 
 
+def home_preview_rows(user_id: str) -> list[dict[str, Any]]:
+    """Compact rows adapted for the Home Brief carousel.
+
+    Home consumes the SAME aggregation as ``/creator/brief`` per
+    spec Pass 2 §1 — no separate intelligence system. Returned rows
+    match the shape ``creator/dashboard.html`` already renders:
+    ``{slot, title, detail, href}``. Adapter kept in this module so
+    the Home template can stay a pure renderer.
+    """
+    view = build_brief(user_id)
+    top = view["needs_you"][:HOME_PREVIEW_MAX]
+    return [_to_home_row(item) for item in top]
+
+
 def home_preview_items(user_id: str) -> list[dict[str, Any]]:
     """Compact list of up to HOME_PREVIEW_MAX needs-you Brief items,
-    ranked by the same key. Used only by the Home Brief preview
-    when we want to swap in real inquiry titles later. Not called
-    by the Home template in this pass — the current Home preview
-    keeps its existing signals and only the ``view all`` link is
-    fixed to point at ``/creator/brief``.
-    """
+    ranked by the same key. Kept for callers that need the full
+    Brief item shape (icons, actions) rather than the Home-flattened
+    row shape."""
     view = build_brief(user_id)
     return view["needs_you"][:HOME_PREVIEW_MAX]
 
@@ -165,6 +178,21 @@ def _item_from_proposal(row: dict[str, Any]) -> dict[str, Any]:
         preview.get("body"),
     )
     what = _shape_what_happened(source, summary, preview)
+    # Business state derives from the real ``action_proposals.status``
+    # column (migration 0012). This is the ONLY code path where a
+    # Brief item can be ``in_progress`` — babyg has actually kicked
+    # off the executor and is waiting on the provider round-trip.
+    #   pending    → needs_you  (user must approve)
+    #   confirmed  → in_progress (executor about to run)
+    #   executing  → in_progress (executor mid-flight)
+    #   any other  → needs_you  (list_pending_for_user filters
+    #                            executed/failed/cancelled/expired
+    #                            already; this is the safe default)
+    raw_status = str(row.get("status") or "pending").lower()
+    if raw_status in {"confirmed", "executing"}:
+        state: BriefState = "in_progress"
+    else:
+        state = "needs_you"
     return {
         "id": f"proposal:{row.get('id')}",
         "kind": "proposal",
@@ -172,13 +200,29 @@ def _item_from_proposal(row: dict[str, Any]) -> dict[str, Any]:
         "source_message_id": row.get("source_message_id"),
         "source": source,
         "source_label": _source_label(source),
-        "state": "needs_you",
+        "state": state,
+        # Proposals don't have a notification-style ``is_read`` — a
+        # creator seeing them in the Brief IS the seen event, so
+        # they're always ``seen`` in the attention sense; template
+        # renders no unseen dot for them.
+        "seen": True,
         "priority": "normal",
         "what_happened": what,
         "recommendation": _shorten(recommendation, 200),
         "actions": _actions_for_proposal(row, source),
         "ask_babyg_href": f"/creator/bot?brief=proposal:{row.get('id')}",
         "created_at": row.get("created_at"),
+        # Proposals rarely carry a shared thread identity; if one is
+        # attached via preview.thread_id we surface it for grouping,
+        # else the Brief-row id is the final fallback.
+        "source_thread_id": str(preview.get("thread_id") or "").strip() or None,
+        "underlying_type": (
+            "gmail_thread"
+            if source == "gmail"
+            else None
+        ),
+        "underlying_id": str(preview.get("thread_id") or "").strip() or None,
+        "source_provider": source if source in ("gmail", "instagram") else None,
     }
 
 
@@ -216,12 +260,28 @@ def _item_from_notification(row: dict[str, Any]) -> dict[str, Any] | None:
         source = "babyg"
     else:
         source = "babyg"
+    # Pass 2 §2 lifecycle correction:
+    # SEEN != IN PROGRESS. Opening a notification does not mean the
+    # underlying business action has begun. Every manager-worthy
+    # notification stays ``needs_you`` until the user takes a real
+    # follow-through action (draft/send/archive). ``seen`` is a
+    # separate attention flag rendered independently by the template.
+    # Archived rows are already filtered out upstream via
+    # ``notifications.list_for_user(include_archived=False)``.
     is_read = bool(row.get("is_read"))
-    state: BriefState = "in_progress" if is_read else "needs_you"
+    state: BriefState = "needs_you"
+    seen: bool = is_read
     priority = str(row.get("priority") or "normal").strip().lower()
     title = _shorten(str(row.get("title") or "").strip(), 140)
     body = _shorten(str(row.get("body") or "").strip(), 200)
     what = _shape_what_happened(source, title, row.get("metadata"))
+    # Business-matter grouping keys — the highest-value stable
+    # identifier a notification row exposes for aggregation. Order
+    # mirrors spec §3: source_thread_id first, then
+    # (source_provider, underlying_type, underlying_id).
+    source_thread_id = str(row.get("source_thread_id") or "").strip() or None
+    underlying_type = str(row.get("underlying_type") or "").strip() or None
+    underlying_id = str(row.get("underlying_id") or "").strip() or None
     return {
         "id": f"notif:{row.get('id')}",
         "kind": "notification",
@@ -229,6 +289,7 @@ def _item_from_notification(row: dict[str, Any]) -> dict[str, Any] | None:
         "source": source,
         "source_label": _source_label(source),
         "state": state,
+        "seen": seen,
         "priority": priority,
         "what_happened": what,
         "recommendation": body,
@@ -236,6 +297,10 @@ def _item_from_notification(row: dict[str, Any]) -> dict[str, Any] | None:
         "ask_babyg_href": f"/creator/bot?brief=notif:{row.get('id')}",
         "created_at": row.get("created_at"),
         "link_path": str(row.get("link_path") or "").strip() or None,
+        "source_thread_id": source_thread_id,
+        "underlying_type": underlying_type,
+        "underlying_id": underlying_id,
+        "source_provider": source_provider or None,
     }
 
 
@@ -384,17 +449,142 @@ def _is_brief_worthy(kind: str, source_provider: str) -> bool:
     return not (kind == "new_dm" and not source_provider)
 
 
-def _dedupe_by_event(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    seen: set[tuple[str, str]] = set()
-    out: list[dict[str, Any]] = []
+def _group_into_matters(
+    items: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Collapse events belonging to the same business matter into one
+    evolving Brief item (spec Pass 2 §3).
+
+    Grouping key priority (spec §3 hierarchy):
+      1. ``source_thread_id`` — Instagram DM thread row uuid, the
+         strongest available identity for a live conversation.
+      2. ``(source_provider, underlying_type, underlying_id)`` — used
+         by Gmail proposals that stash the gmail thread id in
+         ``preview.thread_id`` and by any future provider that
+         populates the underlying pair.
+      3. The Brief row's own id — final fallback so nothing is
+         lost when no thread identity is available.
+
+    Within a group we keep the newest row's summary/recommendation
+    (spec §3 "use the latest/current meaningful state") but promote
+    the highest state (needs_you > in_progress) and highest priority
+    from the group. The kept row's ``ask_babyg_href`` uses the
+    newest row's own key so the manager loads the freshest topic.
+    """
+    order: list[str] = []
+    groups: dict[str, list[dict[str, Any]]] = {}
     for item in items:
-        # Prefer explicit event id + source; fall back to Brief item id.
-        key = (str(item.get("source") or ""), str(item.get("id") or ""))
-        if key in seen:
+        key = _matter_key(item)
+        if key not in groups:
+            groups[key] = []
+            order.append(key)
+        groups[key].append(item)
+    out: list[dict[str, Any]] = []
+    for key in order:
+        bucket = groups[key]
+        if len(bucket) == 1:
+            out.append(bucket[0])
             continue
-        seen.add(key)
-        out.append(item)
+        # Sort newest first — the top-of-list row donates the
+        # current summary/recommendation/actions.
+        bucket.sort(key=lambda it: str(it.get("created_at") or ""), reverse=True)
+        head = dict(bucket[0])
+        # Promote highest state: needs_you beats in_progress.
+        states = {it.get("state") for it in bucket}
+        head["state"] = (
+            "needs_you" if "needs_you" in states else head.get("state")
+        )
+        # Promote highest priority present.
+        head["priority"] = _highest_priority(
+            [str(it.get("priority") or "normal") for it in bucket]
+        )
+        # Preserve whether any event in the group is still unseen.
+        head["seen"] = all(bool(it.get("seen")) for it in bucket)
+        # Preserve the count so the template can show "+N related"
+        # if it wants to. No fake activity numbers — only truthful
+        # group size.
+        head["matter_event_count"] = len(bucket)
+        out.append(head)
     return out
+
+
+def _matter_key(item: dict[str, Any]) -> str:
+    """Return the stable grouping key for one Brief item.
+
+    See ``_group_into_matters`` for the priority order.
+    """
+    thread_id = str(item.get("source_thread_id") or "").strip()
+    if thread_id:
+        return f"thread:{item.get('source', '')}:{thread_id}"
+    provider = str(item.get("source_provider") or "").strip().lower()
+    utype = str(item.get("underlying_type") or "").strip()
+    uid = str(item.get("underlying_id") or "").strip()
+    if provider and utype and uid:
+        return f"underlying:{provider}:{utype}:{uid}"
+    # Final fallback: the Brief item's own id, which guarantees no
+    # unrelated matters get accidentally merged.
+    return f"row:{item.get('id', '')}"
+
+
+def _highest_priority(values: list[str]) -> str:
+    """Return the strongest priority label present in ``values``."""
+    order = _PRIORITY_ORDER
+    best = "normal"
+    best_rank = order.get(best, 2)
+    for value in values:
+        v = value.lower()
+        r = order.get(v, best_rank)
+        if r < best_rank:
+            best = v
+            best_rank = r
+    return best
+
+
+def _to_home_row(item: dict[str, Any]) -> dict[str, Any]:
+    """Adapt a Brief item to the shape ``dashboard.html`` renders.
+
+    Home is a compressed preview: single strong title (the concise
+    ``what_happened``), a small source-and-category label, and a link
+    that lands on ``/creator/brief`` where the full matter lives.
+    Icons map to the same visual slots ``brief.html`` uses.
+
+    Home never renders send buttons — those live only on the full
+    Brief page. Tapping a Home preview row always opens the full
+    Brief where the literal action lives (spec Pass 2 §1).
+    """
+    source = str(item.get("source") or "babyg")
+    slot = source if source in {"gmail", "instagram", "calendar"} else "babyg"
+    what = str(item.get("what_happened") or "").strip()
+    detail = _home_row_detail(item)
+    return {
+        "slot": slot,
+        "title": what[:100],
+        "detail": detail,
+        "href": "/creator/brief",
+    }
+
+
+def _home_row_detail(item: dict[str, Any]) -> str:
+    """Return the small caption Home renders under the strong title.
+
+    Uses literal category verbs (spec §21 vocabulary): ``new inquiry``,
+    ``reply ready``, ``counter ready``, ``follow-up due``. Falls back
+    to the source label alone when no more specific verb applies.
+    """
+    source = str(item.get("source") or "babyg")
+    kind = str(item.get("kind") or "")
+    source_label = str(item.get("source_label") or source)
+    if kind == "proposal":
+        # Proposal source implies babyg has a draft or counter
+        # already prepared for the creator to review/send.
+        return f"{source_label} · reply ready"
+    if source == "instagram":
+        return f"{source_label} · new inquiry"
+    if source == "gmail":
+        return f"{source_label} · needs a decision"
+    if source == "calendar":
+        return f"{source_label} · needs a decision"
+    return source_label
 
 
 def _rank_key(item: dict[str, Any]) -> tuple[int, int, str]:
