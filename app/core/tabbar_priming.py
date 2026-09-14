@@ -28,6 +28,13 @@ template globals resolve from the cache. Behavior contract:
   unread counts) that it uses for both the badges and Home content,
   and it already primes the same request.state keys. Skipping avoids
   a duplicated read on the hottest page.
+- Seven exact GET paths under the primed routers skip priming
+  because their handlers return ``JSONResponse`` or
+  ``RedirectResponse`` and never render the tabbar (a JSON debug
+  endpoint plus the Google + Instagram OAuth connect/callback
+  redirects). Priming them would fire three wasted service calls
+  per hit and would slow the OAuth handshake. See
+  ``_NON_SHELL_GET_PATHS`` below for the exact set.
 - Non-creator sessions (anonymous, brand, operator, unresolved)
   short-circuit — the template globals themselves return 0 for those
   roles, so priming them would fire zero-value reads for nothing.
@@ -58,6 +65,26 @@ logger = logging.getLogger(__name__)
 # path avoids priming firing the same reads a moment before the
 # dashboard's own assignments overwrite them.
 _DASHBOARD_PATH = "/creator"
+
+# Exact GET paths that live under the creator/discover/opportunities
+# routers but do NOT render the creator app shell / tabbar. They are
+# JSON diagnostics or OAuth redirects, so priming for them would fire
+# 3 wasted service calls (4 postgrest reads) on every hit.
+# Enumerated by walking every @router.get(...) decorator on those
+# routers and confirming the return type. The OAuth callbacks are
+# also latency-sensitive; adding tabbar reads before an immediate 303
+# would only slow the redirect.
+_NON_SHELL_GET_PATHS: frozenset[str] = frozenset(
+    {
+        "/creator/_debug/integrations",
+        "/creator/google/calendar/connect",
+        "/creator/google/calendar/callback",
+        "/auth/google/callback",
+        "/oauth/google/callback",
+        "/creator/instagram/connect",
+        "/creator/instagram/callback",
+    }
+)
 
 
 def _has_cached_int(request: Request, attr: str) -> bool:
@@ -118,6 +145,16 @@ def prime_creator_tabbar(request: Request) -> None:
     # Dashboard primes both values itself in its own gather, from
     # richer data it fetches for the Home rail + primary carousel.
     if request.url.path == _DASHBOARD_PATH:
+        return
+
+    # Exact-path skip for the handful of GET routes on the creator/
+    # discover/opportunities routers that do not render the creator
+    # tabbar (JSON diagnostic + Google/Instagram OAuth redirects).
+    # Their responses are RedirectResponse or JSONResponse, so the
+    # tabbar globals never run — priming would fire 3 wasted service
+    # calls per hit. OAuth callbacks are also latency-sensitive
+    # handshakes where any added Supabase reads slow user flow.
+    if request.url.path in _NON_SHELL_GET_PATHS:
         return
 
     # If both keys are already primed we're done. Some future

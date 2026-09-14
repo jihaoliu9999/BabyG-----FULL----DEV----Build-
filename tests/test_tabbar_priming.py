@@ -313,6 +313,96 @@ def test_prime_skips_non_creator_sessions(counters):
 
 
 # ---------------------------------------------------------------------------
+# Pass 1b — non-shell GET paths must not pay the priming cost.
+# ---------------------------------------------------------------------------
+
+# The exact GET routes verified in the post-implementation audit to
+# return JSONResponse or RedirectResponse (never render the tabbar).
+_NON_SHELL_SKIP_PATHS = (
+    "/creator/_debug/integrations",
+    "/creator/google/calendar/connect",
+    "/creator/google/calendar/callback",
+    "/auth/google/callback",
+    "/oauth/google/callback",
+    "/creator/instagram/connect",
+    "/creator/instagram/callback",
+)
+
+
+@pytest.mark.parametrize("path", _NON_SHELL_SKIP_PATHS)
+def test_prime_skips_non_shell_get_paths_exact(counters, path):
+    """Each of the seven non-shell GET paths must fire ZERO priming
+    reads. These handlers return JSON or a 302/303 redirect and
+    never render ``_partials/creator_tabbar.html``, so the tabbar
+    template globals never run for them. Priming would waste 3
+    service calls (4 postgrest reads) per hit and slow the OAuth
+    handshake for the connect/callback endpoints."""
+    request = _make_request(path=path)
+    tabbar_priming.prime_creator_tabbar(request)
+    assert counters.pending == 0, path
+    assert counters.native == 0, path
+    assert counters.ig == 0, path
+    # State is NOT populated — the template globals never read it here.
+    stash = getattr(request.state, "_state", {}) or {}
+    assert stash.get("pending_action_count") is None, path
+    assert stash.get("unread_dm_count") is None, path
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "/creator/calendar",
+        "/creator/discover",
+        "/creator/bot",
+        "/creator/dm",
+        "/creator/profile/settings",
+        "/creator/notifications",
+        "/creator/deals",
+        "/creator/network",
+        "/creator/connections",
+        "/creator/performance",
+        "/creator/google/connect",  # picker page, renders shell (HTMLResponse)
+        "/creator/opportunities/new",
+    ],
+)
+def test_prime_still_runs_on_representative_shell_paths(counters, path):
+    """Every representative creator-shell GET path must STILL prime
+    each source exactly once. Regression guard for Pass 1b — a future
+    edit that expands ``_NON_SHELL_GET_PATHS`` too aggressively would
+    silently disable priming on real shell pages and re-introduce the
+    Pass 1 problem."""
+    request = _make_request(path=path)
+    tabbar_priming.prime_creator_tabbar(request)
+    assert counters.pending == 1, path
+    assert counters.native == 1, path
+    assert counters.ig == 1, path
+
+
+def test_non_shell_skip_paths_set_is_frozen():
+    """The skip set is a ``frozenset`` so no route file can mutate it
+    at runtime by accident."""
+    assert isinstance(tabbar_priming._NON_SHELL_GET_PATHS, frozenset)
+    assert len(tabbar_priming._NON_SHELL_GET_PATHS) == 7
+    for path in _NON_SHELL_SKIP_PATHS:
+        assert path in tabbar_priming._NON_SHELL_GET_PATHS
+
+
+def test_non_shell_skip_still_fires_no_reads_when_state_prepopulated(counters):
+    """Even if some upstream layer wrote an int to state (e.g. a
+    future callback that manually primes), the skip must remain a
+    hard skip — the priming block is only reached when the path
+    check passes. Verifies we don't accidentally re-enter."""
+    for path in _NON_SHELL_SKIP_PATHS:
+        request = _make_request(path=path)
+        request.state.pending_action_count = 999
+        request.state.unread_dm_count = 999
+        tabbar_priming.prime_creator_tabbar(request)
+    assert counters.pending == 0
+    assert counters.native == 0
+    assert counters.ig == 0
+
+
+# ---------------------------------------------------------------------------
 # End-to-end integration — the dependency is actually wired to
 # creator + discover + opportunities routers, and the FULL render of
 # a non-dashboard creator page fires each source ONCE.
