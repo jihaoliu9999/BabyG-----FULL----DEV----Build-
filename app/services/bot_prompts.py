@@ -76,6 +76,7 @@ def compute_prompts(
     recent_dm_peer_name: str | None = None,
     snapshot: dict[str, Any] | None = None,
     messages: list[dict[str, Any]] | None = None,
+    brief_context: dict[str, Any] | None = None,
 ) -> list[BotPrompt]:
     """Return up to 4 context-driven prompts for the composer chip strip.
 
@@ -110,6 +111,41 @@ def compute_prompts(
     prompts: list[BotPrompt] = []
     snap = snapshot or {}
     msgs = messages or []
+
+    # ---- brief-context override --------------------------------------
+    # When the manager was opened via /creator/bot?brief=<id>, seat the
+    # composer chips to context-specific verbs for that item. The chip
+    # strip stays at the same MAX 4 cap; existing dedupe still applies.
+    if isinstance(brief_context, dict) and brief_context:
+        source = str(brief_context.get("source") or "").strip().lower()
+        if source == "instagram":
+            # Instagram never gets a send-DM chip — mirrors the Brief
+            # button rule. Only draft / review / plan / show.
+            return [
+                {"text": "draft the reply", "icon": _ICON_PENCIL, "tone": "primary"},
+                {"text": "review the offer", "icon": _ICON_MESSAGE, "tone": "warn"},
+                {"text": "plan the negotiation", "icon": _ICON_PENCIL, "tone": "warn"},
+                {"text": "show the thread", "icon": _ICON_MESSAGE, "tone": "primary"},
+            ]
+        if source == "gmail":
+            return [
+                {"text": "read the draft back to me", "icon": _ICON_PENCIL, "tone": "warn"},
+                {"text": "change the counter", "icon": _ICON_PENCIL, "tone": "primary"},
+                {"text": "send the email", "icon": _ICON_MESSAGE, "tone": "good", "submit": True},
+                {"text": "why this amount?", "icon": _ICON_MESSAGE, "tone": "primary"},
+            ]
+        if source == "calendar":
+            return [
+                {"text": "review the booking", "icon": _ICON_CLOCK, "tone": "primary"},
+                {"text": "confirm the time", "icon": _ICON_CLOCK, "tone": "good"},
+                {"text": "reschedule", "icon": _ICON_CLOCK, "tone": "warn"},
+            ]
+        # Generic babyg / manager context — 2 legitimate chips is
+        # allowed per the spec ("fewer than 4 renders naturally").
+        return [
+            {"text": "walk me through it", "icon": _ICON_MESSAGE, "tone": "primary"},
+            {"text": "what should i do?", "icon": _ICON_MESSAGE, "tone": "warn"},
+        ]
 
     # ---- 0. pending action on the last assistant turn ----
     #

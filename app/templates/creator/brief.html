@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+
+{% block title %}brief · babyg{% endblock %}
+
+{# Compact per-source icon. Reuses the same monoline SVGs the Home
+   brief carousel uses (dashboard.html) so a Gmail row on Home and
+   Brief look the same. Kept as an inline macro because the surface
+   is a small closed set and importing an SVG partial per row would
+   fire an extra template include for every item. #}
+{% macro source_icon(source) -%}
+  {%- if source == 'gmail' -%}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>
+  {%- elif source == 'instagram' -%}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17" cy="7" r="1" fill="currentColor" stroke="none"/></svg>
+  {%- elif source == 'calendar' -%}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="16" rx="2"/><path d="M3.5 8.5h17"/><rect x="7.5" y="2.6" width="1.4" height="3.4" rx="0.7"/><rect x="15.1" y="2.6" width="1.4" height="3.4" rx="0.7"/></svg>
+  {%- else -%}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 3"/></svg>
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro brief_item(item) %}
+<article class="brief-item" data-brief-item data-brief-source="{{ item.source }}" data-brief-state="{{ item.state }}">
+  <header class="brief-item-head">
+    <span class="brief-item-source">
+      <span class="brief-item-icon" aria-hidden="true">{{ source_icon(item.source) }}</span>
+      <span class="brief-item-source-label">{{ item.source_label }}</span>
+    </span>
+    {% if item.state == 'needs_you' %}<span class="brief-item-state brief-item-state-needs">needs you</span>{% endif %}
+    {% if item.state == 'in_progress' %}<span class="brief-item-state brief-item-state-progress">in progress</span>{% endif %}
+  </header>
+
+  <p class="brief-item-what">{{ item.what_happened }}</p>
+  {% if item.recommendation %}<p class="brief-item-rec">babyg: {{ item.recommendation }}</p>{% endif %}
+
+  {% if item.actions %}
+  <div class="brief-item-actions" role="group" aria-label="actions">
+    {% for action in item.actions %}
+      {% if action.method == 'POST' %}
+      <form class="brief-item-action-form" method="post" action="{{ action.endpoint|safe_url }}">
+        {% include "_partials/csrf.html" %}
+        <button type="submit" class="brief-item-action brief-item-action-{{ action.style }}">{{ action.label }}</button>
+      </form>
+      {% else %}
+      <a class="brief-item-action brief-item-action-{{ action.style }}" href="{{ action.endpoint|safe_url }}">{{ action.label }}</a>
+      {% endif %}
+    {% endfor %}
+  </div>
+  {% endif %}
+</article>
+{% endmacro %}
+
+{% block content %}
+<section class="brief-page" data-brief-page>
+  {# Compact page header — mobile owns safe-area, desktop stays quiet. #}
+  <header class="brief-head">
+    <h1 class="brief-head-title">brief</h1>
+  </header>
+
+  {% if brief.empty %}
+  <div class="brief-empty">
+    <p>nothing needs your attention.</p>
+  </div>
+  {% endif %}
+
+  {% if brief.needs_you %}
+  <section class="brief-section brief-section-needs" aria-labelledby="brief-section-needs-label">
+    <h2 class="brief-section-title" id="brief-section-needs-label">needs you</h2>
+    <div class="brief-section-body">
+      {% for item in brief.needs_you %}{{ brief_item(item) }}{% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if brief.in_progress %}
+  <section class="brief-section brief-section-progress" aria-labelledby="brief-section-progress-label">
+    <h2 class="brief-section-title" id="brief-section-progress-label">in progress</h2>
+    <div class="brief-section-body">
+      {% for item in brief.in_progress %}{{ brief_item(item) }}{% endfor %}
+    </div>
+  </section>
+  {% endif %}
+</section>
+{% endblock %}

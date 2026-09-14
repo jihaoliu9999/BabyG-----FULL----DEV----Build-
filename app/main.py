@@ -25,6 +25,7 @@ from app.core.templating import templates
 from app.routes import abuse as abuse_routes
 from app.routes import auth as auth_routes
 from app.routes import brand as brand_routes
+from app.routes import brief as brief_routes
 from app.routes import creator as creator_routes
 from app.routes import discover as discover_routes
 from app.routes import legal as legal_routes
@@ -102,6 +103,7 @@ def create_app() -> FastAPI:
     app.include_router(
         opportunities_routes.router, dependencies=_creator_shell_deps
     )
+    app.include_router(brief_routes.router, dependencies=_creator_shell_deps)
     app.include_router(brand_routes.router)
     app.include_router(operator_routes.router)
     app.include_router(abuse_routes.router)

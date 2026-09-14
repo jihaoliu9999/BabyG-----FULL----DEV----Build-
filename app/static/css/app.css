@@ -15557,3 +15557,199 @@ body:has(.dm-thread-composer-box input:focus) .creator-tabbar {
   }
 }
 
+
+/* ==================================================================== */
+/* babyg Brief page — `/creator/brief`.                                  */
+/*                                                                       */
+/* Compact, mobile-first list of pending business items sourced from      */
+/* action_proposals + manager notifications. Everything is scoped        */
+/* under `.brief-page*` so no unrelated selector, template, or page is   */
+/* affected.                                                              */
+/* ==================================================================== */
+
+.brief-page {
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 6px 14px calc(var(--tabbar-h, 64px) + env(safe-area-inset-bottom, 0px) + 24px);
+}
+
+.brief-head {
+  padding: calc(env(safe-area-inset-top, 0px) + 10px) 0 6px;
+  margin: 0 0 8px;
+}
+.brief-head-title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 650;
+  line-height: 1.1;
+  color: var(--ink, #fff);
+  letter-spacing: 0;
+  text-transform: lowercase;
+}
+
+.brief-section {
+  margin: 12px 0 18px;
+}
+.brief-section-title {
+  margin: 0 0 8px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-dim, var(--text-tertiary, rgba(255,255,255,0.55)));
+}
+.brief-section-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.brief-item {
+  padding: 12px 14px;
+  border: 1px solid var(--hairline, rgba(255,255,255,0.06));
+  border-radius: 14px;
+  background: var(--surface-1, rgba(255,255,255,0.02));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.brief-item-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.brief-item-source {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.brief-item-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  color: var(--ink-dim, rgba(255,255,255,0.65));
+}
+.brief-item-icon svg {
+  width: 18px;
+  height: 18px;
+}
+.brief-item-source-label {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-dim, rgba(255,255,255,0.55));
+}
+.brief-item-state {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 8px;
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  border: 1px solid var(--hairline-strong, rgba(255,255,255,0.09));
+  color: var(--ink-dim, rgba(255,255,255,0.6));
+}
+.brief-item-state-needs {
+  color: var(--accent-text, #ff3b6b);
+  border-color: rgba(255, 59, 107, 0.28);
+  background: rgba(255, 59, 107, 0.06);
+}
+.brief-item-state-progress {
+  color: var(--ink-dim, rgba(255,255,255,0.7));
+  background: rgba(255,255,255,0.02);
+}
+
+.brief-item-what {
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.35;
+  color: var(--ink, #fff);
+  overflow-wrap: anywhere;
+}
+.brief-item-rec {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--ink-dim, rgba(255,255,255,0.7));
+  overflow-wrap: anywhere;
+}
+
+.brief-item-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 2px;
+}
+.brief-item-action-form {
+  margin: 0;
+  display: inline-flex;
+}
+.brief-item-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 550;
+  border: 1px solid transparent;
+  text-decoration: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.brief-item-action-primary {
+  background: var(--accent, #ff3b6b);
+  color: #fff;
+}
+.brief-item-action-primary:hover,
+.brief-item-action-primary:focus-visible {
+  background: var(--accent-hover, #e8455f);
+}
+.brief-item-action-ghost {
+  background: transparent;
+  color: var(--ink, #fff);
+  border-color: var(--hairline-strong, rgba(255,255,255,0.09));
+}
+.brief-item-action-ghost:hover,
+.brief-item-action-ghost:focus-visible {
+  background: rgba(255,255,255,0.04);
+}
+
+.brief-empty {
+  margin: 24px 0;
+  padding: 18px 14px;
+  border: 1px dashed var(--hairline, rgba(255,255,255,0.08));
+  border-radius: 14px;
+  color: var(--ink-dim, rgba(255,255,255,0.6));
+  text-align: center;
+  font-size: 13.5px;
+}
+
+@media (max-width: 767px) {
+  .brief-page {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+  .brief-item {
+    padding: 10px 12px;
+    border-radius: 12px;
+  }
+  .brief-item-action {
+    min-height: 32px;
+    font-size: 12px;
+    padding: 0 10px;
+  }
+}

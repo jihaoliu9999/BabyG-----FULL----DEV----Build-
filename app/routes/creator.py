@@ -600,11 +600,30 @@ async def dashboard(
 @router.get("/creator/bot", response_class=HTMLResponse)
 async def bot_chat(
     request: Request,
+    brief: str | None = Query(None),
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
     profile = profiles.get_creator_profile_cached(session["user_id"], request) or {}
     if not profile.get("onboarding_completed_at"):
         return RedirectResponse("/onboarding/creator", status_code=302)
+
+    # ?brief=<key> optionally seats the composer chips and gives the
+    # existing manager a concise topic pointer without changing its
+    # canonical UI or backend. Owner-scoped lookup — a copied URL
+    # never surfaces another creator's item; a missing/unknown key
+    # silently falls through to the normal chip logic. See
+    # ``app/services/brief.py::resolve_brief_context``.
+    brief_context = None
+    if brief:
+        try:
+            from app.services import brief as brief_service
+
+            brief_context = brief_service.resolve_brief_context(
+                brief_key=str(brief).strip()[:80], user_id=session["user_id"]
+            )
+        except Exception:
+            logger.exception("bot_chat.brief_context.failed brief=%s", brief[:40])
+            brief_context = None
 
     # Proactive nudges — babyg drops a message the moment a fresh
     # discover match or an imminent pending booking lands. Deduped by
@@ -629,12 +648,15 @@ async def bot_chat(
 
     # Composer chip strip. Rendered on every turn now (not just empty
     # threads) because chips reflect the live state of the world and
-    # the user should always have something useful to tap.
+    # the user should always have something useful to tap. When a
+    # brief context resolves, the chip strip is overridden with
+    # context-specific verbs (max 4, per spec section 10).
     prompts = bot_prompts.compute_prompts(
         unread_dms_count=int((snap.get("unread_dms") or {}).get("count") or 0),
         recent_dm_peer_name=(snap.get("unread_dms") or {}).get("latest_peer_name"),
         snapshot=snap,
         messages=messages,
+        brief_context=brief_context,
     )
     try:
         activity_recap = agent_recap.build(session["user_id"], window_hours=168)
@@ -672,6 +694,7 @@ async def bot_chat(
             "activity_recap": activity_recap,
             "recent_cycles": recent_cycles,
             "pending_actions": pending_actions,
+            "brief_context": brief_context,
         },
     )
 
