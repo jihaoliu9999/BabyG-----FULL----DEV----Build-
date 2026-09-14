@@ -591,16 +591,18 @@ def _is_brief_worthy(
     # native DM alert — the Brief surfaces native DMs elsewhere.
     if kind == "new_dm" and source != "instagram":
         return False
-    # Pass 3 §Instagram intelligence: business relevance for
-    # Instagram DMs is signaled by ``notifications.priority`` (the
-    # ingest layer sets ``high`` for collab/deal keywords or a
-    # post/reel attachment, else ``normal``). Casual chatter /
-    # reactions / compliments come in as ``normal`` and MUST NOT
-    # reach Brief.
-    if source == "instagram" and kind == "new_dm":
-        priority = str(row.get("priority") or "normal").strip().lower()
-        if priority not in {"high", "urgent"}:
-            return False
+    # Instagram business relevance is decided UPSTREAM in the
+    # ingest layer: `app/services/instagram_dms.py::_create_manager_notification`
+    # only persists a `notifications` row when `dm_briefs.needs_brief(body)`
+    # returns True OR the DM carries a reel/post attachment.
+    # Casual chatter, reactions, emoji-only replies and tiny
+    # acknowledgements are dropped before they ever become a
+    # `new_dm` row. Once the row exists, it IS a business matter —
+    # ``priority`` is a secondary rank (collab/deal keyword or
+    # media attachment → ``high``), NOT an eligibility test.
+    # The one remaining exclusion here is the raw-unread-count
+    # summary pattern, which is a legacy synthetic row shape we
+    # never want on Brief regardless of priority.
     return not (source == "instagram" and _looks_like_raw_instagram_count(row))
 
 

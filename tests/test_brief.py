@@ -1681,27 +1681,27 @@ def test_pass2_bot_prompts_still_max_four_and_instagram_never_sends() -> None:
 
 
 @pytest.mark.parametrize(
-    ("priority", "expected_empty"),
-    [
-        ("normal", True),   # casual DM → excluded
-        ("low", True),      # casual DM → excluded
-        (None, True),       # missing priority defaults to normal → excluded
-        ("high", False),    # collab/deal keyword → surfaced
-        ("urgent", False),  # explicit urgent → surfaced
-    ],
+    "priority",
+    ["normal", "low", None, "high", "urgent"],
 )
-def test_instagram_new_dm_priority_filter(monkeypatch, priority, expected_empty):
-    """The Instagram DM ingest layer sets ``priority='high'`` for
-    collab/deal keywords or reel/post attachments; everything else
-    stays ``normal``. The Brief consumer path must respect that
-    signal: only high/urgent reaches the Brief. Casual chatter is
-    not a business matter and MUST NOT show up."""
+def test_instagram_new_dm_is_eligible_regardless_of_priority(
+    monkeypatch, priority
+):
+    """Business relevance for Instagram DMs is decided UPSTREAM in
+    the ingest layer: ``instagram_dms._create_manager_notification``
+    only persists a ``notifications`` row when ``dm_briefs.needs_brief``
+    returns True (serious keyword, first-from-sender) or the DM
+    carries a reel/post attachment. Once the row exists it IS a
+    business matter — the Brief must surface it regardless of
+    priority. Priority is a secondary rank, NOT an eligibility gate.
+    A normal-priority campaign inquiry MUST still appear on Brief."""
     row = {
         "id": "notif-ig-priority",
         "kind": "new_dm",
-        "title": "@nike sent a message",
+        "title": "@nike asked about a campaign",
         "body": None,
         "source_provider": "instagram",
+        "source_event_id": "instagram:message:priority",
         "source_thread_id": "ig-thread-priority",
         "underlying_type": "instagram_dm_message",
         "underlying_id": "msg-priority",
@@ -1722,7 +1722,179 @@ def test_instagram_new_dm_priority_filter(monkeypatch, priority, expected_empty)
         lambda user_id, *, limit=50, include_archived=False: [row],
     )
     view = brief_service.build_brief("u1")
-    assert view["empty"] is expected_empty
+    assert view["empty"] is False
+    item = view["needs_you"][0]
+    assert item["source"] == "instagram"
+    assert item["source_label"] == "Instagram"
+    assert item["what_happened"] == "@nike asked about a campaign"
+
+
+def test_instagram_normal_priority_business_matter_still_reaches_brief(
+    monkeypatch,
+):
+    """Regression guard for the eligibility rule the Pass 3 priority
+    gate broke. A real business inquiry that ingest persisted with
+    ``priority='normal'`` (no explicit collab keyword in the body
+    but ``needs_brief`` scored it via first-from-sender or another
+    serious signal) MUST reach the Brief."""
+    business_examples = [
+        "@brandagency asked for campaign rates",
+        "@studio followed up about deliverables",
+        "@brand shared a $3,500 budget",
+        "@sponsor asked about usage rights",
+        "@partner asked when you're available",
+        "@brand wants to move forward",
+        "@studio replied to your rate quote",
+    ]
+    rows = [
+        {
+            "id": f"notif-ig-normal-{i}",
+            "kind": "new_dm",
+            "title": title,
+            "body": None,
+            "source_provider": "instagram",
+            "source_event_id": f"instagram:message:normal-{i}",
+            "source_thread_id": f"ig-thread-normal-{i}",
+            "underlying_type": "instagram_dm_message",
+            "underlying_id": f"msg-normal-{i}",
+            "link_path": f"/creator/instagram/dms?thread=ig-thread-normal-{i}",
+            "is_read": False,
+            "priority": "normal",
+            "created_at": f"2026-09-14T12:0{i}:00Z",
+        }
+        for i, title in enumerate(business_examples)
+    ]
+    monkeypatch.setattr(
+        action_proposals_module,
+        "list_pending_for_user",
+        lambda *, user_id, limit=10: [],
+    )
+    monkeypatch.setattr(
+        notifications_module,
+        "list_for_user",
+        lambda user_id, *, limit=50, include_archived=False: rows,
+    )
+    view = brief_service.build_brief("u1")
+    assert view["empty"] is False
+    surfaced_titles = {it["what_happened"] for it in view["needs_you"]}
+    for title in business_examples:
+        assert title in surfaced_titles, (
+            f"normal-priority IG business inquiry {title!r} dropped from Brief"
+        )
+    # Every restored item still carries the correct source + label.
+    for item in view["needs_you"]:
+        assert item["source"] == "instagram"
+        assert item["source_label"] == "Instagram"
+        labels = [a["label"] for a in item["actions"]]
+        assert "send reply" not in labels
+        assert "ask babyg" in labels
+
+
+def test_instagram_raw_unread_count_still_excluded_regardless_of_priority(
+    monkeypatch,
+):
+    """The one Instagram exclusion is the raw-unread-count summary
+    row — a legacy synthetic shape (`caught 2 new instagram dms`
+    with no source_event_id/thread/underlying id). It stays out
+    of Brief no matter what priority it carries."""
+    monkeypatch.setattr(
+        action_proposals_module,
+        "list_pending_for_user",
+        lambda *, user_id, limit=10: [],
+    )
+    monkeypatch.setattr(
+        notifications_module,
+        "list_for_user",
+        lambda user_id, *, limit=50, include_archived=False: [
+            {
+                "id": "notif-ig-raw-high",
+                "kind": "manager_alert",
+                "title": "caught 4 new instagram dms",
+                "body": None,
+                "source_provider": "instagram",
+                "metadata": {"summary_type": "raw_unread_count"},
+                "is_read": False,
+                "priority": "high",  # even 'high' priority raw count is excluded
+                "created_at": "2026-09-14T12:00:00Z",
+            }
+        ],
+    )
+    assert brief_service.build_brief("u1")["empty"] is True
+
+
+def test_instagram_missing_review_route_does_not_exclude_item(monkeypatch):
+    """A real IG business matter with no `link_path` still reaches
+    Brief. The absence of a valid review destination only omits the
+    `review inquiry` action — it never suppresses the whole item.
+    `ask babyg` is enough of a doorway on its own."""
+    notif = {
+        "id": "notif-ig-noreview",
+        "kind": "new_dm",
+        "title": "@nike asked for campaign rates",
+        "body": None,
+        "source_provider": "instagram",
+        "source_event_id": "instagram:message:noreview",
+        "source_thread_id": "ig-thread-noreview",
+        "underlying_type": "instagram_dm_message",
+        "underlying_id": "msg-noreview",
+        "link_path": None,  # no valid review route
+        "is_read": False,
+        "priority": "normal",
+        "created_at": "2026-09-14T12:00:00Z",
+    }
+    monkeypatch.setattr(
+        action_proposals_module,
+        "list_pending_for_user",
+        lambda *, user_id, limit=10: [],
+    )
+    monkeypatch.setattr(
+        notifications_module,
+        "list_for_user",
+        lambda user_id, *, limit=50, include_archived=False: [notif],
+    )
+    view = brief_service.build_brief("u1")
+    assert view["empty"] is False
+    item = view["needs_you"][0]
+    labels = [a["label"] for a in item["actions"]]
+    assert "review inquiry" not in labels
+    assert labels == ["ask babyg"]
+    # ask babyg points at the exact matter.
+    ask = next(a for a in item["actions"] if a["label"] == "ask babyg")
+    assert ask["endpoint"] == "/creator/bot?brief=notif:notif-ig-noreview"
+
+
+def test_instagram_business_matter_reaches_home_brief_too(monkeypatch):
+    """Same restored IG business matter must also surface in the
+    Home Brief carousel via `home_preview_rows` — the two views
+    share the same underlying eligibility rule."""
+    notif = {
+        "id": "notif-ig-home",
+        "kind": "new_dm",
+        "title": "@brand asked for campaign rates",
+        "body": None,
+        "source_provider": "instagram",
+        "source_event_id": "instagram:message:home",
+        "source_thread_id": "ig-thread-home",
+        "underlying_type": "instagram_dm_message",
+        "underlying_id": "msg-home",
+        "link_path": "/creator/instagram/dms?thread=ig-thread-home",
+        "is_read": False,
+        "priority": "normal",
+        "created_at": "2026-09-14T12:00:00Z",
+    }
+    monkeypatch.setattr(
+        action_proposals_module,
+        "list_pending_for_user",
+        lambda *, user_id, limit=10: [],
+    )
+    monkeypatch.setattr(
+        notifications_module,
+        "list_for_user",
+        lambda user_id, *, limit=50, include_archived=False: [notif],
+    )
+    rows = brief_service.home_preview_rows("u1")
+    assert len(rows) == 1
+    assert rows[0]["slot"] == "instagram"
 
 
 def test_gmail_sweep_proposal_uses_preview_title_as_heading(monkeypatch):
