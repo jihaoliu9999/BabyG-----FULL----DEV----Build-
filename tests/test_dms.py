@@ -333,6 +333,153 @@ def test_creator_dm_list_search_filters_by_peer(client, world):
     assert "Anna Reyes" not in r.text
 
 
+# ---------------------------------------------------------------------------
+# Pinned babyg entry (mobile-only doorway into /creator/bot).
+#
+# The DM inbox becomes the mobile entry point for both native
+# conversations AND the babyg AI manager. The pinned row is a
+# DOORWAY — it links to the existing `/creator/bot` route. No manager
+# fork, no template duplication, no restyling of the canonical
+# manager. These tests lock the doorway contract.
+# ---------------------------------------------------------------------------
+
+
+def _pinned_index(html: str) -> int:
+    return html.find('class="dm-inbox-pinned"')
+
+
+def test_creator_dm_list_renders_pinned_babyg_entry(client, world):
+    """The DM inbox emits the pinned babyg entry with the exact
+    label text and role subtitle mandated by the product spec."""
+    _signed_in(client, role="creator", user_id="c-1")
+    world.add_creator(user_id="c-1")
+
+    r = client.get("/creator/dm")
+
+    assert r.status_code == 200
+    assert 'class="dm-inbox-pinned"' in r.text
+    assert 'href="/creator/bot"' in r.text
+    assert 'class="dm-inbox-pinned-name">babyg' in r.text
+    assert 'class="dm-inbox-pinned-role">your ai manager' in r.text
+    # No fake unread badge, no fake preview, no fake activity text.
+    assert 'dm-inbox-pinned-count' not in r.text
+    assert 'dm-inbox-pinned-preview' not in r.text
+
+
+def test_pinned_babyg_row_renders_above_thread_list(client, world):
+    """Source order lock: the pinned row must appear before the
+    `<ul class="dm-inbox-list">` block so it visually sits above
+    normal user DM conversations."""
+    _signed_in(client, role="creator", user_id="c-1")
+    world.add_creator(user_id="c-1")
+    world.add_creator(user_id="c-2", full_name="Anna Reyes")
+    _seed_thread(world, a="c-2", b="c-1", body="hello", sender="c-2")
+
+    r = client.get("/creator/dm")
+
+    pinned_at = _pinned_index(r.text)
+    list_at = r.text.find('<ul class="dm-inbox-list"')
+    assert pinned_at >= 0
+    assert list_at >= 0
+    assert pinned_at < list_at
+    # Normal thread rows are still there.
+    assert "Anna Reyes" in r.text
+
+
+def test_pinned_babyg_row_renders_even_when_no_conversations(client, world):
+    """Empty state: the pinned row must still render so a fresh
+    creator can reach the manager from the inbox before any
+    conversations exist."""
+    _signed_in(client, role="creator", user_id="c-1")
+    world.add_creator(user_id="c-1")
+
+    r = client.get("/creator/dm")
+
+    assert r.status_code == 200
+    assert 'class="dm-inbox-pinned"' in r.text
+    assert 'href="/creator/bot"' in r.text
+    # The empty-state copy is still emitted underneath.
+    assert "no conversations." in r.text
+
+
+def test_pinned_babyg_row_uses_no_fake_unread_or_activity_text(client, world):
+    """Product lock — the row must not invent manager status, unread
+    counts, or a recent-message preview."""
+    _signed_in(client, role="creator", user_id="c-1")
+    world.add_creator(user_id="c-1")
+
+    r = client.get("/creator/dm")
+
+    text = r.text
+    # No fake unread pill inside the pinned row.
+    pinned_start = _pinned_index(text)
+    assert pinned_start >= 0
+    pinned_block = text[pinned_start:pinned_start + 700]
+    assert "unread" not in pinned_block.lower()
+    assert "typing" not in pinned_block.lower()
+    assert "last active" not in pinned_block.lower()
+    assert "new message" not in pinned_block.lower()
+
+
+def test_pinned_babyg_row_visibility_is_mobile_only_via_css() -> None:
+    """The pinned row is scoped to mobile widths only. Desktop keeps
+    the existing tabbar babyg entry. Lock the CSS gate so a future
+    edit cannot show the row on desktop without touching this
+    file."""
+    from pathlib import Path
+
+    css = (
+        Path(__file__).resolve().parents[1]
+        / "app" / "static" / "css" / "app.css"
+    ).read_text()
+    # Top-level default: hidden.
+    assert ".dm-inbox-pinned { display: none; }" in css
+    # Visible only inside the mobile media query.
+    mobile_blocks = css.split("@media (max-width: 767px)")
+    assert any(".dm-inbox-pinned {" in block for block in mobile_blocks[1:])
+
+
+def test_manager_experience_is_not_duplicated_in_dm_templates() -> None:
+    """No second manager implementation. dm_list.html must not
+    embed the canonical `bot.html` markers (composer, chat log,
+    system prompt hooks) — the doorway only links to /creator/bot,
+    it does not recreate it."""
+    from pathlib import Path
+
+    repo = Path(__file__).resolve().parents[1]
+    dm_list = (repo / "app" / "templates" / "creator" / "dm_list.html").read_text()
+    # Canonical bot-only markers stay out of the DM list template.
+    for marker in (
+        "bot-hero",
+        "bot-messages",
+        "bot-composer",
+        "bot-log",
+        "data-bot-log",
+        "data-bot-composer",
+    ):
+        assert marker not in dm_list, marker
+    # And exactly one bot template file lives in the repo.
+    bot_templates = list((repo / "app" / "templates").rglob("bot.html"))
+    assert len(bot_templates) == 1, bot_templates
+
+
+def test_pinned_row_links_verbatim_to_existing_manager_route() -> None:
+    """The href on the pinned row is the exact existing manager
+    route `/creator/bot` — no alias, no wrapper path, no query
+    param the manager route does not already accept."""
+    from pathlib import Path
+
+    dm_list = (
+        Path(__file__).resolve().parents[1]
+        / "app" / "templates" / "creator" / "dm_list.html"
+    ).read_text()
+    # Exactly one pinned link, exactly the canonical route.
+    assert dm_list.count('class="dm-inbox-pinned"') == 1
+    pinned_block_start = dm_list.find('class="dm-inbox-pinned"')
+    pinned_block = dm_list[pinned_block_start - 200:pinned_block_start + 800]
+    assert 'href="/creator/bot"' in pinned_block
+
+
 def test_creator_dm_thread_marks_messages_read(client, world, monkeypatch):
     _signed_in(client, role="creator", user_id="c-1")
     world.add_creator(user_id="c-1")

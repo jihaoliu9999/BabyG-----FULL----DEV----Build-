@@ -15450,3 +15450,82 @@ body:has(.dm-thread-composer-box input:focus) .creator-tabbar {
 .discover-post-link:focus-visible {
   background: var(--accent-hover, #e8455f);
 }
+
+/* ==================================================================== */
+/* DM inbox: mobile-only pinned babyg entry.                             */
+/*                                                                       */
+/* Adds a doorway from /creator/dm into the existing /creator/bot         */
+/* manager. The row is hidden on desktop (>=768px) because the desktop   */
+/* tabbar already exposes babyg. All rules are scoped under              */
+/* `.dm-inbox-pinned` so no existing DM row, no bot template, and no     */
+/* other page is affected.                                                */
+/* ==================================================================== */
+
+.dm-inbox-pinned { display: none; }
+
+@media (max-width: 767px) {
+  .dm-inbox-pinned {
+    display: grid;
+    grid-template-columns: 44px 1fr 20px;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 14px;
+    margin: 0 0 4px;
+    border-bottom: 1px solid var(--hairline-strong, rgba(255,255,255,0.08));
+    background: linear-gradient(
+      180deg,
+      rgba(255,255,255,0.025),
+      rgba(255,255,255,0)
+    );
+    color: inherit;
+    text-decoration: none;
+    min-height: 64px;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .dm-inbox-pinned:active {
+    background: rgba(255,255,255,0.03);
+  }
+  .dm-inbox-pinned-avatar {
+    width: 44px;
+    height: 44px;
+    display: inline-grid;
+    place-items: center;
+    border-radius: 999px;
+    background: var(--surface-2, rgba(255,255,255,0.04));
+    overflow: hidden;
+    flex-shrink: 0;
+  }
+  .dm-inbox-pinned-avatar img {
+    width: 28px;
+    height: 28px;
+    object-fit: contain;
+  }
+  .dm-inbox-pinned-body {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    gap: 2px;
+  }
+  .dm-inbox-pinned-name {
+    font-size: 15.5px;
+    font-weight: 650;
+    color: var(--ink, #fff);
+    letter-spacing: 0;
+    line-height: 1.2;
+  }
+  .dm-inbox-pinned-role {
+    font-size: 12.5px;
+    color: var(--ink-dim, var(--text-tertiary, rgba(255,255,255,0.5)));
+    text-transform: lowercase;
+    line-height: 1.2;
+  }
+  .dm-inbox-pinned-icon {
+    color: var(--ink-dim, var(--text-tertiary, rgba(255,255,255,0.5)));
+    display: inline-grid;
+    place-items: center;
+  }
+  .dm-inbox-pinned-icon svg {
+    width: 18px;
+    height: 18px;
+  }
+}

@@ -656,3 +656,47 @@ def test_creator_mobile_typography_is_not_visually_squeezed() -> None:
         assert "letter-spacing: 0" in rule
         assert "letter-spacing: -" not in rule
         assert "font-size: clamp" not in rule
+
+
+def test_dm_inbox_pinned_babyg_row_is_mobile_only_and_grid_shaped() -> None:
+    """The pinned babyg row inside the DM inbox is a mobile-only
+    doorway into /creator/bot. Locks the CSS so a future edit
+    can't:
+
+    - Make the row visible on desktop (would clash with the
+      existing sidebar/tabbar babyg entry).
+    - Break the 3-column grid (44px avatar + 1fr body + 20px chevron).
+    - Fall below the 44px iOS tap-target requirement.
+    """
+    assert ".dm-inbox-pinned { display: none; }" in APP_CSS
+    # Inside the mobile media block: the row becomes a 3-column grid
+    # sized for touch.
+    mobile_blocks = APP_CSS.split("@media (max-width: 767px)")
+    matched = False
+    for block in mobile_blocks[1:]:
+        if ".dm-inbox-pinned {" in block[:2000] and "grid" in block[:2000]:
+            # Grab the whole rule so we can inspect the properties.
+            start = block.find(".dm-inbox-pinned {") + len(".dm-inbox-pinned {")
+            end = block.find("}", start)
+            rule = block[start:end]
+            assert "grid-template-columns: 44px 1fr 20px" in rule
+            assert "min-height: 64px" in rule
+            matched = True
+            break
+    assert matched, "mobile .dm-inbox-pinned rule not found"
+
+
+def test_dm_inbox_pinned_row_does_not_reintroduce_authenticated_prefetch() -> None:
+    """Regression guard: the pinned row is a plain anchor. The
+    doorway must not add a `rel="prefetch"` or `rel="prerender"`
+    that would re-fetch /creator/bot before the user taps it,
+    negating commit 229f88f."""
+    from pathlib import Path
+
+    dm_list = (
+        Path(__file__).resolve().parents[1]
+        / "app" / "templates" / "creator" / "dm_list.html"
+    ).read_text()
+    assert 'rel="prefetch"' not in dm_list
+    assert 'rel="prerender"' not in dm_list
+    assert 'as="document"' not in dm_list
