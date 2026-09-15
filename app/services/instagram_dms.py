@@ -428,6 +428,7 @@ def _ingest_entry(entry: dict[str, Any], stats: dict[str, int]) -> None:
                     bool(persisted.get("body")),
                     ",".join(_attachment_types(persisted.get("attachments"))),
                 )
+            _auto_evaluate_persisted_inbound_message(creator_id, persisted)
 
 
 def _resolve_creator_from_ig_account(ig_account_id: str) -> str | None:
@@ -717,6 +718,66 @@ def _create_manager_notification(
     )
 
 
+def _auto_evaluate_persisted_inbound_message(
+    creator_id: str,
+    message: dict[str, Any],
+) -> bool:
+    """Evaluate a genuinely new inbound Instagram DM after persistence.
+
+    This is called only after `_persist_message` has returned a stored message
+    context. Duplicate webhook deliveries return None before this point, so
+    Meta retries do not trigger extra AI evaluations.
+    """
+    direction = str(message.get("direction") or "")
+    if direction != "inbound":
+        logger.info(
+            "instagram_dms.auto_evaluation.skipped user=%s reason=not_inbound direction=%s",
+            creator_id,
+            direction or "missing",
+        )
+        return False
+    thread_id = str(message.get("thread_id") or "").strip()
+    if not thread_id:
+        logger.info(
+            "instagram_dms.auto_evaluation.skipped user=%s reason=missing_thread",
+            creator_id,
+        )
+        return False
+    try:
+        result = evaluate_thread_for_creator(creator_id, thread_id)
+    except Exception:
+        logger.exception(
+            "instagram_dms.auto_evaluation.failed user=%s thread=%s",
+            creator_id,
+            thread_id,
+        )
+        return False
+    state = str(result.get("state") or "unknown")
+    if not result.get("ok"):
+        logger.info(
+            "instagram_dms.auto_evaluation.skipped user=%s thread=%s state=%s",
+            creator_id,
+            thread_id,
+            state,
+        )
+        return False
+    evaluation = result.get("evaluation") if isinstance(result, dict) else {}
+    worth = ""
+    if isinstance(evaluation, dict):
+        worth = _first_evaluation_text(
+            evaluation.get("Worth responding?"),
+            evaluation.get("worth_responding"),
+        )
+    logger.info(
+        "instagram_dms.auto_evaluation.ok user=%s thread=%s state=%s worth=%s",
+        creator_id,
+        thread_id,
+        state,
+        worth[:24] if worth else "unknown",
+    )
+    return True
+
+
 def _looks_like_collab_or_deal(body: str) -> bool:
     norm = (body or "").lower()
     return any(
@@ -734,6 +795,16 @@ def _looks_like_collab_or_deal(body: str) -> bool:
             "deadline",
         )
     )
+
+
+def _first_evaluation_text(*values: Any) -> str:
+    for value in values:
+        if value is None:
+            continue
+        text = " ".join(str(value).split()).strip()
+        if text:
+            return text
+    return ""
 
 
 def _latest_message(messages: list[dict[str, Any]]) -> dict[str, Any] | None:

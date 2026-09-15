@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+import json
 import logging
 from typing import Any
 
+import pytest
+
+from app.integrations.anthropic_client import ClaudeNotConfiguredError, ClaudeResponse
+from app.services import brief as brief_service
 from app.services import instagram_dms
 
 
@@ -16,6 +21,7 @@ class _FakeSupabase:
         self.oauth_rows: list[dict] = []
         self.threads: list[dict] = []
         self.messages: list[dict] = []
+        self.evaluations: list[dict] = []
         self.notifications: list[dict] = []
         self._table_id_seq = 0
         self.raise_on: set[str] = set()
@@ -80,12 +86,21 @@ class _FakeTable:
         self._update_payload = payload
         return self
 
+    def _matches(self, row: dict) -> bool:
+        for key, value in self._filter.items():
+            if isinstance(value, list):
+                if row.get(key) not in value:
+                    return False
+            elif row.get(key) != value:
+                return False
+        return True
+
     def execute(self):
         # Handle the filter-first paths (select or update)
         if self.name == "oauth_connections":
             rows = [
                 r for r in self.store.oauth_rows
-                if all(r.get(k) == v for k, v in self._filter.items())
+                if self._matches(r)
             ]
             return _Result(rows)
         if self.name == "instagram_dm_threads":
@@ -102,7 +117,7 @@ class _FakeTable:
             # select
             rows = [
                 r for r in self.store.threads
-                if all(r.get(k) == v for k, v in self._filter.items())
+                if self._matches(r)
                 and all(
                     (r.get(k) or 0) > v for k, v in self._gt_filter.items()
                 )
@@ -127,7 +142,7 @@ class _FakeTable:
                 return _Result([stored])
             rows = [
                 r for r in self.store.messages
-                if all(r.get(k) == v for k, v in self._filter.items())
+                if self._matches(r)
             ]
             return _Result(rows)
         if self.name == "notifications":
@@ -152,6 +167,16 @@ class _FakeTable:
                 stored = {**self._insert_row, "id": self.store.next_id()}
                 self.store.notifications.append(stored)
                 return _Result([stored])
+        if self.name == "instagram_dm_evaluations":
+            if self._insert_row is not None:
+                stored = {**self._insert_row, "id": self.store.next_id()}
+                self.store.evaluations.append(stored)
+                return _Result([stored])
+            rows = [
+                r for r in self.store.evaluations
+                if self._matches(r)
+            ]
+            return _Result(rows)
         return _Result([])
 
 
@@ -166,6 +191,95 @@ def _install(monkeypatch) -> _FakeSupabase:
         instagram_dms.supabase_client, "get_service_client", lambda: fake
     )
     return fake
+
+
+@pytest.fixture(autouse=True)
+def _no_real_claude(monkeypatch) -> None:
+    def _not_configured(**_kwargs):
+        raise ClaudeNotConfiguredError("test default: no real Claude calls")
+
+    monkeypatch.setattr(instagram_dms.anthropic_client, "complete_chat", _not_configured)
+
+
+def _mock_claude_evaluation(monkeypatch, *, worth: str, summary: str) -> list[str]:
+    prompts: list[str] = []
+
+    def _complete(**kwargs):
+        prompts.append(str(kwargs["messages"][0]["content"]))
+        return ClaudeResponse(
+            text=json.dumps({
+                "summary": summary,
+                "worth_responding": worth,
+                "why": "stored Instagram evidence was evaluated",
+                "opportunity": (
+                    "paid campaign opportunity" if worth.lower() == "yes" else "none"
+                ),
+                "risk": "scope unknown",
+                "urgency": "not urgent",
+                "missing_information": "usage rights and timeline",
+                "suggested_next_steps": "ask for campaign scope before quoting",
+            })
+        )
+
+    monkeypatch.setattr(instagram_dms.anthropic_client, "complete_chat", _complete)
+    return prompts
+
+
+def _connect_brief_to_fake(monkeypatch, fake: _FakeSupabase, *, instagram: bool = True) -> None:
+    monkeypatch.setattr(brief_service.supabase_client, "get_service_client", lambda: fake)
+    monkeypatch.setattr(brief_service.action_proposals, "list_pending_for_user", lambda **_kw: [])
+    monkeypatch.setattr(brief_service.notifications, "list_for_user", lambda *_a, **_kw: [])
+    monkeypatch.setattr(brief_service.oauth_connections, "get_google_connection", lambda _user_id: None)
+    monkeypatch.setattr(
+        brief_service.oauth_connections,
+        "get_instagram_connection",
+        lambda user_id: {
+            "user_id": user_id,
+            "access_token": "present",
+            "provider_account_id": "acct-1",
+        }
+        if instagram
+        else None,
+    )
+    monkeypatch.setattr(brief_service.oauth_connections, "google_gmail_connected", lambda _c: False)
+    monkeypatch.setattr(brief_service.oauth_connections, "google_gmail_compose_connected", lambda _c: False)
+    monkeypatch.setattr(brief_service.oauth_connections, "google_gmail_send_connected", lambda _c: False)
+    monkeypatch.setattr(brief_service.oauth_connections, "google_calendar_connected", lambda _c: False)
+
+
+def _payload(
+    *,
+    account_id: str = "acct-1",
+    peer_id: str = "peer-99",
+    mid: str,
+    text: str | None = None,
+    username: str | None = "brandco",
+    is_echo: bool = False,
+    attachments: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    message: dict[str, Any] = {"mid": mid}
+    if text is not None:
+        message["text"] = text
+    if is_echo:
+        message["is_echo"] = True
+    if attachments is not None:
+        message["attachments"] = attachments
+    sender = {"id": account_id if is_echo else peer_id}
+    recipient = {"id": peer_id if is_echo else account_id}
+    if username and not is_echo:
+        sender["username"] = username
+    return {
+        "object": "instagram",
+        "entry": [{
+            "id": account_id,
+            "messaging": [{
+                "sender": sender,
+                "recipient": recipient,
+                "timestamp": 1699999999000,
+                "message": message,
+            }],
+        }],
+    }
 
 
 # ---- top-level guards ------------------------------------------------
@@ -327,6 +441,76 @@ def test_ingest_resolves_actual_instagram_login_webhook_user_id_shape(
     assert len(fake.notifications) == 1
 
 
+def test_new_inbound_business_dm_auto_evaluates_and_brief_consumes(
+    monkeypatch,
+) -> None:
+    fake = _install(monkeypatch)
+    fake.oauth_rows = [
+        {"user_id": "creator-1", "provider": "instagram", "provider_account_id": "acct-1"}
+    ]
+    prompts = _mock_claude_evaluation(
+        monkeypatch,
+        worth="yes",
+        summary="brand wants rates for a paid reels campaign",
+    )
+
+    stats = instagram_dms.ingest_webhook_payload(
+        _payload(
+            mid="m-business",
+            text=(
+                "We're interested in a paid campaign. Looking for 2 reels. "
+                "Can you send your rates?"
+            ),
+        )
+    )
+
+    assert stats["messages_ingested"] == 1
+    assert len(fake.messages) == 1
+    assert len(prompts) == 1
+    assert "paid campaign" in prompts[0]
+    assert len(fake.evaluations) == 1
+    evaluation = fake.evaluations[0]
+    assert evaluation["creator_id"] == "creator-1"
+    assert evaluation["thread_id"] == fake.threads[0]["id"]
+    assert evaluation["message_id"] == fake.messages[0]["id"]
+    assert evaluation["result"]["Worth responding?"] == "yes"
+
+    _connect_brief_to_fake(monkeypatch, fake)
+    cards = brief_service.build_brief("creator-1")["cards"]
+    assert any(
+        card["platform"] == "instagram"
+        and "paid reels campaign" in card["headline"]
+        for card in cards
+    )
+
+
+def test_noise_inbound_dm_auto_evaluates_but_brief_does_not_surface(
+    monkeypatch,
+) -> None:
+    fake = _install(monkeypatch)
+    fake.oauth_rows = [
+        {"user_id": "creator-1", "provider": "instagram", "provider_account_id": "acct-1"}
+    ]
+    prompts = _mock_claude_evaluation(
+        monkeypatch,
+        worth="no",
+        summary="casual compliment",
+    )
+
+    stats = instagram_dms.ingest_webhook_payload(
+        _payload(mid="m-noise", text="love your content")
+    )
+
+    assert stats["messages_ingested"] == 1
+    assert len(prompts) == 1
+    assert len(fake.evaluations) == 1
+    assert fake.evaluations[0]["result"]["Worth responding?"] == "no"
+    assert fake.notifications == []
+
+    _connect_brief_to_fake(monkeypatch, fake)
+    assert brief_service.build_brief("creator-1")["cards"] == []
+
+
 def test_ingest_does_not_route_by_messaging_recipient_id(monkeypatch, caplog) -> None:
     fake = _install(monkeypatch)
     fake.oauth_rows = [
@@ -357,6 +541,33 @@ def test_ingest_does_not_route_by_messaging_recipient_id(monkeypatch, caplog) ->
     assert fake.notifications == []
     log_text = "\n".join(r.getMessage() for r in caplog.records)
     assert "instagram_dms.resolve_creator.not_found" in log_text
+
+
+def test_multi_user_event_auto_evaluates_only_resolved_creator(
+    monkeypatch,
+) -> None:
+    fake = _install(monkeypatch)
+    fake.oauth_rows = [
+        {"user_id": "creator-a", "provider": "instagram", "provider_account_id": "acct-a"},
+        {"user_id": "creator-b", "provider": "instagram", "provider_account_id": "acct-b"},
+    ]
+    calls: list[tuple[str, str]] = []
+
+    def _evaluate(user_id: str, thread_id: str):
+        calls.append((user_id, thread_id))
+        return {"ok": True, "state": "success", "evaluation": {"Worth responding?": "yes"}}
+
+    monkeypatch.setattr(instagram_dms, "evaluate_thread_for_creator", _evaluate)
+
+    stats = instagram_dms.ingest_webhook_payload(
+        _payload(account_id="acct-a", mid="m-a", text="paid campaign?")
+    )
+
+    assert stats["messages_ingested"] == 1
+    assert fake.messages[0]["creator_id"] == "creator-a"
+    assert fake.threads[0]["creator_id"] == "creator-a"
+    assert calls == [("creator-a", fake.threads[0]["id"])]
+    assert all(row.get("creator_id") != "creator-b" for row in fake.messages)
 
 
 def test_ingest_important_inbound_message_creates_manager_notification(
@@ -493,6 +704,27 @@ def test_ingest_recognizes_outbound_echo(monkeypatch) -> None:
     assert fake.threads[0]["unread_count"] == 0
 
 
+def test_outgoing_message_does_not_trigger_auto_evaluation(monkeypatch) -> None:
+    fake = _install(monkeypatch)
+    fake.oauth_rows = [
+        {"user_id": "creator-1", "provider": "instagram", "provider_account_id": "acct-1"}
+    ]
+    calls: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        instagram_dms,
+        "evaluate_thread_for_creator",
+        lambda user_id, thread_id: calls.append((user_id, thread_id)) or {"ok": True},
+    )
+
+    stats = instagram_dms.ingest_webhook_payload(
+        _payload(mid="m-outgoing", text="thanks", is_echo=True)
+    )
+
+    assert stats["messages_ingested"] == 1
+    assert fake.messages[0]["direction"] == "outbound"
+    assert calls == []
+
+
 # ---- idempotence -----------------------------------------------------
 
 
@@ -522,6 +754,30 @@ def test_ingest_duplicate_message_is_no_op(monkeypatch) -> None:
     assert len(fake.notifications) == 0
 
 
+def test_duplicate_webhook_does_not_trigger_duplicate_auto_evaluation(
+    monkeypatch,
+) -> None:
+    fake = _install(monkeypatch)
+    fake.oauth_rows = [
+        {"user_id": "creator-1", "provider": "instagram", "provider_account_id": "acct-1"}
+    ]
+    calls: list[tuple[str, str]] = []
+
+    def _evaluate(user_id: str, thread_id: str):
+        calls.append((user_id, thread_id))
+        return {"ok": True, "state": "success", "evaluation": {"Worth responding?": "no"}}
+
+    monkeypatch.setattr(instagram_dms, "evaluate_thread_for_creator", _evaluate)
+    payload = _payload(mid="m-dupe", text="paid collab rates?")
+
+    instagram_dms.ingest_webhook_payload(payload)
+    instagram_dms.ingest_webhook_payload(payload)
+
+    assert len(fake.messages) == 1
+    assert len(calls) == 1
+    assert calls[0] == ("creator-1", fake.threads[0]["id"])
+
+
 def test_ingest_duplicate_important_message_dedupes_notification(
     monkeypatch,
 ) -> None:
@@ -546,6 +802,61 @@ def test_ingest_duplicate_important_message_dedupes_notification(
     assert len(fake.messages) == 1
     assert fake.threads[0]["unread_count"] == 1
     assert len(fake.notifications) == 1
+
+
+def test_new_business_message_re_evaluates_existing_thread(monkeypatch) -> None:
+    fake = _install(monkeypatch)
+    fake.oauth_rows = [
+        {"user_id": "creator-1", "provider": "instagram", "provider_account_id": "acct-1"}
+    ]
+    fake.threads = [
+        {
+            "id": "thread-existing",
+            "creator_id": "creator-1",
+            "ig_thread_id": "peer-99",
+            "ig_peer_user_id": "peer-99",
+            "peer_username": "brandco",
+            "unread_count": 0,
+        }
+    ]
+    fake.messages = [
+        {
+            "id": "old-message",
+            "thread_id": "thread-existing",
+            "creator_id": "creator-1",
+            "ig_message_id": "m-old",
+            "direction": "inbound",
+            "sender_ig_id": "peer-99",
+            "body": "love your work",
+            "attachments": [],
+            "received_at": "2026-09-10T01:00:00Z",
+        }
+    ]
+    fake.evaluations = [
+        {
+            "id": "eval-old",
+            "creator_id": "creator-1",
+            "thread_id": "thread-existing",
+            "message_id": "old-message",
+            "result": {"Worth responding?": "no", "Summary": "casual compliment"},
+        }
+    ]
+    prompts = _mock_claude_evaluation(
+        monkeypatch,
+        worth="yes",
+        summary="new paid campaign request needs a reply",
+    )
+
+    stats = instagram_dms.ingest_webhook_payload(
+        _payload(mid="m-new-business", text="Can you send rates for a paid campaign?")
+    )
+
+    assert stats["messages_ingested"] == 1
+    assert len(prompts) == 1
+    assert "paid campaign" in prompts[0]
+    assert len(fake.evaluations) == 2
+    assert fake.evaluations[-1]["thread_id"] == "thread-existing"
+    assert fake.evaluations[-1]["result"]["Worth responding?"] == "yes"
 
 
 # ---- malformed messaging entries survive -----------------------------
@@ -609,7 +920,65 @@ def test_ingest_skips_unsupported_webhook_event(monkeypatch, caplog) -> None:
     assert "read" in log_text
 
 
+def test_unsupported_webhook_event_does_not_trigger_auto_evaluation(
+    monkeypatch,
+) -> None:
+    fake = _install(monkeypatch)
+    fake.oauth_rows = [
+        {"user_id": "creator-1", "provider": "instagram", "provider_account_id": "acct-1"}
+    ]
+    calls: list[tuple[str, str]] = []
+    monkeypatch.setattr(
+        instagram_dms,
+        "evaluate_thread_for_creator",
+        lambda user_id, thread_id: calls.append((user_id, thread_id)) or {"ok": True},
+    )
+
+    stats = instagram_dms.ingest_webhook_payload({
+        "object": "instagram",
+        "entry": [{
+            "id": "acct-1",
+            "messaging": [{
+                "sender": {"id": "peer-99"},
+                "recipient": {"id": "acct-1"},
+                "timestamp": 1699999999000,
+                "read": {"watermark": 1699999999000},
+            }],
+        }],
+    })
+
+    assert stats["messages_ingested"] == 0
+    assert fake.messages == []
+    assert calls == []
+
+
 # ---- crashes never propagate ----------------------------------------
+
+
+def test_auto_evaluation_failure_keeps_persisted_message(
+    monkeypatch,
+    caplog,
+) -> None:
+    fake = _install(monkeypatch)
+    fake.oauth_rows = [
+        {"user_id": "creator-1", "provider": "instagram", "provider_account_id": "acct-1"}
+    ]
+
+    def _raise(_user_id: str, _thread_id: str):
+        raise RuntimeError("evaluator down")
+
+    monkeypatch.setattr(instagram_dms, "evaluate_thread_for_creator", _raise)
+
+    with caplog.at_level(logging.ERROR):
+        stats = instagram_dms.ingest_webhook_payload(
+            _payload(mid="m-eval-fails", text="paid campaign?")
+        )
+
+    assert stats["messages_ingested"] == 1
+    assert stats["errors"] == 0
+    assert len(fake.messages) == 1
+    assert fake.evaluations == []
+    assert any("instagram_dms.auto_evaluation.failed" in rec.message for rec in caplog.records)
 
 
 def test_ingest_survives_supabase_crash_on_resolve(monkeypatch) -> None:
