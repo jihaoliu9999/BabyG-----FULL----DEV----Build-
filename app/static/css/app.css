@@ -15450,3 +15450,176 @@ body:has(.dm-thread-composer-box input:focus) .creator-tabbar {
 .discover-post-link:focus-visible {
   background: var(--accent-hover, #e8455f);
 }
+
+/* =========================================================
+   Brief — visual pass 1
+   Scoped to `.brief-feed` + `.brief-card*`. Every value comes
+   from existing babyg design tokens (no new palette, no new
+   font, no new radius scale). Mobile is canonical: one
+   continuous vertical feed, cards full-width within the
+   existing creator content margin. Desktop constrains the
+   same feed into a centered readable column. Nothing here
+   affects Home, Discover, Calendar, DM, Bot, Settings or
+   Notifications.
+   ========================================================= */
+.brief-feed {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 16px 24px;
+  max-width: 640px;
+  margin: 0 auto;
+}
+.brief-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 14px 12px;
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  background: var(--surface-1, #111);
+  color: var(--ink);
+}
+.brief-card[data-brief-urgent] {
+  border-color: rgba(255, 59, 107, 0.28);
+}
+.brief-card-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.brief-card-source {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.brief-card-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  color: var(--ink-mid);
+  flex-shrink: 0;
+}
+.brief-card-icon svg {
+  width: 18px;
+  height: 18px;
+}
+.brief-card-icon img {
+  width: 18px;
+  height: 18px;
+  object-fit: contain;
+  border-radius: 4px;
+}
+.brief-card-platform {
+  font-size: 13.5px;
+  color: var(--ink);
+  letter-spacing: 0.005em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.brief-card-tags {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+.brief-card-type {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  color: var(--ink-dim);
+  padding: 2px 8px;
+  border: 1px solid var(--hairline-strong);
+  border-radius: 999px;
+  background: rgba(255,255,255,0.015);
+  white-space: nowrap;
+}
+.brief-card-urgent {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  color: #ff3b6b;
+  padding: 2px 8px;
+  border: 1px solid rgba(255, 59, 107, 0.35);
+  border-radius: 999px;
+  background: rgba(255, 59, 107, 0.06);
+  white-space: nowrap;
+}
+.brief-card-headline {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.35;
+  color: var(--ink);
+  overflow-wrap: anywhere;
+}
+.brief-card-context {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.35;
+  color: var(--ink-mid);
+  overflow-wrap: anywhere;
+}
+.brief-card-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+.brief-card-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  text-decoration: none;
+  border: 1px solid var(--hairline-strong);
+  color: var(--ink);
+  background: transparent;
+}
+.brief-card-action-primary {
+  background: var(--surface-3, #1c1c1c);
+}
+.brief-card-action-ghost {
+  color: var(--ink-mid);
+}
+.brief-card-action[aria-disabled="true"] {
+  cursor: default;
+}
+
+/* Mobile (≤ 430px): identical structure — only spacing tightens
+   slightly so the card row still reads on 375px without wrapping
+   the tag chips onto a second line. */
+@media (max-width: 430px) {
+  .brief-feed {
+    padding: 10px 14px 24px;
+    gap: 10px;
+  }
+  .brief-card {
+    padding: 12px 12px 12px;
+    border-radius: 12px;
+  }
+  .brief-card-headline {
+    font-size: 14.5px;
+  }
+  .brief-card-context {
+    font-size: 12.5px;
+  }
+}
+@media (max-width: 375px) {
+  .brief-card-platform {
+    font-size: 13px;
+  }
+  .brief-card-type,
+  .brief-card-urgent {
+    padding: 2px 7px;
+    font-size: 10px;
+  }
+}

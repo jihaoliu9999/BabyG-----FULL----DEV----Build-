@@ -695,6 +695,30 @@ async def deals_list(
     )
 
 
+@router.get("/creator/brief", response_class=HTMLResponse)
+async def brief_page(
+    request: Request,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    """Brief visual pass 1 — static prototype.
+
+    The page renders a locked mock card feed defined inside the
+    template. No provider calls, no Supabase reads for card data,
+    no persistence, no counts, no cross-feature side effects. The
+    only context handed to the template is the standard `profile`
+    plus the onboarding redirect the rest of the creator surface
+    uses. Real Brief aggregation lands in a later pass.
+    """
+    profile = profiles.get_creator_profile_cached(session["user_id"], request) or {}
+    if not profile.get("onboarding_completed_at"):
+        return RedirectResponse("/onboarding/creator", status_code=302)
+    return templates.TemplateResponse(
+        request,
+        "creator/brief.html",
+        {"profile": profile},
+    )
+
+
 @router.get("/creator/deals/{deal_id}", response_class=HTMLResponse)
 async def deals_detail(
     request: Request,
