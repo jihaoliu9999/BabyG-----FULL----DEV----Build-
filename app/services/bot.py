@@ -1241,6 +1241,28 @@ def _build_prompt_context(
     except Exception:
         # Never let a snapshot failure blank the whole turn context.
         pass
+
+    # Durable rolling summary for this creator (creator_agent_memory,
+    # migration 0037). Already scoped `.eq("user_id", user_id)` inside
+    # ``agent_memory.load`` and bounded to ``SUMMARY_MAX_CHARS`` at
+    # write time, so a full row is always safe to inject as-is. The
+    # background agent loop injects the same artifact in exactly this
+    # way (`babyg_agent_loop._build_prompt`); reusing it here closes
+    # the asymmetry where the interactive turn "forgot" anything the
+    # background loop had already learned about the creator. Rendered
+    # under one ``memory`` key by ``_format_context``. Loaded once per
+    # turn; a load failure logs internally and returns None, so the
+    # turn continues without memory context (never raises).
+    try:
+        from app.services import agent_memory
+
+        memory_row = agent_memory.load(user_id)
+        summary = (memory_row.get("summary") or "").strip() if memory_row else ""
+        if summary:
+            ctx["memory"] = "\n" + summary
+    except Exception:
+        # Same defense-in-depth as the awareness snapshot above.
+        pass
     return ctx
 
 
