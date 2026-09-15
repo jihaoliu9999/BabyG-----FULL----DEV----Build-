@@ -1,12 +1,10 @@
-"""Home v5 — mobile spec conformance.
+"""Home v5 — mobile-canonical spec conformance.
 
-The home v5 layout is a fixed five-section stack:
+The home v5 layout is a fixed three-section stack on every viewport:
 
-  1. babyg status pill  (● babyg · N connected chevron)
-  2. primary manager update  (or the compact clear state)
-  3. next  (upcoming booking, connect-calendar row, or nothing)
-  4. brief  (≤3 real-signal rows, no filler)
-  5. handled + watching  (two compact tiles side-by-side)
+  1. brief
+  2. calendar
+  3. connected
 
 These tests lock in the section contract + real-data-only rules.
 Service calls are stubbed so we never hit Supabase.
@@ -249,25 +247,38 @@ def stub_dashboard(monkeypatch):
 
 
 # ---------------------------------------------------------------------------
-# section 1: status pill — live connected count, no hardcoding
+# removed top surfaces — Home starts at brief
 # ---------------------------------------------------------------------------
 
 
-def test_status_pill_renders_with_zero_connected(
+def test_removed_top_surfaces_do_not_render(
     client: TestClient, stub_dashboard
-    ) -> None:
+) -> None:
     _signed_in(client)
     r = client.get("/creator")
     assert r.status_code == 200
-    # Always the `babyg` name, never `manager status`.
-    assert "manager status" not in r.text
-    assert "hv5-status-name" in r.text
-    assert ">babyg<" in r.text
-    # Real dynamic count — 0 when nothing is connected.
-    assert "0 connected" in r.text
+    assert "hv5-status" not in r.text
+    assert "hv5-primary" not in r.text
+    assert "hv5-clear" not in r.text
+    assert "you're clear." not in r.text
+    assert "handled" not in r.text
+    assert "watching" not in r.text
+    assert "hv5-tile" not in r.text
 
 
-def test_status_pill_counts_only_actual_connections(
+def test_home_section_order_is_brief_calendar_connected(
+    client: TestClient, stub_dashboard
+) -> None:
+    _signed_in(client)
+    r = client.get("/creator")
+    assert r.status_code == 200
+    brief_pos = r.text.index(">brief<")
+    calendar_pos = r.text.index(">calendar<")
+    connected_pos = r.text.index(">connected<")
+    assert brief_pos < calendar_pos < connected_pos
+
+
+def test_connected_section_uses_real_provider_state(
     client: TestClient, stub_dashboard
 ) -> None:
     _signed_in(client)
@@ -276,164 +287,34 @@ def test_status_pill_counts_only_actual_connections(
     stub_dashboard["google_calendar_connected"] = False
     r = client.get("/creator")
     assert r.status_code == 200
-    assert "2 connected" in r.text
-    # The disconnected calendar row is still rendered inside the panel
-    # so the creator can tap to connect it.
-    assert "not connected" in r.text
+    assert ">connected<" in r.text
+    assert 'data-slot="instagram"' in r.text
+    assert 'data-slot="gmail"' in r.text
+    assert 'data-slot="calendar"' in r.text
+    assert 'aria-label="Instagram connected"' in r.text
+    assert 'aria-label="Gmail connected"' in r.text
+    assert 'aria-label="Calendar not connected"' in r.text
+    assert 'href="/creator/instagram/dms"' in r.text
+    assert 'href="/creator/dm"' in r.text
+    assert 'href="/creator/profile/settings#integrations"' in r.text
 
 
-def test_status_pill_counts_all_three(client: TestClient, stub_dashboard) -> None:
-    _signed_in(client)
-    stub_dashboard["instagram_connected"] = True
-    stub_dashboard["google_gmail_connected"] = True
-    stub_dashboard["google_calendar_connected"] = True
-    r = client.get("/creator")
-    assert r.status_code == 200
-    assert "3 connected" in r.text
-
-
-def test_status_pill_excludes_needs_reconnect_from_count(
+def test_connected_section_marks_reconnect_state(
     client: TestClient, stub_dashboard
 ) -> None:
-    """A stale connection that needs reconnecting is NOT counted as
-    connected — the count reflects working integrations."""
     _signed_in(client)
     stub_dashboard["instagram_connected"] = True
     stub_dashboard["instagram_needs_reconnect"] = True
-    stub_dashboard["google_gmail_connected"] = True
     r = client.get("/creator")
     assert r.status_code == 200
-    # Only Gmail counts because IG needs reconnect.
-    assert "1 connected" in r.text
-    assert "reconnect" in r.text
-
-
-# ---------------------------------------------------------------------------
-# section 2: primary manager update / clear state
-# ---------------------------------------------------------------------------
-
-
-def test_primary_falls_back_to_clear_state_when_nothing_pending(
-    client: TestClient, stub_dashboard
-) -> None:
-    _signed_in(client)
-    r = client.get("/creator")
-    assert r.status_code == 200
-    assert "you're clear." in r.text
-    # No fake primary card when there's nothing real to say.
-    assert "hv5-primary-title" not in r.text
-
-
-def test_primary_renders_top_pending_action(
-    client: TestClient, stub_dashboard
-) -> None:
-    _signed_in(client)
-    stub_dashboard["pending_actions"] = [
-        {
-            "id": "prop-1",
-            "action_type": "instagram.send_dm",
-            "created_at": "2026-09-08T12:00:00Z",
-            "preview": {
-                "title": "reply to instagram dm",
-                "body": "thanks, will review.",
-            },
-        }
-    ]
-    r = client.get("/creator")
-    assert r.status_code == 200
-    assert "hv5-primary-title" in r.text
-    assert "reply to instagram dm" in r.text
-    assert 'href="/creator/bot#action-prop-1"' in r.text
-    # Clear state must be gone when a real primary card is shown.
-    assert "you're clear." not in r.text
-
-
-def test_primary_single_slide_shows_no_carousel_indicator(
-    client: TestClient, stub_dashboard
-) -> None:
-    _signed_in(client)
-    stub_dashboard["pending_actions"] = [
-        {
-            "id": "prop-1",
-            "action_type": "gmail.create_draft",
-            "created_at": "2026-09-08T12:00:00Z",
-            "preview": {"title": "draft reply", "body": "quick note"},
-        }
-    ]
-    r = client.get("/creator")
-    assert r.status_code == 200
-    # No dot indicator, no count.
-    assert "hv5-primary-dots" not in r.text
-    assert "hv5-primary-count" not in r.text
-    # Not tagged as a carousel.
-    assert 'class="hv5-primary hv5-primary-carousel"' not in r.text
-    # Still uses the same outer box class.
-    assert 'class="hv5-primary"' in r.text
-
-
-def test_primary_two_or_more_slides_becomes_carousel(
-    client: TestClient, stub_dashboard
-) -> None:
-    _signed_in(client)
-    stub_dashboard["pending_actions"] = [
-        {
-            "id": "prop-1",
-            "action_type": "gmail.create_draft",
-            "created_at": "2026-09-08T10:00:00Z",
-            "preview": {"title": "first draft"},
-        },
-        {
-            "id": "prop-2",
-            "action_type": "calendar.create_event",
-            "created_at": "2026-09-08T11:00:00Z",
-            "preview": {"title": "second event"},
-        },
-    ]
-    r = client.get("/creator")
-    assert r.status_code == 200
-    # Same outer box, now marked as carousel.
-    assert "hv5-primary-carousel" in r.text
-    # Dot indicator + count present.
-    assert "hv5-primary-dots" in r.text
-    assert "hv5-primary-count" in r.text
-    # Count total is dynamic (2), not hardcoded.
-    assert "/ <span>2</span>" in r.text
-    # Both slides rendered.
-    assert 'href="/creator/bot#action-prop-1"' in r.text
-    assert 'href="/creator/bot#action-prop-2"' in r.text
-
-
-def test_primary_carousel_puts_highest_priority_first(
-    client: TestClient, stub_dashboard
-) -> None:
-    """High-stakes gmail.send_email should render before an older
-    create_booking proposal, even though the booking is older."""
-    _signed_in(client)
-    stub_dashboard["pending_actions"] = [
-        {
-            "id": "old-booking",
-            "action_type": "create_booking",
-            "created_at": "2026-09-01T09:00:00Z",
-            "preview": {"title": "old booking"},
-        },
-        {
-            "id": "urgent-mail",
-            "action_type": "gmail.send_email",
-            "created_at": "2026-09-08T09:00:00Z",
-            "preview": {"title": "urgent send"},
-        },
-    ]
-    r = client.get("/creator")
-    urgent_pos = r.text.find("action-urgent-mail")
-    booking_pos = r.text.find("action-old-booking")
-    assert urgent_pos < booking_pos < urgent_pos + 4000  # both present, urgent first
+    assert "needs-attention" in r.text
+    assert 'aria-label="Instagram needs reconnect"' in r.text
 
 
 def test_native_dm_shows_as_babyg_not_instagram(
     client: TestClient, stub_dashboard, monkeypatch
 ) -> None:
-    """A native babyg unread DM surfaces as source='babyg' and its
-    action opens /creator/dm/{thread_id} — NEVER Instagram."""
+    """A native unread DM does not create a Home manager card."""
     _signed_in(client)
     monkeypatch.setattr(
         home_briefing_module.dms, "list_threads_for_user",
@@ -460,10 +341,8 @@ def test_native_dm_shows_as_babyg_not_instagram(
     )
     r = client.get("/creator")
     assert r.status_code == 200
-    assert 'data-source="babyg"' in r.text
-    assert 'href="/creator/dm/native-thread-1"' in r.text
-    assert "New message from Sam" in r.text
-    # Must not route to Instagram
+    assert "New message from Sam" not in r.text
+    assert 'href="/creator/dm/native-thread-1"' not in r.text
     assert 'href="/creator/instagram/dms#thread-native-thread-1"' not in r.text
 
 
@@ -485,69 +364,40 @@ def test_bare_new_dm_notification_never_shows_as_instagram(
     ]
     r = client.get("/creator")
     assert r.status_code == 200
-    # The ambiguous notification is silently skipped -> clear state.
-    assert "you're clear." in r.text
-    # And explicitly not tagged as Instagram anywhere.
+    # The ambiguous notification is silently skipped.
+    assert "New message" not in r.text
     assert 'data-source="instagram"' not in r.text
 
 
-def test_instagram_dm_notification_requires_source_provider(
+def test_instagram_brief_row_preserves_source_provider(
     client: TestClient, stub_dashboard
 ) -> None:
     _signed_in(client)
-    stub_dashboard["unread_notifs"] = [
+    stub_dashboard["brief_rows"] = [
         {
-            "id": "ig-dm-1",
-            "kind": "new_dm",
+            "slot": "instagram",
             "title": "New message from @brand",
-            "body": "collab?",
-            "link_path": "/creator/instagram/dms#thread-ig-1",
-            "source_provider": "instagram",
-            "priority": "high",
+            "detail": "collab?",
+            "href": "/creator/brief",
             "created_at": "2026-09-08T12:00:00Z",
         }
     ]
     r = client.get("/creator")
     assert r.status_code == 200
-    assert 'data-source="instagram"' in r.text
-    assert "/creator/instagram/dms#thread-ig-1" in r.text
+    assert 'data-slot="instagram"' in r.text
+    assert "New message from @brand" in r.text
+    assert 'href="/creator/brief"' in r.text
 
 
-def test_home_page_has_no_right_facing_chevrons(
-    client: TestClient, stub_dashboard
-) -> None:
-    """Home-wide rule from the spec: no `>` navigation chevrons (unicode single-right-pointing quotation-mark included)."""
-    _signed_in(client)
-    r = client.get("/creator")
-    assert r.status_code == 200
-    # Locate the main home content only (skip the shared base template
-    # nav/footer areas that might include chevrons for reasons outside
-    # this spec's scope).
-    body = r.text
-    home_start = body.find('class="creator-home hv5"')
-    home_end = body.find("</main>", home_start)
-    home_html = body[home_start:home_end]
-    assert "›" not in home_html  # noqa: RUF001
-    # `>` shows up as HTML syntax everywhere; only the "text" > chevron
-    # would be a problem. The generic form doesn't survive as visible
-    # text without &gt; escaping (Jinja auto-escapes). Just double-check
-    # no literal &gt; navigation chip appears.
-    assert "&gt;</a>" not in home_html
-    assert "&gt;</span>" not in home_html
-
-
-def test_status_pill_uses_caret_not_chevron(
+def test_home_visible_controls_have_real_hrefs(
     client: TestClient, stub_dashboard
 ) -> None:
     _signed_in(client)
     r = client.get("/creator")
     assert r.status_code == 200
-    assert "hv5-status-caret" in r.text
-    # No right-chevron on the pill.
-    body = r.text
-    pill_start = body.find('class="hv5-status-pill"')
-    pill_end = body.find("</summary>", pill_start)
-    assert "›" not in body[pill_start:pill_end]  # noqa: RUF001
+    assert 'href="/creator/brief"' in r.text
+    assert 'href="/creator/calendar"' in r.text
+    assert 'href="/creator/profile/settings#integrations"' in r.text
 
 
 # ---------------------------------------------------------------------------
@@ -609,7 +459,7 @@ def test_next_hides_row_when_connected_with_no_bookings(
     assert "view calendar" in r.text
     # No connect prompt, no invented event row.
     assert "connect calendar" not in r.text.lower()
-    assert "nothing on the books" in r.text
+    assert "nothing scheduled" in r.text
 
 
 # ---------------------------------------------------------------------------
@@ -624,7 +474,9 @@ def test_brief_is_hidden_when_no_real_signals(
     r = client.get("/creator")
     assert r.status_code == 200
     # No fabricated brief rows when nothing real is available.
-    assert ">brief<" not in r.text
+    assert ">brief<" in r.text
+    assert 'class="hv5-brief-row"' not in r.text
+    assert "nothing in your brief" in r.text
 
 
 def test_brief_surfaces_real_brief_preview(
@@ -648,6 +500,26 @@ def test_brief_surfaces_real_brief_preview(
     assert 'href="/creator/brief"' in r.text
 
 
+def test_brief_connection_request_uses_babyg_icon_and_copy(
+    client: TestClient, stub_dashboard
+) -> None:
+    _signed_in(client)
+    stub_dashboard["brief_rows"] = [
+        {
+            "slot": "babyg",
+            "title": "Someone wants to connect.",
+            "detail": "A new creator or brand sent you a connection request.",
+            "href": "/creator/brief",
+            "created_at": "2026-09-08T12:00:00Z",
+        }
+    ]
+    r = client.get("/creator")
+    assert r.status_code == 200
+    assert "Someone wants to connect on babyg" in r.text
+    assert 'data-slot="babyg"' in r.text
+    assert "logo-bg.png" in r.text
+
+
 def test_brief_caps_at_three_rows(client: TestClient, stub_dashboard) -> None:
     _signed_in(client)
     stub_dashboard["brief_rows"] = [
@@ -658,58 +530,6 @@ def test_brief_caps_at_three_rows(client: TestClient, stub_dashboard) -> None:
     r = client.get("/creator")
     assert r.status_code == 200
     assert r.text.count('class="hv5-brief-row"') == 3
-
-
-# ---------------------------------------------------------------------------
-# section 5: handled + watching
-# ---------------------------------------------------------------------------
-
-
-def test_handled_shows_real_count_or_calm_zero(
-    client: TestClient, stub_dashboard
-) -> None:
-    _signed_in(client)
-    r = client.get("/creator")
-    assert r.status_code == 200
-    assert "hv5-tile-handled" in r.text
-    assert "nothing yet today" in r.text
-
-
-def test_handled_shows_real_count_when_nonzero(
-    client: TestClient, stub_dashboard
-) -> None:
-    _signed_in(client)
-    stub_dashboard["handled_today"] = 4
-    r = client.get("/creator")
-    assert r.status_code == 200
-    assert "4 things today" in r.text
-
-
-def test_watching_shows_zero_state_calmly(
-    client: TestClient, stub_dashboard
-) -> None:
-    _signed_in(client)
-    r = client.get("/creator")
-    assert r.status_code == 200
-    assert "hv5-tile-watching" in r.text
-    assert "nothing tracked" in r.text
-
-
-def test_watching_composes_from_real_state(
-    client: TestClient, stub_dashboard
-) -> None:
-    _signed_in(client)
-    stub_dashboard["pending_actions"] = [
-        {"id": "p-1", "action_type": "gmail.create_draft"},
-        {"id": "p-2", "action_type": "calendar.create_event"},
-    ]
-    stub_dashboard["matched_picks"] = [
-        {"card_id": "op-1", "card_kind": "opportunity", "title": "X"}
-    ]
-    r = client.get("/creator")
-    assert r.status_code == 200
-    assert "2 deals" in r.text
-    assert "1 opportunity" in r.text
 
 
 # ---------------------------------------------------------------------------
@@ -896,12 +716,12 @@ def test_home_mobile_calendar_omits_hourly_grid_markup_footprint(
     stub_dashboard["google_calendar_connected"] = True
     r = client.get("/creator")
     assert r.status_code == 200
-    # The compact per-day list block is present.
-    assert 'data-home-day-events' in r.text
+    # The compact week event list block is present.
+    assert 'creator-home-day-events' in r.text
     assert 'creator-home-day-list' in r.text
-    # The full hourly grid is still in the template (kept for desktop)
-    # but is behind a mobile-hide CSS rule scoped to
-    # [data-home-calendar]. The route must render both.
+    # The old hourly grid does not render on Home at any viewport.
+    assert "calendar-home-grid" not in r.text
+    assert "calendar-week-head" not in r.text
     assert 'data-home-calendar' in r.text
 
 
@@ -912,8 +732,8 @@ def test_home_mobile_calendar_renders_all_seven_day_cells(
     stub_dashboard["google_calendar_connected"] = True
     r = client.get("/creator")
     assert r.status_code == 200
-    # Each of the seven days gets a data-home-day cell.
-    day_cell_count = r.text.count('data-home-day="')
+    # Each of the seven days links to its real Calendar destination.
+    day_cell_count = r.text.count('/creator/calendar?view=day&date=')
     assert day_cell_count == 7
 
 
@@ -955,57 +775,37 @@ def test_home_mobile_calendar_all_day_event_shows_all_day_label(
     ]
     r = client.get("/creator")
     assert r.status_code == 200
-    assert "ALL DAY" in r.text
+    assert "all day" in r.text
     assert "shoot day" in r.text
 
 
 # ---------------------------------------------------------------------------
-# Home day-picker JS data-attribute contract
+# Home week-strip explicit navigation contract
 # ---------------------------------------------------------------------------
 
 
-def test_home_day_picker_js_is_loaded(client: TestClient, stub_dashboard) -> None:
-    """The mobile day-picker JS must be included on Home. Without it,
-    tapping a different day cannot switch the visible per-day list."""
+def test_home_calendar_no_longer_loads_day_picker_js(
+    client: TestClient, stub_dashboard
+) -> None:
+    """Home day cells navigate explicitly to Calendar instead of relying
+    on a separate in-page picker script."""
     _signed_in(client)
     stub_dashboard["google_calendar_connected"] = True
     r = client.get("/creator")
     assert r.status_code == 200
-    assert "/static/js/creator_home_calendar.js" in r.text
+    assert "/static/js/creator_home_calendar.js" not in r.text
 
 
-def test_home_day_picker_markup_carries_required_data_attrs(
+def test_home_week_strip_uses_real_calendar_links(
     client: TestClient, stub_dashboard
 ) -> None:
-    """The JS binds on these three attributes. If any of them drops
-    off in a future template edit the picker silently breaks."""
     _signed_in(client)
     stub_dashboard["google_calendar_connected"] = True
     r = client.get("/creator")
     body = r.text
-    assert 'data-home-day-strip' in body
-    assert 'data-home-day-events' in body
-    assert body.count('data-home-day="') == 7
-    assert body.count('data-home-day-list="') == 7
-
-
-def test_home_day_picker_js_uses_closest_selector(monkeypatch) -> None:
-    """Belt-and-suspenders lookup — the bug was that plain
-    getAttribute-on-target ancestor-walking mis-fired on iOS Safari
-    when the tap landed on the inner <strong>. The fixed script
-    uses element.closest() to hop straight to the anchor."""
-    src = HOME_CALENDAR_JS.read_text()
-    assert ".closest(" in src
-    assert "preventDefault" in src
-    assert "stopPropagation" in src
-
-
-def test_home_day_picker_js_binds_per_cell_not_delegation(monkeypatch) -> None:
-    """Direct per-cell binding is the mobile-Safari-safe pattern.
-    Lock the shape."""
-    src = HOME_CALENDAR_JS.read_text()
-    # Function that binds a single cell exists.
-    assert "function bindCell" in src or "function attach" in src
+    assert 'data-home-day-strip' not in body
+    assert 'data-home-day-events' not in body
+    assert body.count('/creator/calendar?view=day&date=') == 7
 
 
 # ---------------------------------------------------------------------------

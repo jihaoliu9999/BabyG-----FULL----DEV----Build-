@@ -63,8 +63,11 @@ def home_preview_rows(user_id: str) -> list[dict[str, Any]]:
     return [
         {
             "slot": card["platform"],
+            "source_label": card["platform_label"],
+            "matter_type": card["matter_type"],
             "title": card["headline"],
             "detail": card["context"],
+            "created_at": card["created_at"],
             "href": "/creator/brief",
         }
         for card in brief["cards"][:HOME_PREVIEW_LIMIT]

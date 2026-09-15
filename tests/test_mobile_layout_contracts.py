@@ -347,62 +347,36 @@ def test_creator_settings_work_links_use_uniform_bold_text() -> None:
     assert "text-transform: none" in rule
 
 
-def test_home_v5_status_pill_fits_mobile() -> None:
-    """The status pill is a compact 34px control that sits in the top
-    section — it must never balloon to a full-width card or push into
-    the primary card's space."""
-    pill_rule = APP_CSS.split(
-        ".creator-home.hv5 .hv5-status-pill {", 1
-    )[1].split("}", 1)[0]
-    assert "height: 34px" in pill_rule
-    assert "display: inline-flex" in pill_rule
-    # The pill must be a summary of a details element so the panel
-    # is a click-to-expand disclosure (native, no JS).
-    assert '<details class="hv5-status"' in DASHBOARD_TEMPLATE
-    assert "hv5-status-count" in DASHBOARD_TEMPLATE
-    assert "home_v5_status.connected_count" in DASHBOARD_TEMPLATE
-    # Never hardcode `manager status` — v5 shows the lowercase `babyg` label.
-    assert "manager status" not in DASHBOARD_TEMPLATE
+def test_home_v5_removed_top_surfaces_stay_removed() -> None:
+    assert "hv5-status" not in DASHBOARD_TEMPLATE
+    assert "hv5-primary" not in DASHBOARD_TEMPLATE
+    assert "hv5-clear" not in DASHBOARD_TEMPLATE
+    assert "hv5-tile" not in DASHBOARD_TEMPLATE
+    assert "handled" not in DASHBOARD_TEMPLATE
+    assert "watching" not in DASHBOARD_TEMPLATE
 
 
-def test_home_v5_handled_watching_pair_is_mobile_safe() -> None:
-    """The handled + watching row is two side-by-side tiles at standard
-    mobile widths. On very narrow widths (<360) they stack cleanly."""
-    pair_rule = APP_CSS.split(
-        ".creator-home.hv5 .hv5-pair {", 1
+def test_home_v5_connected_cards_are_mobile_safe() -> None:
+    grid_rule = APP_CSS.split(
+        ".creator-home.hv5 .hv5-connected-grid {", 1
     )[1].split("}", 1)[0]
-    tile_rule = APP_CSS.split(
-        ".creator-home.hv5 .hv5-tile {", 1
+    card_rule = APP_CSS.split(
+        ".creator-home.hv5 .hv5-connected-card {", 1
     )[1].split("}", 1)[0]
-    assert "grid-template-columns: repeat(2, minmax(0, 1fr))" in pair_rule
-    assert "min-height: 76px" in tile_rule
-    # Narrow-width safety: stack to a single column at 320-359.
-    assert (
-        "@media (max-width: 359px) {" in APP_CSS
-        and "grid-template-columns: 1fr" in APP_CSS
-    )
-    # Both tiles are anchors with real hrefs, no dead chevrons.
-    assert '<a class="hv5-tile hv5-tile-handled"' in DASHBOARD_TEMPLATE
-    assert '<a class="hv5-tile hv5-tile-watching"' in DASHBOARD_TEMPLATE
+    assert "grid-template-columns: repeat(3, minmax(0, 1fr))" in grid_rule
+    assert "min-height: 96px" in card_rule
+    assert "overflow-wrap: anywhere" in APP_CSS
+    assert 'class="hv5-connected-card' in DASHBOARD_TEMPLATE
+    assert "home_v5_status.rows" in DASHBOARD_TEMPLATE
 
 
 def test_home_v5_section_order_matches_spec() -> None:
-    """The v5 section order is fixed:
-       status pill → primary → brief → calendar → handled/watching.
-
-    Brief above calendar is a spec-mandated ordering — a real Google
-    Calendar event added by the user should not push the brief off
-    the top of the visible screen area."""
-    status_pos = DASHBOARD_TEMPLATE.index("hv5-status")
-    # Primary card + clear state both live in the same section slot, one
-    # rendered per request. Pick the earlier of whichever markers exist.
-    primary_pos = DASHBOARD_TEMPLATE.index("hv5-primary")
-    clear_pos = DASHBOARD_TEMPLATE.index("hv5-clear")
-    primary_slot_pos = min(primary_pos, clear_pos)
+    """The v5 section order is fixed on every device:
+       brief → calendar → connected."""
     brief_pos = DASHBOARD_TEMPLATE.index(">brief<")
     calendar_pos = DASHBOARD_TEMPLATE.index(">calendar<")
-    pair_pos = DASHBOARD_TEMPLATE.index("hv5-pair")
-    assert status_pos < primary_slot_pos < brief_pos < calendar_pos < pair_pos
+    connected_pos = DASHBOARD_TEMPLATE.index(">connected<")
+    assert brief_pos < calendar_pos < connected_pos
 
 
 def test_hidden_brand_topbar_does_not_reserve_mobile_space() -> None:

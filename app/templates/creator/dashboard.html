@@ -2,330 +2,151 @@
 
 {% block title %}home — babyg{% endblock %}
 
+{% macro source_icon(slot) -%}
+  {%- if slot == 'instagram' -%}
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17" cy="7" r="1" fill="currentColor" stroke="none"/></svg>
+  {%- elif slot == 'gmail' -%}
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="2.8" y="5.7" width="18.4" height="12.6" rx="1.8" fill="#fff"/><path d="M3.2 7.2 12 13.6l8.8-6.4" stroke="#ea4335" stroke-width="1.8" stroke-linejoin="round"/><path d="M3 18.1V7.3l3.3 2.4v8.4z" fill="#4285f4"/><path d="M21 18.1V7.3l-3.3 2.4v8.4z" fill="#34a853"/><path d="m3.2 7.2 8.8 6.4 8.8-6.4v1.9L12 15.5 3.2 9.1z" fill="#ea4335"/></svg>
+  {%- elif slot == 'calendar' -%}
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="16" rx="2.2" fill="#fff"/><path d="M3.5 8.6h17" stroke="#4285f4" stroke-width="1.5"/><rect x="3.5" y="4.5" width="17" height="16" rx="2.2" stroke="#4285f4" stroke-width="1.5"/><text x="12" y="17" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="8" font-weight="700" fill="#4285f4">31</text></svg>
+  {%- else -%}
+    <img src="/static/assets/logo-bg.png" alt="" />
+  {%- endif -%}
+{%- endmacro %}
+
+{% macro connection_label(row) -%}
+  {%- if row.slot == 'calendar' -%}Calendar{%- else -%}{{ row.label }}{%- endif -%}
+{%- endmacro %}
+
 {% block content %}
-{# home v5 — matches the mobile spec screenshot.
-
-   Section order (fixed, mobile canonical):
-     1. babyg status pill (● babyg · N connected) + expanded rows
-     2. primary manager update (or compact clear state)
-     3. brief (up to 3 rows, real data only)
-     4. calendar (compact week strip + selected-day events on mobile;
-        desktop keeps the existing week hourly grid)
-     5. handled + watching (two compact side-by-side cards)
-
-   Every value comes from real state via home_briefing service.
-   No top wordmark, no hero greeting — content starts at the pill.
-#}
 <main class="creator-home hv5" data-page="home-v5">
-
-  {# ---------------- 1. babyg status pill ---------------- #}
-  <section class="hv5-section">
-    <details class="hv5-status" data-hv5-status>
-      <summary class="hv5-status-pill" aria-label="integrations">
-        <span class="hv5-status-dot" aria-hidden="true"></span>
-        <span class="hv5-status-name">babyg</span>
-        <span class="hv5-status-sep" aria-hidden="true">·</span>
-        <span class="hv5-status-count">{{ home_v5_status.connected_count }} connected</span>
-        <span class="hv5-status-caret" aria-hidden="true">
-          <svg viewBox="0 0 12 12" width="10" height="10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4.5l3 3 3-3"/></svg>
-        </span>
-      </summary>
-      <div class="hv5-status-panel">
-        {% for row in home_v5_status.rows %}
-        <a href="{{ row.open_href if row.connected and not row.needs_reconnect else row.connect_href }}"
-           class="hv5-status-row"
-           data-slot="{{ row.slot }}">
-          <span class="hv5-brand hv5-brand-{{ row.slot }}" aria-hidden="true">
-            {% if row.slot == 'instagram' %}
-              {# restrained mono-stroke ig icon — deliberately NOT the rainbow gradient #}
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="3.5" y="3.5" width="17" height="17" rx="5"/>
-                <circle cx="12" cy="12" r="4"/>
-                <circle cx="17" cy="7" r="1" fill="currentColor" stroke="none"/>
-              </svg>
-            {% elif row.slot == 'gmail' %}
-              {# recognizable gmail M envelope with brand-red accent #}
-              <svg viewBox="0 0 24 24" fill="none">
-                <rect x="2.5" y="5.5" width="19" height="13" rx="1.5" fill="#fff" stroke="#e0e0e0" stroke-width="0.6"/>
-                <path d="M2.5 6.5l9.5 7 9.5-7" stroke="#c5221f" stroke-width="1.6" stroke-linejoin="round" fill="none"/>
-                <path d="M2.5 18.5V7l3 2v9.5z" fill="#4285f4"/>
-                <path d="M21.5 18.5V7l-3 2v9.5z" fill="#34a853"/>
-                <path d="M12 13.5l-9.5-7v.8l9.5 7 9.5-7v-.8z" fill="#c5221f"/>
-              </svg>
-            {% elif row.slot == 'calendar' %}
-              {# recognizable google calendar block with blue frame + red day #}
-              <svg viewBox="0 0 24 24" fill="none">
-                <rect x="3.5" y="4.5" width="17" height="16" rx="2" fill="#fff" stroke="#4285f4" stroke-width="1.4"/>
-                <path d="M3.5 8.5h17" stroke="#4285f4" stroke-width="1.4"/>
-                <text x="12" y="17" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="8" font-weight="700" fill="#4285f4">31</text>
-                <rect x="7.5" y="2.6" width="1.4" height="3.4" rx="0.7" fill="#4285f4"/>
-                <rect x="15.1" y="2.6" width="1.4" height="3.4" rx="0.7" fill="#4285f4"/>
-              </svg>
-            {% endif %}
-          </span>
-          <span class="hv5-status-row-body">
-            <span class="hv5-status-row-title">{{ row.label }}</span>
-            <span class="hv5-status-row-sub">
-              {%- if row.needs_reconnect -%}needs reconnect
-              {%- elif row.connected -%}connected
-              {%- else -%}not connected
-              {%- endif -%}
-            </span>
-          </span>
-          <span class="hv5-status-row-action">{{ row.action_label }}</span>
-        </a>
-        {% endfor %}
-      </div>
-    </details>
-  </section>
-
-  {# ---------------- 2. primary manager update ----------------
-     One outer box. 0 slides -> clear state. 1 -> single card, no
-     carousel UI. 2+ -> swipeable carousel with dot indicator + count.
-     Outer .hv5-primary dimensions never change with slide count. #}
-  {% if home_v5_primary_slides %}
-  {% set _slide_count = home_v5_primary_slides|length %}
-  <section class="hv5-section">
-    <div class="hv5-primary{% if _slide_count > 1 %} hv5-primary-carousel{% endif %}"
-         data-hv5-carousel="{{ _slide_count }}"
-         {% if _slide_count > 1 %}role="region" aria-roledescription="carousel" aria-label="manager notifications"{% endif %}>
-      <div class="hv5-primary-track" data-hv5-track>
-        {% for slide in home_v5_primary_slides %}
-        <a class="hv5-slide" href="{{ slide.primary_href }}"
-           data-source="{{ slide.source }}"
-           data-slide-index="{{ loop.index0 }}"
-           {% if _slide_count > 1 %}role="group" aria-roledescription="slide" aria-label="{{ loop.index }} of {{ _slide_count }}"{% endif %}>
-          <div class="hv5-primary-head">
-            <span class="hv5-primary-icon hv5-brand-{{ slide.source }}" aria-hidden="true">
-              {% if slide.source == 'instagram' %}
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17" cy="7" r="1" fill="currentColor" stroke="none"/></svg>
-              {% elif slide.source == 'gmail' %}
-                <svg viewBox="0 0 24 24" fill="none"><rect x="2.5" y="5.5" width="19" height="13" rx="1.5" fill="#fff" stroke="#e0e0e0" stroke-width="0.6"/><path d="M2.5 6.5l9.5 7 9.5-7" stroke="#c5221f" stroke-width="1.6" fill="none"/><path d="M2.5 18.5V7l3 2v9.5z" fill="#4285f4"/><path d="M21.5 18.5V7l-3 2v9.5z" fill="#34a853"/><path d="M12 13.5l-9.5-7v.8l9.5 7 9.5-7v-.8z" fill="#c5221f"/></svg>
-              {% elif slide.source == 'calendar' %}
-                <svg viewBox="0 0 24 24" fill="none"><rect x="3.5" y="4.5" width="17" height="16" rx="2" fill="#fff" stroke="#4285f4" stroke-width="1.4"/><path d="M3.5 8.5h17" stroke="#4285f4" stroke-width="1.4"/><text x="12" y="17" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="8" font-weight="700" fill="#4285f4">31</text><rect x="7.5" y="2.6" width="1.4" height="3.4" rx="0.7" fill="#4285f4"/><rect x="15.1" y="2.6" width="1.4" height="3.4" rx="0.7" fill="#4285f4"/></svg>
-              {% else %}
-                {# native babyg — flame/orb mark, NEVER an Instagram gradient. #}
-                <img src="/static/assets/logo-bg.png" alt="" style="width:100%;height:100%;object-fit:contain;" />
-              {% endif %}
-            </span>
-            <div class="hv5-primary-meta">
-              <span class="hv5-primary-category">{{ slide.category }}</span>
-            </div>
-            {% set _ago = slide.created_at|human_ago %}
-            {% if _ago %}<span class="hv5-primary-time">{{ _ago }}</span>{% endif %}
-          </div>
-          <h2 class="hv5-primary-title">{{ slide.title }}</h2>
-          {% if slide.body %}<p class="hv5-primary-body">{{ slide.body }}</p>{% endif %}
-          <div class="hv5-primary-actions">
-            <span class="hv5-btn hv5-btn-primary">{{ slide.primary_label }}</span>
-            <span class="hv5-btn hv5-btn-ghost">{{ slide.secondary_label }}</span>
-          </div>
-        </a>
-        {% endfor %}
-      </div>
-      {% if _slide_count > 1 %}
-      <div class="hv5-primary-indicator" aria-hidden="true">
-        <div class="hv5-primary-dots" data-hv5-dots>
-          {% for slide in home_v5_primary_slides %}
-          <span class="hv5-primary-dot{% if loop.index0 == 0 %} is-active{% endif %}"
-                data-dot-index="{{ loop.index0 }}"></span>
-          {% endfor %}
-        </div>
-        <span class="hv5-primary-count" data-hv5-count>
-          <span data-hv5-current>1</span> / <span>{{ _slide_count }}</span>
-        </span>
-      </div>
-      {% endif %}
-    </div>
-  </section>
-  {% else %}
-  <section class="hv5-section">
-    <div class="hv5-clear">
-      <span class="hv5-clear-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l5 5L20 6"/></svg>
-      </span>
-      <div class="hv5-clear-body">
-        <strong>you're clear.</strong>
-        <span>nothing needs your attention right now.</span>
-      </div>
-    </div>
-  </section>
-  {% endif %}
-
-  {# ---------------- 3. brief ---------------- #}
-  {% if home_v5_brief %}
-  <section class="hv5-section">
+  <section class="hv5-section hv5-section-brief">
     <div class="hv5-head">
       <h2 class="hv5-head-title">brief</h2>
       <a class="hv5-head-link" href="/creator/brief">view all</a>
     </div>
+    {% if home_v5_brief %}
     <div class="hv5-brief">
       {% for row in home_v5_brief %}
+      {% set _title = row.title %}
+      {% set _title_key = (row.title or '')|lower|trim %}
+      {% if row.slot == 'babyg' and _title_key in ['someone wants to connect', 'someone wants to connect.'] %}
+        {% set _title = 'Someone wants to connect on babyg' %}
+      {% endif %}
       <a class="hv5-brief-row" href="{{ row.href }}" data-slot="{{ row.slot }}">
-        <span class="hv5-brief-icon" aria-hidden="true">
-          {% if row.slot == 'performance' %}
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-8"/><path d="M22 20H2"/></svg>
-          {% elif row.slot == 'instagram' %}
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17" cy="7" r="1" fill="currentColor" stroke="none"/></svg>
-          {% elif row.slot == 'opportunity' %}
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21h6"/><path d="M12 17v4"/><path d="M7 8a5 5 0 1 1 10 0c0 3-3 4-3 6H10c0-2-3-3-3-6z"/></svg>
-          {% else %}
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v4l3 3"/></svg>
-          {% endif %}
-        </span>
+        <span class="hv5-brief-icon hv5-brand-{{ row.slot }}" aria-hidden="true">{{ source_icon(row.slot) }}</span>
         <span class="hv5-brief-body">
-          <strong>{{ row.title }}</strong>
-          {% if row.detail %}<small>{{ row.detail }}</small>{% endif %}
+          <span class="hv5-brief-title">{{ _title }}</span>
+          {% if row.detail %}<span class="hv5-brief-detail">{{ row.detail }}</span>{% endif %}
+        </span>
+        <span class="hv5-row-meta">
+          {% set _ago = row.created_at|human_ago if row.created_at else '' %}
+          {% if _ago %}<span class="hv5-row-time">{{ _ago }}</span>{% endif %}
+          <span class="hv5-row-chevron" aria-hidden="true">&#8250;</span>
         </span>
       </a>
       {% endfor %}
     </div>
-  </section>
-  {% endif %}
-
-  {# ---------------- 4. calendar ---------------- #}
-  <section class="hv5-section" data-home-calendar>
-    <div class="hv5-head">
-      <h2 class="hv5-head-title">calendar</h2>
-      <a class="hv5-head-link" href="/creator/calendar">view calendar</a>
-    </div>
-    {% if not calendar_connected %}
-    <a class="hv5-next-row hv5-next-connect" href="/creator/profile/settings#integrations">
-      <span class="hv5-brand hv5-brand-calendar" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none"><rect x="3.5" y="4.5" width="17" height="16" rx="2" fill="#fff" stroke="#4285f4" stroke-width="1.4"/><path d="M3.5 8.5h17" stroke="#4285f4" stroke-width="1.4"/><rect x="7.5" y="2.6" width="1.4" height="3.4" rx="0.7" fill="#4285f4"/><rect x="15.1" y="2.6" width="1.4" height="3.4" rx="0.7" fill="#4285f4"/></svg>
-      </span>
-      <span class="hv5-next-body">
-        <strong>connect calendar</strong>
-        <small>see calls and deadlines here</small>
-      </span>
-    </a>
     {% else %}
-    <div class="creator-calendar-week-preview">
-      <div class="calendar-home-range">{{ calendar_grid.week_start.strftime('%b %d') }} - {{ calendar_grid.week_end.strftime('%b %d') }}</div>
-      {# 7-day strip — visible on BOTH mobile + desktop. Tapping a day
-         on mobile updates the selected-day event list below (via
-         creator_home_calendar.js). #}
-      <div class="calendar-mobile-days" aria-label="current week days" data-home-day-strip>
-        {% for day in calendar_grid.week_days %}
-        <a class="{{ 'is-selected' if day.is_today }} {{ 'is-today' if day.is_today }}"
-           href="/creator/calendar?view=day&date={{ day.iso }}"
-           data-home-day="{{ day.iso }}">
-          <span>{{ day.weekday|upper }}</span><strong>{{ day.day }}</strong>
-        </a>
-        {% endfor %}
-      </div>
-      {# MOBILE — compact selected-day event list. One block per day is
-         rendered; JS toggles visibility. All hidden except today by
-         default. Never shows the hourly grid. #}
-      <div class="creator-home-day-events" data-home-day-events>
-        {% for day in calendar_grid.week_days %}
-        <ol class="creator-home-day-list"
-            data-home-day-list="{{ day.iso }}"
-            {% if not day.is_today %}hidden{% endif %}>
-          {% for event in day.all_day_events %}
-          <li>
-            <a href="/creator/calendar/{{ event.id }}">
-              <span class="creator-home-day-time">ALL DAY</span>
-              <span class="creator-home-day-title">{{ event.title }}</span>
-            </a>
-          </li>
-          {% endfor %}
-          {% for event in day.timed_events %}
-          <li>
-            <a href="/creator/calendar/{{ event.id }}">
-              <span class="creator-home-day-time">{{ event.time_label }}</span>
-              <span class="creator-home-day-title">{{ event.title }}</span>
-            </a>
-          </li>
-          {% endfor %}
-          {% if not day.all_day_events and not day.timed_events %}
-          <li class="creator-home-day-empty"><span>nothing scheduled</span></li>
-          {% endif %}
-        </ol>
-        {% endfor %}
-      </div>
-      {# DESKTOP — original week hourly grid, preserved verbatim. Hidden
-         on mobile via CSS. #}
-      <div class="calendar-week-head">
-        <div class="calendar-time-gutter"></div>
-        {% for day in calendar_grid.week_days %}
-        <a class="calendar-day-head {{ 'is-today' if day.is_today }}" href="/creator/calendar?view=day&date={{ day.iso }}"><span>{{ day.weekday }}</span><strong>{{ day.day }}</strong></a>
-        {% endfor %}
-      </div>
-      <div class="calendar-all-day-row">
-        <div class="calendar-time-gutter"><span>all-day</span></div>
-        {% for day in calendar_grid.week_days %}
-        <div class="calendar-all-day-cell {{ 'is-selected' if day.is_selected }}">
-          {% for event in day.all_day_events[:2] %}<a href="/creator/calendar/{{ event.id }}" class="calendar-all-day-event">{{ event.title }}</a>{% endfor %}
-        </div>
-        {% endfor %}
-      </div>
-      <div class="calendar-time-grid calendar-home-grid">
-        <div class="calendar-time-column">
-          {% for hour in calendar_grid.hours %}{% if hour.hour >= 6 and hour.hour <= 22 %}<span style="top: calc(({{ hour.hour }} - 6) * var(--calendar-hour-h));">{{ hour.label }}</span>{% endif %}{% endfor %}
-        </div>
-        {% for day in calendar_grid.week_days %}
-        <div class="calendar-day-column {{ 'is-selected' if day.is_selected }}">
-          {% for hour in calendar_grid.hours %}{% if hour.hour >= 6 and hour.hour <= 22 %}<span class="calendar-hour-line" style="top: calc(({{ hour.hour }} - 6) * var(--calendar-hour-h));"></span>{% endif %}{% endfor %}
-          {% for event in day.timed_events %}
-          {% if event.start_dt.hour >= 6 and event.start_dt.hour <= 22 %}
-          <a href="/creator/calendar/{{ event.id }}" class="calendar-timed-event" style="top: {{ ((event.start_dt.hour * 60 + event.start_dt.minute - 360) / 1020 * 100) }}%; height: max(28px, {{ event.height_pct * 1440 / 1020 }}%); left: calc({{ event.left_pct }}% + 3px); width: calc({{ event.width_pct }}% - 6px);">
-            <strong>{{ event.title }}</strong>
-            <span>{{ event.time_label }}</span>
-          </a>
-          {% endif %}
-          {% endfor %}
-        </div>
-        {% endfor %}
-      </div>
-      {% if not upcoming_bookings %}
-      <a class="creator-calendar-empty calendar-home-empty" href="/creator/calendar">
-        <span><strong>nothing on the books</strong><small>your connected calendar has no events this week.</small></span>
-        <span class="creator-row-chevron" aria-hidden="true">&#8250;</span>
-      </a>
-      {% endif %}
+    <div class="hv5-empty-row">
+      <span class="hv5-empty-icon hv5-brand-babyg" aria-hidden="true">{{ source_icon('babyg') }}</span>
+      <span>
+        <strong>nothing in your brief</strong>
+        <small>real manager items will appear here.</small>
+      </span>
     </div>
     {% endif %}
   </section>
 
-  {# ---------------- 5. handled + watching ---------------- #}
-  <section class="hv5-section hv5-pair">
-    <a class="hv5-tile hv5-tile-handled" href="/creator/bot">
-      <span class="hv5-tile-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/></svg>
-      </span>
-      <span class="hv5-tile-title">handled</span>
-      <span class="hv5-tile-sub">
-        {%- if home_v5_handled_count and home_v5_handled_count > 0 -%}
-          {{ home_v5_handled_count }} thing{{ 's' if home_v5_handled_count != 1 else '' }} today
-        {%- else -%}
-          nothing yet today
-        {%- endif -%}
-      </span>
-    </a>
-    <a class="hv5-tile hv5-tile-watching" href="/creator/discover">
-      <span class="hv5-tile-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="14" r="4"/><circle cx="17" cy="14" r="4"/><path d="M11 14h2"/><path d="M5 10l2-4"/><path d="M19 10l-2-4"/></svg>
-      </span>
-      <span class="hv5-tile-title">watching</span>
-      <span class="hv5-tile-sub">
-        {%- set _deals = home_v5_watching.deals -%}
-        {%- set _opps = home_v5_watching.opportunities -%}
-        {%- if _deals == 0 and _opps == 0 -%}
-          nothing tracked
-        {%- else -%}
-          {%- if _deals > 0 -%}{{ _deals }} deal{{ 's' if _deals != 1 else '' }}{%- endif -%}
-          {%- if _deals > 0 and _opps > 0 -%} · {%- endif -%}
-          {%- if _opps > 0 -%}{{ _opps }} opportunit{{ 'ies' if _opps != 1 else 'y' }}{%- endif -%}
-        {%- endif -%}
-      </span>
-    </a>
+  <section class="hv5-section hv5-section-calendar" data-home-calendar>
+    <div class="hv5-head">
+      <h2 class="hv5-head-title">calendar</h2>
+      <a class="hv5-head-link" href="/creator/calendar">view calendar</a>
+    </div>
+    <div class="hv5-calendar-card">
+      <div class="calendar-mobile-days" aria-label="current week days">
+        {% for day in calendar_grid.week_days %}
+        <a class="{{ 'is-selected' if day.is_today }} {{ 'is-today' if day.is_today }}"
+           href="/creator/calendar?view=day&date={{ day.iso }}">
+          <span>{{ day.weekday|upper }}</span><strong>{{ day.day }}</strong>
+        </a>
+        {% endfor %}
+      </div>
+      <div class="creator-home-day-events">
+        <ol class="creator-home-day-list">
+          {% if calendar_connected %}
+            {% set event_rows = namespace(count=0) %}
+            {% for day in calendar_grid.week_days %}
+              {% for event in day.all_day_events %}
+              {% set event_rows.count = event_rows.count + 1 %}
+              <li>
+                <a href="/creator/calendar/{{ event.id }}">
+                  <span class="creator-home-day-time">{{ day.weekday }}<br>all day</span>
+                  <span class="creator-home-day-divider" aria-hidden="true"></span>
+                  <span class="creator-home-day-body">
+                    <strong>{{ event.title }}</strong>
+                    {% if event.venue_name %}<small>{{ event.venue_name }}</small>{% endif %}
+                  </span>
+                  <span class="hv5-row-chevron" aria-hidden="true">&#8250;</span>
+                </a>
+              </li>
+              {% endfor %}
+              {% for event in day.timed_events %}
+              {% set event_rows.count = event_rows.count + 1 %}
+              <li>
+                <a href="/creator/calendar/{{ event.id }}">
+                  <span class="creator-home-day-time">{{ day.weekday }}<br>{{ event.start_label }}</span>
+                  <span class="creator-home-day-divider" aria-hidden="true"></span>
+                  <span class="creator-home-day-body">
+                    <strong>{{ event.title }}</strong>
+                    {% if event.venue_name %}<small>{{ event.venue_name }}</small>{% endif %}
+                  </span>
+                  <span class="hv5-row-chevron" aria-hidden="true">&#8250;</span>
+                </a>
+              </li>
+              {% endfor %}
+            {% endfor %}
+            {% if event_rows.count == 0 %}
+            <li class="creator-home-day-empty">
+              <span class="hv5-empty-icon hv5-brand-calendar" aria-hidden="true">{{ source_icon('calendar') }}</span>
+              <span>
+                <strong>nothing scheduled</strong>
+                <small>Your upcoming events will appear here.</small>
+              </span>
+            </li>
+            {% endif %}
+          {% else %}
+            <li class="creator-home-day-empty">
+              <span class="hv5-empty-icon hv5-brand-calendar" aria-hidden="true">{{ source_icon('calendar') }}</span>
+              <span>
+                <strong>connect calendar</strong>
+                <small>see calls and deadlines here.</small>
+              </span>
+              <a class="hv5-empty-action" href="/creator/profile/settings#integrations">connect</a>
+            </li>
+          {% endif %}
+        </ol>
+      </div>
+    </div>
   </section>
 
+  <section class="hv5-section hv5-section-connected">
+    <div class="hv5-head">
+      <h2 class="hv5-head-title">connected</h2>
+      <a class="hv5-head-link" href="/creator/profile/settings#integrations">manage</a>
+    </div>
+    <div class="hv5-connected-grid">
+      {% for row in home_v5_status.rows %}
+      <a class="hv5-connected-card{% if row.connected and not row.needs_reconnect %} is-connected{% elif row.needs_reconnect %} needs-attention{% endif %}"
+         href="{{ row.open_href if row.connected and not row.needs_reconnect else row.connect_href }}"
+         data-slot="{{ row.slot }}"
+         aria-label="{{ connection_label(row) }} {{ 'connected' if row.connected and not row.needs_reconnect else ('needs reconnect' if row.needs_reconnect else 'not connected') }}">
+        <span class="hv5-connected-icon hv5-brand-{{ row.slot }}" aria-hidden="true">{{ source_icon(row.slot) }}</span>
+        <span class="hv5-connected-dot" aria-hidden="true"></span>
+        <span class="hv5-connected-name">{{ connection_label(row) }}</span>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
 </main>
-{% endblock %}
-
-{% block foot_scripts %}
-<script src="/static/js/creator_home_carousel.js" defer></script>
-<script src="/static/js/creator_home_calendar.js" defer></script>
 {% endblock %}

@@ -463,3 +463,7 @@ def test_home_preview_uses_same_real_matter_source(monkeypatch) -> None:
 
     assert [row["title"] for row in rows] == [card["headline"] for card in cards[:3]]
     assert all(row["href"] == "/creator/brief" for row in rows)
+    assert [row["created_at"] for row in rows] == [card["created_at"] for card in cards[:3]]
+    assert [row["source_label"] for row in rows] == [
+        card["platform_label"] for card in cards[:3]
+    ]
