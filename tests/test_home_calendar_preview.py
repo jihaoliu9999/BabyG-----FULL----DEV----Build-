@@ -35,6 +35,9 @@ from app.services import (
     bookings as bookings_module,
 )
 from app.services import (
+    brief as brief_module,
+)
+from app.services import (
     calendar_sync as calendar_sync_module,
 )
 from app.services import (
@@ -120,6 +123,7 @@ def stub_dashboard(monkeypatch):
         "ig_dm_unread": 0,
         "handled_today": 0,
         "overnight_recap": None,
+        "brief_rows": [],
         "unread_notifs": [],
         "performance_view": stats_merge_module.PerformanceView(
             rows=[],
@@ -169,6 +173,11 @@ def stub_dashboard(monkeypatch):
         action_proposals_module,
         "list_pending_for_user",
         lambda **kw: list(state["pending_actions"]),
+    )
+    monkeypatch.setattr(
+        brief_module,
+        "home_preview_rows",
+        lambda uid: list(state["brief_rows"]),
     )
     monkeypatch.setattr(
         agent_recap_module,
@@ -246,7 +255,7 @@ def stub_dashboard(monkeypatch):
 
 def test_status_pill_renders_with_zero_connected(
     client: TestClient, stub_dashboard
-) -> None:
+    ) -> None:
     _signed_in(client)
     r = client.get("/creator")
     assert r.status_code == 200
@@ -618,36 +627,36 @@ def test_brief_is_hidden_when_no_real_signals(
     assert ">brief<" not in r.text
 
 
-def test_brief_surfaces_real_ig_unread(
+def test_brief_surfaces_real_brief_preview(
     client: TestClient, stub_dashboard
 ) -> None:
     _signed_in(client)
     stub_dashboard["ig_dm_unread"] = 3
+    stub_dashboard["brief_rows"] = [
+        {
+            "slot": "instagram",
+            "title": "@brand asked for rates",
+            "detail": "clarify scope and usage",
+            "href": "/creator/brief",
+        }
+    ]
     r = client.get("/creator")
     assert r.status_code == 200
     assert ">brief<" in r.text
-    assert "3 unread instagram dms" in r.text
-    assert 'href="/creator/instagram/dms"' in r.text
+    assert "@brand asked for rates" in r.text
+    assert "3 unread instagram dms" not in r.text
+    assert 'href="/creator/brief"' in r.text
 
 
 def test_brief_caps_at_three_rows(client: TestClient, stub_dashboard) -> None:
     _signed_in(client)
-    stub_dashboard["ig_dm_unread"] = 2
-    stub_dashboard["matched_picks"] = [
-        {"card_id": "op-1", "card_kind": "opportunity", "title": "Rooftop shoot"},
+    stub_dashboard["brief_rows"] = [
+        {"slot": "gmail", "title": "one", "detail": "a", "href": "/creator/brief"},
+        {"slot": "instagram", "title": "two", "detail": "b", "href": "/creator/brief"},
+        {"slot": "calendar", "title": "three", "detail": "c", "href": "/creator/brief"},
     ]
-    stub_dashboard["overnight_recap"] = {
-        "headlines": [
-            "ran 2 thinking cycles",
-            "updated your memory 1 time",
-            "extra headline four",
-            "extra headline five",
-        ],
-        "counts": {},
-    }
     r = client.get("/creator")
     assert r.status_code == 200
-    # Exactly 3 hv5-brief-row anchors, never 4+.
     assert r.text.count('class="hv5-brief-row"') == 3
 
 
@@ -859,7 +868,14 @@ def test_home_brief_renders_before_calendar(
     Locks brief above calendar so a future refactor cannot swap
     them silently."""
     _signed_in(client)
-    stub_dashboard["ig_dm_unread"] = 1  # forces a brief row to render
+    stub_dashboard["brief_rows"] = [
+        {
+            "slot": "instagram",
+            "title": "@brand asked for rates",
+            "detail": "clarify scope and usage",
+            "href": "/creator/brief",
+        }
+    ]
     stub_dashboard["google_calendar_connected"] = True
     r = client.get("/creator")
     assert r.status_code == 200

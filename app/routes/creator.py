@@ -70,6 +70,9 @@ from app.services import (
     storage,
     views,
 )
+from app.services import (
+    brief as brief_service,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -537,11 +540,10 @@ async def dashboard(
         unread_notifs=unread_notifs_all,
         _default=[],
     )
-    home_v5_brief = home_briefing.brief_rows(
-        matched_picks=matched_picks,
-        ig_dm_unread_count=int(ig_dm_unread_count or 0),
-        overnight_recap=overnight_recap,
-        performance_view=performance_view,
+    home_v5_brief = await _safe_call(
+        brief_service.home_preview_rows,
+        user_id,
+        _default=[],
     )
     home_v5_handled_count = await _safe_call(
         home_briefing.handled_today, user_id, _default=0
@@ -700,22 +702,19 @@ async def brief_page(
     request: Request,
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
-    """Brief visual pass 1 — static prototype.
-
-    The page renders a locked mock card feed defined inside the
-    template. No provider calls, no Supabase reads for card data,
-    no persistence, no counts, no cross-feature side effects. The
-    only context handed to the template is the standard `profile`
-    plus the onboarding redirect the rest of the creator surface
-    uses. Real Brief aggregation lands in a later pass.
-    """
+    """Render the approved Brief UI from real user-scoped matter rows."""
     profile = profiles.get_creator_profile_cached(session["user_id"], request) or {}
     if not profile.get("onboarding_completed_at"):
         return RedirectResponse("/onboarding/creator", status_code=302)
+    brief = await _safe_call(
+        brief_service.build_brief,
+        session["user_id"],
+        _default={"cards": [], "empty": True, "has_connected_provider": False},
+    )
     return templates.TemplateResponse(
         request,
         "creator/brief.html",
-        {"profile": profile},
+        {"profile": profile, "brief": brief},
     )
 
 

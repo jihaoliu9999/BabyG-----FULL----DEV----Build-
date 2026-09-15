@@ -4,15 +4,14 @@ Scope: static UI only. Locks the small surface that Pass 1 owns:
 
 * ``/creator/brief`` returns 200 for an authenticated onboarded
   creator.
-* The rendered page contains the locked structural markers a
-  design-only pass depends on: the vertical feed container,
-  matter-type labels, `review` and `ask babyg` actions, both
-  Gmail and Instagram examples.
+* The rendered page contains the locked structural markers the approved
+  Brief UI depends on: the vertical feed container, matter-type labels,
+  `review` and `ask babyg` actions, and provider identity supplied by
+  real service rows.
 * The rendered page does NOT contain a page heading, section
   heads, tabs, or filter chips.
 * Home Brief `view all` routes to ``/creator/brief``.
-* No production data is touched: the route never asks any
-  service for card data.
+* No prototype data remains in the template.
 """
 
 from __future__ import annotations
@@ -25,6 +24,7 @@ from fastapi.testclient import TestClient
 from app.core.security import SESSION_COOKIE, write_session
 from app.main import app
 from app.routes import creator as creator_routes
+from app.services import brief as brief_service
 
 REPO = Path(__file__).resolve().parents[1]
 DASHBOARD_TEMPLATE = REPO / "app" / "templates" / "creator" / "dashboard.html"
@@ -47,10 +47,39 @@ def _stub_profile(monkeypatch) -> None:
     )
 
 
+def _card(platform: str, matter_type: str, *, urgent: bool = False) -> dict:
+    return {
+        "platform": platform,
+        "platform_label": {
+            "gmail": "Gmail",
+            "instagram": "Instagram",
+            "calendar": "Calendar",
+            "babyg": "babyg",
+        }[platform],
+        "matter_type": matter_type,
+        "urgent": urgent,
+        "headline": f"real {platform} {matter_type}",
+        "context": "persisted user-specific matter",
+    }
+
+
+def _stub_brief(monkeypatch, cards: list[dict] | None = None) -> None:
+    monkeypatch.setattr(
+        brief_service,
+        "build_brief",
+        lambda user_id: {
+            "cards": list(cards or []),
+            "empty": not bool(cards),
+            "has_connected_provider": True,
+        },
+    )
+
+
 def test_brief_route_resolves_for_onboarded_creator(monkeypatch):
     client = TestClient(app, follow_redirects=False)
     _signed_in(client)
     _stub_profile(monkeypatch)
+    _stub_brief(monkeypatch)
     r = client.get("/creator/brief")
     assert r.status_code == 200, r.text[:300]
     assert 'class="brief-feed"' in r.text
@@ -76,6 +105,7 @@ def test_brief_page_has_no_heading_no_sections_no_tabs_no_filters(monkeypatch):
     client = TestClient(app, follow_redirects=False)
     _signed_in(client)
     _stub_profile(monkeypatch)
+    _stub_brief(monkeypatch)
     body = client.get("/creator/brief").text
     tpl = BRIEF_TEMPLATE.read_text()
     # Neither the rendered response nor the template introduce a
@@ -109,6 +139,17 @@ def test_brief_cards_expose_locked_matter_types(monkeypatch):
     client = TestClient(app, follow_redirects=False)
     _signed_in(client)
     _stub_profile(monkeypatch)
+    _stub_brief(
+        monkeypatch,
+        [_card("gmail", matter_type) for matter_type in (
+            "deal",
+            "response",
+            "decision",
+            "follow-up",
+            "booking",
+            "update",
+        )],
+    )
     body = client.get("/creator/brief").text
     for matter_type in ("deal", "response", "decision", "follow-up", "booking", "update"):
         assert (
@@ -120,6 +161,13 @@ def test_brief_cards_use_gmail_and_instagram(monkeypatch):
     client = TestClient(app, follow_redirects=False)
     _signed_in(client)
     _stub_profile(monkeypatch)
+    _stub_brief(
+        monkeypatch,
+        [
+            _card("gmail", "decision"),
+            _card("instagram", "deal"),
+        ],
+    )
     body = client.get("/creator/brief").text
     assert 'data-brief-platform="gmail"' in body
     assert 'data-brief-platform="instagram"' in body
@@ -132,11 +180,15 @@ def test_brief_cards_render_review_and_ask_babyg_actions(monkeypatch):
     client = TestClient(app, follow_redirects=False)
     _signed_in(client)
     _stub_profile(monkeypatch)
+    _stub_brief(
+        monkeypatch,
+        [_card("gmail", "decision"), _card("instagram", "deal")],
+    )
     body = client.get("/creator/brief").text
     # Both actions render on every card. Not fewer, not more.
     review_count = body.count(">review<")
     ask_count = body.count(">ask babyg<")
-    assert review_count >= 6  # one per locked matter type at minimum
+    assert review_count == 2
     assert review_count == ask_count
     # Actions are inert prototype anchors — no fake success wiring.
     for anchor_snippet in (
@@ -153,6 +205,14 @@ def test_brief_urgent_is_selective_not_generic(monkeypatch):
     client = TestClient(app, follow_redirects=False)
     _signed_in(client)
     _stub_profile(monkeypatch)
+    _stub_brief(
+        monkeypatch,
+        [
+            _card("gmail", "decision", urgent=True),
+            _card("instagram", "deal"),
+            _card("gmail", "response"),
+        ],
+    )
     body = client.get("/creator/brief").text
     urgent_count = body.count(">urgent<")
     card_count = body.count('class="brief-card"')
@@ -169,50 +229,29 @@ def test_home_brief_view_all_routes_to_brief_page():
     assert 'class="hv5-head-link" href="/creator/discover">view all' not in dashboard
 
 
-def test_brief_route_never_calls_provider_services(monkeypatch):
-    """Sentinel guard: the Brief route body must not invoke Gmail,
-    Instagram, notifications, DMs, action_proposals, brief, or any
-    other production service. Any such call in a static prototype
-    render is out-of-scope for Pass 1."""
+def test_brief_route_uses_authenticated_user_for_service(monkeypatch):
     client = TestClient(app, follow_redirects=False)
-    _signed_in(client)
+    _signed_in(client, user_id="creator-brief-owner")
     _stub_profile(monkeypatch)
 
-    called: list[str] = []
-
-    def _explode(name: str):
-        def _fn(*a, **kw):
-            called.append(name)
-            raise AssertionError(f"Pass 1 must not call {name}")
-        return _fn
-
-    # Monkeypatch the Brief-card-data services a real Brief
-    # implementation would touch. Any accidental use during this
-    # visual pass trips the AssertionError and fails loudly.
-    # Deliberately NOT included: the tabbar priming dependency
-    # (`action_proposals.count_pending_for_user`, `dms.unread_count_
-    # for_user`, `instagram_dms.unread_count_for_creator`). Those
-    # are the shared creator shell's badge reads, not Brief card
-    # data, and are pre-existing behavior on every creator page.
-    for module_name, attr in (
-        ("gmail", "list_recent_manager_threads"),
-        ("gmail", "list_threads"),
-        ("gmail", "sweep_gmail_briefs"),
-        ("instagram_dms", "list_recent_manager_threads"),
-        ("instagram_dms", "list_threads"),
-        ("notifications", "list_for_user"),
-        ("notifications", "list_unread"),
-    ):
-        try:
-            module = __import__(f"app.services.{module_name}", fromlist=[attr])
-        except (ImportError, AttributeError):
-            continue
-        if hasattr(module, attr):
-            monkeypatch.setattr(module, attr, _explode(f"{module_name}.{attr}"))
+    calls: list[str] = []
+    monkeypatch.setattr(
+        brief_service,
+        "build_brief",
+        lambda user_id: calls.append(user_id)
+        or {"cards": [], "empty": True, "has_connected_provider": True},
+    )
 
     r = client.get("/creator/brief")
     assert r.status_code == 200
-    assert called == [], f"pass 1 accidentally called: {called}"
+    assert calls == ["creator-brief-owner"]
+
+
+def test_brief_template_contains_no_static_prototype_cards() -> None:
+    tpl = BRIEF_TEMPLATE.read_text()
+    for token in ("nike", "acme", "vault coffee", "studioverde", "rivetco"):
+        assert token not in tpl.lower()
+    assert "data-brief-prototype" not in tpl
 
 
 def test_brief_css_is_scoped_and_present():

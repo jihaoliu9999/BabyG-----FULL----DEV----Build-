@@ -15593,6 +15593,22 @@ body:has(.dm-thread-composer-box input:focus) .creator-tabbar {
 .brief-card-action[aria-disabled="true"] {
   cursor: default;
 }
+.brief-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--hairline);
+  border-radius: 14px;
+  background: var(--surface-1, #111);
+  color: var(--ink-mid);
+}
+.brief-empty p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.35;
+}
 
 /* Mobile (≤ 430px): identical structure — only spacing tightens
    slightly so the card row still reads on 375px without wrapping

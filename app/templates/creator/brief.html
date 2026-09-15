@@ -2,87 +2,6 @@
 
 {% block title %}brief — babyg{% endblock %}
 
-{#
-  Brief visual pass 1 — STATIC PROTOTYPE.
-
-  Locked structure (do not edit without the product spec):
-    * no page heading, no sections, no tabs, no filters
-    * one continuous vertical feed of cards
-    * every card carries: platform icon + name (top-left) +
-      matter-type label (top-right, `urgent` optional),
-      one short headline, one concise context line, a `review`
-      action, an `ask babyg` action.
-
-  Card data below is a LOCAL prototype list. Never persisted,
-  never counted, never shared with any other feature. The route
-  passes no card data — this file owns the mock rows so the visual
-  review is self-contained. Real Brief aggregation is out of scope
-  for this pass.
-
-  `review` and `ask babyg` render as inert prototype anchors —
-  `href="#"` with an `aria-disabled` marker. They intentionally do
-  not link anywhere; wiring lands in a later pass.
-#}
-
-{% set brief_cards = [
-  {
-    'platform': 'instagram',
-    'platform_label': 'Instagram',
-    'matter_type': 'deal',
-    'urgent': false,
-    'headline': '@nike wants to discuss a paid campaign',
-    'context': '2 reels · Miami launch · asking for rates',
-  },
-  {
-    'platform': 'gmail',
-    'platform_label': 'Gmail',
-    'matter_type': 'decision',
-    'urgent': true,
-    'headline': 'Acme sent a final counteroffer',
-    'context': '$3,500 · 60-day usage · expires today',
-  },
-  {
-    'platform': 'gmail',
-    'platform_label': 'Gmail',
-    'matter_type': 'response',
-    'urgent': false,
-    'headline': 'Vault Coffee replied about deliverables',
-    'context': '2 reels + 1 story · deadline flexible · no budget yet',
-  },
-  {
-    'platform': 'instagram',
-    'platform_label': 'Instagram',
-    'matter_type': 'follow-up',
-    'urgent': false,
-    'headline': '@studioverde is waiting on your quote',
-    'context': '3 days since last reply · budget ~$2,800 · repost rights',
-  },
-  {
-    'platform': 'gmail',
-    'platform_label': 'Gmail',
-    'matter_type': 'booking',
-    'urgent': false,
-    'headline': 'Northshore Studio confirmed the shoot slot',
-    'context': 'Thursday 2pm · Studio A · add to calendar',
-  },
-  {
-    'platform': 'gmail',
-    'platform_label': 'Gmail',
-    'matter_type': 'update',
-    'urgent': false,
-    'headline': 'Acme confirmed the campaign',
-    'context': '$3,500 · shoot scheduled for Friday · brief already sent',
-  },
-  {
-    'platform': 'instagram',
-    'platform_label': 'Instagram',
-    'matter_type': 'decision',
-    'urgent': true,
-    'headline': '@rivetco needs your yes/no today',
-    'context': '$4,200 usage · goes to another creator EOD',
-  },
-] %}
-
 {% macro platform_icon(platform) -%}
   {%- if platform == 'gmail' -%}
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>
@@ -94,7 +13,19 @@
 {%- endmacro %}
 
 {% block content %}
-<main class="brief-feed" data-page="brief-v1" data-brief-prototype>
+<main class="brief-feed" data-page="brief-v1">
+  {% set brief_cards = brief.cards if brief and brief.cards else [] %}
+  {% if not brief_cards %}
+  <div class="brief-empty">
+    {% if brief and not brief.has_connected_provider %}
+      <p>connect gmail or instagram to build your brief.</p>
+      <a class="brief-card-action brief-card-action-primary" href="/creator/profile/settings#integrations">connect</a>
+    {% else %}
+      <p>nothing needs your attention.</p>
+    {% endif %}
+  </div>
+  {% endif %}
+
   {% for card in brief_cards %}
   <article class="brief-card" data-brief-platform="{{ card.platform }}" data-brief-type="{{ card.matter_type }}"{% if card.urgent %} data-brief-urgent{% endif %}>
     <header class="brief-card-top">
