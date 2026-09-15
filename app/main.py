@@ -20,6 +20,7 @@ from starlette.middleware.gzip import GZipMiddleware
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from app.config import get_settings
+from app.core.security import read_session, write_session
 from app.core.tabbar_priming import prime_creator_tabbar
 from app.core.templating import templates
 from app.routes import abuse as abuse_routes
@@ -85,6 +86,15 @@ def create_app() -> FastAPI:
     # Conservative security headers. CSP intentionally inline-style permissive
     # because the templates use a few inline `style=` attributes; tighten later.
     app.add_middleware(_SecurityHeadersMiddleware)
+
+    # Sliding-session refresh. When an incoming request carries a valid
+    # ``bg_session`` cookie, re-issue it with a fresh 30-day timer so
+    # active users stay signed in — the previous behavior counted 30
+    # days from the original magic-link click, forcing a re-auth even
+    # for daily users. Skips whenever the response is already writing
+    # or deleting ``bg_session`` (login callback, code verify, logout)
+    # so we never overwrite an intentional set/clear.
+    app.add_middleware(_SlidingSessionMiddleware)
 
     app.mount("/static", _CachedStatic(directory=str(STATIC_DIR)), name="static")
 
@@ -259,6 +269,46 @@ class _ForwardedProtoMiddleware:
                 scope = dict(scope)
                 scope["scheme"] = scheme
         await self.app(scope, receive, send)
+
+
+class _SlidingSessionMiddleware(BaseHTTPMiddleware):
+    """Extend ``bg_session`` on every request where the incoming cookie
+    is still valid, unless the response is already setting or clearing
+    it. Same signer, same secret, same payload, same cookie attributes —
+    only the itsdangerous timestamp inside the token is refreshed.
+
+    Security posture is preserved: a stolen token that has not been
+    refreshed for ``SESSION_MAX_AGE`` still fails signature-expiration,
+    and logout / callback continue to be authoritative writes because
+    this middleware refuses to touch a response that already carries a
+    ``bg_session`` Set-Cookie header.
+    """
+
+    _COOKIE_PREFIX = b"bg_session="
+
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        # Only refresh on successful terminal responses. 3xx redirects
+        # are transition points — the follow-up GET refreshes on its
+        # own — and 4xx/5xx are errors we do not want to bake a fresh
+        # cookie into.
+        if not (200 <= response.status_code < 300):
+            return response
+        # Skip when the endpoint has already written or cleared the
+        # session cookie (login callback + logout). Case-insensitive
+        # header key match; the value starts with `bg_session=` for
+        # both `write_session` and `delete_cookie`.
+        for key, value in response.raw_headers:
+            if key.lower() == b"set-cookie" and value.startswith(self._COOKIE_PREFIX):
+                return response
+        # Only refresh when the request presented a valid session.
+        # ``read_session`` returns None for missing / tampered / expired
+        # tokens, so a stale cookie is never resurrected.
+        session = read_session(request)
+        if session is None:
+            return response
+        write_session(response, session)
+        return response
 
 
 class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
