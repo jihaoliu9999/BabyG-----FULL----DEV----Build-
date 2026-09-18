@@ -437,7 +437,6 @@ async def dashboard(
         pending_actions_all,
         unread_dm_n,
         instagram_connection,
-        performance_view,
     ) = await asyncio.gather(
         _safe_call(notifications.list_unread, user_id, limit=8, _default=[]),
         _safe_call(network.list_incoming_pending, user_id, _default=[]),
@@ -470,15 +469,18 @@ async def dashboard(
         # instead of firing its own supabase query at render time.
         _safe_call(dms.unread_count_for_user, user_id, _default=0),
         _safe_call(oauth_connections.get_instagram_connection, user_id, _default=None),
-        _safe_call(
-            stats_merge.performance_view,
-            user_id,
-            ig_limit=5,
-            _default=stats_merge.PerformanceView(
-                rows=[],
-                instagram_status=stats_merge.IG_STATUS_ERROR,
-            ),
-        ),
+        # NOTE: `stats_merge.performance_view` used to be gathered here too
+        # for Home, but the returned PerformanceView was never consumed by
+        # this handler (nothing between here and TemplateResponse read it,
+        # and the template context does not receive it). The call was
+        # paying for 1 Meta /media + up to 5 sequential /insights HTTP
+        # round-trips per Home render and discarding the result. Removed
+        # from Home only; ``/creator/performance`` still calls
+        # ``stats_merge.performance_view`` directly, the bot's IG stats
+        # tool still calls ``stats_merge.instagram_account_snapshot``, and
+        # the daily ``sweep_ig_metrics`` cron still populates
+        # ``instagram_metrics_daily``. Nothing about the Instagram OAuth /
+        # token / webhook / DM ingestion / evaluation pipeline changes.
     )
 
     # Overnight recap — "here's what babyg did while you were away".
