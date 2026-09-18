@@ -75,36 +75,41 @@
       <div class="creator-home-day-events">
         <ol class="creator-home-day-list">
           {% if calendar_connected %}
+            {# Home shows only the events for the currently-selected
+               day. The date strip above marks today as `is-selected`,
+               and `calendar_grid.selected_day` is already scoped to
+               that date by `_calendar_grid_context`. Rendering the
+               whole week here would leak previous/next-day events
+               onto the current day (that was the pre-fix bug). #}
+            {% set selected_day = calendar_grid.selected_day %}
             {% set event_rows = namespace(count=0) %}
-            {% for day in calendar_grid.week_days %}
-              {% for event in day.all_day_events %}
-              {% set event_rows.count = event_rows.count + 1 %}
-              <li>
-                <a href="/creator/calendar/{{ event.id }}">
-                  <span class="creator-home-day-time">{{ day.weekday }}<br>all day</span>
-                  <span class="creator-home-day-divider" aria-hidden="true"></span>
-                  <span class="creator-home-day-body">
-                    <strong>{{ event.title }}</strong>
-                    {% if event.venue_name %}<small>{{ event.venue_name }}</small>{% endif %}
-                  </span>
-                  <span class="hv5-row-chevron" aria-hidden="true">&#8250;</span>
-                </a>
-              </li>
-              {% endfor %}
-              {% for event in day.timed_events %}
-              {% set event_rows.count = event_rows.count + 1 %}
-              <li>
-                <a href="/creator/calendar/{{ event.id }}">
-                  <span class="creator-home-day-time">{{ day.weekday }}<br>{{ event.start_label }}</span>
-                  <span class="creator-home-day-divider" aria-hidden="true"></span>
-                  <span class="creator-home-day-body">
-                    <strong>{{ event.title }}</strong>
-                    {% if event.venue_name %}<small>{{ event.venue_name }}</small>{% endif %}
-                  </span>
-                  <span class="hv5-row-chevron" aria-hidden="true">&#8250;</span>
-                </a>
-              </li>
-              {% endfor %}
+            {% for event in selected_day.all_day_events %}
+            {% set event_rows.count = event_rows.count + 1 %}
+            <li>
+              <a href="/creator/calendar/{{ event.id }}">
+                <span class="creator-home-day-time">{{ selected_day.weekday }}<br>all day</span>
+                <span class="creator-home-day-divider" aria-hidden="true"></span>
+                <span class="creator-home-day-body">
+                  <strong>{{ event.title }}</strong>
+                  {% if event.venue_name %}<small>{{ event.venue_name }}</small>{% endif %}
+                </span>
+                <span class="hv5-row-chevron" aria-hidden="true">&#8250;</span>
+              </a>
+            </li>
+            {% endfor %}
+            {% for event in selected_day.timed_events %}
+            {% set event_rows.count = event_rows.count + 1 %}
+            <li>
+              <a href="/creator/calendar/{{ event.id }}">
+                <span class="creator-home-day-time">{{ selected_day.weekday }}<br>{{ event.start_label }}</span>
+                <span class="creator-home-day-divider" aria-hidden="true"></span>
+                <span class="creator-home-day-body">
+                  <strong>{{ event.title }}</strong>
+                  {% if event.venue_name %}<small>{{ event.venue_name }}</small>{% endif %}
+                </span>
+                <span class="hv5-row-chevron" aria-hidden="true">&#8250;</span>
+              </a>
+            </li>
             {% endfor %}
             {% if event_rows.count == 0 %}
             <li class="creator-home-day-empty">

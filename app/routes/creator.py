@@ -324,6 +324,12 @@ def _calendar_grid_context(
         "hours": hours,
         "selected_day": {
             "iso": selected.isoformat(),
+            # Weekday label needed by the Home preview template so it
+            # can render "Fri · all day" / "Fri · 2 pm" without pulling
+            # a weekday from the surrounding week_days loop. The date
+            # strip still uses week_days directly; only the event list
+            # below now scopes to selected_day.
+            "weekday": selected.strftime("%a"),
             "all_day_events": all_day_by_date.get(selected.isoformat(), []),
             "timed_events": timed_by_date.get(selected.isoformat(), []),
         },
