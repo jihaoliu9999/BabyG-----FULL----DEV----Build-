@@ -19,6 +19,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from fastapi import (
     APIRouter,
+    BackgroundTasks,
     Depends,
     File,
     Form,
@@ -383,6 +384,7 @@ def _active_social_platform(value: str | None) -> str:
 @router.get("/creator", response_class=HTMLResponse)
 async def dashboard(
     request: Request,
+    background_tasks: BackgroundTasks,
     category: str | None = Query(None),
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
@@ -401,15 +403,18 @@ async def dashboard(
     user_id = session["user_id"]
 
     # Pull the Google connection FIRST — the home calendar section
-    # renders from persisted bookings, so we must let a throttled
-    # Google sync run before the parallel bookings.list_for_user_range
-    # read below. Without this, a Google event added in the user's
-    # calendar after the last manual sync never appears on Home
-    # until the user opens /creator/calendar or taps sync.
-    #
-    # maybe_auto_sync is per-user-throttled (120s), so repeated Home
-    # opens don't stampede Google — the first Home open per interval
-    # pays the sync cost, subsequent renders return None cheaply.
+    # renders from persisted bookings. We still trigger the same
+    # throttled Google sync on Home so newly-added Google events
+    # find their way into bookings without waiting for the creator
+    # to open /creator/calendar or tap the manual sync button, but
+    # we now schedule it as a FastAPI ``BackgroundTasks`` task
+    # rather than awaiting it inline. Home reads persisted bookings
+    # immediately and the sync completes after the response is sent.
+    # A Google-added event surfaces on the next Home / Calendar
+    # render for that user (one-render freshness delay is the
+    # accepted trade — permanent staleness is still prevented
+    # because the sync itself keeps running on the exact same
+    # 120-second per-user throttle in ``calendar_sync.maybe_auto_sync``).
     google_connection = await _safe_call(
         oauth_connections.get_google_connection, user_id, _default=None
     )
@@ -417,7 +422,13 @@ async def dashboard(
         google_connection
     )
     if google_connected_early:
-        await asyncio.to_thread(calendar_sync.maybe_auto_sync, user_id)
+        # ``maybe_auto_sync`` never raises (its own try/except logs and
+        # returns None on failure — see calendar_sync.py:237-241) so
+        # scheduling it fire-and-forget cannot produce an unobserved
+        # event-loop exception. It only takes a plain ``user_id`` and
+        # rebuilds its own DB/HTTP clients inside ``sync_google_calendar``,
+        # so no request-scoped state escapes into the background.
+        background_tasks.add_task(calendar_sync.maybe_auto_sync, user_id)
 
     # Anchor "today" and the visible week to the user's effective
     # calendar timezone (primary Google calendar tz -> UTC fallback).
