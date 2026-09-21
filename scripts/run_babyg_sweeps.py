@@ -37,9 +37,11 @@ import logging
 import os
 import sys
 
-from app.services import bot_jobs
-
 logger = logging.getLogger("run_babyg_sweeps")
+
+_SENTRY_MONITOR_SLUG_ENV = "BABYG_SWEEPS_SENTRY_MONITOR_SLUG"
+_SENTRY_MONITOR_SLUG_DEFAULT = "babyg-sweeps-cron"
+_SENTRY_MONITOR_SCHEDULE = "*/15 * * * *"
 
 
 def _agent_loop_enabled() -> bool:
@@ -62,16 +64,72 @@ def _configure_logging() -> None:
     )
 
 
-def _configure_sentry() -> None:
+def _configure_sentry() -> bool:
     """Init Sentry so per-item failures raised inside a sweep ship to
     the same project as web errors. No-ops when SENTRY_DSN is empty."""
     try:
         from app.config import get_settings
         from app.core.sentry_init import configure_sentry
 
-        configure_sentry(get_settings())
+        return configure_sentry(get_settings())
     except Exception:
         logger.exception("run_babyg_sweeps.sentry_init_failed")
+        return False
+
+
+def _monitor_slug() -> str:
+    return (
+        os.environ.get(_SENTRY_MONITOR_SLUG_ENV, "").strip()
+        or _SENTRY_MONITOR_SLUG_DEFAULT
+    )
+
+
+def _start_checkin(sentry_enabled: bool) -> str | None:
+    if not sentry_enabled:
+        return None
+    try:
+        import sentry_sdk
+
+        return sentry_sdk.capture_checkin(
+            monitor_slug=_monitor_slug(),
+            status="in_progress",
+            monitor_config={
+                "schedule": {
+                    "type": "crontab",
+                    "value": _SENTRY_MONITOR_SCHEDULE,
+                },
+                "checkin_margin": 15,
+                "max_runtime": 15,
+                "timezone": "UTC",
+            },
+        )
+    except Exception:
+        logger.exception("run_babyg_sweeps.sentry_checkin_start_failed")
+        return None
+
+
+def _finish_checkin(
+    sentry_enabled: bool,
+    check_in_id: str | None,
+    *,
+    status: str,
+    exc: BaseException | None = None,
+) -> None:
+    if not sentry_enabled:
+        return
+    try:
+        import sentry_sdk
+
+        if exc is not None:
+            sentry_sdk.capture_exception(exc)
+        sentry_sdk.capture_checkin(
+            monitor_slug=_monitor_slug(),
+            check_in_id=check_in_id,
+            status=status,
+        )
+        sentry_sdk.flush(timeout=2.0)
+    except Exception:
+        logger.exception("run_babyg_sweeps.sentry_checkin_finish_failed")
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -96,7 +154,20 @@ def _select_sweeps(all_sweeps, filter_arg: str):
 
 def main(argv: list[str] | None = None) -> int:
     _configure_logging()
-    _configure_sentry()
+    sentry_enabled = _configure_sentry()
+    check_in_id = _start_checkin(sentry_enabled)
+    try:
+        result = _run(argv)
+    except BaseException as exc:
+        _finish_checkin(sentry_enabled, check_in_id, status="error", exc=exc)
+        raise
+    _finish_checkin(sentry_enabled, check_in_id, status="ok")
+    return result
+
+
+def _run(argv: list[str] | None = None) -> int:
+    from app.services import bot_jobs
+
     args = _parse_args(argv)
     all_sweeps = [
         bot_jobs.sweep_stale_drafts,
