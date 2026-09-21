@@ -264,6 +264,13 @@ def test_home_renders_persisted_bookings_while_sync_pending(
         "list_for_user_range",
         lambda uid, **kw: list(persisted),
     )
+    # Home's calendar preview shows only the selected day's events, so
+    # pin "today" to the persisted event's date. Otherwise this test
+    # ages out the moment the real calendar advances past Sep 18.
+    from datetime import date as _date
+    monkeypatch.setattr(
+        calendar_sync_module, "today_in_zone", lambda tz: _date(2026, 9, 18)
+    )
 
     def _slow_sync(uid: str):
         time.sleep(0.3)
