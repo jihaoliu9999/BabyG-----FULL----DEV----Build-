@@ -414,3 +414,57 @@ def test_agent_model_env_override(monkeypatch) -> None:
     assert babyg_agent_loop.agent_model() == "claude-sonnet-4-20250514"
     monkeypatch.delenv("BABYG_AGENT_MODEL", raising=False)
     assert babyg_agent_loop.agent_model() == babyg_agent_loop.DEFAULT_AGENT_MODEL
+
+
+def test_active_creator_ids_queries_user_id_column(monkeypatch) -> None:
+    """Regression lock: _active_creator_ids must select `user_id` from
+    creator_profiles, not `id`. There is no `id` column — the table's
+    primary key IS user_id (see migration 0002_schema.sql). Prior code
+    that selected `id` raised postgrest 42703, was swallowed by the
+    try/except, returned [], and the agent loop went dormant with
+    every tick logging `creators: 0`.
+    """
+    captured: dict = {}
+
+    class _Chain:
+        def __init__(self) -> None:
+            self.data = [{"user_id": "u-A"}, {"user_id": "u-B"}]
+
+        def table(self, name: str) -> "_Chain":
+            captured["table"] = name
+            return self
+
+        def select(self, cols: str) -> "_Chain":
+            captured["select"] = cols
+            return self
+
+        @property
+        def not_(self) -> "_Chain":
+            return self
+
+        def is_(self, col: str, val) -> "_Chain":
+            captured["is_col"] = col
+            captured["is_val"] = val
+            return self
+
+        def limit(self, n: int) -> "_Chain":
+            captured["limit"] = n
+            return self
+
+        def execute(self):
+            class _R:
+                data = [{"user_id": "u-A"}, {"user_id": "u-B"}]
+            return _R()
+
+    monkeypatch.setattr(
+        babyg_agent_loop.supabase_client, "get_service_client", lambda: _Chain()
+    )
+    ids = babyg_agent_loop._active_creator_ids(limit=50)
+
+    assert captured.get("table") == "creator_profiles"
+    assert captured.get("select") == "user_id", (
+        f"expected select='user_id', got {captured.get('select')!r} — "
+        "this is the regression that took the agent loop dormant"
+    )
+    assert captured.get("is_col") == "onboarding_completed_at"
+    assert ids == ["u-A", "u-B"]

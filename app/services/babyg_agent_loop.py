@@ -507,13 +507,18 @@ def run_for_all_creators(
 def _active_creator_ids(*, limit: int) -> list[str]:
     """Every creator whose onboarding_completed_at is set. A creator
     who hasn't finished onboarding has no meaningful world state yet;
-    running the loop for them is wasted tokens."""
+    running the loop for them is wasted tokens.
+
+    creator_profiles is keyed by user_id (references users.id) — there
+    is no separate 'id' column. Selecting 'id' would raise
+    postgrest 42703 (column does not exist) and swallow every cycle.
+    """
     capped = max(1, min(int(limit), 1000))
     try:
         result = (
             supabase_client.get_service_client()
             .table("creator_profiles")
-            .select("id")
+            .select("user_id")
             .not_.is_("onboarding_completed_at", None)
             .limit(capped)
             .execute()
@@ -522,7 +527,7 @@ def _active_creator_ids(*, limit: int) -> list[str]:
         logger.exception("babyg_agent_loop.active_creator_ids.read_failed")
         return []
     rows = list(getattr(result, "data", None) or [])
-    return [str(r.get("id")) for r in rows if r.get("id")]
+    return [str(r.get("user_id")) for r in rows if r.get("user_id")]
 
 
 def _record_and_return(
