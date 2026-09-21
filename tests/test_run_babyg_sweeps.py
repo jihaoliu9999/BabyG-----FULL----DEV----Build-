@@ -25,8 +25,11 @@ def test_sentry_cron_checkins_cover_success_and_crash(monkeypatch) -> None:
     calls: list[dict] = []
     captured: list[BaseException] = []
 
-    fake_sdk = SimpleNamespace(
+    fake_crons = SimpleNamespace(
         capture_checkin=lambda **kwargs: calls.append(kwargs) or "check-in-1",
+    )
+    fake_sdk = SimpleNamespace(
+        crons=fake_crons,
         capture_exception=captured.append,
         flush=lambda **kwargs: None,
     )
@@ -80,7 +83,9 @@ def test_sentry_cron_checkins_are_noop_when_disabled(monkeypatch) -> None:
         sys.modules,
         "sentry_sdk",
         SimpleNamespace(
-            capture_checkin=lambda **kwargs: pytest.fail("unexpected check-in"),
+            crons=SimpleNamespace(
+                capture_checkin=lambda **kwargs: pytest.fail("unexpected check-in"),
+            ),
             capture_exception=lambda exc: pytest.fail("unexpected exception"),
             flush=lambda **kwargs: pytest.fail("unexpected flush"),
         ),

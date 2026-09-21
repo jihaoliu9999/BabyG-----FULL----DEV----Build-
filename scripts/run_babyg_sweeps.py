@@ -90,7 +90,7 @@ def _start_checkin(sentry_enabled: bool) -> str | None:
     try:
         import sentry_sdk
 
-        return sentry_sdk.capture_checkin(
+        return sentry_sdk.crons.capture_checkin(
             monitor_slug=_monitor_slug(),
             status="in_progress",
             monitor_config={
@@ -122,7 +122,7 @@ def _finish_checkin(
 
         if exc is not None:
             sentry_sdk.capture_exception(exc)
-        sentry_sdk.capture_checkin(
+        sentry_sdk.crons.capture_checkin(
             monitor_slug=_monitor_slug(),
             check_in_id=check_in_id,
             status=status,
