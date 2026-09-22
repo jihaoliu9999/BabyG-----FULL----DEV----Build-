@@ -222,3 +222,82 @@ def test_the_indeed_job_alert_example_gets_killed() -> None:
         )
         is True
     )
+
+
+# ---------------------------------------------------------------------------
+# 8. has_business_intent — the override that lets personal-domain
+#    senders through when the message is clearly commercial.
+# ---------------------------------------------------------------------------
+
+from app.services.brief_filters import has_business_intent
+
+
+@pytest.mark.parametrize(
+    "subject,body",
+    [
+        # The exact test-email the user hit today.
+        ("reel brand opp", "lets get you paid to make 4 reels. please respond"),
+        # Drake-on-iPhone-gmail scenario.
+        ("collab?", "hey, wanna collab on a track"),
+        # Brand rep pinging from personal gmail.
+        ("Sephora partnership", "Would love to work with you on the fall drop."),
+        ("collab opportunity", "we're building our creator program roster"),
+        ("Nike x You — winter campaign", ""),
+        # Freelance PR person from personal address.
+        ("PR gift for you", "sending you the PR box tomorrow"),
+        ("gifting round", "want to include you in our product seeding"),
+        # Creator-to-creator collab pitch.
+        ("brand deal on hulu", "50k budget, want to co-create"),
+        # Explicit money framing in body only, generic subject.
+        ("hey", "we'd love to feature you in an upcoming sponsored post"),
+        # UGC / rate card requests.
+        ("UGC rates?", "share your rate card please"),
+        ("ambassador application", "we saw your reels"),
+        # Compensation phrases.
+        ("quick q", "we pay per post, wanted to see if you're interested"),
+        # Press.
+        ("press inquiry", "writing a story on Miami creators"),
+        # In-exchange-for gifting language.
+        ("free product", "in exchange for one story mention"),
+    ],
+)
+def test_business_intent_true(subject: str, body: str) -> None:
+    assert has_business_intent(subject, body) is True, (
+        f"expected subject={subject!r} body={body!r} to be flagged business"
+    )
+
+
+@pytest.mark.parametrize(
+    "subject,body",
+    [
+        # Dad-coming-to-town case — pure personal life.
+        ("coming to town saturday", "dinner at 7?"),
+        ("dinner sunday", "grandma is making pasta"),
+        # Friend chatter.
+        ("saw this and thought of u", "https://example.com"),
+        ("happy birthday!", ""),
+        ("miss youuuu", ""),
+        # Restaurant reservation confirmation (personal life, not
+        # commercial for the creator).
+        ("Cheesecake Factory reservation Sat 8pm", "confirmed for 4 guests"),
+        # Empty case.
+        ("", ""),
+        # Generic non-commercial words.
+        ("thanks for coming last night", "was fun catching up"),
+    ],
+)
+def test_business_intent_false(subject: str, body: str) -> None:
+    assert has_business_intent(subject, body) is False, (
+        f"expected subject={subject!r} body={body!r} NOT to be flagged business"
+    )
+
+
+def test_business_intent_case_insensitive() -> None:
+    assert has_business_intent("BRAND OPP", "GET YOU PAID") is True
+    assert has_business_intent("Reel Brand Opp", "Get You Paid To Make 4 Reels") is True
+
+
+def test_business_intent_signal_in_body_only() -> None:
+    """A generic subject shouldn't block a message whose body clearly
+    signals business (real DMs often have empty subjects)."""
+    assert has_business_intent("", "quick collab pitch — we saw your reels") is True
