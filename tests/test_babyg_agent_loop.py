@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from typing import ClassVar
 
 from app.integrations.anthropic_client import (
     ClaudeCallError,
@@ -430,30 +431,33 @@ def test_active_creator_ids_queries_user_id_column(monkeypatch) -> None:
         def __init__(self) -> None:
             self.data = [{"user_id": "u-A"}, {"user_id": "u-B"}]
 
-        def table(self, name: str) -> "_Chain":
+        def table(self, name: str) -> _Chain:
             captured["table"] = name
             return self
 
-        def select(self, cols: str) -> "_Chain":
+        def select(self, cols: str) -> _Chain:
             captured["select"] = cols
             return self
 
         @property
-        def not_(self) -> "_Chain":
+        def not_(self) -> _Chain:
             return self
 
-        def is_(self, col: str, val) -> "_Chain":
+        def is_(self, col: str, val) -> _Chain:
             captured["is_col"] = col
             captured["is_val"] = val
             return self
 
-        def limit(self, n: int) -> "_Chain":
+        def limit(self, n: int) -> _Chain:
             captured["limit"] = n
             return self
 
         def execute(self):
+            rows = [{"user_id": "u-A"}, {"user_id": "u-B"}]
+
             class _R:
-                data = [{"user_id": "u-A"}, {"user_id": "u-B"}]
+                data: ClassVar[list[dict]] = rows
+
             return _R()
 
     monkeypatch.setattr(
