@@ -36,6 +36,7 @@ from app.services import (
     babyg_memory,
     babyg_relations,
     bot,
+    brief_filters,
     dm_briefs,
     instagram_metrics,
     oauth_connections,
@@ -404,6 +405,16 @@ def sweep_gmail_briefs(*, now: datetime | None = None) -> SweepReport:
             if not sender_email:
                 continue
             if not _is_brandish_sender(sender_email):
+                continue
+            # Layer 1 junk filter (see app/services/brief_filters.py) —
+            # drop obvious robotic senders (noreply, notifications,
+            # newsletter platforms, job boards) and receipt / account /
+            # digest / job-alert subjects. Runs BEFORE any Claude call
+            # so we never waste tokens drafting a reply to an Indeed
+            # job alert.
+            if brief_filters.is_junk_gmail_sender(
+                sender_email, subject=latest.subject or ""
+            ):
                 continue
             dedupe_key = (
                 f"gmail_thread:{thread.thread_id}:{latest.message_id}"
