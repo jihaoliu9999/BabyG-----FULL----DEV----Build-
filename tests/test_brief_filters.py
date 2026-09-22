@@ -9,8 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.services.brief_filters import is_junk_gmail_sender
-
+from app.services.brief_filters import has_business_intent, is_junk_gmail_sender
 
 # ---------------------------------------------------------------------------
 # 1. Robotic local-parts get killed.
@@ -228,9 +227,6 @@ def test_the_indeed_job_alert_example_gets_killed() -> None:
 # 8. has_business_intent — the override that lets personal-domain
 #    senders through when the message is clearly commercial.
 # ---------------------------------------------------------------------------
-
-from app.services.brief_filters import has_business_intent
-
 
 @pytest.mark.parametrize(
     "subject,body",

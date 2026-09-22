@@ -233,8 +233,4 @@ def is_junk_gmail_sender(email: str, subject: str = "") -> bool:
         return True
 
     # 4. Junk subject — anywhere in the subject line.
-    for pattern in _JUNK_SUBJECT_SUBSTRINGS:
-        if pattern in subject_norm:
-            return True
-
-    return False
+    return any(pattern in subject_norm for pattern in _JUNK_SUBJECT_SUBSTRINGS)

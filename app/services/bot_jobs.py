@@ -418,11 +418,12 @@ def sweep_gmail_briefs(*, now: datetime | None = None) -> SweepReport:
             # preview shows a commercial signal (has_business_intent).
             # Then Layer 1's junk filter (below) still gets the last
             # word so noreply/receipts/digests never leak through.
-            if not _is_brandish_sender(sender_email):
-                if not brief_filters.has_business_intent(
-                    subject=subject_text, body=body_preview
-                ):
-                    continue
+            if not _is_brandish_sender(
+                sender_email
+            ) and not brief_filters.has_business_intent(
+                subject=subject_text, body=body_preview
+            ):
+                continue
             # Layer 1 junk filter (see app/services/brief_filters.py) —
             # drop obvious robotic senders (noreply, notifications,
             # newsletter platforms, job boards) and receipt / account /
