@@ -404,25 +404,8 @@ def sweep_gmail_briefs(*, now: datetime | None = None) -> SweepReport:
             sender_email = _clean_email(latest.from_)
             if not sender_email:
                 continue
-            subject_text = latest.subject or ""
-            body_preview = (latest.snippet or "") or (latest.body_text or "")[:2000]
-            # Personal-domain senders (gmail.com, outlook.com, icloud.com…)
-            # are noisy by default — most gmail-from-gmail traffic is
-            # family / friends / receipts. Historically we blocked them
-            # entirely, which also killed real business email from
-            # personal accounts (brand reps on iPhone gmail, freelance
-            # PR, creators reaching out to each other about collabs).
-            #
-            # New rule: brandish-domain senders always pass this gate;
-            # personal-domain senders only pass when subject or body
-            # preview shows a commercial signal (has_business_intent).
-            # Then Layer 1's junk filter (below) still gets the last
-            # word so noreply/receipts/digests never leak through.
             if not _is_brandish_sender(sender_email):
-                if not brief_filters.has_business_intent(
-                    subject=subject_text, body=body_preview
-                ):
-                    continue
+                continue
             # Layer 1 junk filter (see app/services/brief_filters.py) —
             # drop obvious robotic senders (noreply, notifications,
             # newsletter platforms, job boards) and receipt / account /
@@ -430,7 +413,7 @@ def sweep_gmail_briefs(*, now: datetime | None = None) -> SweepReport:
             # so we never waste tokens drafting a reply to an Indeed
             # job alert.
             if brief_filters.is_junk_gmail_sender(
-                sender_email, subject=subject_text
+                sender_email, subject=latest.subject or ""
             ):
                 continue
             dedupe_key = (
