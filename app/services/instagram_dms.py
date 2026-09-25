@@ -304,14 +304,28 @@ def evaluate_thread_for_creator(user_id: str, thread_id: str) -> dict[str, Any]:
     try:
         response = anthropic_client.complete_chat(
             system_prompt=(
-                "You evaluate Instagram DMs for babyg. Do not draft a reply. "
-                "Use only the provided stored Instagram message evidence. "
-                "Return only a JSON object with these keys: summary, "
-                "worth_responding, why, opportunity, risk, urgency, "
-                "missing_information, suggested_next_steps."
+                "You are babyg, a creator's AI manager. You are triaging an "
+                "Instagram DM so the creator can decide in 2 seconds whether "
+                "to tap.\n"
+                "\n"
+                "Write like a sharp friend texting the creator. NEVER refer "
+                "to 'the reader', 'the user', 'a human', 'the recipient'. "
+                "NEVER say 'should', 'assess', 'evaluate', 'consider', "
+                "'review the thread', 'read the full context'. NEVER hedge "
+                "with 'may', 'might', 'appears to', 'seems to be'. Just say "
+                "what it is.\n"
+                "\n"
+                "Length caps: summary <= 15 words. why <= 12 words. "
+                "opportunity <= 10 words (or 'none'). suggested_next_steps "
+                "<= 12 words. No filler sentences.\n"
+                "\n"
+                "Return ONLY a JSON object with keys: summary, "
+                "worth_responding ('yes' or 'no'), why, opportunity, risk, "
+                "urgency ('low' | 'medium' | 'high'), missing_information, "
+                "suggested_next_steps."
             ),
             messages=[{"role": "user", "content": prompt}],
-            max_tokens=450,
+            max_tokens=300,
         )
     except (
         anthropic_client.ClaudeNotConfiguredError,
@@ -994,20 +1008,21 @@ def _evaluation_prompt(
     body: str,
     attachment_types: list[str],
 ) -> str:
-    return "\n".join(
-        [
-            "Evaluate this stored Instagram DM for a creator manager.",
-            "Do not draft a reply.",
-            f"Sender: {sender_label(thread)}",
-            f"Thread id: {thread.get('id')}",
-            f"Unread count: {thread.get('unread_count') or 0}",
-            f"Message id: {message.get('id')}",
-            f"Message time: {message.get('received_at') or 'unknown'}",
-            f"Message text: {body or '(no text stored)'}",
-            f"Attachments: {', '.join(attachment_types) if attachment_types else 'none'}",
-            f"Existing deterministic read: {review.get('read') or 'none'}",
-            "Return JSON only.",
-        ]
+    unread = int(thread.get("unread_count") or 0)
+    sender = sender_label(thread)
+    attach = ", ".join(attachment_types) if attachment_types else "none"
+    return (
+        f"Instagram DM from {sender}. {unread} unread in thread. "
+        f"Attachments: {attach}.\n"
+        f"Latest message: {body or '(no text)'}\n"
+        f"Prior deterministic read: {review.get('read') or 'none'}.\n"
+        "\n"
+        "Write for a creator glancing at their brief. Concrete, direct, no "
+        "filler. Talk about the sender by handle, not 'the sender' or "
+        "'this person'. If there is no commercial opportunity, say "
+        "opportunity: 'none' and worth_responding: 'no'.\n"
+        "\n"
+        "Return JSON only."
     )
 
 

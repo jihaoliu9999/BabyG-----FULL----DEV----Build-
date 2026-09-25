@@ -400,11 +400,82 @@ def _card(
         "platform_label": _source_label(source),
         "matter_type": matter_type,
         "urgent": urgent,
-        "headline": _shorten(headline, 160),
-        "context": _shorten(context, 180),
+        "headline": _shorten(_scrub_ai_leak(headline), 100),
+        "context": _shorten(_scrub_ai_leak(context), 90),
         "created_at": str(created_at or ""),
         "dedupe_key": dedupe_key,
     }
+
+
+# Phrases that leak from Claude's internal reasoning into user-facing
+# brief cards and make babyg read like a raw LLM demo. When any of
+# these appear, drop the offending sentence entirely.
+#
+# The prompt (instagram_dms._evaluation_prompt) already asks Claude to
+# avoid them, but LLMs regress; this is the belt-and-suspenders that
+# keeps the surface clean on a bad day.
+_AI_LEAK_PATTERNS: tuple[str, ...] = (
+    "a human should",
+    "the reader should",
+    "the user should",
+    "the recipient should",
+    "should read the",
+    "should assess",
+    "should evaluate",
+    "should consider",
+    "please review",
+    "please assess",
+    "please consider",
+    "before responding",
+    "review the thread",
+    "read the full thread",
+    "read the entire thread",
+    "read the full context",
+    "assess whether",
+    "consider whether",
+    "evaluate whether",
+    "based on the provided",
+    "based on the stored",
+    "as noted above",
+    "as mentioned above",
+    "this appears to be",
+    "this may be",
+    "it may be",
+    "it appears that",
+)
+
+
+def _scrub_ai_leak(text: str) -> str:
+    """Drop sentences that read like Claude's internal reasoning
+    leaking into user-facing brief copy. Case-insensitive; preserves
+    sentence order for anything that survives."""
+    if not text:
+        return ""
+    raw = str(text).strip()
+    if not raw:
+        return ""
+    # Split on sentence enders but keep the delimiters glued onto each
+    # kept sentence for natural rendering.
+    parts: list[str] = []
+    buf: list[str] = []
+    for ch in raw:
+        buf.append(ch)
+        if ch in ".!?":
+            parts.append("".join(buf).strip())
+            buf = []
+    tail = "".join(buf).strip()
+    if tail:
+        parts.append(tail)
+    cleaned = [
+        p
+        for p in parts
+        if p and not any(pat in p.casefold() for pat in _AI_LEAK_PATTERNS)
+    ]
+    # If every sentence was a leak, return empty. The card will still
+    # render with source badge, timestamp, and handle — better a blank
+    # subtitle than the raw AI reasoning that motivated this scrubber
+    # in the first place.
+    return " ".join(cleaned).strip()
 
 
 def _source_label(source: BriefSource) -> str:
