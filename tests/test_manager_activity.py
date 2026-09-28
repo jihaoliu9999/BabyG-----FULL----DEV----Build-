@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -144,27 +143,27 @@ class _FakeChain:
         self._rows = rows
         self.calls: dict[str, Any] = {}
 
-    def table(self, name: str) -> "_FakeChain":
+    def table(self, name: str) -> _FakeChain:
         self.calls["table"] = name
         return self
 
-    def select(self, cols: str) -> "_FakeChain":
+    def select(self, cols: str) -> _FakeChain:
         self.calls["select"] = cols
         return self
 
-    def eq(self, col: str, val: Any) -> "_FakeChain":
+    def eq(self, col: str, val: Any) -> _FakeChain:
         self.calls.setdefault("eq", []).append((col, val))
         return self
 
-    def gte(self, col: str, val: Any) -> "_FakeChain":
+    def gte(self, col: str, val: Any) -> _FakeChain:
         self.calls.setdefault("gte", []).append((col, val))
         return self
 
-    def order(self, col: str, desc: bool = False) -> "_FakeChain":
+    def order(self, col: str, desc: bool = False) -> _FakeChain:
         self.calls["order"] = (col, desc)
         return self
 
-    def limit(self, n: int) -> "_FakeChain":
+    def limit(self, n: int) -> _FakeChain:
         self.calls["limit"] = n
         return self
 

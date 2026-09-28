@@ -261,23 +261,99 @@ def disconnect_google(user_id: str) -> bool:
 
 
 def access_token_for_google(user_id: str) -> str | None:
+    """Return a *usable* Google access token for `user_id`, or None.
+
+    Contract (never return a token we know has already expired):
+
+      * No stored connection → None.
+      * Stored access_token is present and not expired → return it.
+      * Stored access_token is expired but a refresh_token exists →
+        attempt Google's refresh flow.
+          - Refresh succeeds → persist the new access_token, expiry,
+            and any newly-issued refresh_token / scope set (see
+            ``save_google_connection`` — old refresh_token and old
+            scopes are preserved when Google omits them), then return
+            the new access_token.
+          - Refresh fails for any reason (transient network error,
+            5xx, malformed body, permanent ``invalid_grant`` from a
+            revoked or aged-out refresh_token) → return None. The
+            caller must NOT proceed with the known-expired access
+            token; hitting Gmail/Calendar with an expired credential
+            just piles up 401s in ``bot_job_failures`` and burns
+            provider quota.
+      * Stored access_token is expired and no refresh_token → None.
+
+    Prior behavior (fixed in Sep 2026): every fall-through path
+    returned ``access_token or None``, i.e. the known-expired token.
+    Sweeps then handed that dead credential to Gmail and racked up
+    ``GmailUnauthorizedError`` after ``GmailUnauthorizedError``.
+    Production evidence: 4 of 5 Gmail-eligible creators stuck in a
+    401 loop since their access_tokens expired in June/July while
+    their refresh_tokens (from an unverified consent screen) had also
+    aged out; the token helper silently handed back the expired
+    tokens forever.
+    """
     connection = get_google_connection(user_id)
     if not connection:
         return None
     access_token = str(connection.get("access_token") or "")
     refresh_token = str(connection.get("refresh_token") or "")
+
     if access_token and not _is_expired(connection.get("expires_at")):
         return access_token
+
+    # From here down the stored access_token is expired (or missing).
+    # We must NEVER return it. Every exit path returns either a fresh
+    # token or None.
+
     if not refresh_token:
-        return access_token or None
+        # Nothing to refresh with. Caller sees None and must prompt
+        # the creator to reconnect Google.
+        return None
+
     try:
         refreshed = google_calendar.refresh_access_token(refresh_token)
+    except google_calendar.GoogleTokenRefreshRejectedError:
+        # Permanent — the stored refresh_token is unusable (revoked,
+        # aged out, client mismatch). Retrying with the same token
+        # will fail identically. Log distinctly so ops can identify
+        # who needs to go back through the OAuth flow, but do NOT
+        # delete the connection row; the existing "reconnect" surface
+        # will overwrite it on the next successful auth callback.
+        logger.info(
+            "Google token refresh permanently rejected for user %s "
+            "(refresh_token unusable; creator must reconnect)",
+            user_id,
+        )
+        return None
     except google_calendar.GoogleCalendarError:
-        logger.info("Google token refresh failed for user %s", user_id)
-        return access_token or None
-    if save_google_connection(user_id, refreshed):
-        return str(refreshed.get("access_token") or access_token)
-    return access_token or None
+        # Transient — network blip, 5xx, malformed body. Return None
+        # so this tick fails safely; the next sweep will retry.
+        logger.info("Google token refresh transient failure for user %s", user_id)
+        return None
+
+    new_access_token = str(refreshed.get("access_token") or "")
+    if not new_access_token:
+        # Defensive: _post_token already guards this, but a stray
+        # future refactor could regress. Never hand out an empty
+        # string as if it were a token.
+        logger.info("Google token refresh returned no access_token for user %s", user_id)
+        return None
+
+    if not save_google_connection(user_id, refreshed):
+        # We got a valid new token from Google but Supabase persist
+        # failed. The token IS good right now — use it for this call
+        # so the sweep tick makes progress; the next tick will find
+        # the row still expired and re-refresh, which is idempotent
+        # for Google's flow.
+        logger.info(
+            "Google token refresh succeeded but persist failed for user %s "
+            "(using fresh token in-memory)",
+            user_id,
+        )
+        return new_access_token
+
+    return new_access_token
 
 
 def _update_google_scopes(user_id: str, scopes: list[str]) -> bool:

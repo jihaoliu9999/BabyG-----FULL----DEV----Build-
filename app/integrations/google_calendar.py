@@ -42,6 +42,25 @@ class GoogleCalendarError(RuntimeError):
     """Raised for non-secret Google OAuth/API failures."""
 
 
+class GoogleTokenRefreshRejectedError(GoogleCalendarError):
+    """Raised when Google's token endpoint responds 4xx with an error
+    that marks the credential as permanently unusable.
+
+    Concretely, this covers ``invalid_grant`` on a refresh_token that
+    Google no longer honors — the classic case for unverified consent
+    screens where refresh tokens die after 7 days, or a user who
+    revoked babyg from their Google account settings, or a workspace
+    admin who revoked the OAuth grant. Also covers ``invalid_client``
+    (client_id/secret mismatch) and ``unauthorized_client``
+    (provider disabled server-side).
+
+    Callers must treat this distinctly from generic
+    ``GoogleCalendarError`` (which is transient): retrying the exact
+    same refresh will never succeed, and the creator needs to go
+    through the OAuth flow again to reconnect.
+    """
+
+
 def is_configured() -> bool:
     settings = get_settings()
     return bool(settings.google_client_id and settings.google_client_secret)
@@ -580,14 +599,68 @@ def event_to_booking_payload(
 
 
 def _post_token(payload: dict[str, str]) -> dict[str, Any]:
+    """POST to Google's token endpoint. Two failure shapes matter:
+
+    * ``GoogleTokenRefreshRejectedError`` — Google returned a 4xx with
+      an ``error`` field marking the credential itself as unusable
+      (``invalid_grant`` on an expired/revoked refresh_token,
+      ``invalid_client`` on a client_id/secret mismatch, ``unauthorized_client``
+      on a provider disabled server-side). Retrying with the same
+      credential will never succeed; the caller MUST NOT fall back to
+      a stale access_token and MUST NOT hammer the endpoint.
+    * ``GoogleCalendarError`` — everything else (network blip, 5xx,
+      timeout, malformed body). Transient — a retry on a later sweep
+      tick may succeed.
+    """
     try:
         response = httpx.post(TOKEN_URL, data=payload, timeout=20.0)
-        response.raise_for_status()
     except httpx.HTTPError as exc:
-        status = getattr(getattr(exc, "response", None), "status_code", "?")
-        logger.info("Google OAuth token exchange failed with status %s", status)
+        logger.info("Google OAuth token request transport failed")
         raise GoogleCalendarError("Google OAuth token request failed") from exc
-    data = response.json()
+
+    # Non-2xx: peel out the error code without letting the response
+    # body leak into any log or exception message (it can contain
+    # sensitive detail like an admin email or scope string).
+    if response.status_code >= 400:
+        error_code = ""
+        try:
+            body = response.json()
+            if isinstance(body, dict):
+                error_code = str(body.get("error") or "").strip()
+        except ValueError:
+            error_code = ""
+        # 4xx with any of these `error` values means the credential is
+        # permanently rejected. Google's docs enumerate these on the
+        # refresh-token endpoint. `invalid_grant` is the one we see on
+        # a 7-day-expired refresh_token from an unverified consent
+        # screen; the others are here so a misconfigured client or a
+        # revoked provider surfaces the same permanent-failure signal.
+        permanent_errors = {
+            "invalid_grant",
+            "invalid_client",
+            "unauthorized_client",
+            "invalid_request",
+        }
+        if 400 <= response.status_code < 500 and error_code in permanent_errors:
+            logger.info(
+                "Google OAuth token request rejected: status=%s error=%s",
+                response.status_code,
+                error_code,
+            )
+            raise GoogleTokenRefreshRejectedError(
+                f"Google rejected token request: {error_code or response.status_code}"
+            )
+        logger.info(
+            "Google OAuth token exchange failed with status %s (error=%s)",
+            response.status_code,
+            error_code or "?",
+        )
+        raise GoogleCalendarError("Google OAuth token request failed")
+
+    try:
+        data = response.json()
+    except ValueError as exc:
+        raise GoogleCalendarError("Google OAuth token response was not JSON") from exc
     if not isinstance(data, dict) or not data.get("access_token"):
         raise GoogleCalendarError("Google OAuth token response was missing access_token")
     return data
