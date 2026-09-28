@@ -119,9 +119,9 @@ def test_bot_page_renders_history(monkeypatch, client: TestClient) -> None:
 def test_bot_page_renders_prompt_chips_on_empty_thread(
     monkeypatch, client: TestClient
 ) -> None:
-    """Empty message history triggers the composer chip row. Composer
-    v3 backfills 4 chips from a rotating pool so the creator never
-    sees the same two evergreens on every open."""
+    """The composer's chip strip is now a fixed 4-action manager
+    toolbar (draft / follow up / plan / brainstorm), rendered icon-
+    only on every render — no longer context-dependent."""
     _signed_in(client, role="creator")
     monkeypatch.setattr(
         creator_routes.profiles,
@@ -137,22 +137,36 @@ def test_bot_page_renders_prompt_chips_on_empty_thread(
     response = client.get("/creator/bot")
 
     assert response.status_code == 200
-    assert 'class="bot-prompt-chips"' in response.text
-    # At least one chip from the rotating pool must appear regardless
-    # of the current hour. Any pool entry works.
-    from app.services import bot_prompts as bp
-    assert any(
-        p["text"] in response.text for p in bp._ROTATING_PROMPTS
-    )
-    # data-bot-prompt attribute carries the tap payload.
-    assert "data-bot-prompt=" in response.text
+    assert 'class="bot-prompt-chips' in response.text
+    # All four fixed manager actions must be present as data-bot-prompt
+    # payloads — bot.js's delegated click handler routes each tap into
+    # the existing chat submission pipeline via composer.requestSubmit.
+    for prompt in (
+        "draft something for me",
+        "follow up for me",
+        "plan my day",
+        "brainstorm with me",
+    ):
+        assert f'data-bot-prompt="{prompt}"' in response.text
+    # Icons are the only visible affordance in the chip; the aria-label
+    # carries the full action name for screen readers.
+    for label in (
+        'aria-label="draft something"',
+        'aria-label="follow up for me"',
+        'aria-label="plan my day"',
+        'aria-label="brainstorm with me"',
+    ):
+        assert label in response.text
 
 
-def test_bot_page_prompt_chips_pull_real_user_context(
+def test_bot_page_chip_toolbar_is_context_independent(
     monkeypatch, client: TestClient
 ) -> None:
-    """Chips are data-driven — count of unread DMs, name of the most
-    recent DM peer. Nothing rendered from stubs."""
+    """Prior behavior: chip text was pulled from live context (unread
+    DM counts, most recent peer name). New behavior: exactly the four
+    fixed manager actions, regardless of what awareness_snapshot
+    returns. Locks the regression so no future context leaks back
+    into the toolbar."""
     _signed_in(client, role="creator", user_id="u-1")
 
     def _profile_lookup(uid: str) -> dict[str, object]:
@@ -163,7 +177,6 @@ def test_bot_page_prompt_chips_pull_real_user_context(
         return {}
 
     monkeypatch.setattr(creator_routes.profiles, "get_creator_profile", _profile_lookup)
-    # Awareness snapshot batches peer name lookups via get_creators_by_ids.
     monkeypatch.setattr(
         creator_routes.profiles,
         "get_creators_by_ids",
@@ -180,8 +193,12 @@ def test_bot_page_prompt_chips_pull_real_user_context(
     response = client.get("/creator/bot")
 
     assert response.status_code == 200
-    assert "summarize my 3 unread dms" in response.text
-    assert "draft a follow-up to jihao" in response.text
+    # No dynamic peer/count strings should leak into the chip strip.
+    assert "summarize my 3 unread dms" not in response.text
+    assert "draft a follow-up to jihao" not in response.text
+    # But the four fixed actions must be there.
+    assert 'data-bot-prompt="draft something for me"' in response.text
+    assert 'data-bot-prompt="brainstorm with me"' in response.text
 
 
 def test_bot_page_renders_pending_action_controls(monkeypatch, client: TestClient) -> None:
