@@ -40,7 +40,6 @@ from app.deps import require_role
 from app.integrations import google_calendar, instagram_meta
 from app.services import (
     action_proposals,
-    agent_cycles,
     agent_memory,
     agent_recap,
     audit,
@@ -61,6 +60,7 @@ from app.services import (
     instagram_dms,
     jobs,
     locations,
+    manager_activity,
     network,
     notifications,
     oauth_connections,
@@ -653,23 +653,22 @@ async def bot_chat(
         snapshot=snap,
         messages=messages,
     )
+    # Activity sheet — real completed manager actions (executed
+    # action_proposals) grouped by day. Rendered inside a hidden
+    # bottom sheet on this page; the top-right clock button opens it.
+    # Pending approvals stay in chat (they're inline in the
+    # proposed_action bubble in bot_messages.html), so we do NOT
+    # surface pending_actions in the sheet.
     try:
-        activity_recap = agent_recap.build(session["user_id"], window_hours=168)
+        activity_groups = manager_activity.list_recent_activity(session["user_id"])
     except Exception:
-        logger.exception("agent_recap.build failed (bot)")
-        activity_recap = None
+        logger.exception("manager_activity.list failed (bot)")
+        activity_groups = []
     try:
-        recent_cycles = agent_cycles.list_recent(session["user_id"], limit=5)
+        activity_has_new = manager_activity.has_new_since(session["user_id"])
     except Exception:
-        logger.exception("agent_cycles.list_recent failed (bot)")
-        recent_cycles = []
-    try:
-        pending_actions = action_proposals.list_pending_for_user(
-            user_id=session["user_id"], limit=5
-        )
-    except Exception:
-        logger.exception("action_proposals.list_pending_for_user failed (bot)")
-        pending_actions = []
+        logger.exception("manager_activity.has_new failed (bot)")
+        activity_has_new = False
 
     # Personal greeting for the empty-state hero. Same helper the
     # dashboard uses, so a creator gets the same "morning, garrett"
@@ -686,9 +685,8 @@ async def bot_chat(
             "error": None,
             "bot_prompts": prompts,
             "daily_greeting": daily_greeting,
-            "activity_recap": activity_recap,
-            "recent_cycles": recent_cycles,
-            "pending_actions": pending_actions,
+            "activity_groups": activity_groups,
+            "activity_has_new": activity_has_new,
         },
     )
 

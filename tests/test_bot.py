@@ -88,10 +88,14 @@ def test_bot_page_renders_history(monkeypatch, client: TestClient) -> None:
     response = client.get("/creator/bot")
 
     assert response.status_code == 200
-    # Slim header carries a compact "ai manager" mono label — the old
-    # "your private AI manager" subtitle block is gone.
-    assert "ai manager" in response.text
+    # The large "ai manager" title header was replaced by a subtle
+    # top-right Activity trigger button (Sep 2026 redesign). Lock the
+    # removal and the new anchor.
     assert "your private AI manager" not in response.text
+    assert "creator-babyg-topbar" not in response.text
+    assert "creator-screen-lockup-label" not in response.text
+    assert "data-bot-activity-open" in response.text
+    assert "botActivitySheet" in response.text
     assert "What are we working on today?" not in response.text
     assert 'class="app-topbar"' not in response.text
     assert 'class="mobile-header"' not in response.text
