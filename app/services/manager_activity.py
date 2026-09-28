@@ -149,7 +149,8 @@ def _row_to_item(row: dict[str, Any]) -> dict[str, Any] | None:
     meta = _ACTION_META.get(action_type)
     if meta is None:
         return None
-    preview: dict[str, Any] = row.get("preview") if isinstance(row.get("preview"), dict) else {}
+    preview_raw = row.get("preview")
+    preview = preview_raw if isinstance(preview_raw, dict) else {}
     subtitle = ""
     for key in meta["subtitle_fields"]:
         subtitle = _clean_subtitle(preview.get(key))
