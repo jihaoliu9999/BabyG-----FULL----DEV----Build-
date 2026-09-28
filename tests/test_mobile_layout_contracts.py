@@ -356,27 +356,28 @@ def test_home_v5_removed_top_surfaces_stay_removed() -> None:
     assert "watching" not in DASHBOARD_TEMPLATE
 
 
-def test_home_v5_connected_cards_are_mobile_safe() -> None:
-    grid_rule = APP_CSS.split(
-        ".creator-home.hv5 .hv5-connected-grid {", 1
-    )[1].split("}", 1)[0]
-    card_rule = APP_CSS.split(
-        ".creator-home.hv5 .hv5-connected-card {", 1
-    )[1].split("}", 1)[0]
-    assert "grid-template-columns: repeat(3, minmax(0, 1fr))" in grid_rule
-    assert "min-height: 96px" in card_rule
-    assert "overflow-wrap: anywhere" in APP_CSS
-    assert 'class="hv5-connected-card' in DASHBOARD_TEMPLATE
-    assert "home_v5_status.rows" in DASHBOARD_TEMPLATE
+def test_home_v5_connected_section_is_removed() -> None:
+    """The Connected section was removed from Home; integrations now
+    live in Settings only. Lock the removal so a future edit can't
+    silently reintroduce integration-status markup on Home.
+
+    The .hv5-connected-* CSS rules remain in app.css as harmless
+    orphans (they aren't rendered anywhere), so we assert only on
+    the template + route context, not on CSS."""
+    assert "hv5-section-connected" not in DASHBOARD_TEMPLATE
+    assert "hv5-connected-grid" not in DASHBOARD_TEMPLATE
+    assert 'class="hv5-connected-card' not in DASHBOARD_TEMPLATE
+    assert "home_v5_status" not in DASHBOARD_TEMPLATE
+    assert "connection_label" not in DASHBOARD_TEMPLATE
 
 
 def test_home_v5_section_order_matches_spec() -> None:
-    """The v5 section order is fixed on every device:
-       brief → calendar → connected."""
+    """The v5 section order on Home is now brief → calendar only.
+    Connected was removed; the ordering lock reflects the new spec."""
     brief_pos = DASHBOARD_TEMPLATE.index(">brief<")
     calendar_pos = DASHBOARD_TEMPLATE.index(">calendar<")
-    connected_pos = DASHBOARD_TEMPLATE.index(">connected<")
-    assert brief_pos < calendar_pos < connected_pos
+    assert brief_pos < calendar_pos
+    assert ">connected<" not in DASHBOARD_TEMPLATE
 
 
 def test_hidden_brand_topbar_does_not_reserve_mobile_space() -> None:

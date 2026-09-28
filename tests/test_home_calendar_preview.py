@@ -266,49 +266,56 @@ def test_removed_top_surfaces_do_not_render(
     assert "hv5-tile" not in r.text
 
 
-def test_home_section_order_is_brief_calendar_connected(
+def test_home_section_order_is_brief_then_calendar(
     client: TestClient, stub_dashboard
 ) -> None:
+    """Home now renders brief → calendar only. The Connected section
+    was removed and integrations live in Settings; this test locks the
+    new order + the absence of the Connected header on Home."""
     _signed_in(client)
     r = client.get("/creator")
     assert r.status_code == 200
     brief_pos = r.text.index(">brief<")
     calendar_pos = r.text.index(">calendar<")
-    connected_pos = r.text.index(">connected<")
-    assert brief_pos < calendar_pos < connected_pos
+    assert brief_pos < calendar_pos
+    assert ">connected<" not in r.text
 
 
-def test_connected_section_uses_real_provider_state(
+def test_connected_section_is_absent_from_home(
     client: TestClient, stub_dashboard
 ) -> None:
+    """The Connected panel (Instagram / Gmail / Calendar status tiles)
+    was moved off Home; it now lives only in Settings → integrations.
+    Rendering Home in any provider-state combination must NOT emit the
+    connected-card markup or the ``connected`` heading. Integrations
+    themselves are untouched — this test only guards the Home surface."""
     _signed_in(client)
     stub_dashboard["instagram_connected"] = True
     stub_dashboard["google_gmail_connected"] = True
     stub_dashboard["google_calendar_connected"] = False
     r = client.get("/creator")
     assert r.status_code == 200
-    assert ">connected<" in r.text
-    assert 'data-slot="instagram"' in r.text
-    assert 'data-slot="gmail"' in r.text
-    assert 'data-slot="calendar"' in r.text
-    assert 'aria-label="Instagram connected"' in r.text
-    assert 'aria-label="Gmail connected"' in r.text
-    assert 'aria-label="Calendar not connected"' in r.text
-    assert 'href="/creator/instagram/dms"' in r.text
-    assert 'href="/creator/dm"' in r.text
-    assert 'href="/creator/profile/settings#integrations"' in r.text
+    assert ">connected<" not in r.text
+    assert "hv5-connected-card" not in r.text
+    assert 'aria-label="Instagram connected"' not in r.text
+    assert 'aria-label="Calendar not connected"' not in r.text
 
 
-def test_connected_section_marks_reconnect_state(
+def test_needs_reconnect_ig_does_not_show_connected_pill_on_home(
     client: TestClient, stub_dashboard
 ) -> None:
+    """A creator with an expired Instagram token used to see a
+    'needs-attention' pill inside the Home Connected section. That
+    section no longer exists on Home; the reconnect prompt lives in
+    Settings. Guard that no ``needs-attention`` connected-card leaks
+    back onto Home when instagram_needs_reconnect is true."""
     _signed_in(client)
     stub_dashboard["instagram_connected"] = True
     stub_dashboard["instagram_needs_reconnect"] = True
     r = client.get("/creator")
     assert r.status_code == 200
-    assert "needs-attention" in r.text
-    assert 'aria-label="Instagram needs reconnect"' in r.text
+    assert "hv5-connected-card" not in r.text
+    assert 'aria-label="Instagram needs reconnect"' not in r.text
 
 
 def test_native_dm_shows_as_babyg_not_instagram(

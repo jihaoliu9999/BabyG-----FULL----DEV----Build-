@@ -540,14 +540,11 @@ async def dashboard(
     # the full count.
     pending_actions = pending_actions_all[:6]
 
-    # Home v5 briefing — composes the five compact slots the new home
+    # Home v5 briefing — composes the compact slots the new home
     # template renders. Every field is derived from state we already
     # fetched above; the only fresh read is handled_today (small count).
-    home_v5_status = home_briefing.integration_status(
-        user_id,
-        google_connection=google_connection,
-        ig_connection=instagram_connection,
-    )
+    # (The connected/integration-status section was removed from Home;
+    # integrations live in Settings, so no fetch is needed here.)
     # Primary slot is a carousel: 0 slides -> clear state, 1 -> single
     # card with no indicator, 2+ -> swipeable slides with dot count.
     # Ranking is priority-first, ties broken by manager urgency
@@ -609,7 +606,6 @@ async def dashboard(
             "overnight_recap": overnight_recap,
             "ig_dm_unread_count": ig_dm_unread_count,
             "unread_dms": total_dm_unread_count,
-            "home_v5_status": home_v5_status,
             "home_v5_primary_slides": home_v5_primary_slides,
             "home_v5_brief": home_v5_brief,
             "home_v5_handled_count": home_v5_handled_count,

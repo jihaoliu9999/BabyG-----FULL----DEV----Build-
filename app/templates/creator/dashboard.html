@@ -14,10 +14,6 @@
   {%- endif -%}
 {%- endmacro %}
 
-{% macro connection_label(row) -%}
-  {%- if row.slot == 'calendar' -%}Calendar{%- else -%}{{ row.label }}{%- endif -%}
-{%- endmacro %}
-
 {% block content %}
 <main class="creator-home hv5" data-page="home-v5">
   <section class="hv5-section hv5-section-brief">
@@ -135,23 +131,5 @@
     </div>
   </section>
 
-  <section class="hv5-section hv5-section-connected">
-    <div class="hv5-head">
-      <h2 class="hv5-head-title">connected</h2>
-      <a class="hv5-head-link" href="/creator/profile/settings#integrations">manage</a>
-    </div>
-    <div class="hv5-connected-grid">
-      {% for row in home_v5_status.rows %}
-      <a class="hv5-connected-card{% if row.connected and not row.needs_reconnect %} is-connected{% elif row.needs_reconnect %} needs-attention{% endif %}"
-         href="{{ row.open_href if row.connected and not row.needs_reconnect else row.connect_href }}"
-         data-slot="{{ row.slot }}"
-         aria-label="{{ connection_label(row) }} {{ 'connected' if row.connected and not row.needs_reconnect else ('needs reconnect' if row.needs_reconnect else 'not connected') }}">
-        <span class="hv5-connected-icon hv5-brand-{{ row.slot }}" aria-hidden="true">{{ source_icon(row.slot) }}</span>
-        <span class="hv5-connected-dot" aria-hidden="true"></span>
-        <span class="hv5-connected-name">{{ connection_label(row) }}</span>
-      </a>
-      {% endfor %}
-    </div>
-  </section>
 </main>
 {% endblock %}
