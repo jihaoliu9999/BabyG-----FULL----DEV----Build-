@@ -24,6 +24,13 @@ MOTION_JS = (ROOT / "app/static/js/motion.js").read_text(encoding="utf-8")
 BOOST_JS = (ROOT / "app/static/js/boost.js").read_text(encoding="utf-8")
 
 
+def test_creator_mobile_avatar_keeps_clearance_beyond_safe_area() -> None:
+    header_rule = APP_CSS.split(".is-creator-app .mobile-header {", 1)[1].split("}", 1)[0]
+    assert "top: calc(env(safe-area-inset-top, 0px) + 12px)" in header_rule
+    assert "right: calc(env(safe-area-inset-right, 0px) + 14px)" in header_rule
+    assert "position: fixed" in header_rule
+
+
 def test_discover_compass_matches_between_navigation_surfaces() -> None:
     from xml.etree import ElementTree
 
