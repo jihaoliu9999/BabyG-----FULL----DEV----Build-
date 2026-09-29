@@ -10,6 +10,8 @@ Locks in the three things the ship depends on:
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 from fastapi import Response
 from fastapi.testclient import TestClient
@@ -70,8 +72,7 @@ def test_new_opportunity_page_renders_all_kind_choices(client, monkeypatch):
     for choice in opp_routes.KIND_CHOICES:
         assert choice["label"] in r.text
         assert f'value="{choice["value"]}"' in r.text
-    # Title + composer submit visible
-    assert "post an opportunity" in r.text.lower()
+    assert '<h1 class="op-new-title">' not in r.text
     assert "post it" in r.text
 
 
@@ -196,3 +197,136 @@ def test_new_opportunity_submit_storage_failure_shows_banner(client, monkeypatch
     # Jinja escapes the apostrophe to &#39; so match on the HTML form.
     assert "couldn&#39;t save" in r.text.lower()
     assert "op-new-banner" in r.text
+
+
+@pytest.mark.parametrize("listing_type", ["ugc_gig", "collab", "hiring", "brand_deal"])
+@pytest.mark.parametrize("compensation_type", ["gifted", "negotiable"])
+def test_structured_opportunity_submission(
+    client, monkeypatch, listing_type, compensation_type
+):
+    _signed_in(client)
+    _stub_profile(monkeypatch)
+    captured = []
+    monkeypatch.setattr(jobs_module, "create", lambda **kw: captured.append(kw) or "new-id")
+    csrf = _get_csrf(client)
+    response = client.post("/creator/opportunities/new", data={
+        "csrf_token": csrf, "title": "Real scope", "description": "x" * 2000,
+        "listing_type": listing_type, "compensation_type": compensation_type,
+        "compensation_text": "$999 injected", "location": " Remote, U.S. Only ",
+        "deadline": "2026-10-15", "target_niches": "Food, wellness, , ugc",
+    })
+    assert response.status_code == 303
+    assert response.headers["location"] == "/creator/discover?kind=opportunity&posted=1"
+    assert captured[0]["poster_id"] == "creator-1"
+    assert captured[0]["payload"] == {
+        "title": "Real scope", "description": "x" * 2000, "listing_type": listing_type,
+        "compensation_type": compensation_type,
+        "compensation_text": opp_routes.COMPENSATION_LABELS[compensation_type],
+        "location_city": "Remote, U.S. Only", "deadline": "2026-10-15T23:59:59+00:00",
+        "target_niches": ["food", "wellness", "ugc"],
+    }
+
+
+def test_location_is_optional_and_description_limit_is_preserved(client, monkeypatch):
+    _signed_in(client)
+    _stub_profile(monkeypatch)
+    captured = []
+    monkeypatch.setattr(jobs_module, "create", lambda **kw: captured.append(kw) or "new-id")
+    csrf = _get_csrf(client)
+    response = client.post("/creator/opportunities/new", data={
+        "csrf_token": csrf, "title": "Scope", "description": "x" * 2001,
+        "listing_type": "collab", "compensation_type": "negotiable",
+    })
+    assert response.status_code == 303
+    assert "location_city" not in captured[0]["payload"]
+    assert len(captured[0]["payload"]["description"]) == 2000
+
+
+@pytest.mark.parametrize("compensation_type", ["paid", "cash", "flat_rate", "unknown"])
+def test_new_compensation_rejects_unsupported_choices(client, monkeypatch, compensation_type):
+    _signed_in(client)
+    _stub_profile(monkeypatch)
+    calls = []
+    monkeypatch.setattr(jobs_module, "create", lambda **kw: calls.append(kw))
+    csrf = _get_csrf(client)
+    response = client.post("/creator/opportunities/new", data={
+        "csrf_token": csrf, "title": "Scope", "description": "Scope",
+        "listing_type": "collab", "compensation_type": compensation_type,
+    })
+    assert response.status_code == 400
+    assert calls == []
+
+
+def test_form_identity_preview_and_locked_controls(client, monkeypatch):
+    _signed_in(client)
+    _stub_profile(monkeypatch)
+    calls = []
+    monkeypatch.setattr(jobs_module, "create", lambda **kw: calls.append(kw))
+    response = client.get("/creator/opportunities/new")
+    html = response.text
+    assert response.status_code == 200
+    assert calls == []
+    assert '<legend>opportunity type</legend>' in html
+    assert '<legend>compensation</legend>' in html
+    assert 'name="compensation_type" value="gifted"' in html
+    assert 'name="compensation_type" value="negotiable"' in html
+    assert 'name="compensation_text"' not in html
+    assert 'name="budget_min"' not in html and 'name="budget_max"' not in html
+    assert 'name="location" maxlength="120"' in html
+    assert 'maxlength="2000"' in html
+    assert 'aria-label="agree to direct wire — preview only"' in html
+    assert 'class="op-new-wire" disabled' in html
+    assert '<strong>Anna</strong>' in html
+    assert '<h1' not in html
+    assert '<h2>preview' not in html
+    assert 'href="/creator/discover?kind=opportunity"' in html
+    assert 'action="/creator/opportunities/new"' in html
+    assert html.index('class="op-new-submit"') < html.index('class="op-new-preview"')
+    for href in ["/creator", "/creator/discover", "/creator/dm", "/creator/profile/settings"]:
+        assert f'href="{href}"' in html
+
+
+def test_failed_save_preserves_structured_form_values(client, monkeypatch):
+    _signed_in(client)
+    _stub_profile(monkeypatch)
+    monkeypatch.setattr(jobs_module, "create", lambda **kw: None)
+    csrf = _get_csrf(client)
+    response = client.post("/creator/opportunities/new", data={
+        "csrf_token": csrf, "title": "Scope", "description": "Details",
+        "listing_type": "hiring", "compensation_type": "negotiable",
+        "location": "Miami", "target_niches": "food", "deadline": "2026-10-15",
+    })
+    assert response.status_code == 200
+    assert 'value="negotiable" checked' in response.text
+    assert 'value="hiring" checked' in response.text
+    assert 'value="Miami"' in response.text
+    assert 'value="2026-10-15"' in response.text
+
+
+def test_preview_code_has_no_write_or_payment_path():
+    root = Path(__file__).resolve().parents[1]
+    js = (root / "app/static/js/opportunity_new.js").read_text()
+    for forbidden in ["fetch(", "XMLHttpRequest", "requestSubmit(", ".submit(", "innerHTML", "localStorage", "stripe"]:
+        assert forbidden not in js
+    assert 'form.addEventListener("input", update)' in js
+    assert 'form.addEventListener("change", update)' in js
+    assert "textContent" in js
+
+
+def test_opportunity_layout_is_scoped_and_mobile_first():
+    root = Path(__file__).resolve().parents[1]
+    css = (root / "app/static/css/app.css").read_text()
+    opportunity_css = css.split(".op-new {", 1)[1].split(
+        "/* Calendar detail page", 1
+    )[0]
+    assert "grid-template-columns: repeat(2, minmax(0, 1fr))" in opportunity_css
+    assert "@media (max-width: 359px)" in opportunity_css
+    assert ".op-new-comp-row { grid-template-columns: minmax(0, 1fr); }" in opportunity_css
+    assert "@media (min-width: 1000px)" in opportunity_css
+    assert "width: min(100%, 1080px)" in opportunity_css
+    assert "width: 44px; height: 44px" in opportunity_css
+    assert "width: 100%; min-width: 0; max-width: 100%" in opportunity_css
+    assert "overflow-wrap: anywhere" in opportunity_css
+    assert "input:focus-visible" in opportunity_css
+    assert ".app-tabbar" not in opportunity_css
+    assert "--tabbar-h" not in opportunity_css

@@ -1,74 +1,86 @@
 {% extends "base.html" %}
-
+{% from "_partials/opportunity_icons.html" import icon %}
 {% block title %}post an opportunity — babyg{% endblock %}
 
 {% block content %}
+{% set identity = current_profile(request) or {} %}
+{% set name = identity.full_name or identity.instagram_handle or 'your profile' %}
+{% set selected_type = values.get('listing_type') or 'ugc_gig' %}
+{% set selected_compensation = values.get('compensation_type') or 'gifted' %}
 <section class="op-new" data-op-new>
-  <header class="op-new-head">
-    <a href="/creator/discover?kind=opportunity" class="op-new-back" aria-label="back to discover">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-    </a>
-    <h1 class="op-new-title">post an opportunity</h1>
-  </header>
-
-  {% if error %}
-  <div class="op-new-banner" role="alert">{{ error }}</div>
-  {% endif %}
-
-  <form method="post" action="/creator/opportunities/new" class="op-new-form">
-    {% include "_partials/csrf.html" %}
-
-    <fieldset class="op-new-kinds">
-      {# Kind eyebrow removed — the chip strip is self-evident and
-         the extra label just added chrome above the fold. Legend
-         stays in the DOM as visually-hidden for screen readers. #}
-      <legend class="sr-only">kind</legend>
-      <div class="op-new-kind-row" role="radiogroup" aria-label="kind">
-        {% for choice in kind_choices %}
-        <label class="op-new-kind{% if values.get('listing_type') == choice.value %} on{% endif %}">
-          <input type="radio" name="listing_type" value="{{ choice.value }}"
-                 {% if values.get('listing_type') == choice.value or (not values.get('listing_type') and loop.first) %}checked{% endif %} />
-          <span>{{ choice.label }}</span>
-        </label>
-        {% endfor %}
-      </div>
-    </fieldset>
-
-    <label class="op-new-field">
-      <span class="op-new-field-label">title</span>
-      <input type="text" name="title" required maxlength="120"
-             value="{{ values.get('title', '') }}"
-             placeholder="e.g. ugc brief for greek yogurt reels" />
-    </label>
-
-    <label class="op-new-field">
-      <span class="op-new-field-label">what you need</span>
-      <textarea name="description" required maxlength="2000" rows="3"
-                placeholder="one short paragraph. scope, deliverables, timing, any must-haves.">{{ values.get('description', '') }}</textarea>
-    </label>
-
-    <div class="op-new-row-2">
+  <a href="/creator/discover?kind=opportunity" class="op-new-back" aria-label="back to discover">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg>
+  </a>
+  {% if error %}<div class="op-new-banner" role="alert">{{ error }}</div>{% endif %}
+  <div class="op-new-layout">
+    <form method="post" action="/creator/opportunities/new" class="op-new-form">
+      {% include "_partials/csrf.html" %}
+      <fieldset class="op-new-kinds">
+        <legend>opportunity type</legend>
+        <div class="op-new-kind-row">
+          {% for choice in kind_choices %}
+          <label class="op-new-kind">
+            <input type="radio" name="listing_type" value="{{ choice.value }}" {% if selected_type == choice.value %}checked{% endif %} required />
+            <span class="op-new-choice-icon">{{ icon(choice.value) }}</span>
+            <span class="op-new-choice-copy"><strong>{{ choice.label }}</strong><small>{{ choice.hint }}</small></span>
+          </label>
+          {% endfor %}
+        </div>
+      </fieldset>
       <label class="op-new-field">
-        <span class="op-new-field-label">compensation</span>
-        <input type="text" name="compensation_text" maxlength="120"
-               value="{{ values.get('compensation_text', '') }}"
-               placeholder="$500 to $1,500 or product trade" />
+        <span class="op-new-field-label">title</span>
+        <input type="text" name="title" required maxlength="120" value="{{ values.get('title', '') }}" placeholder="e.g. ugc brief for greek yogurt reels" />
       </label>
+      <label class="op-new-field">
+        <span class="op-new-field-label">what you need</span>
+        <textarea name="description" required maxlength="2000" rows="4" aria-describedby="op-description-count" placeholder="one short paragraph. scope, deliverables, timing, any must-haves.">{{ values.get('description', '') }}</textarea>
+        <span class="op-new-counter" id="op-description-count" data-op-count>{{ values.get('description', '')|length }}/2000</span>
+      </label>
+      <fieldset class="op-new-kinds">
+        <legend>compensation</legend>
+        <div class="op-new-comp-row">
+          {% for value, label, hint in [('gifted', 'gifted / product', 'product or experience'), ('negotiable', 'negotiable', 'open to discussion')] %}
+          <label class="op-new-kind">
+            <input type="radio" name="compensation_type" value="{{ value }}" {% if selected_compensation == value %}checked{% endif %} required />
+            <span class="op-new-choice-icon">{{ icon(value) }}</span>
+            <span class="op-new-choice-copy"><strong>{{ label }}</strong><small>{{ hint }}</small></span>
+          </label>
+          {% endfor %}
+        </div>
+      </fieldset>
       <label class="op-new-field">
         <span class="op-new-field-label">close date</span>
-        <input type="date" name="deadline"
-               value="{{ values.get('deadline', '') }}" />
+        <input type="date" name="deadline" value="{{ values.get('deadline', '') }}" />
       </label>
-    </div>
-
-    <label class="op-new-field">
-      <span class="op-new-field-label">tags</span>
-      <input type="text" name="target_niches" maxlength="240"
-             value="{{ values.get('target_niches', '') }}"
-             placeholder="food, wellness, ugc" />
-    </label>
-
-    <button type="submit" class="op-new-submit">post it</button>
-  </form>
+      <label class="op-new-field">
+        <span class="op-new-field-label">location <span class="op-new-optional">(optional)</span></span>
+        <input type="text" name="location" maxlength="120" value="{{ values.get('location', '') }}" placeholder="e.g. Miami, Remote, U.S. Only" />
+      </label>
+      <label class="op-new-field">
+        <span class="op-new-field-label">tags</span>
+        <input type="text" name="target_niches" maxlength="240" value="{{ values.get('target_niches', '') }}" placeholder="e.g. food, wellness, lifestyle, travel" />
+      </label>
+      <button type="submit" class="op-new-submit">post it</button>
+    </form>
+    <article class="op-new-preview" aria-label="opportunity card preview" data-op-preview>
+      <div class="op-new-preview-identity">
+        {% if identity.profile_photo_url %}<img src="{{ identity.profile_photo_url|safe_url }}" alt="" class="op-new-preview-avatar" />{% else %}<span class="op-new-preview-avatar" aria-hidden="true">{{ name[:1]|upper }}</span>{% endif %}
+        <div><strong>{{ name }}</strong></div>
+      </div>
+      <h2 data-op-preview-title>{{ values.get('title') or 'opportunity title' }}</h2>
+      <p data-op-preview-description>{{ values.get('description') or 'Your opportunity description will appear here.' }}</p>
+      <div class="op-new-preview-meta">
+        <span data-op-preview-type>{{ icon(selected_type) }}<span>{% for choice in kind_choices %}{% if choice.value == selected_type %}{{ choice.label }}{% endif %}{% endfor %}</span></span>
+        <span data-op-preview-compensation>{{ icon(selected_compensation) }}<span>{{ 'negotiable' if selected_compensation == 'negotiable' else 'gifted / product' }}</span></span>
+        <span data-op-preview-location {% if not values.get('location') %}hidden{% endif %}>{{ icon('location') }}<span>{{ values.get('location', '') }}</span></span>
+        <span data-op-preview-date {% if not values.get('deadline') %}hidden{% endif %}>{{ icon('calendar') }}<span>{% if values.get('deadline') %}Closes {{ values.deadline|short_date }}{% endif %}</span></span>
+      </div>
+      <div class="op-new-preview-footer">
+        <div class="op-new-preview-tags" data-op-preview-tags>{% for tag in values.get('target_niches', '').split(',')[:6] %}{% if tag.strip() %}<span>{{ tag.strip().lower()[:40] }}</span>{% endif %}{% endfor %}</div>
+        <button type="button" class="op-new-wire" disabled aria-label="agree to direct wire — preview only">agree to direct wire</button>
+      </div>
+    </article>
+  </div>
 </section>
 {% endblock %}
+{% block foot_scripts %}<script src="{{ asset_url('js/opportunity_new.js') }}" defer></script>{% endblock %}

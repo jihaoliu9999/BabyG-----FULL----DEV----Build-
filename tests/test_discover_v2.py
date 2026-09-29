@@ -133,6 +133,23 @@ def test_discover_renders_mobile_first_mixed_stack(client, discover_world):
     assert discover_world["actions"][0]["action_type"] == "viewed"
 
 
+@pytest.mark.parametrize("compensation_type, label", [
+    ("gifted", "gifted / product"), ("negotiable", "negotiable"),
+    ("unspecified", "Product and travel covered"),
+])
+def test_opportunity_card_preserves_new_and_legacy_compensation(
+    client, discover_world, compensation_type, label
+):
+    _signed_in(client)
+    card = discover_world["cards"][0]
+    card.update(compensation_type=compensation_type, compensation_text=label,
+                budget_min=None, budget_max=None)
+    response = client.get("/creator/discover?kind=opportunity")
+    assert response.status_code == 200
+    assert label in response.text
+    assert "starting price" not in response.text
+
+
 def test_discover_nav_uses_locked_text_modes(client, discover_world):
     _signed_in(client)
     response = client.get("/creator/discover")

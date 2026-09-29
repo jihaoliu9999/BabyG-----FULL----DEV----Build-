@@ -26,16 +26,15 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/creator/opportunities", tags=["creator", "opportunities"])
 
 
-# Human-friendly labels for the three kinds we surface in the form.
-# creator_job_listings supports {'collab','ugc_gig','hiring','brand_deal'};
-# we alias 'ugc_gig' as 'ugc' for the form so the label reads cleanly.
+# Keep the existing database type values behind the form's visible labels.
 KIND_CHOICES: list[dict[str, str]] = [
-    {"value": "ugc_gig", "label": "ugc brief", "hint": "paid content"},
-    {"value": "collab", "label": "collab", "hint": "trade or barter"},
-    {"value": "hiring", "label": "hiring", "hint": "someone to work with"},
-    {"value": "brand_deal", "label": "brand deal", "hint": "sponsored work"},
+    {"value": "ugc_gig", "label": "ugc brief", "hint": "content creation"},
+    {"value": "collab", "label": "collab", "hint": "longer term"},
+    {"value": "hiring", "label": "hiring", "hint": "freelance / role"},
+    {"value": "brand_deal", "label": "brand deal", "hint": "campaign / partnership"},
 ]
 VALID_KINDS = {c["value"] for c in KIND_CHOICES}
+COMPENSATION_LABELS = {"gifted": "gifted / product", "negotiable": "negotiable"}
 
 
 @router.get("/new", response_class=HTMLResponse)
@@ -62,6 +61,8 @@ async def new_opportunity_submit(
     description: str = Form(...),
     listing_type: str = Form(...),
     compensation_text: str = Form(""),
+    compensation_type: str = Form(""),
+    location: str = Form(""),
     target_niches: str = Form(""),
     deadline: str = Form(""),
     session: SessionPayload = Depends(require_role("creator")),
@@ -73,6 +74,10 @@ async def new_opportunity_submit(
     description_clean = (description or "").strip()[:2000]
     listing_type_clean = (listing_type or "").strip().lower()
     compensation_clean = (compensation_text or "").strip()[:120] or None
+    compensation_type_clean = (compensation_type or "").strip().lower()
+    location_clean = (location or "").strip()[:120] or None
+    if compensation_type_clean in COMPENSATION_LABELS:
+        compensation_clean = COMPENSATION_LABELS[compensation_type_clean]
 
     niches = [
         n.strip().lower()[:40]
@@ -97,6 +102,8 @@ async def new_opportunity_submit(
         error = "add a short description so people know what you need."
     elif listing_type_clean not in VALID_KINDS:
         error = "pick a kind: ugc brief, collab, hiring, or brand deal."
+    elif compensation_type_clean and compensation_type_clean not in COMPENSATION_LABELS:
+        error = "pick gifted / product or negotiable."
 
     if error is not None:
         return templates.TemplateResponse(
@@ -110,6 +117,8 @@ async def new_opportunity_submit(
                     "description": description_clean,
                     "listing_type": listing_type_clean,
                     "compensation_text": compensation_clean or "",
+                    "compensation_type": compensation_type_clean,
+                    "location": location_clean or "",
                     "target_niches": ", ".join(niches),
                     "deadline": raw_deadline,
                 },
@@ -125,6 +134,10 @@ async def new_opportunity_submit(
     }
     if compensation_clean:
         payload["compensation_text"] = compensation_clean
+    if compensation_type_clean:
+        payload["compensation_type"] = compensation_type_clean
+    if location_clean:
+        payload["location_city"] = location_clean
     if deadline_iso:
         payload["deadline"] = deadline_iso
 
@@ -144,6 +157,8 @@ async def new_opportunity_submit(
                     "description": description_clean,
                     "listing_type": listing_type_clean,
                     "compensation_text": compensation_clean or "",
+                    "compensation_type": compensation_type_clean,
+                    "location": location_clean or "",
                     "target_niches": ", ".join(niches),
                     "deadline": raw_deadline,
                 },
