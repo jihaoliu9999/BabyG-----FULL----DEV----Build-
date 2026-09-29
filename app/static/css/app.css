@@ -12392,6 +12392,12 @@ body:has(.dm-thread-composer-box input:focus) .creator-tabbar {
 
 /* Post-opportunity form: mobile first, with a side-by-side desktop preview.
    The existing creator shell owns bottom-navigation and safe-area clearance. */
+@media (max-width: 767px) {
+  .is-creator-app .app-shell:has(.op-new) .app-main > #view {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .is-creator-app .app-shell:has(.op-new) .view { padding-top: 0; }
+}
 .op-new {
   width: min(100%, 1080px);
   margin: 0 auto;
@@ -12532,7 +12538,6 @@ body:has(.dm-thread-composer-box input:focus) .creator-tabbar {
 .op-new-preview-footer { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin-top: 20px; }
 .op-new-preview-tags { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
 .op-new-preview-tags > span { background: var(--surface-3); border-radius: 999px; padding: 7px 10px; font-size: 12px; }
-.op-new-wire { min-height: 44px; max-width: 100%; padding: 10px 16px; border: 0; border-radius: 999px; background: var(--accent); color: var(--ink); font: inherit; font-size: 14px; opacity: 1; cursor: default; }
 @media (max-width: 359px) {
   .op-new-comp-row { grid-template-columns: minmax(0, 1fr); }
   .op-new-kind-row .op-new-kind { flex-direction: column; align-items: flex-start; }

@@ -274,8 +274,8 @@ def test_form_identity_preview_and_locked_controls(client, monkeypatch):
     assert 'name="budget_min"' not in html and 'name="budget_max"' not in html
     assert 'name="location" maxlength="120"' in html
     assert 'maxlength="2000"' in html
-    assert 'aria-label="agree to direct wire — preview only"' in html
-    assert 'class="op-new-wire" disabled' in html
+    assert "agree to direct wire" not in html
+    assert "op-new-wire" not in html
     assert '<strong>Anna</strong>' in html
     assert '<h1' not in html
     assert '<h2>preview' not in html
