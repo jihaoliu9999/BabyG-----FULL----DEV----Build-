@@ -473,6 +473,9 @@ async def dashboard(
             viewer_tags=list(profile.get("niches") or []),
             viewer_location_label=viewer_location_label,
             viewer_platform=profile.get("primary_platform"),
+            viewer_deal_type_preferences=list(
+                profile.get("deal_type_preferences") or []
+            ),
             limit=3,
             _default=[],
         ),
@@ -993,20 +996,32 @@ async def profile_location_update(
 
 @router.post("/creator/profile/deals")
 async def profile_deals_update(
+    request: Request,
     deal_min_rate_text: str = Form(""),
     deal_usage_rights_default: str = Form(""),
     deal_travel_willingness: str = Form(""),
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
-    """Update the deal preferences section: rate floor (free text), the
-    default usage-rights posture, and travel willingness. All three are
-    owner-private — they inform babyg drafts and discover-quality
-    ranking but never appear in `public_creator()`."""
+    """Update the deal preferences section: which deal types the creator
+    is interested in (soft Discover ordering signal), the rate floor
+    (free text), the default usage-rights posture, and travel
+    willingness. Every field is owner-private — they inform babyg
+    drafts and Discover preference ordering but never appear in
+    ``public_creator()``."""
     profile = profiles.get_creator_profile(session["user_id"]) or {}
     if not profile.get("onboarding_completed_at"):
         return RedirectResponse("/onboarding/creator", status_code=302)
 
+    form = await request.form()
+    # form.getlist returns list[UploadFile | str]; only string values are
+    # legal here (checkbox values), so filter before validation.
+    raw_deal_types = [
+        v for v in form.getlist("deal_type_preferences") if isinstance(v, str)
+    ]
+    deal_type_values = profiles.sanitize_deal_type_preferences(raw_deal_types)
+
     payload: dict[str, Any] = {}
+    payload["deal_type_preferences"] = deal_type_values
     rate = " ".join(deal_min_rate_text.strip().split())[:120]
     # Clear-on-empty so the creator can blank it out.
     payload["deal_min_rate_text"] = rate or None
@@ -1179,6 +1194,18 @@ async def profile_settings_page(
         memory_history = agent_memory.history(session["user_id"], limit=10)
     except Exception:
         memory_history = []
+    # Deal-type preference options for the Settings picker. Labels come
+    # from the same source of truth Opportunity posting uses
+    # (app/routes/opportunities.py::KIND_CHOICES). Duplicated here as a
+    # short tuple so the settings template does not need to import from
+    # a route module. Order matches KIND_CHOICES.
+    deal_type_choices: list[dict[str, str]] = [
+        {"value": "ugc_gig", "label": "ugc briefs", "hint": "paid content"},
+        {"value": "collab", "label": "collabs", "hint": "trade or barter"},
+        {"value": "hiring", "label": "hiring gigs", "hint": "someone to work with"},
+        {"value": "brand_deal", "label": "brand deals", "hint": "sponsored work"},
+    ]
+    saved_deal_types = list(profile.get("deal_type_preferences") or [])
     return templates.TemplateResponse(
         request,
         "creator/profile_settings.html",
@@ -1200,6 +1227,8 @@ async def profile_settings_page(
             "agent_memory": memory_row,
             "agent_memory_history": memory_history,
             "agent_memory_max_chars": agent_memory.SUMMARY_MAX_CHARS,
+            "deal_type_choices": deal_type_choices,
+            "deal_type_selected": saved_deal_types,
         },
     )
 

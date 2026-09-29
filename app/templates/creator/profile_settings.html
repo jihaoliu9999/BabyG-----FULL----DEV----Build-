@@ -61,8 +61,39 @@
           {% elif deals_flash == 'save_failed' %}<div class="settings-flash">couldn't save. try again.</div>
           {% endif %}
 
-          <div class="settings-field">
-            <label for="deal_min_rate_text">rate floor</label>
+          {# Primary — which deal types the creator wants prioritized on
+             Discover. Saved values are matched against opportunity
+             cards' listing_type (see discovery_cards view + migration
+             0046); matching cards float above non-matching without
+             hiding anything. Empty selection = no preference and
+             Discover falls back to its default ordering. #}
+          <div class="settings-deal-types" role="group" aria-label="deal types you're interested in">
+            <div class="settings-deal-types-head">
+              <strong>deal types you're interested in</strong>
+              <p>babyg will show these first on discover. leave empty to keep the current mix.</p>
+            </div>
+            <ul class="settings-deal-types-list">
+              {% for choice in deal_type_choices %}
+              <li>
+                <label class="settings-deal-type">
+                  <input type="checkbox"
+                         name="deal_type_preferences"
+                         value="{{ choice.value }}"
+                         {% if choice.value in deal_type_selected %}checked{% endif %} />
+                  <span class="settings-deal-type-copy">
+                    <span class="settings-deal-type-label">{{ choice.label }}</span>
+                    <span class="settings-deal-type-hint">{{ choice.hint }}</span>
+                  </span>
+                </label>
+              </li>
+              {% endfor %}
+            </ul>
+          </div>
+
+          {# Secondary — rate floor is optional and moves under the primary
+             deal-type picker. Existing free-text value is preserved. #}
+          <div class="settings-field settings-deal-secondary">
+            <label for="deal_min_rate_text">rate floor (optional)</label>
             <input
               type="text"
               id="deal_min_rate_text"
@@ -261,14 +292,16 @@
       </div>
     </details>
 
-    {# 5a2 · what babyg knows — user-visible rolling summary the
-       agent maintains. editable inline; history is a scannable
-       transcript of past versions so the creator can always audit
-       what babyg thinks it knows and why. #}
+    {# 5a2 · what babyg knows about you — the rolling summary this
+       creator's babyg maintains. Data source: agent_memory.load(user_id)
+       (app/services/agent_memory.py:47-62, scoped .eq("user_id",
+       user_id)) — every read/write is per-authenticated-creator, so
+       nothing is shared or hardcoded. Editable inline; the creator's
+       edits create a new version and append to history. #}
     <details class="settings-group settings-card settings-disclosure" id="babyg-memory" {% if memory_flash %}open{% endif %}>
       <summary>
         <span class="settings-disclosure-copy">
-          <strong class="settings-disclosure-title">what babyg knows</strong>
+          <strong class="settings-disclosure-title">what babyg knows about you</strong>
         </span>
         <span class="settings-disclosure-icon" aria-hidden="true"></span>
       </summary>
@@ -278,16 +311,16 @@
           {% if memory_flash == 'ok' %}<div class="settings-flash settings-flash-ok">saved.</div>
           {% elif memory_flash == 'save_failed' %}<div class="settings-flash">couldn't save. try again.</div>
           {% endif %}
-          <p class="settings-hint">babyg maintains this as it learns about you. edit anything that's wrong or add things it should know. changes go into a transcript below so you can always see how this evolved.</p>
+          <p class="settings-hint">babyg uses what it learns about you to provide more relevant recommendations, opportunities, and assistance. edit anything that's off — your changes are private and saved as a new version.</p>
           <div class="settings-field">
-            <label for="memory_summary">memory</label>
+            <label for="memory_summary">what babyg knows</label>
             <textarea id="memory_summary"
                       name="memory_summary"
                       rows="8"
                       maxlength="{{ agent_memory_max_chars }}"
-                      placeholder="babyg hasn't written any memory yet. it will start filling this in as it watches your dms, brand mail, and posts.">{{ agent_memory.summary if agent_memory else '' }}</textarea>
+                      placeholder="babyg hasn't picked anything up yet. as you use babyg, it'll start noting what makes your work land.">{{ agent_memory.summary if agent_memory else '' }}</textarea>
             {% if agent_memory and agent_memory.updated_at %}
-            <p class="settings-help">last updated {{ agent_memory.updated_at|human_ago }} by {{ agent_memory.updated_by or 'agent' }} (v{{ agent_memory.version }})</p>
+            <p class="settings-help">last updated {{ agent_memory.updated_at|human_ago }} · saved by {{ 'you' if agent_memory.updated_by == 'user' else 'babyg' }}</p>
             {% endif %}
           </div>
           <div class="settings-actions">
@@ -296,13 +329,13 @@
         </form>
 
         {% if agent_memory_history %}
-        <div class="settings-subhead">history</div>
+        <div class="settings-subhead">recent changes</div>
         <ul class="settings-memory-history">
           {% for h in agent_memory_history %}
           <li class="settings-memory-history-row">
             <div class="settings-memory-history-head">
-              <strong>v{{ h.version }}</strong>
-              <span>{{ h.updated_by }} · {{ h.created_at|human_ago }}</span>
+              <strong>{{ 'you' if h.updated_by == 'user' else 'babyg' }}</strong>
+              <span>{{ h.created_at|human_ago }}</span>
             </div>
             {% if h.change_reason %}<p class="settings-help">{{ h.change_reason }}</p>{% endif %}
           </li>

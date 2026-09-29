@@ -55,6 +55,32 @@ DEAL_TRAVEL_WILLINGNESS_VALUES: tuple[str, ...] = (
     "open",
 )
 
+# Canonical listing_type values reused from creator_job_listings (see
+# app/services/jobs.py::LISTING_TYPES and app/routes/opportunities.py
+# ::KIND_CHOICES). Settings only exposes these values; Discover reads
+# them from discovery_cards.listing_type (migration 0046). Kept as a
+# frozenset so route-level validation is order-independent and constant
+# time. Migration 0045 enforces the same set at the DB layer.
+DEAL_TYPE_PREFERENCE_VALUES: frozenset[str] = frozenset(
+    {"collab", "ugc_gig", "hiring", "brand_deal"}
+)
+
+
+def sanitize_deal_type_preferences(values: list[str] | None) -> list[str]:
+    """Coerce raw form values to a de-duplicated, order-preserving list of
+    canonical listing_type strings. Unknown values are dropped so a
+    tampered form never writes rows the DB CHECK would reject."""
+    if not values:
+        return []
+    seen: set[str] = set()
+    out: list[str] = []
+    for raw in values:
+        clean = (raw or "").strip().lower()
+        if clean in DEAL_TYPE_PREFERENCE_VALUES and clean not in seen:
+            seen.add(clean)
+            out.append(clean)
+    return out
+
 
 PUBLIC_CREATOR_FIELDS: tuple[str, ...] = (
     "user_id",

@@ -49,6 +49,9 @@ _SECRET_CREATOR_FIELDS = (
     "deal_min_rate_text",
     "deal_usage_rights_default",
     "deal_travel_willingness",
+    # Deal-type preference (migration 0045). Owner-private Discover
+    # ordering signal — never surfaced to peers or brands.
+    "deal_type_preferences",
 )
 
 
@@ -120,6 +123,8 @@ def test_public_creator_strips_internal_fields():
         "deal_min_rate_text": "$2.5k organic",
         "deal_usage_rights_default": "paid_with_usage",
         "deal_travel_willingness": "regional",
+        # Deal-type preferences (migration 0045) — never leak.
+        "deal_type_preferences": ["collab", "brand_deal"],
     }
     out = public_creator(row)
     assert out is not None

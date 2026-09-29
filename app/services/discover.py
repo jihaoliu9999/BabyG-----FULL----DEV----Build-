@@ -65,6 +65,7 @@ def list_cards(
     viewer_tags: list[str] | None = None,
     viewer_location_label: str | None = None,
     viewer_platform: str | None = None,
+    viewer_deal_type_preferences: list[str] | None = None,
     limit: int = DEFAULT_LIMIT,
     prioritize: tuple[str, str] | None = None,
 ) -> list[dict[str, Any]]:
@@ -72,6 +73,15 @@ def list_cards(
 
     The view owns the cross-table projection. This function only applies
     viewer-specific filters and action-history exclusions.
+
+    ``viewer_deal_type_preferences`` is a soft ordering signal only.
+    When non-empty, opportunity cards whose ``listing_type`` matches one
+    of the preferences are pulled to the front while preserving the
+    existing relative order within each group. Every other card
+    (opportunities that don't match, plus every creator/brand card) is
+    still returned in its original position — this is preference-first
+    ordering, never a hard filter. Empty/None or a card with a null
+    ``listing_type`` falls back to the current ordering exactly.
     """
     uid = safe_uuid(viewer_id)
     if not uid or viewer_role not in {"creator", "brand"}:
@@ -131,6 +141,33 @@ def list_cards(
                 or card["card_id"] != prioritize[1]
             )
         )
+
+    # Preference-first ordering. Additive to the caller-provided
+    # ordering — a stable partition into (matching opportunity, other),
+    # keeping the existing sequence within each group. Guarded so a
+    # creator with no saved preferences, an empty list, or values the
+    # view can't tell us about (missing listing_type column pre-0046)
+    # sees zero behavior change.
+    preferred = {
+        str(v).strip().lower()
+        for v in (viewer_deal_type_preferences or [])
+        if isinstance(v, str) and str(v).strip()
+    }
+    if preferred:
+        matching: list[dict[str, Any]] = []
+        rest: list[dict[str, Any]] = []
+        for card in normalized:
+            listing_type = str(card.get("listing_type") or "").strip().lower()
+            if (
+                card.get("card_kind") == "opportunity"
+                and listing_type
+                and listing_type in preferred
+            ):
+                matching.append(card)
+            else:
+                rest.append(card)
+        normalized = matching + rest
+
     return normalized[:bounded]
 
 
@@ -302,6 +339,14 @@ def _normalize_card(
     card["card_id"] = card_id
     card["owner_user_id"] = owner_id
     card["tags"] = [str(tag) for tag in (card.get("tags") or []) if str(tag).strip()]
+    # listing_type is populated only on opportunity rows (migration
+    # 0046). Normalize to lowercase string / None so the ordering
+    # step never has to think about casing or NaN-y values.
+    raw_listing_type = card.get("listing_type")
+    if isinstance(raw_listing_type, str) and raw_listing_type.strip():
+        card["listing_type"] = raw_listing_type.strip().lower()
+    else:
+        card["listing_type"] = None
     # Legacy single-string relevance — kept for the detail templates
     # (creator/discover_brand.html, brand/discover_detail.html) that
     # haven't been migrated to the reasons list yet.

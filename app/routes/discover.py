@@ -49,6 +49,9 @@ async def discover_page(
         viewer_tags=list(profile.get("niches") or []),
         viewer_location_label=viewer_location_label,
         viewer_platform=profile.get("primary_platform"),
+        viewer_deal_type_preferences=list(
+            profile.get("deal_type_preferences") or []
+        ),
         prioritize=prioritize,
     )
     if cards:
