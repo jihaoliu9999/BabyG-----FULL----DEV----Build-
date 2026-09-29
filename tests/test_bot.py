@@ -120,8 +120,8 @@ def test_bot_page_renders_prompt_chips_on_empty_thread(
     monkeypatch, client: TestClient
 ) -> None:
     """The composer's chip strip is now a fixed 4-action manager
-    toolbar (draft / follow up / plan / brainstorm), rendered icon-
-    only on every render — no longer context-dependent."""
+    toolbar (draft / follow up / plan / brainstorm), with visible
+    labels on every render — never context-dependent."""
     _signed_in(client, role="creator")
     monkeypatch.setattr(
         creator_routes.profiles,
@@ -148,13 +148,16 @@ def test_bot_page_renders_prompt_chips_on_empty_thread(
         "brainstorm with me",
     ):
         assert f'data-bot-prompt="{prompt}"' in response.text
-    # Icons are the only visible affordance in the chip; the aria-label
-    # carries the full action name for screen readers.
+    assert response.text.count('class="bot-prompt-chip"') == 4
+    for visible_label in ('Draft', 'Follow up', 'Plan day', 'Plan', 'Brainstorm', 'Ideas'):
+        assert f'>{visible_label}</span>' in response.text
+    # Preserve button semantics and full descriptive accessible labels.
+    assert 'role="listitem"' not in response.text.split('data-bot-chips>', 1)[1].split('</div>', 1)[0]
     for label in (
-        'aria-label="draft something"',
-        'aria-label="follow up for me"',
-        'aria-label="plan my day"',
-        'aria-label="brainstorm with me"',
+        'aria-label="Draft something for me"',
+        'aria-label="Follow up for me"',
+        'aria-label="Plan my day"',
+        'aria-label="Brainstorm with me"',
     ):
         assert label in response.text
 

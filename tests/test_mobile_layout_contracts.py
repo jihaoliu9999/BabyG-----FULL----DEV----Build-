@@ -148,13 +148,12 @@ def test_bot_composer_uses_single_visible_textbox() -> None:
         ".is-creator-app.is-chat .bot-composer .send svg {", 1
     )[1].split("}", 1)[0]
 
-    assert "background: transparent" in box_rule
-    assert "border: 0" in box_rule
-    assert "border-radius: 0" in box_rule
-    assert "box-shadow: none" in box_rule
-    assert "background: linear-gradient" in textarea_rule
-    assert "border: 1px solid rgba(255,255,255,.12)" in textarea_rule
-    assert "border-radius: 16px" in textarea_rule
+    assert "background: linear-gradient" in box_rule
+    assert "border: 1px solid rgba(255,255,255,.12)" in box_rule
+    assert "border-radius: 16px" in box_rule
+    assert "background: transparent" in textarea_rule
+    assert "border: 0" in textarea_rule
+    assert "box-shadow: none" in textarea_rule
     assert "font-size: 16px" in textarea_rule
     assert "min-width: 0" in textarea_rule
     # Was 48px until the "chips + composer take up too much space on
@@ -162,14 +161,26 @@ def test_bot_composer_uses_single_visible_textbox() -> None:
     # to 40px to reclaim ~16px of vertical real estate on phone width;
     # still well above the 16px iOS-zoom-trigger floor for the font.
     assert "min-height: 40px" in textarea_rule
-    assert "width: 48px" in send_rule
-    assert "height: 48px" in send_rule
-    assert "flex: 0 0 48px" in send_rule
+    assert "width: 44px" in send_rule
+    assert "height: 44px" in send_rule
+    assert "flex: 0 0 44px" in send_rule
     assert "place-items: center" in send_rule
     # Send-button icon is now a symmetric stroke arrow, so it centers
     # in the pill without an optical nudge. The transform token stays
     # in the rule surface as translateX(0) so intent stays explicit.
     assert "transform: translateX(0)" in send_icon_rule
+
+
+def test_manager_toolbar_is_content_sized_with_mobile_labels() -> None:
+    toolbar = APP_CSS.split('.bot-composer .bot-prompt-chips-toolbar {', 1)[1].split('}', 1)[0]
+    chip = APP_CSS.split('.bot-composer .bot-prompt-chips-toolbar .bot-prompt-chip {', 1)[1].split('}', 1)[0]
+    assert 'justify-content: flex-start' in toolbar
+    assert 'gap: 8px' in toolbar
+    assert 'flex: 0 0 auto' in chip
+    assert 'max-width: none' in chip
+    assert 'min-height: 44px' in chip
+    assert '.bot-composer .bot-prompt-label-mobile { display: inline; }' in APP_CSS
+    assert '.bot-composer .bot-prompt-label-desktop { display: none; }' in APP_CSS
 
 
 def test_dm_composers_use_single_visible_textbox() -> None:

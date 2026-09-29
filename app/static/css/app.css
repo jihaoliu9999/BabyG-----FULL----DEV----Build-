@@ -10741,9 +10741,33 @@ hr.hairline {
   .bot-prompt-chip { padding: 0 10px; font-size: 12px; min-height: 32px; }
 }
 
-/* Bot composer: keep the textarea as the only visible input surface.
-   The .box wrapper is layout-only so generic form-control styles cannot
-   create the stacked text-box effect seen on mobile. */
+/* Fixed manager shortcuts share the composer's left edge on every device. */
+.bot-composer .bot-prompt-chips-toolbar {
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 0 0 6px;
+  overflow: visible;
+}
+.bot-composer .bot-prompt-chips-toolbar .bot-prompt-chip {
+  flex: 0 0 auto;
+  max-width: none;
+  min-height: 44px;
+  height: 44px;
+  padding: 0 10px;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.bot-composer .bot-prompt-label-mobile { display: none; }
+@media (max-width: 767px) {
+  .bot-composer .bot-prompt-chips-toolbar { gap: 4px; }
+  .bot-composer .bot-prompt-chips-toolbar .bot-prompt-chip { padding-inline: 8px; gap: 4px; font-size: 12px; }
+  .bot-composer .bot-prompt-label-desktop { display: none; }
+  .bot-composer .bot-prompt-label-mobile { display: inline; }
+}
+
+/* One input surface contains the textarea and its submit control. */
 body.is-creator-app.is-chat:not(.chat-keyboard-open) .bot-composer {
   /* A touch of breathing room above the tabbar so the composer
      doesn't feel sandwiched against it. Not enough to open a blank
@@ -10751,19 +10775,22 @@ body.is-creator-app.is-chat:not(.chat-keyboard-open) .bot-composer {
   padding-top: 10px;
   padding-bottom: 12px;
 }
+@media (min-width: 768px) and (max-width: 999px) {
+  body.is-creator-app.is-chat:not(.chat-keyboard-open) .bot-composer { padding-bottom: 24px; }
+}
 .is-creator-app.is-chat .bot-composer .box,
 .is-creator-app.is-chat .bot-composer .box:focus-within {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
   /* Matches the tightened textarea min-height below so the send
      button sits flush without a phantom baseline gap. */
-  min-height: 40px;
-  padding: 0;
-  background: transparent;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
+  min-height: 54px;
+  padding: 4px;
+  background: linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.035));
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 16px;
+  box-shadow: inset 0 1px rgba(255,255,255,.055), 0 2px 8px rgba(0,0,0,.08);
 }
 .is-creator-app.is-chat .bot-composer textarea,
 .is-creator-app.is-chat .bot-composer textarea:focus,
@@ -10776,56 +10803,59 @@ body.is-creator-app.is-chat:not(.chat-keyboard-open) .bot-composer {
      screen on mobile. */
   min-height: 40px;
   max-height: 104px;
-  padding: 8px 14px;
+  padding: 8px 10px;
   color: var(--ink);
-  background: linear-gradient(180deg, rgba(255,255,255,.07), rgba(255,255,255,.035));
-  border: 1px solid rgba(255,255,255,.12);
-  border-radius: 16px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
   outline: 0;
   /* Was 0 10px 28px rgba(0,0,0,.2) — the dark halo the user flagged.
      Same softening pass as the chips + bubbles: keep the inset
      highlight; whisper on the outer drop. */
-  box-shadow: inset 0 1px rgba(255,255,255,.055), 0 2px 8px rgba(0,0,0,.08);
+  box-shadow: none;
   font-size: 16px;
   line-height: 1.35;
   resize: none;
   -webkit-appearance: none;
   appearance: none;
 }
-.is-creator-app.is-chat .bot-composer textarea:focus,
-.is-creator-app.is-chat .bot-composer textarea:focus-visible {
+.is-creator-app.is-chat .bot-composer .box:focus-within {
   background: linear-gradient(180deg, rgba(255,255,255,.088), rgba(255,255,255,.045));
   border-color: rgba(255,77,109,.42);
   box-shadow: inset 0 1px rgba(255,255,255,.07), 0 0 0 3px rgba(255,77,109,.09);
 }
-/* Send button on the ai-manager chat. The composer sits above the
-   nudge chip strip and often shares the screen with brand names,
-   coral chips, and staged action cards. A coral-gradient send pill
-   was fighting all of them for attention. Redesigned as a quiet
-   neutral pill so it reads as a companion to the input, not a hero.
-   Coral only appears in the icon as a whisper, deepening on hover. */
+/* A 38px visible send circle inside a 44px submit target. */
 .is-creator-app.is-chat .bot-composer .send {
-  width: 48px;
-  height: 48px;
-  flex: 0 0 48px;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  position: relative;
   padding: 0;
   display: grid;
   place-items: center;
   border-radius: 999px;
-  background: var(--surface-3);
-  border: 1px solid rgba(255,255,255,.06);
-  color: rgba(255,140,158,.85);
+  background: transparent;
+  border: 0;
+  color: var(--ink);
   box-shadow: none;
   transition: background-color 160ms ease, color 160ms ease, border-color 160ms ease;
 }
+.is-creator-app.is-chat .bot-composer .send::before {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-radius: inherit;
+  background: var(--lime);
+  transition: opacity 160ms ease;
+}
+.is-creator-app.is-chat .bot-composer .send:not(:disabled):hover::before { opacity: .85; }
 .is-creator-app.is-chat .bot-composer .send:hover {
-  background: var(--surface-4, #2a252a);
-  color: var(--accent, #ff4d6d);
-  border-color: rgba(255,77,109,.22);
+  background: transparent;
 }
 .is-creator-app.is-chat .bot-composer .send:active {
-  background: var(--surface-2);
+  background: transparent;
 }
+.is-creator-app.is-chat .bot-composer .send:disabled::before { background: var(--surface-3); }
 .is-creator-app.is-chat .bot-composer .send:disabled {
   color: var(--ink-faint);
   cursor: default;
@@ -10834,6 +10864,7 @@ body.is-creator-app.is-chat:not(.chat-keyboard-open) .bot-composer {
   width: 20px;
   height: 20px;
   display: block;
+  position: relative;
   /* Symmetric stroke arrow, no optical-center nudge needed. Keeps
      the 1px translate as a no-op so downstream contract tests still
      find the token — swap to translateX(0) preserves the assertion

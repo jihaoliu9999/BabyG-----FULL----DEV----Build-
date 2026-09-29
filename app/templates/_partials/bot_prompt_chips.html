@@ -1,6 +1,6 @@
 {# Fixed 4-action quick-tap toolbar above the /creator/bot composer.
    These are the ONLY chips shown; they replaced the context-driven
-   suggestion strip. Each button is icon-only in the resting UI, with
+   suggestion strip. Each button has a compact visible label, with
    the full action name on aria-label for screen readers.
 
    Every icon carries a data-bot-prompt with the exact chat text
@@ -14,33 +14,37 @@
    The four actions are deliberately generic manager verbs so babyg
    can interpret them against live user context on the model side —
    no new backend behavior is needed to make them work. #}
-<div class="bot-prompt-chips bot-prompt-chips-toolbar" role="list" aria-label="quick actions" data-bot-chips>
-  <button type="button" class="bot-prompt-chip" role="listitem"
+<div class="bot-prompt-chips bot-prompt-chips-toolbar" role="group" aria-label="quick actions" data-bot-chips>
+  <button type="button" class="bot-prompt-chip"
           data-bot-prompt="draft something for me" data-chip-submit="1"
-          aria-label="draft something">
+          aria-label="Draft something for me">
     <span class="bot-prompt-chip-icon" aria-hidden="true">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
     </span>
+    <span>Draft</span>
   </button>
-  <button type="button" class="bot-prompt-chip" role="listitem"
+  <button type="button" class="bot-prompt-chip"
           data-bot-prompt="follow up for me" data-chip-submit="1"
-          aria-label="follow up for me">
+          aria-label="Follow up for me">
     <span class="bot-prompt-chip-icon" aria-hidden="true">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
     </span>
+    <span>Follow up</span>
   </button>
-  <button type="button" class="bot-prompt-chip" role="listitem"
+  <button type="button" class="bot-prompt-chip"
           data-bot-prompt="plan my day" data-chip-submit="1"
-          aria-label="plan my day">
+          aria-label="Plan my day">
     <span class="bot-prompt-chip-icon" aria-hidden="true">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
     </span>
+    <span class="bot-prompt-label-desktop">Plan day</span><span class="bot-prompt-label-mobile">Plan</span>
   </button>
-  <button type="button" class="bot-prompt-chip" role="listitem"
+  <button type="button" class="bot-prompt-chip"
           data-bot-prompt="brainstorm with me" data-chip-submit="1"
-          aria-label="brainstorm with me">
+          aria-label="Brainstorm with me">
     <span class="bot-prompt-chip-icon" aria-hidden="true">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6"/><path d="M10 22h4"/><path d="M12 2a7 7 0 0 0-4 12.7c1 .7 1.5 1.6 1.5 2.6V18h5v-.7c0-1 .5-1.9 1.5-2.6A7 7 0 0 0 12 2z"/></svg>
     </span>
+    <span class="bot-prompt-label-desktop">Brainstorm</span><span class="bot-prompt-label-mobile">Ideas</span>
   </button>
 </div>
