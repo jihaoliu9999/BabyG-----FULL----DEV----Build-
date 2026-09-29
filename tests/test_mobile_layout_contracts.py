@@ -24,6 +24,39 @@ MOTION_JS = (ROOT / "app/static/js/motion.js").read_text(encoding="utf-8")
 BOOST_JS = (ROOT / "app/static/js/boost.js").read_text(encoding="utf-8")
 
 
+def test_discover_compass_matches_between_navigation_surfaces() -> None:
+    from xml.etree import ElementTree
+
+    tabbar = (ROOT / "app/templates/_partials/creator_tabbar.html").read_text()
+    icons = []
+    for template in (BASE_TEMPLATE, tabbar):
+        link = template.split('href="/creator/discover"', 1)[1].split('</a>', 1)[0]
+        icon = ElementTree.fromstring('<svg' + link.split('<svg', 1)[1].split('</svg>', 1)[0] + '</svg>')
+        assert icon.attrib['stroke'] == 'currentColor'
+        assert icon.attrib['fill'] == 'none'
+        assert icon.attrib['aria-hidden'] == 'true'
+        icons.append([(child.tag, child.attrib) for child in icon])
+    assert icons[0] == icons[1]
+    assert icons[0][0] == ('circle', {'cx': '12', 'cy': '12', 'r': '9'})
+
+
+def test_home_density_rules_are_mobile_only_and_do_not_change_finishes() -> None:
+    block = APP_CSS.split('/* Home density is mobile-only;', 1)[1].split(
+        '@media (prefers-reduced-motion:', 1
+    )[0]
+    assert '@media (max-width: 767px)' in block
+    assert 'padding-bottom: 12px' in block
+    assert '.app-shell:has(.creator-home.hv5) .app-main > #view' in block
+    assert 'env(safe-area-inset-bottom, 0px)' in block
+    assert 'min-height: 60px' in block
+    assert '.hv5-row-time { display: inline; }' in block
+    assert 'padding-bottom: max(8px, env(safe-area-inset-bottom, 0px))' in block
+    assert 'min-height: 44px' in block
+    assert '--chat-tabbar-clearance: max(64px, calc(48px +' in block
+    for forbidden in ('color:', 'background:', 'border:', 'box-shadow:', 'font-size:'):
+        assert forbidden not in block
+
+
 def test_skip_link_is_hidden_until_focused() -> None:
     skip_rule = APP_CSS.split(".skip-link {", 1)[1].split("}", 1)[0]
     assert "left: -10000px" in skip_rule

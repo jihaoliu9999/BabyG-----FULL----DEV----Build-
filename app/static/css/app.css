@@ -14632,6 +14632,32 @@ body:has(.dm-thread-composer-box input:focus) .creator-tabbar {
   }
 }
 
+/* Home density is mobile-only; the shell owns fixed-nav clearance once. */
+@media (max-width: 767px) {
+  .is-creator-app .creator-tabbar {
+    min-height: 64px;
+    padding-top: 2px;
+    padding-bottom: max(8px, env(safe-area-inset-bottom, 0px));
+  }
+  .is-creator-app .creator-tabbar a { min-height: 44px; gap: 2px; }
+  .is-creator-app.is-chat #view {
+    --chat-tabbar-clearance: max(64px, calc(48px + env(safe-area-inset-bottom, 0px)));
+  }
+  .is-creator-app .app-shell:has(.creator-home.hv5) .app-main > #view {
+    padding-bottom: calc(max(64px, calc(48px + env(safe-area-inset-bottom, 0px))) + 12px);
+  }
+  .creator-home.hv5 { gap: 14px; padding-top: 12px; padding-bottom: 12px; }
+  .creator-home.hv5 .hv5-section { gap: 6px; }
+  .creator-home.hv5 .hv5-brief-row { min-height: 60px; padding-block: 10px; }
+  .creator-home.hv5 .hv5-brief-body { gap: 3px; }
+  .creator-home.hv5 .hv5-row-time { display: inline; }
+  .creator-home.hv5 .hv5-empty-row,
+  .creator-home.hv5 .creator-home-day-empty { min-height: 56px; padding-block: 10px; }
+  .creator-home.hv5 [data-home-calendar] .calendar-mobile-days { padding-block: 8px; }
+  .creator-home.hv5 [data-home-calendar] .calendar-mobile-days a { min-height: 48px; gap: 4px; }
+  .creator-home.hv5 .creator-home-day-list li a { min-height: 56px; padding-block: 8px; }
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .creator-home.hv5 .hv5-brief-row,
   .creator-home.hv5 .creator-home-day-list li a,
