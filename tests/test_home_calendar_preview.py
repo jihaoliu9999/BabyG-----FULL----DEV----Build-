@@ -594,28 +594,28 @@ def test_calendar_preview_days_are_real_and_consecutive() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Tabbar — 5 destinations, calendar folded under Home
+# Tabbar — 4 destinations, manager lives in DMs, calendar under Home
 # ---------------------------------------------------------------------------
 
 
-def test_tabbar_has_five_destinations_in_order(
+def test_tabbar_has_four_destinations_in_order(
     client: TestClient, stub_dashboard
 ) -> None:
-    """Mobile tabbar order: Home → Discover → Babyg → DMs → Settings."""
+    """Mobile tabbar order: Home → Discover → DMs → Settings."""
     _signed_in(client)
     r = client.get("/creator")
     text = r.text
     positions = {
         "home": text.find('href="/creator"\n     data-tab="feed"'),
         "discover": text.find('href="/creator/discover"\n     data-tab="network"'),
-        "babyg": text.find('href="/creator/bot"\n     data-tab="chat"'),
         "dms": text.find('href="/creator/dm"\n     data-tab="inbox"'),
         "settings": text.find('href="/creator/profile/settings"\n     data-tab="settings"'),
     }
     for label, pos in positions.items():
         assert pos != -1, f"{label} tab missing from rendered tabbar"
     ordered = sorted(positions.items(), key=lambda kv: kv[1])
-    assert [k for k, _ in ordered] == ["home", "discover", "babyg", "dms", "settings"]
+    assert [k for k, _ in ordered] == ["home", "discover", "dms", "settings"]
+    assert 'href="/creator/bot"' not in text
     assert 'data-tab="profile"' not in text
 
 

@@ -6948,7 +6948,7 @@ hr.hairline {
 .is-product-app h1 { text-wrap: balance; }
 .is-product-app p { text-wrap: pretty; }
 
-/* Creator navigation: fixed five-tab order, iPhone-safe. Compact v3:
+/* Creator navigation: fixed four-tab order, iPhone-safe. Compact v3:
    the tabbar was eating ~110px including the safe-area, which read
    as chrome dominating the page. Trimmed the whole stack — smaller
    icons, smaller labels, tighter padding, smaller babyg bubble —
@@ -6957,7 +6957,7 @@ hr.hairline {
   min-height: 54px;
   padding: 2px max(12px, env(safe-area-inset-right, 0px)) max(2px, calc(env(safe-area-inset-bottom, 0px) - 22px)) max(12px, env(safe-area-inset-left, 0px));
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   align-items: center;
   justify-items: stretch;
   background: rgba(9,8,10,.96);

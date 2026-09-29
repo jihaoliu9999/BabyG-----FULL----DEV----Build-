@@ -331,6 +331,53 @@ def test_creator_dm_list_search_filters_by_peer(client, world):
     assert r.status_code == 200
     assert "Maya Chen" in r.text
     assert "Anna Reyes" not in r.text
+    assert 'data-dm-manager' in r.text
+    assert 'href="/creator/bot"' in r.text
+
+
+@pytest.mark.parametrize("with_thread", [False, True])
+@pytest.mark.parametrize("pending", [0, 3])
+def test_manager_is_first_system_inbox_entry(client, world, monkeypatch, with_thread, pending):
+    from app.core import templating
+
+    _signed_in(client, role="creator", user_id="c-1")
+    world.add_creator(user_id="c-1")
+    world.add_creator(user_id="c-2", full_name="Anna Reyes")
+    if with_thread:
+        _seed_thread(world, a="c-2", b="c-1", body="hello", sender="c-2")
+    monkeypatch.setitem(templating.templates.env.globals, "pending_action_count", lambda request: pending)
+
+    response = client.get("/creator/dm")
+    assert response.status_code == 200
+    inbox = response.text.split('<ul class="dm-inbox-list" data-dm-list>', 1)[1].split('</ul>', 1)[0]
+    manager = inbox.split('</li>', 1)[0]
+    assert 'data-dm-manager' in manager
+    assert 'href="/creator/bot"' in manager
+    assert 'data-dm-row' not in manager  # Search cannot hide the system entry.
+    assert '<form' not in manager  # No thread management or mutation controls.
+    assert ('data-tabbar-badge="babyg"' in manager) is bool(pending)
+    if pending:
+        assert f'aria-label="{pending} pending actions"' in manager
+    if with_thread:
+        assert inbox.index('data-dm-manager') < inbox.index('data-dm-row')
+        assert 'href="/creator/dm/c-2"' in inbox
+    assert len(world.threads) == int(with_thread)
+    assert len(world.messages) == int(with_thread)
+    assert world.notifications_sent == []
+
+
+def test_manager_route_keeps_dm_navigation_active(world):
+    from types import SimpleNamespace
+
+    from app.core.templating import templates
+
+    request = SimpleNamespace(url=SimpleNamespace(path="/creator/bot"))
+    html = templates.get_template("_partials/creator_tabbar.html").render(
+        request=request, unread_dms=2
+    )
+    assert 'data-tab="inbox"\n     class="active"' in html
+    assert 'data-tabbar-badge="dms">2</span>' in html
+    assert 'href="/creator/bot"' not in html
 
 
 def test_creator_dm_thread_marks_messages_read(client, world, monkeypatch):

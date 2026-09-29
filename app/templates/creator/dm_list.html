@@ -12,8 +12,22 @@
     </form>
   </div>
 
-  {% if threads %}
+  {% set manager_pending = pending_action_count(request) %}
   <ul class="dm-inbox-list" data-dm-list>
+    <li class="dm-inbox-row{{ ' unread' if manager_pending }}" data-dm-manager>
+      <a href="/creator/bot" class="dm-inbox-link">
+        <span class="dm-inbox-avatar" aria-hidden="true"><img src="/static/assets/logo-bg.png" alt="" /></span>
+        <span class="dm-inbox-body">
+          <span class="dm-inbox-name">babyg</span>
+          <span class="dm-inbox-preview">your manager</span>
+        </span>
+        {% if manager_pending %}
+        <span class="dm-inbox-meta">
+          <span class="dm-inbox-count-dot" data-tabbar-badge="babyg" aria-label="{{ manager_pending }} pending action{{ 's' if manager_pending != 1 else '' }}">{{ manager_pending }}</span>
+        </span>
+        {% endif %}
+      </a>
+    </li>
     {% for t in threads %}
     {% set peer = peers.get(t.peer_id) %}
     {% set peer_name = (peer.full_name|title) if peer and peer.full_name else (peer.instagram_handle if peer and peer.instagram_handle else 'creator') %}
@@ -71,6 +85,7 @@
     {% endfor %}
   </ul>
 
+  {% if threads %}
   <p class="dm-inbox-empty-hint" data-dm-empty-hint hidden>
     no threads match this search.
   </p>

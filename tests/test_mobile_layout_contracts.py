@@ -279,7 +279,7 @@ def test_creator_tabbar_items_are_centered_on_mobile() -> None:
         "}", 1
     )[0]
 
-    assert "grid-template-columns: repeat(5, minmax(0, 1fr))" in rule
+    assert "grid-template-columns: repeat(4, minmax(0, 1fr))" in rule
     assert "repeat(6" not in rule
     assert "justify-items: stretch" in rule
     assert "align-items: center" in rule
@@ -548,7 +548,6 @@ def test_role_shells_do_not_prefetch_authenticated_documents() -> None:
 
     for path in (
         "/creator/discover",
-        "/creator/bot",
         "/creator/dm",
         "/creator/profile/settings",
     ):

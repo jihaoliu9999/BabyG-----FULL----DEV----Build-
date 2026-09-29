@@ -1,4 +1,4 @@
-{# Creator bottom tabbar — 6 tabs.
+{# Creator bottom tabbar — 4 tabs. Manager access lives in the DM inbox.
 
    Home is the daily command center: today's schedule, calendar preview,
    Hot Drops, follow-ups, urgent reminders. Calendar gets a /creator/calendar
@@ -9,7 +9,6 @@
    data-tab values are preserved where possible and settings has its own accent
    so the per-tab accent color CSS in app.css keeps working unchanged. #}
 {% set path = request.url.path %}
-{% set _pending_actions_n = pending_action_count(request) %}
 {% set _tabbar_unread_dms = (unread_dms if (unread_dms is defined and unread_dms) else unread_dm_count(request)) %}
 <nav class="app-tabbar creator-tabbar" id="tabbar" aria-label="creator navigation">
   <a href="/creator"
@@ -24,16 +23,9 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.15" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></svg>
     discover
   </a>
-  <a href="/creator/bot"
-     data-tab="chat"
-     class="creator-tabbar-babyg {{ 'active' if path.startswith('/creator/bot') }}">
-    <span class="creator-tabbar-mark tabbar-babyg-orb"><img src="/static/assets/logo-bg.png" alt="" class="nav-bg-icon" /></span>
-    babyg
-    {% if _pending_actions_n and _pending_actions_n > 0 %}<span class="tabbar-badge" data-tabbar-badge="babyg" aria-label="{{ _pending_actions_n }} pending action{{ 's' if _pending_actions_n != 1 else '' }}">{{ _pending_actions_n }}</span>{% endif %}
-  </a>
   <a href="/creator/dm"
      data-tab="inbox"
-     class="{{ 'active' if path.startswith('/creator/dm') }}">
+     class="{{ 'active' if path.startswith('/creator/dm') or path.startswith('/creator/bot') }}">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.15" stroke-linecap="round" stroke-linejoin="round"><path d="M20.5 11.2a7.1 7.1 0 0 1-7.2 7.1H9.4L4 21l1.5-4.5a7 7 0 0 1-1.9-5.1 7.2 7.2 0 0 1 7.3-7h2.4a7.1 7.1 0 0 1 7.2 6.8Z"/></svg>
     dms
     {% if _tabbar_unread_dms and _tabbar_unread_dms > 0 %}<span class="tabbar-badge" data-tabbar-badge="dms">{{ _tabbar_unread_dms }}</span>{% endif %}

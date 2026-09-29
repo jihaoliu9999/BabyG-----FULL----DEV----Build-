@@ -89,11 +89,7 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="9" cy="8" r="3"/><circle cx="18" cy="16" r="3"/><path d="M3 21c0-3.3 2.6-6 6-6M21 21c0-1.6-.6-3.2-1.8-4.3"/></svg>
           discover
         </a>
-        <a href="/creator/bot" data-tab="chat" class="{{ 'active' if cp.startswith('/creator/bot') }}">
-          <img src="/static/assets/logo-bg.png" alt="" class="nav-bg-icon" />
-          babyg
-        </a>
-        <a href="/creator/dm" data-tab="inbox" class="{{ 'active' if cp.startswith('/creator/dm') }}">
+        <a href="/creator/dm" data-tab="inbox" class="{{ 'active' if cp.startswith('/creator/dm') or cp.startswith('/creator/bot') }}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 5.5h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-5 3v-4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2Z"/><path d="M7 10h10M7 14h6"/></svg>
           dms
           {% if unread_dms is defined and unread_dms and unread_dms > 0 %}<span class="count">{{ unread_dms }}</span>{% endif %}
