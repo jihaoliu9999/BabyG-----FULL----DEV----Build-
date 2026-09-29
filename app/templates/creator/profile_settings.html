@@ -234,56 +234,62 @@
             </select>
           </div>
 
-          <div class="settings-check">
-            <label class="settings-toggle">
-              <input type="checkbox" name="babyg_auto_brief_dms" value="on"
-                {% if profile.babyg_auto_brief_dms is not defined or profile.babyg_auto_brief_dms %}checked{% endif %} />
-              <span>auto brief incoming DMs</span>
-            </label>
-          </div>
+          {# Assistant opt-ins reuse the exact same checkbox visual
+             component the Deal Preferences picker uses:
+             `.settings-checkbox-row` wraps `input.settings-checkbox`
+             + `.settings-checkbox-copy > .settings-checkbox-label`.
+             No new CSS. Form field names, values, defaults, checked
+             conditionals, and POST behavior are unchanged. #}
+          <label class="settings-checkbox-row">
+            <input class="settings-checkbox" type="checkbox" name="babyg_auto_brief_dms" value="on"
+              {% if profile.babyg_auto_brief_dms is not defined or profile.babyg_auto_brief_dms %}checked{% endif %} />
+            <span class="settings-checkbox-copy">
+              <span class="settings-checkbox-label">auto brief incoming DMs</span>
+            </span>
+          </label>
 
-          <div class="settings-check">
-            <label class="settings-toggle">
-              <input type="checkbox" name="babyg_email_assistance" value="on"
-                {% if profile.babyg_email_assistance %}checked{% endif %} />
-              <span>email assistance</span>
-            </label>
-          </div>
+          <label class="settings-checkbox-row">
+            <input class="settings-checkbox" type="checkbox" name="babyg_email_assistance" value="on"
+              {% if profile.babyg_email_assistance %}checked{% endif %} />
+            <span class="settings-checkbox-copy">
+              <span class="settings-checkbox-label">email assistance</span>
+            </span>
+          </label>
 
           <div class="settings-subhead">agent autonomy</div>
           <p class="settings-hint">nudges and drafts always land in your bot thread. these switches control what the background agent may do on your behalf without asking every time.</p>
 
-          <div class="settings-check">
-            <label class="settings-toggle">
-              <input type="checkbox" name="babyg_agent_internal_actions" value="on"
-                {% if profile.babyg_agent_internal_actions is not defined or profile.babyg_agent_internal_actions %}checked{% endif %} />
-              <span>update its own state (deal stages, memory) without asking</span>
-            </label>
-          </div>
+          <label class="settings-checkbox-row">
+            <input class="settings-checkbox" type="checkbox" name="babyg_agent_internal_actions" value="on"
+              {% if profile.babyg_agent_internal_actions is not defined or profile.babyg_agent_internal_actions %}checked{% endif %} />
+            <span class="settings-checkbox-copy">
+              <span class="settings-checkbox-label">update its own state (deal stages, memory) without asking</span>
+            </span>
+          </label>
 
-          <div class="settings-check">
-            <label class="settings-toggle">
-              <input type="checkbox" name="babyg_agent_gmail_auto_send" value="on"
-                {% if profile.babyg_agent_gmail_auto_send %}checked{% endif %} />
-              <span>auto-reply to obviously safe brand mail (advanced)</span>
-            </label>
-          </div>
+          <label class="settings-checkbox-row">
+            <input class="settings-checkbox" type="checkbox" name="babyg_agent_gmail_auto_send" value="on"
+              {% if profile.babyg_agent_gmail_auto_send %}checked{% endif %} />
+            <span class="settings-checkbox-copy">
+              <span class="settings-checkbox-label">auto-reply to obviously safe brand mail (advanced)</span>
+            </span>
+          </label>
 
-          <div class="settings-check">
-            <label class="settings-toggle">
-              <input type="checkbox" name="babyg_agent_calendar_holds" value="on"
-                {% if profile.babyg_agent_calendar_holds %}checked{% endif %} />
-              <span>put calendar holds on your google calendar (advanced)</span>
-            </label>
-          </div>
+          <label class="settings-checkbox-row">
+            <input class="settings-checkbox" type="checkbox" name="babyg_agent_calendar_holds" value="on"
+              {% if profile.babyg_agent_calendar_holds %}checked{% endif %} />
+            <span class="settings-checkbox-copy">
+              <span class="settings-checkbox-label">put calendar holds on your google calendar (advanced)</span>
+            </span>
+          </label>
 
-          <div class="settings-check">
-            <label class="settings-toggle">
-              <input type="checkbox" name="babyg_agent_ig_auto_send" value="on"
-                {% if profile.babyg_agent_ig_auto_send %}checked{% endif %} />
-              <span>auto-reply to obviously safe instagram dms (advanced)</span>
-            </label>
-          </div>
+          <label class="settings-checkbox-row">
+            <input class="settings-checkbox" type="checkbox" name="babyg_agent_ig_auto_send" value="on"
+              {% if profile.babyg_agent_ig_auto_send %}checked{% endif %} />
+            <span class="settings-checkbox-copy">
+              <span class="settings-checkbox-label">auto-reply to obviously safe instagram dms (advanced)</span>
+            </span>
+          </label>
 
           <div class="settings-actions">
             <button class="btn btn-lime btn-sm" type="submit">save</button>

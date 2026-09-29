@@ -430,3 +430,57 @@ def test_disclosure_icon_container_has_visible_ring_and_fill():
     # against the deep card surface without introducing a new color.
     assert "rgba(245,241,232,.28)" in block
     assert "rgba(255,255,255,.04)" in block
+
+
+# ---------- Assistant opt-ins reuse the deal-preference checkbox ----------
+
+
+def test_assistant_opt_ins_reuse_shared_checkbox_component(client, monkeypatch):
+    """Every Assistant boolean setting must render with the same
+    `input.settings-checkbox` inside `.settings-checkbox-row` markup
+    the Deal Preferences picker uses. No `.settings-toggle` / round
+    control may remain in the Assistant section — the shared 20 by 20
+    square is the only opt-in visual on Settings."""
+    _signed_in(client)
+    _stub_settings_reads(
+        monkeypatch,
+        profile={
+            "onboarding_completed_at": "2026-01-01T00:00:00Z",
+            "full_name": "Creator",
+            # A mix of on/off so we exercise both checked-state paths.
+            "babyg_auto_brief_dms": True,
+            "babyg_email_assistance": False,
+            "babyg_agent_internal_actions": True,
+            "babyg_agent_gmail_auto_send": False,
+            "babyg_agent_calendar_holds": False,
+            "babyg_agent_ig_auto_send": False,
+        },
+    )
+    monkeypatch.setattr(agent_memory, "load", lambda _uid: None)
+    monkeypatch.setattr(agent_memory, "history", lambda _uid, limit=40: [])
+    response = client.get("/creator/profile/settings")
+    assert response.status_code == 200
+    body = response.text
+    for field in (
+        "babyg_auto_brief_dms",
+        "babyg_email_assistance",
+        "babyg_agent_internal_actions",
+        "babyg_agent_gmail_auto_send",
+        "babyg_agent_calendar_holds",
+        "babyg_agent_ig_auto_send",
+    ):
+        # Each field must render as the shared square checkbox class.
+        # The regex-free substring check tolerates whitespace inside
+        # the attribute list of the tag.
+        needle = f'class="settings-checkbox" type="checkbox" name="{field}"'
+        assert needle in body, f"missing shared checkbox markup for {field}"
+    # The Assistant section is inside the `babyg-behavior` disclosure.
+    # Slice from that anchor forward to the next disclosure so the
+    # legacy-toggle assertion is scoped to the Assistant block only
+    # (Deal Preferences legitimately does not use .settings-toggle).
+    assistant_start = body.index('id="babyg-behavior"')
+    assistant_end = body.index('id="babyg-memory"')
+    assistant_block = body[assistant_start:assistant_end]
+    assert 'class="settings-toggle"' not in assistant_block, (
+        "Assistant section still renders the legacy circular toggle"
+    )
