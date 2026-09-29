@@ -66,44 +66,34 @@
              cards' listing_type (see discovery_cards view + migration
              0046); matching cards float above non-matching without
              hiding anything. Empty selection = no preference and
-             Discover falls back to its default ordering. #}
-          <div class="settings-deal-types" role="group" aria-label="deal types you're interested in">
-            <div class="settings-deal-types-head">
-              <strong>deal types you're interested in</strong>
-              <p>babyg will show these first on discover. leave empty to keep the current mix.</p>
-            </div>
-            <ul class="settings-deal-types-list">
+             Discover falls back to its default ordering.
+
+             The rate-floor input was removed from this form in a
+             follow-up cleanup. The underlying deal_min_rate_text
+             column is NOT dropped — any historically stored value
+             stays intact and is still surfaced to babyg drafting via
+             read_only.read_my_profile. Reintroducing the input here
+             is the only work needed to bring the field back. #}
+          <fieldset class="settings-deal-types" aria-describedby="deal-types-hint">
+            <legend>deal types you're interested in</legend>
+            <p class="settings-hint" id="deal-types-hint">babyg will show these first on discover. leave empty to keep the current mix.</p>
+            <ul class="settings-checkbox-list">
               {% for choice in deal_type_choices %}
               <li>
-                <label class="settings-deal-type">
-                  <input type="checkbox"
+                <label class="settings-checkbox-row">
+                  <input class="settings-checkbox" type="checkbox"
                          name="deal_type_preferences"
                          value="{{ choice.value }}"
                          {% if choice.value in deal_type_selected %}checked{% endif %} />
-                  <span class="settings-deal-type-copy">
-                    <span class="settings-deal-type-label">{{ choice.label }}</span>
-                    <span class="settings-deal-type-hint">{{ choice.hint }}</span>
+                  <span class="settings-checkbox-copy">
+                    <span class="settings-checkbox-label">{{ choice.label }}</span>
+                    <span class="settings-checkbox-hint">{{ choice.hint }}</span>
                   </span>
                 </label>
               </li>
               {% endfor %}
             </ul>
-          </div>
-
-          {# Secondary — rate floor is optional and moves under the primary
-             deal-type picker. Existing free-text value is preserved. #}
-          <div class="settings-field settings-deal-secondary">
-            <label for="deal_min_rate_text">rate floor (optional)</label>
-            <input
-              type="text"
-              id="deal_min_rate_text"
-              name="deal_min_rate_text"
-              maxlength="120"
-              placeholder='e.g. "$2k organic"'
-              value="{{ profile.deal_min_rate_text or '' }}"
-              autocomplete="off"
-            />
-          </div>
+          </fieldset>
 
           <details class="settings-inline-disclosure">
             <summary>
@@ -328,16 +318,18 @@
           </div>
         </form>
 
-        {% if agent_memory_history %}
+        {# Recent Changes — compressed, at most two calendar-day groups
+           built server-side from real creator_agent_memory_history rows
+           (never fabricated). See app/services/agent_memory.py::
+           summarize_recent_changes. Underlying history data is
+           unchanged; this is a presentation layer only. #}
+        {% if agent_memory_recent_changes %}
         <div class="settings-subhead">recent changes</div>
-        <ul class="settings-memory-history">
-          {% for h in agent_memory_history %}
-          <li class="settings-memory-history-row">
-            <div class="settings-memory-history-head">
-              <strong>{{ 'you' if h.updated_by == 'user' else 'babyg' }}</strong>
-              <span>{{ h.created_at|human_ago }}</span>
-            </div>
-            {% if h.change_reason %}<p class="settings-help">{{ h.change_reason }}</p>{% endif %}
+        <ul class="settings-memory-recent">
+          {% for group in agent_memory_recent_changes %}
+          <li class="settings-memory-recent-row">
+            <span class="settings-memory-recent-day">{{ group.label }}</span>
+            <p class="settings-memory-recent-summary">{{ group.summary }}</p>
           </li>
           {% endfor %}
         </ul>

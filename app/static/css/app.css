@@ -4552,94 +4552,107 @@ hr.hairline {
 
 /* Deal Preferences — "deal types you're interested in" primary picker.
    Multi-select of canonical listing_type values (see
-   app/routes/opportunities.py::KIND_CHOICES). Renders as a compact
-   stack of rows on mobile; each row has a black-circle indicator
-   matching the .settings-toggle style so the whole Settings page reads
-   as one system. Empty selection = "no preference" and Discover
-   preserves its current ordering. */
+   app/routes/opportunities.py::KIND_CHOICES). The fieldset is a plain
+   group wrapper; every row uses the shared .settings-checkbox pattern
+   below so the visual language stays consistent with other Settings
+   opt-ins and NO row highlight/background changes on selection —
+   feedback comes from the checkbox itself. Empty selection = "no
+   preference" and Discover preserves its current ordering. */
 .settings-deal-types {
   display: grid;
-  gap: 10px;
+  gap: 6px;
   padding: 6px 0 4px;
+  margin: 0;
+  border: 0;
 }
-.settings-deal-types-head strong {
+.settings-deal-types > legend {
   color: var(--ink);
   font-size: 14px;
   font-weight: 600;
   letter-spacing: 0;
   text-transform: none;
-}
-.settings-deal-types-head p {
-  margin: 4px 0 0;
-  color: var(--ink-dim);
-  font-size: 12.5px;
-  line-height: 1.45;
-}
-.settings-deal-types-list {
-  list-style: none;
-  padding: 0;
-  margin: 4px 0 6px;
-  display: grid;
-  gap: 6px;
-}
-.settings-deal-type {
-  display: grid;
-  grid-template-columns: 26px minmax(0, 1fr);
-  align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
-  border: 1px solid var(--hairline);
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.02);
-  cursor: pointer;
-  transition: background .15s ease, border-color .15s ease;
-  min-height: 48px;
-}
-.settings-deal-type:hover { border-color: rgba(245, 241, 232, 0.28); }
-.settings-deal-type:has(input:checked) {
-  background: rgba(224, 255, 79, 0.06);
-  border-color: rgba(224, 255, 79, 0.35);
-}
-.settings-deal-type input[type="checkbox"] {
-  appearance: none;
-  -webkit-appearance: none;
-  width: 22px;
-  height: 22px;
-  min-width: 22px;
-  min-height: 22px;
   padding: 0;
   margin: 0;
-  border-radius: 999px;
+}
+.settings-deal-types > .settings-hint { margin: 4px 0 6px; }
+
+/* Reusable Settings checkbox — a single small square control paired
+   with a label + optional hint on the right. Unselected: dark/black
+   interior with the existing subtle bone hairline; NO gray browser
+   default fill, NO check, NO row background change. Selected: same
+   dimensions, filled with the existing --accent (pink), white check
+   centered. Row/background NEVER changes color — the checkbox itself
+   is the selection signal. Full row remains tappable via the label
+   wrapper. Kept in this general block so future opt-in surfaces can
+   reuse the .settings-checkbox-row + .settings-checkbox pair without
+   re-inventing the styling. */
+.settings-checkbox-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 4px;
+}
+.settings-checkbox-row {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  align-items: start;
+  gap: 12px;
+  padding: 10px 0;
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  min-height: 48px;
+}
+.settings-checkbox-row + .settings-checkbox-row {
+  border-top: 1px solid rgba(245, 241, 232, 0.09);
+}
+.settings-checkbox-row:has(input:checked) {
+  /* Row background stays neutral. The checkbox itself is the signal. */
+  background: transparent;
+}
+.settings-checkbox {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  min-width: 18px;
+  min-height: 18px;
+  margin: 3px 0 0;
+  padding: 0;
+  border-radius: 5px;
   background: #000;
   border: 1.5px solid rgba(245, 241, 232, 0.28);
   cursor: pointer;
   position: relative;
   transition: background .15s ease, border-color .15s ease;
+  flex: 0 0 auto;
 }
-.settings-deal-type input[type="checkbox"]:hover { border-color: rgba(245, 241, 232, 0.55); }
-.settings-deal-type input[type="checkbox"]:focus-visible {
-  outline: 2px solid var(--lime);
+.settings-checkbox:hover { border-color: rgba(245, 241, 232, 0.55); }
+.settings-checkbox:focus-visible {
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
-.settings-deal-type input[type="checkbox"]:checked {
-  background: var(--lime);
-  border-color: var(--lime);
+.settings-checkbox:checked {
+  background: var(--accent);
+  border-color: var(--accent);
 }
-.settings-deal-type input[type="checkbox"]:checked::after {
+.settings-checkbox:checked::after {
   content: "";
   position: absolute;
   inset: 0;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><polyline points='20 6 9 17 4 12'/></svg>");
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'><polyline points='20 6 9 17 4 12'/></svg>");
   background-repeat: no-repeat;
   background-position: center;
-  background-size: 14px 14px;
+  background-size: 12px 12px;
 }
-.settings-deal-type-copy {
+.settings-checkbox-copy {
   display: grid;
   gap: 2px;
   min-width: 0;
 }
-.settings-deal-type-label {
+.settings-checkbox-label {
   color: var(--ink);
   font-size: 14px;
   line-height: 1.3;
@@ -4647,15 +4660,45 @@ hr.hairline {
   letter-spacing: 0;
   font-weight: 500;
 }
-.settings-deal-type-hint {
+.settings-checkbox-hint {
   color: var(--ink-dim);
   font-size: 12px;
   line-height: 1.4;
 }
-/* Rate floor sits below the primary picker as a secondary optional
-   preference. Small top gap so it visually separates without needing
-   its own subhead. */
-.settings-deal-secondary { margin-top: 8px; }
+
+/* Recent Changes — the compressed presentation of
+   creator_agent_memory_history. Server-side summarizer at most yields
+   two day groups (see agent_memory.summarize_recent_changes); this
+   list styling is deliberately compact so the panel doesn't grow into
+   a stack of cards. */
+.settings-memory-recent {
+  list-style: none;
+  padding: 0;
+  margin: 6px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.settings-memory-recent-row {
+  display: grid;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--hairline);
+  background: rgba(255, 255, 255, 0.02);
+}
+.settings-memory-recent-day {
+  font-size: 11.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-dim);
+}
+.settings-memory-recent-summary {
+  margin: 0;
+  color: var(--ink);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
 
 /* Fee visibility line inside deal preferences — quietly reminds the
    creator what babyg keeps of each closed deal. */
@@ -9974,9 +10017,13 @@ hr.hairline {
   width: 34px;
   height: 34px;
   flex: 0 0 34px;
-  border: 1px solid rgba(245,241,232,.16);
+  /* Slightly firmer ring + fill so the affordance is visible on the
+     dark Settings background without changing color tokens. Previous
+     values (border 16%, bg 2.5%) plus a 1px stroke made the +/−
+     read as invisible on OLED screens. */
+  border: 1px solid rgba(245,241,232,.28);
   border-radius: 50%;
-  background: rgba(255,255,255,.025);
+  background: rgba(255,255,255,.04);
 }
 .is-creator-app .settings-disclosure-icon::before,
 .is-creator-app .settings-disclosure-icon::after {
@@ -9985,8 +10032,12 @@ hr.hairline {
   top: 50%;
   left: 50%;
   width: 12px;
-  height: 1px;
-  background: var(--text-secondary);
+  /* 2px stroke instead of 1px + full primary text color so the mark
+     visually holds on mobile at any reasonable brightness. Kept in
+     the existing --text-primary token (bone/light) — no new color
+     introduced. */
+  height: 2px;
+  background: var(--text-primary);
   transform: translate(-50%, -50%);
   transition: transform 180ms ease, opacity 180ms ease;
 }

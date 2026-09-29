@@ -997,17 +997,23 @@ async def profile_location_update(
 @router.post("/creator/profile/deals")
 async def profile_deals_update(
     request: Request,
-    deal_min_rate_text: str = Form(""),
     deal_usage_rights_default: str = Form(""),
     deal_travel_willingness: str = Form(""),
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
     """Update the deal preferences section: which deal types the creator
-    is interested in (soft Discover ordering signal), the rate floor
-    (free text), the default usage-rights posture, and travel
-    willingness. Every field is owner-private — they inform babyg
-    drafts and Discover preference ordering but never appear in
-    ``public_creator()``."""
+    is interested in (soft Discover ordering signal), the default
+    usage-rights posture, and travel willingness. Every field is
+    owner-private — they inform babyg drafts and Discover preference
+    ordering but never appear in ``public_creator()``.
+
+    NOTE: rate floor (``deal_min_rate_text``) was removed from the
+    Settings UI in a follow-up cleanup. The column is intentionally
+    LEFT ALONE here — never written, never nulled — so any historical
+    value stays intact and still flows into babyg drafts through
+    ``read_only.read_my_profile``. Reintroducing the input in the
+    template is the only work needed to bring editing back.
+    """
     profile = profiles.get_creator_profile(session["user_id"]) or {}
     if not profile.get("onboarding_completed_at"):
         return RedirectResponse("/onboarding/creator", status_code=302)
@@ -1022,9 +1028,6 @@ async def profile_deals_update(
 
     payload: dict[str, Any] = {}
     payload["deal_type_preferences"] = deal_type_values
-    rate = " ".join(deal_min_rate_text.strip().split())[:120]
-    # Clear-on-empty so the creator can blank it out.
-    payload["deal_min_rate_text"] = rate or None
     usage = deal_usage_rights_default.strip().lower()
     if usage in profiles.DEAL_USAGE_RIGHTS_VALUES:
         payload["deal_usage_rights_default"] = usage
@@ -1191,9 +1194,20 @@ async def profile_settings_page(
     except Exception:
         memory_row = {}
     try:
-        memory_history = agent_memory.history(session["user_id"], limit=10)
+        # Wider window so the day-based summarizer can find two full
+        # days even after a chatty single day; still bounded well
+        # below the 200-cap in agent_memory.history so nothing here
+        # ever page-scans the table.
+        memory_history = agent_memory.history(session["user_id"], limit=40)
     except Exception:
         memory_history = []
+    try:
+        memory_recent_changes = agent_memory.summarize_recent_changes(memory_history)
+    except Exception:
+        # The summarizer never raises today, but keep a belt-and-braces
+        # empty fallback so a future bug never blanks the whole panel.
+        logger.exception("agent_memory.summarize_recent_changes failed")
+        memory_recent_changes = []
     # Deal-type preference options for the Settings picker. Labels come
     # from the same source of truth Opportunity posting uses
     # (app/routes/opportunities.py::KIND_CHOICES). Duplicated here as a
@@ -1226,6 +1240,7 @@ async def profile_settings_page(
             "instagram_needs_reconnect": instagram_needs_reconnect,
             "agent_memory": memory_row,
             "agent_memory_history": memory_history,
+            "agent_memory_recent_changes": memory_recent_changes,
             "agent_memory_max_chars": agent_memory.SUMMARY_MAX_CHARS,
             "deal_type_choices": deal_type_choices,
             "deal_type_selected": saved_deal_types,

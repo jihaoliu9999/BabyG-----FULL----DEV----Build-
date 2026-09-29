@@ -406,9 +406,13 @@ def test_creator_profile_location_server_geocode_does_not_overwrite_user_input(
 # ---------------------------------------------------------------------------
 
 
-def test_profile_deals_update_saves_all_three_fields(
+def test_profile_deals_update_saves_advanced_terms_fields(
     monkeypatch, client: TestClient
 ) -> None:
+    """Advanced Terms (usage rights + travel) still persist through
+    the POST. Rate floor was removed from the form in a follow-up
+    cleanup and its column is intentionally never written from this
+    handler now — see the handler docstring."""
     _signed_in(client, role="creator", user_id="creator-1")
     saved: dict = {}
 
@@ -424,7 +428,6 @@ def test_profile_deals_update_saves_all_three_fields(
     response = client.post(
         "/creator/profile/deals",
         data={
-            "deal_min_rate_text": "  $2.5k   organic  ",
             "deal_usage_rights_default": "paid_with_usage",
             "deal_travel_willingness": "regional",
         },
@@ -436,17 +439,18 @@ def test_profile_deals_update_saves_all_three_fields(
         response.headers["location"]
         == "/creator/profile/settings?deals=ok#deal-preferences"
     )
-    # Whitespace is normalized + the row stores the squeezed form.
-    assert saved["deal_min_rate_text"] == "$2.5k organic"
     assert saved["deal_usage_rights_default"] == "paid_with_usage"
     assert saved["deal_travel_willingness"] == "regional"
+    # Rate floor is left alone — historical values survive untouched.
+    assert "deal_min_rate_text" not in saved
 
 
-def test_profile_deals_update_blank_fields_clear_persisted_values(
+def test_profile_deals_update_blank_advanced_fields_clear_persisted_values(
     monkeypatch, client: TestClient
 ) -> None:
-    """Submitting empty selects/text must clear the column (null) so a
-    creator can back out of an earlier choice."""
+    """Submitting empty Advanced Terms selects still clears them (null)
+    so a creator can back out of an earlier choice. Rate floor is not
+    part of the form and its column stays untouched."""
     _signed_in(client, role="creator", user_id="creator-1")
     saved: dict = {}
 
@@ -462,7 +466,6 @@ def test_profile_deals_update_blank_fields_clear_persisted_values(
     response = client.post(
         "/creator/profile/deals",
         data={
-            "deal_min_rate_text": "   ",
             "deal_usage_rights_default": "",
             "deal_travel_willingness": "",
         },
@@ -470,9 +473,9 @@ def test_profile_deals_update_blank_fields_clear_persisted_values(
     )
 
     assert response.status_code == 303
-    assert saved["deal_min_rate_text"] is None
     assert saved["deal_usage_rights_default"] is None
     assert saved["deal_travel_willingness"] is None
+    assert "deal_min_rate_text" not in saved
 
 
 def test_profile_deals_update_drops_unknown_vocab(
@@ -495,7 +498,6 @@ def test_profile_deals_update_drops_unknown_vocab(
     response = client.post(
         "/creator/profile/deals",
         data={
-            "deal_min_rate_text": "$1k",
             "deal_usage_rights_default": "shouted_at_brands",
             "deal_travel_willingness": "interplanetary",
         },
@@ -503,35 +505,9 @@ def test_profile_deals_update_drops_unknown_vocab(
     )
 
     assert response.status_code == 303
-    assert saved["deal_min_rate_text"] == "$1k"
     assert "deal_usage_rights_default" not in saved
     assert "deal_travel_willingness" not in saved
-
-
-def test_profile_deals_min_rate_text_capped_to_120_chars(
-    monkeypatch, client: TestClient
-) -> None:
-    _signed_in(client, role="creator", user_id="creator-1")
-    saved: dict = {}
-
-    monkeypatch.setattr(
-        creator_routes.profiles, "get_creator_profile", lambda uid: _profile()
-    )
-    monkeypatch.setattr(
-        creator_routes.profiles,
-        "update_creator_profile",
-        lambda uid, payload: saved.update(payload) or True,
-    )
-
-    long_value = "$" + "0" * 200
-    response = client.post(
-        "/creator/profile/deals",
-        data={"deal_min_rate_text": long_value},
-        follow_redirects=False,
-    )
-
-    assert response.status_code == 303
-    assert len(saved["deal_min_rate_text"]) == 120
+    assert "deal_min_rate_text" not in saved
 
 
 def test_settings_page_renders_deals_section_with_existing_values(
@@ -540,6 +516,10 @@ def test_settings_page_renders_deals_section_with_existing_values(
     _signed_in(client, role="creator")
     pref_profile = {
         **_profile(),
+        # Historical rate-floor value still lives in the DB row. It
+        # must NOT leak into the Settings UI now that the input has
+        # been removed, but Advanced Terms must still render its
+        # saved selections.
         "deal_min_rate_text": "$2.5k organic",
         "deal_usage_rights_default": "paid_with_usage",
         "deal_travel_willingness": "regional",
@@ -561,7 +541,10 @@ def test_settings_page_renders_deals_section_with_existing_values(
         '<details class="settings-group settings-card settings-disclosure '
         'profile-deals" id="deal-preferences"'
     ) in response.text
-    assert 'value="$2.5k organic"' in response.text
+    # Rate floor UI + value are gone from the form.
+    assert "rate floor" not in response.text.lower()
+    assert 'value="$2.5k organic"' not in response.text
+    # Advanced Terms selections still render.
     assert '<option value="paid_with_usage" selected' in response.text
     assert '<option value="regional"  selected' in response.text \
         or '<option value="regional" selected' in response.text

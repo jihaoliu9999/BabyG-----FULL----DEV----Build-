@@ -89,16 +89,16 @@ def test_profile_deals_post_persists_selected_deal_types(client, monkeypatch):
 
     response = client.post(
         "/creator/profile/deals",
-        data={
-            "deal_type_preferences": ["collab", "brand_deal"],
-            "deal_min_rate_text": "$2k organic",
-        },
+        data={"deal_type_preferences": ["collab", "brand_deal"]},
     )
     assert response.status_code == 303
     assert response.headers["location"].startswith("/creator/profile/settings?deals=ok")
     assert captured["user_id"] == uid
     assert captured["payload"]["deal_type_preferences"] == ["collab", "brand_deal"]
-    assert captured["payload"]["deal_min_rate_text"] == "$2k organic"
+    # Rate floor was removed from the Settings form in a follow-up
+    # cleanup; the POST handler must NOT include the column in its
+    # payload so historical values are preserved untouched in the DB.
+    assert "deal_min_rate_text" not in captured["payload"]
 
 
 def test_profile_deals_post_empty_clears_preferences(client, monkeypatch):
@@ -118,12 +118,12 @@ def test_profile_deals_post_empty_clears_preferences(client, monkeypatch):
 
     monkeypatch.setattr(profiles, "update_creator_profile", _update)
 
-    response = client.post("/creator/profile/deals", data={"deal_min_rate_text": ""})
+    response = client.post("/creator/profile/deals", data={})
     assert response.status_code == 303
     assert captured["payload"]["deal_type_preferences"] == []
-    # Rate floor is cleared to None so the DB row's optional text
-    # blanks out cleanly.
-    assert captured["payload"]["deal_min_rate_text"] is None
+    # Rate floor is no longer part of the form. The POST handler must
+    # never touch that column so any legacy stored value survives.
+    assert "deal_min_rate_text" not in captured["payload"]
 
 
 def test_profile_deals_post_drops_unknown_types_before_persist(client, monkeypatch):
