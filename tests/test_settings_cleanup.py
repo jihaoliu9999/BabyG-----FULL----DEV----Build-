@@ -370,16 +370,54 @@ def test_settings_page_renders_summarized_history_not_raw_rows(client, monkeypat
 def test_disclosure_icon_marks_use_visible_stroke():
     """Guard against the regression where the +/- marks fell to a
     1px, muted-secondary treatment and disappeared on OLED.
-    Deliberately parses the CSS text rather than the DOM."""
+    Deliberately parses the CSS text rather than the DOM.
+
+    The final robust fix paints via ``currentColor`` on the pseudo-
+    elements and sets an explicit ``color`` (with a hardcoded --bone
+    fallback) on the parent container — this survives even a cascade
+    where --text-primary isn't defined for the current scope."""
     css = Path("app/static/css/app.css").read_text(encoding="utf-8")
     start = css.index(".is-creator-app .settings-disclosure-icon::before,")
     end = css.index("}", start)
     block = css[start:end]
     # Height must be at least 2px so the mark is visible.
     assert "height: 2px" in block or "height:2px" in block
-    # Color must anchor to the primary/bone text token, not the muted
-    # --text-secondary that was invisible on the dark background.
-    assert "background: var(--text-primary)" in block
+    # Strokes paint via currentColor so they can never silently
+    # resolve to a transparent/black value the way an undefined
+    # var(--text-primary) could.
+    assert "background-color: currentColor" in block
+    # And the parent container carries an explicit color that anchors
+    # currentColor to a real bone/light value.
+    parent_start = css.index(".is-creator-app .settings-disclosure-icon {")
+    parent_end = css.index("}", parent_start)
+    parent_block = css[parent_start:parent_end]
+    assert "color: var(--text-primary, #F5F1E8)" in parent_block
+
+
+def test_deal_checkbox_geometry_is_locked_to_20px():
+    """The Settings deal-preference checkbox must be pinned to 20x20 in
+    six directions so no global input rule (see the min-height:54px +
+    width:100% override for `.is-creator-app .settings-clean-shell
+    .settings-form input`) can stretch it. Regression guard."""
+    css = Path("app/static/css/app.css").read_text(encoding="utf-8")
+    marker = (
+        ".is-creator-app .settings-clean-shell .settings-form input.settings-checkbox,"
+    )
+    assert marker in css, "expected high-specificity checkbox rule was removed"
+    start = css.index(marker)
+    end = css.index("}", start)
+    block = css[start:end]
+    for prop in (
+        "width: 20px",
+        "height: 20px",
+        "min-width: 20px",
+        "min-height: 20px",
+        "max-width: 20px",
+        "max-height: 20px",
+        "flex: 0 0 20px",
+        "box-sizing: border-box",
+    ):
+        assert prop in block, f"missing lock on checkbox {prop!r}"
 
 
 def test_disclosure_icon_container_has_visible_ring_and_fill():

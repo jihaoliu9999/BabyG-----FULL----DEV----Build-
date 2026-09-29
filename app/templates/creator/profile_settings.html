@@ -77,6 +77,16 @@
           <fieldset class="settings-deal-types" aria-describedby="deal-types-hint">
             <legend>deal types you're interested in</legend>
             <p class="settings-hint" id="deal-types-hint">babyg will show these first on discover. leave empty to keep the current mix.</p>
+            {# Layout note: this list uses a flex structure per the
+               settings-checkbox pattern in app.css. The checkbox is
+               a 20×20 square pinned in six directions; the sibling
+               <span class="settings-checkbox-copy"> occupies the
+               remaining row width and holds the title + description
+               in their own text wrapper. Text never overlaps the
+               checkbox box because the two are separate flex
+               children — the copy's `min-width: 0` guarantees a long
+               description wraps inside its column instead of pushing
+               the row wider. #}
             <ul class="settings-checkbox-list">
               {% for choice in deal_type_choices %}
               <li>
