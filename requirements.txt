@@ -32,3 +32,11 @@ anthropic==0.39.0
 # so removing this line degrades gracefully (errors just don't ship).
 sentry-sdk[fastapi]==2.19.0
 
+# --- Payments (Stripe Connect, sandbox first) ---
+# Currently only used by the /webhooks/stripe receiving endpoint for
+# signature verification (stripe.Webhook.construct_event) and its
+# typed SignatureVerificationError. When STRIPE_WEBHOOK_SECRET is
+# empty the endpoint refuses every request — installing the SDK
+# without setting env vars is safe and boots cleanly.
+stripe==12.5.1
+

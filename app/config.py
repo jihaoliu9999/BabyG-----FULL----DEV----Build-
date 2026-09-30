@@ -117,6 +117,25 @@ class Settings(BaseSettings):
         ),
     )
 
+    # Stripe — platform + Connect. Currently used only by the
+    # receiving foundation at POST /webhooks/stripe:
+    #   * STRIPE_SECRET_KEY — the platform secret key used by the
+    #     Stripe SDK for any server-side API call. Not read by the
+    #     webhook receiver itself (the receiver only verifies
+    #     signatures), but declared here so future work reuses the
+    #     same env-var name. Empty = the SDK is unconfigured for
+    #     outbound calls (safe default).
+    #   * STRIPE_WEBHOOK_SECRET — the endpoint's signing secret shown
+    #     in the Stripe Dashboard under Developers → Webhooks →
+    #     Signing secret (or Workbench → Event destinations for
+    #     sandbox). The webhook endpoint refuses every request when
+    #     this is empty (safe default: Stripe never sees a false
+    #     success and won't lock in a broken destination).
+    stripe_secret_key: str = Field(default="", validation_alias="STRIPE_SECRET_KEY")
+    stripe_webhook_secret: str = Field(
+        default="", validation_alias="STRIPE_WEBHOOK_SECRET"
+    )
+
     @property
     def is_production(self) -> bool:
         return self.env == "production"

@@ -57,8 +57,11 @@ CSRF_EXEMPT_PATHS = frozenset({
     "/auth/callback",
     # Inbound webhooks are authenticated by HMAC signature verification
     # inside the route (see app/routes/webhooks.py). A CSRF token from
-    # Meta would be nonsensical — Meta doesn't know our session.
+    # Meta / Stripe would be nonsensical — neither provider knows our
+    # session. Both endpoints refuse traffic on missing / bad
+    # signature.
     "/webhooks/instagram",
+    "/webhooks/stripe",
 })
 
 

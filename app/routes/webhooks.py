@@ -174,3 +174,127 @@ def _dispatch_payload(payload: dict[str, Any]) -> None:
         instagram_dms.ingest_webhook_payload(payload)
     except Exception:
         logger.exception("instagram_webhook.dispatch.ingest_failed")
+
+
+# ---------------------------------------------------------------------------
+# Stripe — Connect (sandbox first)
+#
+# This is the receiving foundation only. It verifies Stripe's signature
+# on every POST using STRIPE_WEBHOOK_SECRET via stripe.Webhook.construct_event
+# (Stripe's own official verification path — same code as their docs) and
+# acknowledges the event with a 2xx. It intentionally does not run any
+# business logic yet: no DB writes, no money movement, no application
+# actions. Only the event id + event type are logged, so no card, bank,
+# customer, or personal data ever reaches our logs from this receiver.
+#
+# Unknown event types are also acknowledged with 200 so Stripe does not
+# retry them forever while their handlers are still being implemented.
+# ---------------------------------------------------------------------------
+
+
+@router.post("/webhooks/stripe", include_in_schema=False)
+async def stripe_event(request: Request) -> Response:
+    """Receive one Stripe webhook, verify its signature, and ack.
+
+    Failure modes (all constant-time from the caller's perspective):
+      * secret unconfigured on this deploy         → 503
+      * missing Stripe-Signature header             → 400
+      * malformed body (unparseable / truncated)    → 400
+      * signature mismatch                          → 400
+      * Stripe SDK not importable                   → 503
+      * anything else raised inside signature check → 400
+
+    On success the response is `{"received": true, "event_id": <str>}`
+    with a 200. That is deliberately the shape Stripe's own docs
+    recommend so their retry logic and their dashboard's delivery
+    view read the endpoint as healthy.
+    """
+    settings = get_settings()
+    webhook_secret = (settings.stripe_webhook_secret or "").strip()
+    if not webhook_secret:
+        # We refuse rather than 200-with-noop so Stripe surfaces a
+        # broken destination in the dashboard immediately. A silent
+        # 200 would hide a mis-provisioned env and cause events to
+        # accumulate as "delivered but ignored".
+        logger.warning("stripe_webhook.event.no_signing_secret_set")
+        return JSONResponse({"ok": False}, status_code=503)
+
+    try:
+        import stripe  # local import so a missing SDK never blocks app boot
+    except ImportError:
+        logger.warning("stripe_webhook.event.sdk_unavailable")
+        return JSONResponse({"ok": False}, status_code=503)
+
+    raw_body = await request.body()
+    header_sig = request.headers.get("stripe-signature") or ""
+    logger.info(
+        "stripe_webhook.event.received body_len=%s signature_present=%s",
+        len(raw_body),
+        bool(header_sig),
+    )
+
+    if not header_sig:
+        logger.warning("stripe_webhook.event.missing_signature len=%s", len(raw_body))
+        return JSONResponse({"ok": False}, status_code=400)
+
+    try:
+        event = stripe.Webhook.construct_event(
+            payload=raw_body,
+            sig_header=header_sig,
+            secret=webhook_secret,
+        )
+    except ValueError:
+        # ValueError is Stripe's documented "invalid payload" signal
+        # (e.g. malformed JSON, truncated body). We surface a 400 so
+        # their delivery view flags the event and stops retrying past
+        # their normal budget.
+        logger.warning("stripe_webhook.event.bad_payload len=%s", len(raw_body))
+        return JSONResponse({"ok": False}, status_code=400)
+    except stripe.SignatureVerificationError:
+        # Path chosen deliberately over ``stripe.error.SignatureVerificationError``:
+        # both refer to the same class in stripe 12.x, but the top-level
+        # attribute is the one the stubs surface for type checkers.
+        logger.warning("stripe_webhook.event.bad_signature len=%s", len(raw_body))
+        return JSONResponse({"ok": False}, status_code=400)
+    except Exception:
+        # Belt against a future SDK exception we don't know about.
+        # Still refuse rather than 200 — a false success would silence
+        # a real problem.
+        logger.exception("stripe_webhook.event.verify_raised")
+        return JSONResponse({"ok": False}, status_code=400)
+
+    event_id, event_type = _stripe_event_meta(event)
+    # Only the id + type. Never the payload. This is deliberate: card
+    # PANs, bank details, payout amounts, customer emails, and any
+    # personal data ride inside `event.data` and are not to be logged
+    # by this receiving-foundation.
+    logger.info(
+        "stripe_webhook.event.verified event_id=%s event_type=%s",
+        event_id,
+        event_type,
+    )
+
+    # Business handlers slot in later. For now, every verified event
+    # is acknowledged 200 so Stripe stops retrying and marks the
+    # delivery successful in the dashboard.
+    return JSONResponse(
+        {"received": True, "event_id": event_id}, status_code=200
+    )
+
+
+def _stripe_event_meta(event: Any) -> tuple[str, str]:
+    """Return (event_id, event_type) as strings.
+
+    Stripe's SDK returns either a ``stripe.Event`` object or, when
+    called through the raw payload path, a dict-like. Both expose
+    ``id`` + ``type`` via attribute AND item access. Read both defensively
+    so a future SDK signature change here can't tank the ack.
+    """
+    def _read(obj: Any, key: str) -> str:
+        try:
+            value = obj[key]
+        except (KeyError, TypeError):
+            value = getattr(obj, key, "")
+        return str(value or "")
+
+    return _read(event, "id"), _read(event, "type")
