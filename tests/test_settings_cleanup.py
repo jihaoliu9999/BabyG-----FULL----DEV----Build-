@@ -484,3 +484,37 @@ def test_assistant_opt_ins_reuse_shared_checkbox_component(client, monkeypatch):
     assert 'class="settings-toggle"' not in assistant_block, (
         "Assistant section still renders the legacy circular toggle"
     )
+
+
+# ---------- platform-fee copy ----------
+
+
+def test_deal_preferences_fee_note_uses_current_10_percent_copy(client, monkeypatch):
+    """The Settings platform-fee note must display the current 10%
+    fee model (10% on each side of a completed deal). This test
+    guards against a regression back to the obsolete 15% copy —
+    which was accurate for a prior fee model but is now wrong. No
+    fee math exists anywhere in the codebase yet; this is a pure
+    copy guard on the one user-visible fee reference."""
+    _signed_in(client)
+    _stub_settings_reads(
+        monkeypatch,
+        profile={
+            "onboarding_completed_at": "2026-01-01T00:00:00Z",
+            "full_name": "Creator",
+        },
+    )
+    monkeypatch.setattr(agent_memory, "load", lambda _uid: None)
+    monkeypatch.setattr(agent_memory, "history", lambda _uid, limit=40: [])
+    response = client.get("/creator/profile/settings")
+    assert response.status_code == 200
+    body = response.text
+    # Positive assertion — the current copy is rendered inside the
+    # existing .settings-fee-note container (structure preserved).
+    assert 'class="settings-fee-note"' in body
+    assert "babyg charges a" in body
+    assert "<strong>10%</strong>" in body
+    assert "on each side of a completed deal" in body
+    # Negative assertion — the obsolete 15% copy must not resurface.
+    assert "babyg keeps" not in body
+    assert "15%" not in body
