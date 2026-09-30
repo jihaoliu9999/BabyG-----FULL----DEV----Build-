@@ -141,7 +141,9 @@ async def new_opportunity_submit(
     if deadline_iso:
         payload["deadline"] = deadline_iso
 
-    created_id = jobs.create(poster_id=session["user_id"], payload=payload)
+    created_id = jobs.create(
+        poster_id=session["user_id"], poster_role=session["role"], payload=payload
+    )
     if not created_id:
         # Re-render the form with the banner + all their input preserved
         # so retry doesn't cost them any typing. 200 (not 5xx) so the

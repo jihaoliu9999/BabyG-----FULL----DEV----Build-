@@ -97,8 +97,9 @@ def test_new_opportunity_submit_happy_path(client, monkeypatch):
     _stub_profile(monkeypatch)
     captured: dict = {}
 
-    def _create(*, poster_id, payload):
+    def _create(*, poster_id, poster_role, payload):
         captured["poster_id"] = poster_id
+        captured["poster_role"] = poster_role
         captured["payload"] = payload
         return "listing-1"
 
@@ -115,13 +116,16 @@ def test_new_opportunity_submit_happy_path(client, monkeypatch):
             "compensation_text": "$600-$1200",
             "target_niches": "food, wellness,  , FITNESS",
             "deadline": "2026-09-30",
+            "poster_role": "brand",
         },
     )
     assert r.status_code == 303
     assert r.headers["location"] == "/creator/discover?kind=opportunity&posted=1"
 
     assert captured["poster_id"] == "creator-1"
+    assert captured["poster_role"] == "creator"
     payload = captured["payload"]
+    assert "poster_role" not in payload
     # Trimmed + capped strings, kind preserved, empty niches dropped + lowercased.
     assert payload["title"] == "UGC brief — greek yogurt reels"
     assert payload["description"] == "short recipe reels, delivery in a week."

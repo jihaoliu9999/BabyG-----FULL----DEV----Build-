@@ -2471,7 +2471,9 @@ async def jobs_create(
     payload, error = _validate_listing(form)
     if error:
         return _jobs_form_error(request, form, error, is_new=True, listing_id=None)
-    new_id = jobs.create(poster_id=session["user_id"], payload=payload)
+    new_id = jobs.create(
+        poster_id=session["user_id"], poster_role=session["role"], payload=payload
+    )
     if not new_id:
         return _jobs_form_error(
             request, form, "Couldn't save the posting. Try again.",

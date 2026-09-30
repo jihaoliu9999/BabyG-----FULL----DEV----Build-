@@ -88,11 +88,14 @@ def stub_brand(monkeypatch):
         jobs_module, "list_by_poster", lambda uid, **kw: list(saved["listings"])
     )
 
-    def _create(*, poster_id: str, payload: dict[str, Any]) -> str | None:
+    def _create(*, poster_id: str, poster_role: str, payload: dict[str, Any]) -> str | None:
         if saved.get("create_fails"):
             return None
         new_id = f"listing-{len(saved['created_listings'])+1}"
-        saved["created_listings"].append({"poster_id": poster_id, "payload": payload, "id": new_id})
+        saved["created_listings"].append({
+            "poster_id": poster_id, "poster_role": poster_role,
+            "payload": payload, "id": new_id,
+        })
         return new_id
 
     monkeypatch.setattr(jobs_module, "create", _create)
@@ -322,6 +325,7 @@ def test_campaigns_create_persists_listing_and_redirects(
             "description": "3 reels, beauty creators, april delivery.",
             "compensation_text": "$1500 + product",
             "target_niches": ["beauty", "fashion"],
+            "poster_role": "creator",
         },
         follow_redirects=False,
     )
@@ -329,6 +333,8 @@ def test_campaigns_create_persists_listing_and_redirects(
     assert r.headers["location"] == "/brand/campaigns?created=ok"
     created = stub_brand["created_listings"][-1]
     assert created["poster_id"] == "brand-1"
+    assert created["poster_role"] == "brand"
+    assert "poster_role" not in created["payload"]
     assert created["payload"]["title"] == "spring fragrance launch"
     assert created["payload"]["listing_type"] == "brand_deal"
     assert created["payload"]["target_niches"] == ["beauty", "fashion"]

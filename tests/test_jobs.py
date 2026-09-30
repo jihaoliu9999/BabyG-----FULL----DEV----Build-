@@ -110,10 +110,11 @@ def world(monkeypatch) -> FakeWorld:
     def _get(lid):
         return w.listings.get(lid)
 
-    def _create(*, poster_id, payload):
+    def _create(*, poster_id, poster_role, payload):
         lid = str(uuid4())
         w.listings[lid] = {
             **payload, "id": lid, "poster_user_id": poster_id,
+            "poster_role": poster_role,
             "is_taken_down": False, "taken_down_reason": None,
             "taken_down_by": None, "taken_down_at": None,
             "created_at": "2026-05-07T00:00:00Z",
@@ -247,6 +248,8 @@ def test_creator_jobs_create(client, world):
     assert len(world.listings) == 1
     listing = next(iter(world.listings.values()))
     assert listing["is_active"] is True
+    assert listing["poster_user_id"] == "c-1"
+    assert listing["poster_role"] == "creator"
 
 
 def test_creator_jobs_create_rejects_non_money_compensation(client, world):

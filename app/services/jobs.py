@@ -1,7 +1,7 @@
 """Creator job listings — collab posts, UGC swaps, hiring asks, creator shares.
 
 Schema: see migrations/0002_schema.sql §creator_job_listings. Listings are
-written by creators only; creators browse and respond through the network.
+written by creators and brands; creators browse and respond through the network.
 
 Operators can take down a listing with a reason (`is_taken_down=true,
 taken_down_reason, taken_down_at, taken_down_by`).
@@ -99,8 +99,10 @@ def get(listing_id: str) -> dict[str, Any] | None:
     return rows[0] if rows else None
 
 
-def create(*, poster_id: str, payload: dict[str, Any]) -> str | None:
-    body = {**payload, "poster_user_id": poster_id}
+def create(*, poster_id: str, poster_role: str, payload: dict[str, Any]) -> str | None:
+    if poster_role not in ("creator", "brand"):
+        raise ValueError("poster_role must be creator or brand")
+    body = {**payload, "poster_user_id": poster_id, "poster_role": poster_role}
     try:
         result = (
             supabase_client.get_service_client()

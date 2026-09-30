@@ -3028,7 +3028,7 @@ def _execute_confirmed_action(
     if action_type == "create_content_reminder":
         return reminders.create(user_id=user_id, payload=payload)
     if action_type == "submit_creator_listing":
-        return jobs.create(poster_id=user_id, payload=payload)
+        return jobs.create(poster_id=user_id, poster_role="creator", payload=payload)
     return None
 
 

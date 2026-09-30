@@ -249,7 +249,9 @@ async def campaigns_create(
         "is_active": True,
         "is_taken_down": False,
     }
-    listing_id = jobs.create(poster_id=session["user_id"], payload=payload)
+    listing_id = jobs.create(
+        poster_id=session["user_id"], poster_role=session["role"], payload=payload
+    )
     if not listing_id:
         return templates.TemplateResponse(
             request,
