@@ -2521,20 +2521,18 @@ async def jobs_detail(
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
     listing = jobs.get(listing_id)
-    if listing is None or listing.get("is_taken_down"):
+    if listing is None or not jobs.can_view_detail(listing, session["user_id"]):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     is_mine = str(listing["poster_user_id"]) == session["user_id"]
-    # Closed postings (is_active=false) shouldn't be discoverable to
-    # other creators by guessing the UUID — mirror brand.py's check.
-    # The poster still sees their own closed postings so they can
-    # re-open them.
-    if not is_mine and not listing.get("is_active"):
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
-    poster = profiles.get_creator_profile(str(listing["poster_user_id"]))
+    poster_id = str(listing["poster_user_id"])
+    if listing.get("poster_role") == "brand":
+        poster = profiles.public_brand(profiles.get_brand_profile(poster_id))
+    else:
+        poster = profiles.public_creator(profiles.get_creator_profile(poster_id))
 
-    # "Apply" CTA logic — for creators, must be connected to the poster.
+    # Preserve the existing DM link for connected creator-to-creator postings.
     can_dm = False
-    if not is_mine:
+    if not is_mine and listing.get("poster_role") != "brand":
         conn = network.get_connection_between(
             session["user_id"], str(listing["poster_user_id"])
         )
@@ -2549,6 +2547,7 @@ async def jobs_detail(
             "is_mine": is_mine,
             "can_dm": can_dm,
             "viewer_role": "creator",
+            "back_path": "/creator/discover?kind=opportunity",
         },
     )
 

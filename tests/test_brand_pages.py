@@ -118,6 +118,51 @@ def stub_brand(monkeypatch):
 # ---------------------------------------------------------------------------
 
 
+def test_brand_owner_can_view_opportunity_without_application(client, stub_brand, monkeypatch):
+    listing = {
+        "id": "listing-1", "poster_user_id": "brand-1", "poster_role": "brand",
+        "title": "Studio campaign", "description": "Original terms only",
+        "listing_type": "brand_deal", "compensation_text": "negotiable",
+        "is_active": True, "is_taken_down": False,
+    }
+    monkeypatch.setattr(jobs_module, "get", lambda listing_id: listing)
+    _signed_in(client, role="brand")
+    r = client.get("/brand/discover/opportunity/listing-1")
+    assert r.status_code == 200
+    assert "Studio House" in r.text
+    assert "Studio campaign" in r.text
+    assert "Original terms only" in r.text
+    assert "negotiable" in r.text
+    assert ">Apply</button>" not in r.text
+    assert "action=\"/brand/discover/swipe\"" not in r.text
+
+
+def test_brand_cannot_view_closed_other_opportunity(client, stub_brand, monkeypatch):
+    monkeypatch.setattr(jobs_module, "get", lambda listing_id: {
+        "id": listing_id, "poster_user_id": "brand-2", "is_active": False,
+        "is_taken_down": False,
+    })
+    _signed_in(client, role="brand")
+    assert client.get("/brand/discover/opportunity/listing-2").status_code == 404
+
+
+def test_brand_viewer_sees_creator_posted_opportunity(client, stub_brand, monkeypatch):
+    monkeypatch.setattr(jobs_module, "get", lambda listing_id: {
+        "id": listing_id, "poster_user_id": "creator-2", "poster_role": "creator",
+        "title": "Creator collab", "description": "Real scope", "is_active": True,
+        "is_taken_down": False,
+    })
+    monkeypatch.setattr(profiles_module, "get_creator_profile", lambda uid: {
+        "full_name": "Taylor Creator", "profile_photo_url": None,
+    })
+    _signed_in(client, role="brand")
+    r = client.get("/brand/discover/opportunity/listing-3")
+    assert r.status_code == 200
+    assert "Taylor Creator" in r.text
+    assert "Creator collab" in r.text
+    assert '<button type="button" class="btn btn-lime" disabled>Apply</button>' in r.text
+
+
 def test_dashboard_renders_with_completion_meter_and_quick_actions(
     client: TestClient, stub_brand
 ) -> None:

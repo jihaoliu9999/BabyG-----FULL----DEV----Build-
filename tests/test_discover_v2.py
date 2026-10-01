@@ -131,6 +131,7 @@ def test_discover_renders_mobile_first_mixed_stack(client, discover_world):
     assert 'data-card-kind="opportunity"' in response.text
     assert "discover.js" in response.text
     assert discover_world["actions"][0]["action_type"] == "viewed"
+    assert f'href="/creator/jobs/{discover_world["cards"][0]["card_id"]}"' in response.text
 
 
 @pytest.mark.parametrize("compensation_type, label", [

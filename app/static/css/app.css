@@ -12640,6 +12640,26 @@ body:has(.dm-thread-composer-box input:focus) .creator-tabbar {
   }
   .is-creator-app .app-shell:has(.op-new) .view { padding-top: 0; }
 }
+.opportunity-detail { max-width: 720px; min-width: 0; padding-bottom: 32px; }
+.opportunity-detail .back-link { display: inline-flex; margin-bottom: 24px; }
+.opportunity-detail-poster { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; min-width: 0; }
+.opportunity-detail-poster > div { display: grid; gap: 3px; min-width: 0; }
+.opportunity-detail-poster strong { overflow-wrap: anywhere; }
+.opportunity-detail-poster span { color: var(--ink-mid); font-size: 13px; }
+.opportunity-detail-avatar { width: 44px; height: 44px; flex: 0 0 44px; border-radius: 50%; object-fit: cover; display: grid; place-items: center; background: var(--surface-3); }
+.opportunity-detail .detail-title { margin: 0 0 16px; overflow-wrap: anywhere; }
+.opportunity-detail-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 28px; }
+.opportunity-detail-section { margin-bottom: 24px; min-width: 0; }
+.opportunity-detail-section h2 { margin: 0 0 8px; font-size: 13px; color: var(--ink-mid); }
+.opportunity-detail-section p { margin: 0; line-height: 1.55; overflow-wrap: anywhere; }
+.opportunity-detail-description { white-space: pre-wrap; }
+.opportunity-detail-facts { display: grid; gap: 12px; margin: 0 0 28px; }
+.opportunity-detail-facts > div { display: flex; flex-wrap: wrap; gap: 8px 18px; }
+.opportunity-detail-facts dt { color: var(--ink-mid); min-width: 88px; }
+.opportunity-detail-facts dd { margin: 0; overflow-wrap: anywhere; }
+.opportunity-detail-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.opportunity-detail-actions button:disabled { opacity: .55; cursor: not-allowed; }
+
 .op-new {
   width: min(100%, 1080px);
   margin: 0 auto;

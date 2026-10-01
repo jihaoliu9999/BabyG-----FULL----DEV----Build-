@@ -371,6 +371,65 @@ def test_creator_jobs_old_ugc_gig_record_renders(client, world):
     assert "Legacy" in r.text
 
 
+def test_opportunity_detail_renders_stored_fields_without_application(client, world):
+    _signed_in(client, role="creator", user_id="c-1")
+    world.add_creator(user_id="c-1")
+    world.add_creator(user_id="c-2", full_name="Maya Creator")
+    listing = world.add_listing(
+        poster="c-2", title="Real UGC brief", description="Two videos\nDue Friday",
+        listing_type="ugc_gig", compensation_text="gifted / product",
+        target_niches=["food", "wellness"], deadline="2026-10-15T23:59:59+00:00",
+    )
+    listing.update(poster_role="creator", location_city="Miami")
+    r = client.get(f"/creator/jobs/{listing['id']}")
+    assert r.status_code == 200
+    for text in ("Real UGC brief", "Maya Creator", "creator", "gifted / product",
+                 "Two videos", "Due Friday", "Miami", "food", "wellness"):
+        assert text in r.text
+    assert '<button type="button" class="btn btn-lime" disabled>Apply</button>' in r.text
+    assert 'action="/creator/jobs/' not in r.text
+    assert "deliverables</h2>" not in r.text
+
+
+def test_opportunity_detail_brand_identity_and_budget(client, world, monkeypatch):
+    _signed_in(client, role="creator", user_id="c-1")
+    world.add_creator(user_id="c-1")
+    monkeypatch.setattr(profiles_module, "get_brand_profile", lambda uid: {
+        "company_name": "Actual Brand", "logo_url": "https://example.com/logo.png",
+    } if uid == "b-1" else None)
+    listing = world.add_listing(poster="b-1", title="Campaign", compensation_text=None)
+    listing.update(poster_role="brand", budget_min=1000, budget_max=2000)
+    r = client.get(f"/creator/jobs/{listing['id']}")
+    assert r.status_code == 200
+    assert "Actual Brand" in r.text
+    assert "$1000" in r.text and "$2000" in r.text
+    assert "/creator/network/b-1" not in r.text
+    assert "location</dt>" not in r.text
+    assert "closes</dt>" not in r.text
+
+
+def test_opportunity_detail_missing_listing_returns_404(client, world):
+    _signed_in(client, role="creator", user_id="c-1")
+    world.add_creator(user_id="c-1")
+    r = client.get(f"/creator/jobs/{uuid4()}")
+    assert r.status_code == 404
+
+
+@pytest.mark.parametrize("hidden_fields", [
+    {"discovery_eligible": False},
+    {"expires_at": "2020-01-01T00:00:00+00:00"},
+    {"is_active": False},
+    {"is_taken_down": True},
+])
+def test_opportunity_detail_hides_ineligible_nonowner(client, world, hidden_fields):
+    _signed_in(client, role="creator", user_id="c-1")
+    world.add_creator(user_id="c-1")
+    world.add_creator(user_id="c-2")
+    listing = world.add_listing(poster="c-2")
+    listing.update(hidden_fields)
+    assert client.get(f"/creator/jobs/{listing['id']}").status_code == 404
+
+
 def test_creator_jobs_detail_dm_gate_when_unconnected(client, world):
     _signed_in(client, role="creator", user_id="c-1")
     world.add_creator(user_id="c-1")

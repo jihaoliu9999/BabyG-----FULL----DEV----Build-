@@ -494,13 +494,27 @@ async def discover_opportunity_detail(
     profile = profiles.get_brand_profile(session["user_id"]) or {}
     if not profile.get("onboarding_completed_at"):
         return RedirectResponse("/onboarding/brand", status_code=302)
-    card = discover.get_card(card_kind="opportunity", card_id=opportunity_id)
-    if card is None or card["owner_user_id"] == session["user_id"]:
+    listing = jobs.get(opportunity_id)
+    if listing is None or not jobs.can_view_detail(listing, session["user_id"]):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    is_mine = str(listing.get("poster_user_id")) == session["user_id"]
+    poster_id = str(listing["poster_user_id"])
+    if listing.get("poster_role") == "brand":
+        poster = profiles.public_brand(profiles.get_brand_profile(poster_id))
+    else:
+        poster = profiles.public_creator(profiles.get_creator_profile(poster_id))
     return templates.TemplateResponse(
         request,
-        "brand/discover_detail.html",
-        {"profile": profile, "card": _brand_card(card)},
+        "creator/jobs_detail.html",
+        {
+            "profile": profile,
+            "listing": listing,
+            "poster": poster,
+            "is_mine": is_mine,
+            "can_dm": False,
+            "viewer_role": "brand",
+            "back_path": "/brand/discover?kind=opportunity",
+        },
     )
 
 

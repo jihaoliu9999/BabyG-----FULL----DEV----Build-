@@ -3,66 +3,71 @@
 {% block title %}{{ listing.title }} — babyg{% endblock %}
 
 {% block content %}
-<div class="wrap">
-  <a href="/creator/jobs" class="back-link">← postings</a>
+<article class="wrap opportunity-detail">
+  <a href="{{ back_path }}" class="back-link">← discover</a>
 
-  <div style="margin-bottom:22px;">
-    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
-      <span class="badge badge-muted">{{ listing.listing_type|replace('_', ' ') or 'posting' }}</span>
-      {% if listing.is_active %}<span class="badge badge-coral">active</span>{% else %}<span class="badge badge-muted">closed</span>{% endif %}
+  {% set poster_name = (poster.company_name if listing.get('poster_role') == 'brand' else (poster.full_name or poster.instagram_handle)) if poster else '' %}
+  {% set poster_image = (poster.logo_url if listing.get('poster_role') == 'brand' else poster.profile_photo_url) if poster else '' %}
+  <div class="opportunity-detail-poster">
+    {% if poster_image %}<img src="{{ poster_image|safe_url }}" alt="" class="opportunity-detail-avatar" />
+    {% elif poster_name %}<span class="opportunity-detail-avatar" aria-hidden="true">{{ poster_name[:1]|upper }}</span>{% endif %}
+    <div>
+      {% if poster_name %}<strong>{{ poster_name }}</strong>{% endif %}
+      <span>{{ 'brand' if listing.get('poster_role') == 'brand' else 'creator' }}</span>
     </div>
-    <h1 class="detail-title" style="margin:0 0 10px;">{{ listing.title }}</h1>
-    {% if poster %}
-    <div style="color:var(--ink-mid);font-size:13.5px;">
-      from <a href="/creator/network/{{ listing.poster_user_id }}" style="color:var(--ink);">{{ poster.full_name or poster.instagram_handle or 'creator' }}</a>
-      {% if poster.instagram_handle %} · @{{ poster.instagram_handle }}{% endif %}
-    </div>
-    {% endif %}
   </div>
 
-  {% if listing.description %}
-  <span class="mono" style="display:block;margin-bottom:8px;">about</span>
-  <p style="color:var(--ink-mid);font-size:14.5px;line-height:1.55;margin:0 0 22px;">{{ listing.description }}</p>
+  <h1 class="detail-title">{{ listing.title }}</h1>
+  <div class="opportunity-detail-tags">
+    {% if listing.get('listing_type') %}<span class="badge badge-muted">{{ listing.listing_type|replace('_', ' ') }}</span>{% endif %}
+    {% for tag in listing.get('target_niches') or [] %}<span class="badge badge-muted">{{ tag }}</span>{% endfor %}
+    {% if not listing.get('is_active') %}<span class="badge badge-muted">closed</span>{% endif %}
+  </div>
+
+  {% if listing.get('compensation_text') or listing.get('budget_min') is not none or listing.get('budget_max') is not none %}
+  <section class="opportunity-detail-section">
+    <h2>compensation</h2>
+    {% if listing.get('compensation_text') %}<p>{{ listing.compensation_text }}</p>
+    {% elif listing.get('budget_min') is not none and listing.get('budget_max') is not none %}<p>${{ listing.budget_min }}–${{ listing.budget_max }}</p>
+    {% elif listing.get('budget_min') is not none %}<p>from ${{ listing.budget_min }}</p>
+    {% else %}<p>up to ${{ listing.budget_max }}</p>{% endif %}
+  </section>
   {% endif %}
 
-  <span class="mono" style="display:block;margin-bottom:8px;">details</span>
-  <div class="kv-list" style="margin-bottom:22px;">
-    {% if listing.compensation_text %}
-    <div class="row"><span class="l">comp</span><span class="v">{{ listing.compensation_text }}</span></div>
-    {% endif %}
-    {% if listing.deadline %}
-    <div class="row"><span class="l">deadline</span><span class="v">{{ listing.deadline|short_dt }}</span></div>
-    {% endif %}
-  </div>
+  {% if listing.get('description') %}
+  <section class="opportunity-detail-section">
+    <h2>what you need</h2>
+    <p class="opportunity-detail-description">{{ listing.description }}</p>
+  </section>
+  {% endif %}
 
-  {% if listing.target_niches %}
-  <span class="mono" style="display:block;margin-bottom:8px;">niches</span>
-  <div class="chip-group" style="margin-bottom:22px;">
-    {% for n in listing.target_niches %}
-    <span class="chip chip-active">{{ n }}</span>
-    {% endfor %}
-  </div>
+  {% if listing.get('location_city') or listing.get('location_region') or listing.get('location_country') or listing.get('deadline') %}
+  <dl class="opportunity-detail-facts">
+    {% if listing.get('location_city') or listing.get('location_region') or listing.get('location_country') %}
+    <div><dt>location</dt><dd>{{ [listing.get('location_city'), listing.get('location_region'), listing.get('location_country')]|select|join(', ') }}</dd></div>
+    {% endif %}
+    {% if listing.get('deadline') %}<div><dt>closes</dt><dd>{{ listing.deadline|short_date }}</dd></div>{% endif %}
+  </dl>
   {% endif %}
 
   {% if is_mine %}
-  <a href="/creator/jobs/{{ listing.id }}/edit" class="btn btn-ghost btn-sm">edit posting</a>
+    {% if viewer_role == 'creator' %}<a href="/creator/jobs/{{ listing.id }}/edit" class="btn btn-ghost btn-sm">edit posting</a>{% endif %}
   {% else %}
-  <span class="mono" style="display:block;margin-bottom:8px;">reach out</span>
-  {% if can_dm %}
-  <p style="color:var(--ink-dim);font-size:13.5px;margin:0 0 12px;">you're connected. send a DM directly.</p>
-  <a href="/creator/dm/{{ listing.poster_user_id }}" class="btn btn-lime btn-sm">Open DM
-    <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M3 9L9 3M9 3H4M9 3V8" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-  </a>
-  {% else %}
-  <p style="color:var(--ink-dim);font-size:13.5px;margin:0 0 12px;">Connect first to message this creator.</p>
-  <a href="/creator/network/{{ listing.poster_user_id }}" class="btn btn-lime btn-sm">view profile →</a>
+    <div class="opportunity-detail-actions">
+      <button type="button" class="btn btn-lime" disabled>Apply</button>
+      {% if viewer_role == 'creator' and listing.get('poster_role') != 'brand' %}
+        {% if can_dm %}<a href="/creator/dm/{{ listing.poster_user_id }}" class="btn btn-ghost btn-sm">Open DM</a>
+        {% else %}<span>Connect first to message this creator.</span><a href="/creator/network/{{ listing.poster_user_id }}" class="btn btn-ghost btn-sm">view profile</a>{% endif %}
+      {% endif %}
+    </div>
   {% endif %}
 
-  {% set target_type = "listing" %}
-  {% set target_id = listing.id %}
-  {% set return_to = "/creator/jobs/" ~ listing.id %}
-  {% set label = "this posting" %}
-  {% include "_partials/report_form.html" %}
+  {% if not is_mine and viewer_role == 'creator' %}
+    {% set target_type = "listing" %}
+    {% set target_id = listing.id %}
+    {% set return_to = "/creator/jobs/" ~ listing.id %}
+    {% set label = "this posting" %}
+    {% include "_partials/report_form.html" %}
   {% endif %}
-</div>
+</article>
 {% endblock %}

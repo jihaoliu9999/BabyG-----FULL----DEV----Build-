@@ -89,7 +89,7 @@
 {% macro opportunity_card(card) -%}
   {%- set name = card.title or 'opportunity' -%}
   <article class="discover-card discover-opportunity-card" data-discover-card data-card-kind="opportunity">
-    <a class="discover-card-hit" href="{{ card.detail_path|safe_url }}" aria-label="open {{ name }}"></a>
+    <a class="discover-card-hit" href="/creator/jobs/{{ card.card_id }}" aria-label="view opportunity: {{ name }}"></a>
     <div class="discover-card-type">opportunity</div>
     <h2>{{ name }}</h2>
     {% if card.subtitle %}<p class="discover-opportunity-poster">posted by {{ card.subtitle }}</p>{% endif %}

@@ -99,6 +99,23 @@ def get(listing_id: str) -> dict[str, Any] | None:
     return rows[0] if rows else None
 
 
+def can_view_detail(listing: dict[str, Any], viewer_id: str) -> bool:
+    if listing.get("is_taken_down"):
+        return False
+    if str(listing.get("poster_user_id") or "") == viewer_id:
+        return True
+    if not listing.get("is_active") or listing.get("discovery_eligible") is False:
+        return False
+    expires_at = listing.get("expires_at")
+    if expires_at:
+        try:
+            expiry = datetime.fromisoformat(str(expires_at).replace("Z", "+00:00"))
+            return expiry.tzinfo is not None and expiry > datetime.now(UTC)
+        except (TypeError, ValueError):
+            return False
+    return True
+
+
 def create(*, poster_id: str, poster_role: str, payload: dict[str, Any]) -> str | None:
     if poster_role not in ("creator", "brand"):
         raise ValueError("poster_role must be creator or brand")
