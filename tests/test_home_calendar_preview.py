@@ -424,11 +424,13 @@ def test_next_shows_connect_calendar_when_disconnected(
 
 
 def test_next_shows_first_booking_when_connected(
-    client: TestClient, stub_dashboard
+    client: TestClient, stub_dashboard, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     _signed_in(client)
     stub_dashboard["google_calendar_connected"] = True
-    today = date.today()
+    today = date(2026, 9, 30)
+    monkeypatch.setattr(calendar_sync_module, "effective_timezone", lambda uid: "UTC")
+    monkeypatch.setattr(calendar_sync_module, "today_in_zone", lambda tz: today)
     stub_dashboard["bookings"] = [
         {
             "id": "b-1",
