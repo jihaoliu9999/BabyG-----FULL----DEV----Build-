@@ -50,6 +50,7 @@ from app.services import (
     bot_nudges,
     bot_prompts,
     calendar_sync,
+    creator_payouts,
     deal_manager,
     discover,
     discovery,
@@ -1220,6 +1221,7 @@ async def profile_settings_page(
         {"value": "brand_deal", "label": "brand deals", "hint": "sponsored work"},
     ]
     saved_deal_types = list(profile.get("deal_type_preferences") or [])
+    payout_status = creator_payouts.payout_status(session["user_id"])
     return templates.TemplateResponse(
         request,
         "creator/profile_settings.html",
@@ -1244,8 +1246,38 @@ async def profile_settings_page(
             "agent_memory_max_chars": agent_memory.SUMMARY_MAX_CHARS,
             "deal_type_choices": deal_type_choices,
             "deal_type_selected": saved_deal_types,
+            "payout_status": payout_status,
         },
     )
+
+
+@router.post("/creator/payouts/start")
+async def start_creator_payouts(
+    session: SessionPayload = Depends(require_role("creator")),
+) -> RedirectResponse:
+    try:
+        url = creator_payouts.onboarding_url(session["user_id"], create_if_missing=True)
+    except creator_payouts.PayoutSetupError:
+        return RedirectResponse("/creator/profile/settings?payouts=error#payouts", status_code=303)
+    return RedirectResponse(url, status_code=303)
+
+
+@router.get("/creator/payouts/refresh")
+async def refresh_creator_payouts(
+    session: SessionPayload = Depends(require_role("creator")),
+) -> RedirectResponse:
+    try:
+        url = creator_payouts.onboarding_url(session["user_id"], create_if_missing=False)
+    except creator_payouts.PayoutSetupError:
+        return RedirectResponse("/creator/profile/settings?payouts=error#payouts", status_code=303)
+    return RedirectResponse(url, status_code=303)
+
+
+@router.get("/creator/payouts/return")
+async def return_creator_payouts(
+    session: SessionPayload = Depends(require_role("creator")),
+) -> RedirectResponse:
+    return RedirectResponse("/creator/profile/settings#payouts", status_code=303)
 
 
 @router.post("/creator/profile/babyg-memory")

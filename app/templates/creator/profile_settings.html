@@ -201,6 +201,31 @@
       </div>
     </details>
 
+    <details class="settings-group settings-card settings-disclosure" id="payouts" {% if request.query_params.get('payouts') %}open{% endif %}>
+      <summary>
+        <span class="settings-disclosure-copy">
+          <strong class="settings-disclosure-title">payouts</strong>
+        </span>
+        <span class="settings-disclosure-icon" aria-hidden="true"></span>
+      </summary>
+      <div class="settings-disclosure-body">
+        <div class="settings-form settings-disclosure-form">
+          {% if request.query_params.get('payouts') == 'error' %}<p class="settings-flash">couldn't open payout setup. try again.</p>{% endif %}
+          {% if payout_status == 'ready' %}
+          <p>ready to receive payments</p>
+          {% elif payout_status == 'unavailable' %}
+          <p>payout status is temporarily unavailable.</p>
+          {% else %}
+          <p>{% if payout_status == 'incomplete' %}setup incomplete{% else %}connect Stripe to receive earnings from completed babyg deals.{% endif %}</p>
+          <form method="post" action="/creator/payouts/start">
+            {% include "_partials/csrf.html" %}
+            <button class="btn btn-lime btn-sm" type="submit">{% if payout_status == 'incomplete' %}continue setup{% else %}set up payouts{% endif %}</button>
+          </form>
+          {% endif %}
+        </div>
+      </div>
+    </details>
+
     {# 5 · assistant #}
     <details class="settings-group settings-card settings-disclosure" id="babyg-behavior" {% if babyg_flash %}open{% endif %}>
       <summary>
