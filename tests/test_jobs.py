@@ -386,7 +386,14 @@ def test_opportunity_detail_renders_stored_fields_without_application(client, wo
     for text in ("Real UGC brief", "Maya Creator", "creator", "gifted / product",
                  "Two videos", "Due Friday", "Miami", "food", "wellness"):
         assert text in r.text
-    assert '<button type="button" class="btn btn-lime" disabled>Apply</button>' in r.text
+    # Step 5B landed the real Apply flow — the old disabled-button
+    # affordance was replaced with a functional link to the dedicated
+    # application form. Guard against a regression that reintroduces
+    # the disabled button, and lock in that the new link renders.
+    assert '<button type="button" class="btn btn-lime" disabled>Apply</button>' not in r.text
+    assert f'href="/creator/jobs/{listing["id"]}/apply"' in r.text
+    # Nothing on the detail page itself posts; the apply form lives
+    # on a dedicated route.
     assert 'action="/creator/jobs/' not in r.text
     assert "deliverables</h2>" not in r.text
 

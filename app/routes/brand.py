@@ -514,6 +514,10 @@ async def discover_opportunity_detail(
             "can_dm": False,
             "viewer_role": "brand",
             "back_path": "/brand/discover?kind=opportunity",
+            # Step 5B: brand viewers never apply — the Apply affordance
+            # is creator-only. Passing explicit False keeps the template
+            # contract uniform between the two routes that reuse it.
+            "already_applied": False,
         },
     )
 

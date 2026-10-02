@@ -54,7 +54,17 @@
     {% if viewer_role == 'creator' %}<a href="/creator/jobs/{{ listing.id }}/edit" class="btn btn-ghost btn-sm">edit posting</a>{% endif %}
   {% else %}
     <div class="opportunity-detail-actions">
-      <button type="button" class="btn btn-lime" disabled>Apply</button>
+      {# Step 5B: Apply affordance is creator-only. A brand viewing an
+         opportunity sees no Apply button (brands don't apply to
+         opportunities). An already-applied creator sees a
+         non-submitting ✓ Applied marker. #}
+      {% if viewer_role == 'creator' %}
+        {% if already_applied %}
+          <span class="btn btn-ghost btn-sm opportunity-apply-done" aria-disabled="true" role="status">✓ Applied</span>
+        {% else %}
+          <a href="/creator/jobs/{{ listing.id }}/apply" class="btn btn-lime">Apply</a>
+        {% endif %}
+      {% endif %}
       {% if viewer_role == 'creator' and listing.get('poster_role') != 'brand' %}
         {% if can_dm %}<a href="/creator/dm/{{ listing.poster_user_id }}" class="btn btn-ghost btn-sm">Open DM</a>
         {% else %}<span>Connect first to message this creator.</span><a href="/creator/network/{{ listing.poster_user_id }}" class="btn btn-ghost btn-sm">view profile</a>{% endif %}

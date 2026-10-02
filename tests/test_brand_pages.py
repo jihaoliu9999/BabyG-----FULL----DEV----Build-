@@ -160,7 +160,10 @@ def test_brand_viewer_sees_creator_posted_opportunity(client, stub_brand, monkey
     assert r.status_code == 200
     assert "Taylor Creator" in r.text
     assert "Creator collab" in r.text
-    assert '<button type="button" class="btn btn-lime" disabled>Apply</button>' in r.text
+    # Step 5B: Apply is a creator-only affordance. A brand viewer sees
+    # neither the old disabled button nor the new functional link.
+    assert '<button type="button" class="btn btn-lime" disabled>Apply</button>' not in r.text
+    assert 'href="/creator/jobs/listing-3/apply"' not in r.text
 
 
 def test_dashboard_renders_with_completion_meter_and_quick_actions(

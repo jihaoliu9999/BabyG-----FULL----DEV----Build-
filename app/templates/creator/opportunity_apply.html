@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}Apply to {{ listing.title }} — babyg{% endblock %}
+
+{% block content %}
+<article class="wrap opportunity-detail opportunity-apply">
+  <a href="/creator/jobs/{{ listing.id }}" class="back-link">← opportunity</a>
+
+  <h1 class="detail-title">Apply to this opportunity</h1>
+
+  {# Compact real-opportunity summary — poster avatar/logo + name, title,
+     compensation. Reuses the Step 5A .opportunity-detail-* classes so
+     the visual language stays identical. Nothing here is editable. #}
+  {% set poster_name = (poster.company_name if listing.get('poster_role') == 'brand' else (poster.full_name or poster.instagram_handle)) if poster else '' %}
+  {% set poster_image = (poster.logo_url if listing.get('poster_role') == 'brand' else poster.profile_photo_url) if poster else '' %}
+  <section class="opportunity-apply-summary" aria-label="opportunity summary">
+    <div class="opportunity-detail-poster">
+      {% if poster_image %}<img src="{{ poster_image|safe_url }}" alt="" class="opportunity-detail-avatar" />
+      {% elif poster_name %}<span class="opportunity-detail-avatar" aria-hidden="true">{{ poster_name[:1]|upper }}</span>{% endif %}
+      <div>
+        {% if poster_name %}<strong>{{ poster_name }}</strong>{% endif %}
+        <span>{{ 'brand' if listing.get('poster_role') == 'brand' else 'creator' }}</span>
+      </div>
+    </div>
+    <p class="opportunity-apply-title">{{ listing.title }}</p>
+    {% if listing.get('compensation_text') %}<p class="opportunity-apply-comp">{{ listing.compensation_text }}</p>
+    {% elif listing.get('budget_min') is not none and listing.get('budget_max') is not none %}<p class="opportunity-apply-comp">${{ listing.budget_min }}–${{ listing.budget_max }}</p>
+    {% elif listing.get('budget_min') is not none %}<p class="opportunity-apply-comp">from ${{ listing.budget_min }}</p>
+    {% elif listing.get('budget_max') is not none %}<p class="opportunity-apply-comp">up to ${{ listing.budget_max }}</p>{% endif %}
+  </section>
+
+  {% if error %}<div class="opportunity-apply-error" role="alert">{{ error }}</div>{% endif %}
+
+  <form method="post" action="/creator/jobs/{{ listing.id }}/apply" class="opportunity-apply-form" data-opportunity-apply-form>
+    {% include "_partials/csrf.html" %}
+    <label class="opportunity-apply-label" for="opportunity-apply-message">Your message</label>
+    <p class="opportunity-apply-help" id="opportunity-apply-help">Tell the brand why you're a good fit for this opportunity. Be specific and keep it concise.</p>
+    <textarea
+      id="opportunity-apply-message"
+      name="message"
+      rows="7"
+      maxlength="{{ max_message_chars }}"
+      required
+      aria-describedby="opportunity-apply-help"
+      class="opportunity-apply-textarea"
+      placeholder="Share two or three specific things that make you a strong fit."
+    >{{ message_value }}</textarea>
+    <div class="opportunity-apply-actions">
+      <button type="submit" class="btn btn-lime">Submit application</button>
+    </div>
+  </form>
+</article>
+{% endblock %}

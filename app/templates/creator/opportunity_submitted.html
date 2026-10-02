@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+
+{% block title %}Application submitted — babyg{% endblock %}
+
+{% block content %}
+<article class="wrap opportunity-detail opportunity-submitted" role="status">
+  <a href="/creator/jobs/{{ listing.id }}" class="back-link">← opportunity</a>
+
+  {% set poster_name = (poster.company_name if listing.get('poster_role') == 'brand' else (poster.full_name or poster.instagram_handle)) if poster else '' %}
+  <div class="opportunity-submitted-mark" aria-hidden="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M8 12.6l2.6 2.6L16 9.4"/></svg>
+  </div>
+
+  <h1 class="detail-title">Application submitted</h1>
+  <p class="opportunity-submitted-body">
+    Your application has been sent to {{ poster_name or 'the poster' }}.<br />
+    You'll be notified if they respond.
+  </p>
+
+  <div class="opportunity-submitted-actions">
+    <a href="/creator/jobs/{{ listing.id }}" class="btn btn-lime">View opportunity</a>
+    <a href="/creator/discover?kind=opportunity" class="btn btn-ghost btn-sm">Back to discover</a>
+  </div>
+</article>
+{% endblock %}

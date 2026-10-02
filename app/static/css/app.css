@@ -12660,6 +12660,131 @@ body:has(.dm-thread-composer-box input:focus) .creator-tabbar {
 .opportunity-detail-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
 .opportunity-detail-actions button:disabled { opacity: .55; cursor: not-allowed; }
 
+/* Step 5B: creator applications. The flow reuses .opportunity-detail-*
+   container styles above, so the apply + success pages inherit every
+   existing spacing, border, and type contract. These additions are
+   scoped to the new elements only; no global tokens introduced, no
+   Step 5A rules touched. */
+.opportunity-apply { padding-bottom: 32px; }
+.opportunity-apply-summary {
+  margin: 0 0 24px;
+  padding: 16px;
+  border: 1px solid rgba(245, 241, 232, 0.09);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+.opportunity-apply-summary .opportunity-detail-poster { margin-bottom: 0; }
+.opportunity-apply-title {
+  margin: 0;
+  color: var(--ink);
+  font-size: 15px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+.opportunity-apply-comp {
+  margin: 0;
+  color: var(--ink-mid);
+  font-size: 13.5px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.opportunity-apply-form { display: grid; gap: 10px; min-width: 0; }
+.opportunity-apply-label {
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.opportunity-apply-help {
+  margin: 0;
+  color: var(--ink-mid);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.opportunity-apply-textarea {
+  width: 100%;
+  max-width: 100%;
+  min-height: 160px;
+  padding: 14px 16px;
+  border: 1px solid rgba(245, 241, 232, 0.15);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.045);
+  color: var(--ink);
+  font: inherit;
+  font-size: 15px;
+  line-height: 1.5;
+  resize: vertical;
+  box-sizing: border-box;
+}
+.opportunity-apply-textarea:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.opportunity-apply-error {
+  margin: 0 0 16px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 77, 109, 0.4);
+  background: rgba(255, 77, 109, 0.08);
+  color: var(--ink);
+  font-size: 13.5px;
+}
+.opportunity-apply-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 6px;
+}
+.opportunity-apply-actions .btn { min-width: 160px; justify-content: center; }
+/* Non-submitting Applied marker on the detail page — same visual
+   weight as a disabled button, no click handler, no form association. */
+.opportunity-apply-done {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: default;
+  pointer-events: none;
+  opacity: 0.85;
+}
+
+/* Step 5B success page. */
+.opportunity-submitted { text-align: left; padding-bottom: 32px; }
+.opportunity-submitted-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  margin: 4px 0 18px;
+  border-radius: 50%;
+  border: 1px solid rgba(224, 255, 79, 0);
+  color: var(--accent);
+  background: rgba(255, 77, 109, 0.08);
+}
+.opportunity-submitted-mark svg { width: 30px; height: 30px; }
+.opportunity-submitted-body {
+  margin: 0 0 24px;
+  color: var(--ink-mid);
+  font-size: 15px;
+  line-height: 1.55;
+}
+.opportunity-submitted-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.opportunity-submitted-actions .btn-lime { min-width: 180px; justify-content: center; }
+
+@media (max-width: 480px) {
+  .opportunity-apply-actions .btn,
+  .opportunity-submitted-actions .btn-lime { width: 100%; }
+  .opportunity-apply-actions { justify-content: stretch; }
+  .opportunity-apply-textarea { min-height: 180px; font-size: 16px; }
+}
+
 .op-new {
   width: min(100%, 1080px);
   margin: 0 auto;

@@ -59,6 +59,7 @@ from app.services import (
     greetings,
     home_briefing,
     instagram_dms,
+    job_applications,
     jobs,
     locations,
     manager_activity,
@@ -2538,6 +2539,15 @@ async def jobs_detail(
         )
         can_dm = conn is not None and conn.get("status") == "accepted"
 
+    # Step 5B: has the viewer already applied? Only meaningful for a
+    # creator viewing someone else's opportunity — skipped on own
+    # listings so the "edit posting" affordance keeps precedence.
+    already_applied = False
+    if not is_mine:
+        already_applied = job_applications.has_applied(
+            str(listing["id"]), session["user_id"]
+        )
+
     return templates.TemplateResponse(
         request,
         "creator/jobs_detail.html",
@@ -2548,7 +2558,164 @@ async def jobs_detail(
             "can_dm": can_dm,
             "viewer_role": "creator",
             "back_path": "/creator/discover?kind=opportunity",
+            "already_applied": already_applied,
         },
+    )
+
+
+@router.get("/creator/jobs/{listing_id}/apply", response_class=HTMLResponse)
+async def jobs_apply_form(
+    listing_id: str,
+    request: Request,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    """Step 5B: dedicated application-form page for an opportunity.
+
+    Eligibility — same contract as the submit handler below:
+      * opportunity exists and viewable by this session
+      * viewer is not the poster
+      * viewer has not already applied (otherwise redirect to the
+        detail page so they see the ✓ Applied state)
+    """
+    listing = jobs.get(listing_id)
+    if listing is None or not jobs.can_view_detail(listing, session["user_id"]):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    if str(listing["poster_user_id"]) == session["user_id"]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+    if job_applications.has_applied(str(listing["id"]), session["user_id"]):
+        return RedirectResponse(
+            f"/creator/jobs/{listing['id']}", status_code=303
+        )
+
+    poster_id = str(listing["poster_user_id"])
+    if listing.get("poster_role") == "brand":
+        poster = profiles.public_brand(profiles.get_brand_profile(poster_id))
+    else:
+        poster = profiles.public_creator(profiles.get_creator_profile(poster_id))
+
+    return templates.TemplateResponse(
+        request,
+        "creator/opportunity_apply.html",
+        {
+            "listing": listing,
+            "poster": poster,
+            "error": None,
+            "message_value": "",
+            "max_message_chars": job_applications.MAX_MESSAGE_CHARS,
+        },
+    )
+
+
+@router.post("/creator/jobs/{listing_id}/apply")
+async def jobs_apply_submit(
+    listing_id: str,
+    request: Request,
+    message: str = Form(""),
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    """Step 5B: persist one application. applicant_user_id ALWAYS comes
+    from the authenticated session — never from the form body — so a
+    tampered client cannot submit for someone else."""
+    listing = jobs.get(listing_id)
+    if listing is None or not jobs.can_view_detail(listing, session["user_id"]):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    if str(listing["poster_user_id"]) == session["user_id"]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+    if job_applications.has_applied(str(listing["id"]), session["user_id"]):
+        return RedirectResponse(
+            f"/creator/jobs/{listing['id']}", status_code=303
+        )
+
+    normalized = job_applications.normalize_message(message)
+    error: str | None = None
+    # Over-length check uses the raw submitted value, not the normalized
+    # one — the normalizer caps at MAX_MESSAGE_CHARS, so comparing after
+    # would always pass. This way "someone typed 2500 chars" fails with
+    # a clear "too long" rather than silently truncating.
+    if message and len(message.strip()) > job_applications.MAX_MESSAGE_CHARS:
+        error = (
+            f"message is too long. keep it under "
+            f"{job_applications.MAX_MESSAGE_CHARS} characters."
+        )
+    elif not normalized:
+        error = "write a short message so the poster knows why you'd be a good fit."
+
+    if error is None:
+        row = job_applications.create(
+            listing_id=str(listing["id"]),
+            applicant_user_id=session["user_id"],
+            message=normalized,
+        )
+        if row is None:
+            # Race between pre-check and insert (unique constraint fired)
+            # OR a transient supabase failure. If the row now exists
+            # under this creator, treat as success — the submit *did*
+            # land, just not from this process. Otherwise surface a
+            # retryable error.
+            if job_applications.has_applied(
+                str(listing["id"]), session["user_id"]
+            ):
+                return RedirectResponse(
+                    f"/creator/jobs/{listing['id']}/applied",
+                    status_code=303,
+                )
+            error = "couldn't send that application. try again in a moment."
+
+    if error is not None:
+        poster_id = str(listing["poster_user_id"])
+        if listing.get("poster_role") == "brand":
+            poster = profiles.public_brand(profiles.get_brand_profile(poster_id))
+        else:
+            poster = profiles.public_creator(profiles.get_creator_profile(poster_id))
+        return templates.TemplateResponse(
+            request,
+            "creator/opportunity_apply.html",
+            {
+                "listing": listing,
+                "poster": poster,
+                "error": error,
+                "message_value": message or "",
+                "max_message_chars": job_applications.MAX_MESSAGE_CHARS,
+            },
+            status_code=400,
+        )
+
+    return RedirectResponse(
+        f"/creator/jobs/{listing['id']}/applied", status_code=303
+    )
+
+
+@router.get("/creator/jobs/{listing_id}/applied", response_class=HTMLResponse)
+async def jobs_apply_success(
+    listing_id: str,
+    request: Request,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    """Step 5B: success page shown only after a verified persisted
+    application exists. A direct hit from a creator who has NOT
+    applied redirects back to the opportunity detail — the success
+    affordance never shows for an unverified state."""
+    listing = jobs.get(listing_id)
+    if listing is None or not jobs.can_view_detail(listing, session["user_id"]):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    if str(listing["poster_user_id"]) == session["user_id"]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+    if not job_applications.has_applied(
+        str(listing["id"]), session["user_id"]
+    ):
+        return RedirectResponse(
+            f"/creator/jobs/{listing['id']}", status_code=303
+        )
+
+    poster_id = str(listing["poster_user_id"])
+    if listing.get("poster_role") == "brand":
+        poster = profiles.public_brand(profiles.get_brand_profile(poster_id))
+    else:
+        poster = profiles.public_creator(profiles.get_creator_profile(poster_id))
+    return templates.TemplateResponse(
+        request,
+        "creator/opportunity_submitted.html",
+        {"listing": listing, "poster": poster},
     )
 
 
