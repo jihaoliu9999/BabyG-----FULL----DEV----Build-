@@ -11,7 +11,15 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from app.core.security import SessionPayload
 from app.core.templating import templates
 from app.deps import require_role
-from app.services import discover, dms, jobs, network, notifications, profiles
+from app.services import (
+    discover,
+    dms,
+    jobs,
+    my_opportunities,
+    network,
+    notifications,
+    profiles,
+)
 
 router = APIRouter(prefix="/brand", tags=["brand"])
 
@@ -323,6 +331,7 @@ async def discover_page(
     budget_max: int | None = Query(None, ge=0),
     bring_back_kind: str | None = Query(None),
     bring_back_id: str | None = Query(None),
+    view: str = Query("explore"),
     session: SessionPayload = Depends(require_role("brand")),
 ) -> Response:
     profile = profiles.get_brand_profile(session["user_id"]) or {}
@@ -330,6 +339,52 @@ async def discover_page(
         return RedirectResponse("/onboarding/brand", status_code=302)
 
     kind_clean = _brand_discover_kind(kind)
+    # Step 5C: "my opportunities" is a secondary view of the
+    # Opportunities tab only. Anywhere else, `view` is ignored.
+    active_view = (
+        my_opportunities.clean_view(view)
+        if kind_clean == "opportunity"
+        else my_opportunities.VIEW_EXPLORE
+    )
+    if active_view == my_opportunities.VIEW_MINE:
+        # Personal list: listings owned by the AUTHENTICATED user
+        # (creator_job_listings.poster_user_id), each with a real
+        # applicant count. No Explore feed work and no "viewed" write.
+        fallback_location = ", ".join(
+            p for p in (profile.get("location_city"), profile.get("location_region")) if p
+        ) or None
+        mine_cards = my_opportunities.apply_filters(
+            my_opportunities.poster_items(
+                session["user_id"],
+                detail_prefix="/brand/discover/opportunity/",
+                fallback_location=fallback_location,
+            ),
+            category=category,
+            location=location,
+            budget_min=budget_min,
+            budget_max=budget_max,
+        )
+        return templates.TemplateResponse(
+            request,
+            "creator/discover.html",
+            {
+                "profile": profile,
+                "cards": mine_cards,
+                "active_kind": kind_clean,
+                "active_view": active_view,
+                "mine_role": "brand",
+                "category": category or "",
+                "location": location or "",
+                "budget_min": budget_min,
+                "budget_max": budget_max,
+                "can_undo": False,
+                "discover_base_path": "/brand/discover",
+                "discover_swipe_path": "/brand/discover/swipe",
+                "discover_undo_path": "/brand/discover/undo",
+                "discover_post_path": "/brand/campaigns/new",
+                "discover_title": "discover",
+            },
+        )
     prioritize = None
     if bring_back_kind and bring_back_id:
         prioritize = (_brand_discover_kind(bring_back_kind), bring_back_id)
@@ -359,6 +414,7 @@ async def discover_page(
             "profile": profile,
             "cards": cards,
             "active_kind": kind_clean,
+            "active_view": active_view,
             "category": category or "",
             "location": location or "",
             "budget_min": budget_min,

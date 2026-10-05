@@ -16208,3 +16208,101 @@ html.bot-activity-open, html.bot-activity-open body { overflow: hidden; }
   .bot-activity-item-title { font-size: 14px; }
   .bot-activity-item-sub { font-size: 12px; }
 }
+
+/* =========================================================
+   Step 5C — Opportunities secondary navigation + "my opportunities"
+   Scoped to `.discover-sub-tabs`, `.discover-card-mine`,
+   `.discover-card-status` and `.discover-empty-mine`. Nothing here
+   matches the main `.discover-kind-tabs`, the Explore cards, the
+   header controls, or any other page.
+
+   The secondary row is deliberately a notch BELOW the main tabs in
+   every dimension: 13px/600 vs 15px/650, dimmer idle colour, tighter
+   gap, a short fixed-length underline instead of a full-width one.
+   No pill, no card, no fill. The tap target is widened to ~44px with
+   a pseudo-element so the visual row stays compact.
+   ========================================================= */
+.discover-sub-tabs {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 20px;
+  /* The main tab row carries a 14px bottom margin; pull this row up
+     under it so the pair reads as one hierarchy and the header grows
+     by roughly one text line, not a full section. */
+  margin: -8px 0 12px;
+  padding: 0;
+}
+.discover-sub-tabs a {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 0;
+  color: rgba(245, 241, 232, 0.5);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.discover-sub-tabs a::before {
+  content: "";
+  position: absolute;
+  inset: -6px -8px;
+}
+.discover-sub-tabs a.active { color: #ff5f7d; }
+.discover-sub-tabs a.active::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 2px;
+  width: 22px;
+  max-width: 100%;
+  height: 2px;
+  border-radius: 999px;
+  background: #ff5f7d;
+}
+.discover-sub-tabs a:focus-visible {
+  outline: 2px solid var(--lime);
+  outline-offset: 3px;
+  border-radius: 4px;
+}
+
+/* Read-only personal state on a "my opportunities" card. It sits where
+   the Explore card's action button sits and replaces it; there is no
+   form and nothing to submit. */
+.discover-card-status {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: center;
+  gap: 4px 10px;
+  margin-top: 14px;
+  font-size: 13px;
+  line-height: 1.3;
+}
+.discover-card-status-main {
+  color: rgba(245, 241, 232, 0.86);
+  font-weight: 650;
+}
+.discover-card-status-main.is-applied { color: #ff5f7d; }
+.discover-card-status-date { color: rgba(245, 241, 232, 0.52); }
+
+/* In "my opportunities" the whole card opens the opportunity. The
+   Explore card's text layers sit above the full-card link, so a tap
+   landing on text would not navigate; here there is nothing else to
+   click, so let every tap fall through to the link. */
+.discover-card-mine > *:not(.discover-card-hit) { pointer-events: none; }
+
+.discover-empty-mine { margin-top: 36px; }
+.discover-empty-mine p {
+  margin: 0;
+  max-width: 32ch;
+  color: rgba(245, 241, 232, 0.62);
+  font-size: 14px;
+  line-height: 1.45;
+}

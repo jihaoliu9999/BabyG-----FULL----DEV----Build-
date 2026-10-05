@@ -207,6 +207,47 @@ def get_card(
     )
 
 
+def get_opportunity_cards(listing_ids: list[str]) -> dict[str, dict[str, Any]]:
+    """Live opportunity cards for the given listing ids, keyed by id.
+
+    Reads the same public-safe ``discovery_cards`` view and runs the same
+    ``_normalize_card`` as the Explore feed, so a card shown on
+    "my opportunities" is byte-identical in shape (subtitle, location
+    label with privacy level honoured, tags, ``detail_path``) to the one
+    Explore renders. Because the view only exposes listings that are
+    active, not taken down, discovery-eligible and unexpired, an id
+    that is not currently viewable is simply absent from the result.
+
+    Deliberately NOT applying viewer exclusions (passed / saved /
+    interested): those shape what the *feed* surfaces, not which
+    opportunities a user is personally involved with.
+    """
+    ids = [cid for cid in (safe_uuid(i) for i in listing_ids) if cid]
+    if not ids:
+        return {}
+    out: dict[str, dict[str, Any]] = {}
+    chunk_size = 50
+    for start in range(0, len(ids), chunk_size):
+        chunk = ids[start : start + chunk_size]
+        try:
+            result = (
+                supabase_client.get_service_client()
+                .table("discovery_cards")
+                .select("*")
+                .eq("card_kind", "opportunity")
+                .in_("card_id", chunk)
+                .execute()
+            )
+        except Exception:
+            logger.exception("unified discovery opportunity-card lookup failed")
+            return out
+        for raw in getattr(result, "data", None) or []:
+            card = _normalize_card(raw, viewer_tags=[])
+            if card is not None:
+                out[card["card_id"]] = card
+    return out
+
+
 def record_action(
     *,
     user_id: str,

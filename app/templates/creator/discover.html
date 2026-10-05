@@ -6,6 +6,13 @@
   {{ discover_base_path }}?kind={{ kind }}{% if category %}&category={{ category|urlencode }}{% endif %}{% if location %}&location={{ location|urlencode }}{% endif %}{% if budget_min is not none %}&budget_min={{ budget_min }}{% endif %}{% if budget_max is not none %}&budget_max={{ budget_max }}{% endif %}
 {%- endmacro %}
 
+{# Step 5C: secondary Opportunities navigation (explore / my opportunities).
+   Same filter carry-over as the main tabs; `view=mine` is the only new
+   query state, and `explore` is the default (no param). #}
+{% macro view_query(view) -%}
+  {{ discover_base_path }}?kind=opportunity{% if view == 'mine' %}&view=mine{% endif %}{% if category %}&category={{ category|urlencode }}{% endif %}{% if location %}&location={{ location|urlencode }}{% endif %}{% if budget_min is not none %}&budget_min={{ budget_min }}{% endif %}{% if budget_max is not none %}&budget_max={{ budget_max }}{% endif %}
+{%- endmacro %}
+
 {% macro platform_url(card) -%}
   {%- set platform = (card.primary_platform or '')|lower|trim -%}
   {%- set raw_handle = (card.profile_handle or card.instagram_handle or card.tiktok_handle or card.youtube_handle or '')|string|trim -%}
@@ -86,10 +93,18 @@
   </article>
 {%- endmacro %}
 
-{% macro opportunity_card(card) -%}
+{# `mine=true` (Step 5C "my opportunities") renders the SAME card, but
+   swaps the "interested" swipe form for a read-only personal-state line:
+   "✓ Applied · <date>" for a creator, "<n> applicants" for a brand. No
+   form, no action, no application content. #}
+{% macro opportunity_card(card, mine=false) -%}
   {%- set name = card.title or 'opportunity' -%}
-  <article class="discover-card discover-opportunity-card" data-discover-card data-card-kind="opportunity">
-    <a class="discover-card-hit" href="/creator/jobs/{{ card.card_id }}" aria-label="view opportunity: {{ name }}"></a>
+  <article class="discover-card discover-opportunity-card{% if mine %} discover-card-mine{% endif %}" data-discover-card data-card-kind="opportunity">
+    {# Explore keeps its existing link untouched. "my opportunities" uses the
+       card's own role-correct detail_path (creator → /creator/jobs/<id>,
+       brand → /brand/discover/opportunity/<id>); both are server-built,
+       never user input. #}
+    <a class="discover-card-hit" href="{{ card.detail_path if mine else '/creator/jobs/' ~ card.card_id }}" aria-label="view opportunity: {{ name }}"></a>
     <div class="discover-card-type">opportunity</div>
     <h2>{{ name }}</h2>
     {% if card.subtitle %}<p class="discover-opportunity-poster">posted by {{ card.subtitle }}</p>{% endif %}
@@ -114,6 +129,17 @@
       {% for tag in card.tags[:3] %}<span>{{ tag }}</span>{% endfor %}
     </div>
     {% endif %}
+    {% if mine %}
+    <div class="discover-card-status">
+      {% if card.applied %}
+      <span class="discover-card-status-main is-applied">✓ Applied</span>
+      {% if card.applied_at %}<span class="discover-card-status-date">{{ card.applied_at|short_date }}</span>{% endif %}
+      {% else %}
+      {% if card.applicant_label %}<span class="discover-card-status-main">{{ card.applicant_label }}</span>{% endif %}
+      {% if card.is_active is defined and not card.is_active %}<span class="discover-card-status-date">closed</span>{% endif %}
+      {% endif %}
+    </div>
+    {% else %}
     <form method="post" action="{{ discover_swipe_path }}" class="discover-card-action">
       {% include "_partials/csrf.html" %}
       <input type="hidden" name="target_kind" value="opportunity" />
@@ -126,6 +152,7 @@
       {% if budget_max is not none %}<input type="hidden" name="budget_max" value="{{ budget_max }}" />{% endif %}
       <button type="submit">interested</button>
     </form>
+    {% endif %}
   </article>
 {%- endmacro %}
 
@@ -152,6 +179,15 @@
     {% endfor %}
   </nav>
 
+  {% set current_view = active_view|default('explore') %}
+  {% if active_kind == 'opportunity' %}
+  <nav class="discover-sub-tabs" aria-label="opportunities view">
+    {% for value, label in [('explore', 'explore'), ('mine', 'my opportunities')] %}
+    <a href="{{ view_query(value)|trim }}" class="{{ 'active' if current_view == value }}" {% if current_view == value %}aria-current="page"{% endif %}>{{ label }}</a>
+    {% endfor %}
+  </nav>
+  {% endif %}
+
   <aside class="discover-filters" id="discover-filters" data-filter-panel aria-label="discover filters">
     <div class="discover-filter-sheet-head">
       <span id="discover-filter-title">filters</span>
@@ -161,6 +197,7 @@
     </div>
     <form method="get" action="{{ discover_base_path }}">
       <input type="hidden" name="kind" value="{{ active_kind }}" />
+      {% if current_view == 'mine' %}<input type="hidden" name="view" value="mine" />{% endif %}
       <label>
         <span>category</span>
         <input type="text" name="category" value="{{ category }}" maxlength="40" placeholder="fashion, food, fitness" />
@@ -183,13 +220,39 @@
       {% endif %}
       <div class="discover-filter-actions">
         <button class="btn btn-primary" type="submit">apply filters</button>
-        <a class="btn btn-ghost" href="{{ discover_base_path }}{% if active_kind != 'all' %}?kind={{ active_kind }}{% endif %}">clear</a>
+        <a class="btn btn-ghost" href="{{ discover_base_path }}{% if active_kind != 'all' %}?kind={{ active_kind }}{% if current_view == 'mine' %}&view=mine{% endif %}{% endif %}">clear</a>
       </div>
     </form>
   </aside>
 
   <div class="discover-feed" data-discover-feed>
-    {% if cards %}
+    {% if current_view == 'mine' %}
+      {# Step 5C: personal list. Cards are the live opportunity card in
+         read-only `mine` mode; empty states are role-aware. #}
+      {% if cards %}
+        {% for card in cards %}
+          {{ opportunity_card(card, true) }}
+        {% endfor %}
+      {% elif has_filters %}
+      <div class="discover-empty discover-empty-mine">
+        <h2>No matches</h2>
+        <p>Nothing here fits these filters.</p>
+        <a href="{{ discover_base_path }}?kind=opportunity&view=mine">clear filters</a>
+      </div>
+      {% elif mine_role == 'brand' %}
+      <div class="discover-empty discover-empty-mine">
+        <h2>No opportunities posted yet</h2>
+        <p>Opportunities you post will appear here.</p>
+        {% if can_post %}<a href="{{ discover_post_path }}">Post an opportunity</a>{% endif %}
+      </div>
+      {% else %}
+      <div class="discover-empty discover-empty-mine">
+        <h2>No applications yet</h2>
+        <p>Opportunities you apply to will appear here.</p>
+        <a href="{{ view_query('explore')|trim }}">Explore opportunities</a>
+      </div>
+      {% endif %}
+    {% elif cards %}
       {% for card in cards %}
         {% if card.card_kind == 'opportunity' %}
           {{ opportunity_card(card) }}

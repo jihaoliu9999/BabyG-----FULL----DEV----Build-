@@ -14,8 +14,12 @@ Design notes:
 * **Private read surface.** The table has RLS enabled with zero policies
   granted to the `authenticated` role; the service-role client is the
   only reader. This module intentionally does not expose a "list all
-  applications for a listing" helper — that's Step 5C's job and needs
-  its own explicit server-side owner check.
+  applications for a listing" helper — an applicant-review surface
+  needs its own explicit server-side owner check and is a later step.
+  The only reads exposed today are (a) ``has_applied`` and
+  ``list_for_applicant``, which are scoped to the caller's OWN user id,
+  and (b) ``count_by_listing``, which returns bare integers. None of
+  them ever selects the ``message`` column.
 * **Duplicate safety at two layers.** `has_applied` short-circuits the
   obvious duplicate for a clean UX; the unique index
   ``creator_job_applications_once_per_creator`` is the final guard
@@ -150,3 +154,96 @@ def create(
         return None
     rows = getattr(result, "data", None) or []
     return rows[0] if rows else None
+
+
+# Page size for the counting scan. PostgREST caps a single response at
+# 1000 rows by default, so a larger scan must page rather than silently
+# truncating — a truncated count would be a wrong (faked) number.
+_COUNT_PAGE_SIZE = 1000
+# Hard ceiling on pages per call (20k application rows). Past this we
+# report "unknown" (None) instead of a partial number.
+_COUNT_MAX_PAGES = 20
+# Keep each ``in_`` filter comfortably inside URL-length limits.
+_COUNT_ID_CHUNK = 50
+
+
+def list_for_applicant(
+    applicant_user_id: str, *, limit: int = 100
+) -> list[dict[str, Any]]:
+    """The calling creator's OWN applications, newest first.
+
+    Returns only ``listing_id`` and ``created_at`` — the application
+    ``message`` is deliberately never selected, so it cannot leak into a
+    list surface. ``applicant_user_id`` must come from the authenticated
+    session at the route layer; this function filters on it directly.
+
+    Any read failure returns ``[]`` (logged); callers render the normal
+    empty state rather than a 500.
+    """
+    uid = safe_uuid(applicant_user_id)
+    if not uid:
+        return []
+    capped = max(1, min(int(limit), 200))
+    try:
+        result = (
+            supabase_client.get_service_client()
+            .table("creator_job_applications")
+            .select("listing_id,created_at")
+            .eq("applicant_user_id", uid)
+            .order("created_at", desc=True)
+            .limit(capped)
+            .execute()
+        )
+    except PostgrestAPIError:
+        logger.exception("job_applications.list_for_applicant.read_failed")
+        return []
+    return list(getattr(result, "data", None) or [])
+
+
+def count_by_listing(listing_ids: list[str]) -> dict[str, int] | None:
+    """Real applicant counts for the given listings.
+
+    Returns ``{listing_id: count}`` with an explicit ``0`` for listings
+    that have no applications. Returns ``None`` when the count cannot be
+    determined (read failure or an absurdly large scan) — callers must
+    treat that as "unknown" and omit the number rather than show 0.
+
+    SECURITY: this function does not check ownership. The caller MUST
+    pass only listing ids it has already established the authenticated
+    user owns (``my_opportunities.poster_items`` derives them from
+    ``jobs.list_by_poster(<session user id>)``). Only ``listing_id`` is
+    selected, so no application content can leave this function.
+    """
+    ids = [lid for lid in (safe_uuid(i) for i in listing_ids) if lid]
+    counts: dict[str, int] = dict.fromkeys(ids, 0)
+    if not ids:
+        return counts
+    for start in range(0, len(ids), _COUNT_ID_CHUNK):
+        chunk = ids[start : start + _COUNT_ID_CHUNK]
+        for page in range(_COUNT_MAX_PAGES):
+            lo = page * _COUNT_PAGE_SIZE
+            try:
+                result = (
+                    supabase_client.get_service_client()
+                    .table("creator_job_applications")
+                    .select("listing_id")
+                    .in_("listing_id", chunk)
+                    .order("created_at")
+                    .order("id")
+                    .range(lo, lo + _COUNT_PAGE_SIZE - 1)
+                    .execute()
+                )
+            except PostgrestAPIError:
+                logger.exception("job_applications.count_by_listing.read_failed")
+                return None
+            rows = list(getattr(result, "data", None) or [])
+            for row in rows:
+                lid = str(row.get("listing_id") or "")
+                if lid in counts:
+                    counts[lid] += 1
+            if len(rows) < _COUNT_PAGE_SIZE:
+                break
+        else:
+            logger.warning("job_applications.count_by_listing.scan_cap_hit")
+            return None
+    return counts

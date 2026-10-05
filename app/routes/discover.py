@@ -10,7 +10,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from app.core.security import SessionPayload
 from app.core.templating import templates
 from app.deps import require_role
-from app.services import discover, network, notifications, profiles
+from app.services import discover, my_opportunities, network, notifications, profiles
 
 router = APIRouter(prefix="/creator/discover", tags=["creator", "discover"])
 
@@ -25,10 +25,49 @@ async def discover_page(
     budget_max: int | None = Query(None, ge=0),
     bring_back_kind: str | None = Query(None),
     bring_back_id: str | None = Query(None),
+    view: str = Query("explore"),
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
     profile = profiles.get_creator_profile(session["user_id"]) or {}
     kind_clean = discover.clean_kind(kind)
+    # Step 5C: "my opportunities" is a secondary view of the
+    # Opportunities tab only. Anywhere else, `view` is ignored.
+    active_view = (
+        my_opportunities.clean_view(view)
+        if kind_clean == "opportunity"
+        else my_opportunities.VIEW_EXPLORE
+    )
+    if active_view == my_opportunities.VIEW_MINE:
+        # Personal list: applications by the AUTHENTICATED creator,
+        # joined to live opportunity cards. No Explore feed work and no
+        # "viewed" write — this is not a discovery impression.
+        mine_cards = my_opportunities.apply_filters(
+            my_opportunities.creator_items(session["user_id"]),
+            category=category,
+            location=location,
+            budget_min=budget_min,
+            budget_max=budget_max,
+        )
+        return templates.TemplateResponse(
+            request,
+            "creator/discover.html",
+            {
+                "profile": profile,
+                "cards": mine_cards,
+                "active_kind": kind_clean,
+                "active_view": active_view,
+                "mine_role": "creator",
+                "category": category or "",
+                "location": location or "",
+                "budget_min": budget_min,
+                "budget_max": budget_max,
+                "can_undo": False,
+                "discover_base_path": "/creator/discover",
+                "discover_swipe_path": "/creator/discover/swipe",
+                "discover_undo_path": "/creator/discover/undo",
+                "discover_post_path": "/creator/opportunities/new",
+            },
+        )
     prioritize = None
     if bring_back_kind and bring_back_id:
         prioritize = (discover.clean_kind(bring_back_kind), bring_back_id)
@@ -70,6 +109,7 @@ async def discover_page(
             "profile": profile,
             "cards": cards,
             "active_kind": kind_clean,
+            "active_view": active_view,
             "category": category or "",
             "location": location or "",
             "budget_min": budget_min,
