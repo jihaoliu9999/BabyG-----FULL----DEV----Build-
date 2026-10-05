@@ -1215,7 +1215,10 @@ def test_review_paths_reject_writes(client, world):
 def test_no_migration_or_schema_change_is_part_of_step_5d():
     names = sorted(p.name for p in Path("migrations").glob("*.sql"))
     assert "0048_creator_job_applications.sql" in names
-    assert [n for n in names if n[:4] > "0048"] == ["0049_creator_job_offers.sql"]  # Step 6A
+    assert [n for n in names if n[:4] > "0048"] == [
+        "0049_creator_job_offers.sql",  # Step 6A
+        "0050_creator_job_offer_responses.sql",  # Step 6B
+    ]
     sql = Path("migrations/0048_creator_job_applications.sql").read_text(encoding="utf-8")
     assert "status = 'submitted'" in sql  # still the single Step 5B status
 

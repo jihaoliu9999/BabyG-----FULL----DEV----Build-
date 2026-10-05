@@ -34,7 +34,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Resp
 from app.core.rate_limit import dm_brief_manual_limiter
 from app.core.redirects import safe_same_origin
 from app.core.security import SessionPayload, clear_pending_role, clear_session
-from app.core.templating import templates
+from app.core.templating import templates, unread_offer_count
 from app.core.url_guard import http_url_or_none
 from app.deps import require_role
 from app.integrations import google_calendar, instagram_meta
@@ -1604,9 +1604,38 @@ async def instagram_dm_evaluate(
 async def dm_list(
     request: Request,
     q: str | None = Query(None),
+    view: str = Query("messages"),
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
+    # Step 6B: secondary "messages | offers" switch. Closed vocabulary:
+    # anything but exactly "offers" is the existing Messages view.
+    dm_view = "offers" if str(view or "").strip().lower() == "offers" else "messages"
+    # Received offers awaiting a first look (primed once per request by the
+    # tabbar dependency, so this is a cache hit).
+    offers_unread = unread_offer_count(request)
+    if dm_view == "offers":
+        offers = job_offers.list_received(session["user_id"])
+        return templates.TemplateResponse(
+            request,
+            "creator/dm_list.html",
+            {
+                "dm_view": dm_view,
+                "offers": offers or [],
+                "offers_failed": offers is None,
+                "offers_unread": offers_unread,
+                "messages_unread": int(dms.unread_count_for_user(session["user_id"]) or 0),
+                "threads": [],
+                "dm_query": "",
+            },
+        )
+
     threads = dms.list_threads_for_user(session["user_id"])
+    # Messages badge: unread internal DMs across ALL threads (the search
+    # below must not shrink it). Same single batched query as before, just
+    # issued over the full thread list.
+    unread_all_threads = dms.unread_counts_by_thread(
+        session["user_id"], [str(t["id"]) for t in threads]
+    )
     # v1 is creator-only — peer is always another connected creator.
     peer_ids = sorted({str(t["peer_id"]) for t in threads})
     peers = profiles.get_creators_by_ids(peer_ids)
@@ -1636,7 +1665,8 @@ async def dm_list(
     )
     # Per-thread unread count powers the coral bar + bold-name state
     # and the "N unread" line in the header. Single batched query.
-    unread_by_thread = dms.unread_counts_by_thread(session["user_id"], thread_ids)
+    listed = set(thread_ids)
+    unread_by_thread = {tid: n for tid, n in unread_all_threads.items() if tid in listed}
     unread_total = sum(unread_by_thread.values())
     # Preview text under every row — the actual last message, batched.
     # Falls back to babyg brief in the template when a thread has a brief.
@@ -1654,8 +1684,83 @@ async def dm_list(
             "last_messages": last_messages,
             "thread_count": len(threads),
             "dm_query": dm_query,
+            "dm_view": dm_view,
+            "messages_unread": sum(unread_all_threads.values()),
+            "offers_unread": offers_unread,
         },
     )
+
+
+# -----------------------------------------------------------------------------
+# Step 6B: received offers -- review, accept, decline. Recipient only.
+# -----------------------------------------------------------------------------
+
+
+@router.get("/creator/dm/offers/{offer_id}", response_class=HTMLResponse)
+async def offer_review(
+    offer_id: str,
+    request: Request,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    """Review one offer addressed to the session user. Anyone else -- the
+    poster included -- gets the same 404 as a missing id, so offer ids
+    cannot be probed. Opening it marks THIS offer viewed (once)."""
+    offer = job_offers.get_received(offer_id, session["user_id"])
+    if offer is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    if (
+        offer.get("status") == job_offers.STATUS_SENT
+        and not offer.get("viewed_at")
+        and job_offers.mark_viewed(str(offer["id"]), session["user_id"])
+    ):
+        offer["display_status"] = "viewed"
+        # The tabbar was primed before this handler ran; keep the badge on
+        # this same page honest about the offer just opened.
+        request.state.unread_offer_count = max(0, unread_offer_count(request) - 1)
+    try:
+        brief: list[str] | None = job_offers.compose_brief(offer)
+    except Exception:  # the brief must never block reviewing or responding
+        logger.exception("offer_review.brief_failed")
+        brief = None
+    return templates.TemplateResponse(
+        request,
+        "creator/offer_review.html",
+        {
+            "offer": offer,
+            "brief": brief,
+            "decided": offer.get("status") in job_offers.DECISIONS,
+            "respond_failed": request.query_params.get("respond") == "failed",
+        },
+    )
+
+
+def _respond_to_offer(offer_id: str, user_id: str, decision: str) -> Response:
+    outcome, offer = job_offers.respond(offer_id, user_id, decision)
+    if outcome == job_offers.NOT_FOUND or offer is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    path = f"/creator/dm/offers/{offer['id']}"
+    if outcome == job_offers.FAILED:
+        return RedirectResponse(f"{path}?respond=failed", status_code=303)
+    # RESPONDED or ALREADY_DECIDED: either way, show the stored decision.
+    return RedirectResponse(path, status_code=303)
+
+
+@router.post("/creator/dm/offers/{offer_id}/accept")
+async def offer_accept(
+    offer_id: str,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    """Accept: status sent -> accepted, once. Creates nothing else."""
+    return _respond_to_offer(offer_id, session["user_id"], job_offers.STATUS_ACCEPTED)
+
+
+@router.post("/creator/dm/offers/{offer_id}/decline")
+async def offer_decline(
+    offer_id: str,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    """Decline: status sent -> declined, once. The offer is kept."""
+    return _respond_to_offer(offer_id, session["user_id"], job_offers.STATUS_DECLINED)
 
 
 @router.get("/creator/dm/{peer_user_id}", response_class=HTMLResponse)

@@ -486,6 +486,34 @@ def _unread_dm_count(request) -> int:
     return resolved
 
 
+def unread_offer_count(request) -> int:
+    """Step 6B: received offers awaiting a first look, cached per request.
+
+    Separate from ``unread_dm_count`` so message semantics (native + IG)
+    stay exactly as they were; the DMs nav badge adds the two. Creator
+    sessions only -- offers are addressed to applicants, who are creators.
+    0 for everyone else and on any error, like the other badge globals.
+    """
+    from app.core.security import read_session
+
+    cached = _cached_state_int(request, "unread_offer_count")
+    if cached is not None:
+        return cached
+
+    resolved = 0
+    try:
+        session = read_session(request)
+        if session and session.get("role") == "creator":
+            from app.services import job_offers
+
+            resolved = int(job_offers.unread_count(session["user_id"]) or 0)
+    except Exception:
+        resolved = 0
+
+    _store_state_int(request, "unread_offer_count", resolved)
+    return resolved
+
+
 templates.env.filters["short_dt"] = _short_dt
 templates.env.filters["short_date"] = _short_date
 templates.env.filters["short_time"] = _short_time
@@ -500,6 +528,7 @@ templates.env.globals["current_role"] = _current_role
 templates.env.globals["current_profile"] = _current_profile
 templates.env.globals["pending_action_count"] = _pending_action_count
 templates.env.globals["unread_dm_count"] = _unread_dm_count
+templates.env.globals["unread_offer_count"] = unread_offer_count
 
 # Lazy-import to avoid a circular: csrf.py imports from app.config which is
 # safe, but app.core.security imports app.config too and we don't want any

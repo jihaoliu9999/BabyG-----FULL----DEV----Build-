@@ -36,6 +36,10 @@
 {% set is_operator = cp.startswith('/operator') %}
 {% set is_dm = is_creator and cp.startswith('/creator/dm') %}
 {% set is_dm_thread = is_creator and cp.startswith('/creator/dm/') %}
+{# Step 6B: Review Offer lives under /creator/dm/offers/ but is a normal
+   scrolling page, not a chat thread (fixed-height, overflow-hidden view)
+   or the inbox (own top chrome). #}
+{% if is_creator and cp.startswith('/creator/dm/offers/') %}{% set is_dm = false %}{% set is_dm_thread = false %}{% endif %}
 {% set is_auth = cp.startswith('/auth') %}
 {% set is_onboarding = cp.startswith('/onboarding') %}
 {% set is_legal = cp in ['/privacy', '/terms', '/accessibility', '/data-deletion'] %}
@@ -92,7 +96,8 @@
         <a href="/creator/dm" data-tab="inbox" class="{{ 'active' if cp.startswith('/creator/dm') or cp.startswith('/creator/bot') }}">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M4 5.5h16a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H9l-5 3v-4a2 2 0 0 1-2-2v-8a2 2 0 0 1 2-2Z"/><path d="M7 10h10M7 14h6"/></svg>
           dms
-          {% if unread_dms is defined and unread_dms and unread_dms > 0 %}<span class="count">{{ unread_dms }}</span>{% endif %}
+          {% set _sidebar_dms = ((unread_dms or 0) + unread_offer_count(request)) if unread_dms is defined else 0 %}
+          {% if _sidebar_dms > 0 %}<span class="count">{{ _sidebar_dms }}</span>{% endif %}
         </a>
         <a href="/creator/profile/settings" data-tab="settings" class="{{ 'active' if cp.startswith('/creator/profile/settings') or cp.startswith('/creator/profile') or cp.startswith('/creator/settings') or cp.startswith('/creator/performance') or cp.startswith('/creator/receipts') or cp.startswith('/creator/views') }}">
           <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9.6 4.18a2.42 2.42 0 0 1 4.8 0 2.42 2.42 0 0 0 3.4 1.96 2.42 2.42 0 0 1 2.4 4.16 2.42 2.42 0 0 0 0 3.4 2.42 2.42 0 0 1-2.4 4.16 2.42 2.42 0 0 0-3.4 1.96 2.42 2.42 0 0 1-4.8 0 2.42 2.42 0 0 0-3.4-1.96 2.42 2.42 0 0 1-2.4-4.16 2.42 2.42 0 0 0 0-3.4 2.42 2.42 0 0 1 2.4-4.16 2.42 2.42 0 0 0 3.4-1.96Z"/><circle cx="12" cy="12" r="3"/></svg>

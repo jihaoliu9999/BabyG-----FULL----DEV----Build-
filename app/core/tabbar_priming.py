@@ -123,8 +123,10 @@ def prime_creator_tabbar(request: Request) -> None:
     # If both keys are already primed we're done. Some future
     # handler that already primes on its own will get here after
     # the dependency runs; the dependency only fills what's missing.
-    if _has_cached_int(request, "pending_action_count") and _has_cached_int(
-        request, "unread_dm_count"
+    if (
+        _has_cached_int(request, "pending_action_count")
+        and _has_cached_int(request, "unread_dm_count")
+        and _has_cached_int(request, "unread_offer_count")
     ):
         return
 
@@ -167,3 +169,15 @@ def prime_creator_tabbar(request: Request) -> None:
         except Exception:
             total = 0
         _store_int(request, "unread_dm_count", total)
+
+    # Step 6B: received offers awaiting a first look. Kept as its own key so
+    # ``unread_dm_count`` (native + IG messages) keeps its exact meaning; the
+    # tabbar adds the two for the DMs badge.
+    if not _has_cached_int(request, "unread_offer_count"):
+        try:
+            from app.services import job_offers
+
+            offers = int(job_offers.unread_count(user_id) or 0)
+        except Exception:
+            offers = 0
+        _store_int(request, "unread_offer_count", offers)

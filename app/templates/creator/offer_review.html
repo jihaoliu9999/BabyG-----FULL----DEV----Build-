@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+
+{% block title %}Offer — {{ offer.listing_title }} — babyg{% endblock %}
+
+{% block content %}
+{# Step 6B: Review Offer, for the offer's recipient only. The stored terms
+   are the source of truth and are shown exactly; the babyg brief only
+   restates them (it never blocks responding). Accept / Decline are final
+   and create nothing else: no deal, no payment. Reuses the Step 5A detail
+   layout and the Step 5D panel + action row. #}
+{% set p = offer.poster or {} %}
+<article class="wrap opportunity-detail opportunity-offer-review">
+  <a href="/creator/dm?view=offers" class="back-link">← offers</a>
+
+  <div class="opportunity-detail-poster">
+    {% if p.image_url %}<img src="{{ p.image_url|safe_url }}" alt="" class="opportunity-detail-avatar" />
+    {% else %}<span class="opportunity-detail-avatar" aria-hidden="true">{{ p.initial or '?' }}</span>{% endif %}
+    <div>
+      <strong>{{ p.name or 'creator' }}</strong>
+      {% if p.kind %}<span>{{ p.kind }}</span>{% endif %}
+    </div>
+  </div>
+
+  <h1 class="detail-title">{{ offer.listing_title }}</h1>
+
+  <section class="opportunity-application-message opportunity-offer-brief" aria-label="babyg brief">
+    <h2>babyg brief</h2>
+    {% if brief %}
+      {% for line in brief %}<p>{{ line }}</p>{% endfor %}
+    {% else %}
+      <p class="opportunity-offer-brief-unavailable">babyg couldn't prepare a brief for this offer. The full terms are below.</p>
+    {% endif %}
+  </section>
+
+  <section class="opportunity-detail-section">
+    <h2>offer details</h2>
+    <dl class="opportunity-detail-facts">
+      <div><dt>amount</dt><dd>{{ offer.amount_display }}</dd></div>
+      <div><dt>due date</dt><dd>{{ offer.due_display }}</dd></div>
+      <div><dt>status</dt><dd>{{ offer.display_status }}</dd></div>
+    </dl>
+  </section>
+
+  <section class="opportunity-detail-section">
+    <h2>deliverables</h2>
+    <p class="opportunity-detail-description">{{ offer.deliverables }}</p>
+  </section>
+
+  {% if offer.note %}
+  <section class="opportunity-detail-section">
+    <h2>note</h2>
+    <p class="opportunity-detail-description">{{ offer.note }}</p>
+  </section>
+  {% endif %}
+
+  {% if respond_failed and not decided %}<div class="opportunity-apply-error" role="alert">couldn't save your response. try again.</div>{% endif %}
+
+  {% if decided %}
+  <div class="opportunity-application-actions">
+    <span class="btn btn-ghost opportunity-apply-done" aria-disabled="true" role="status">{{ '✓ Offer accepted' if offer.status == 'accepted' else 'Offer declined' }}</span>
+  </div>
+  {% if offer.responded_at %}<p class="opportunity-application-when">responded {{ offer.responded_at|short_dt }}</p>{% endif %}
+  {% else %}
+  <div class="opportunity-application-actions opportunity-offer-actions">
+    <form method="post" action="/creator/dm/offers/{{ offer.id }}/accept">
+      {% include "_partials/csrf.html" %}
+      <button type="submit" class="btn btn-lime">Accept offer</button>
+    </form>
+    <form method="post" action="/creator/dm/offers/{{ offer.id }}/decline">
+      {% include "_partials/csrf.html" %}
+      <button type="submit" class="btn btn-ghost">Decline offer</button>
+    </form>
+  </div>
+  {% endif %}
+</article>
+{% endblock %}

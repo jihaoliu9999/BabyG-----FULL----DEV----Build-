@@ -16423,3 +16423,28 @@ html.bot-activity-open, html.bot-activity-open body { overflow: hidden; }
    The only addition: the success sentence carries a user-entered name and
    opportunity title, so let long unbroken text wrap inside the column. */
 .opportunity-offer-sent .opportunity-submitted-body { overflow-wrap: anywhere; }
+
+/* Step 6B: DMs "messages | offers" + Review Offer. Reuses the Step 5C
+   sub-tab style, the DM inbox row, the Step 5A detail layout and the 5D
+   panel + action row; only spacing/emphasis glue is added here. */
+/* Bottom padding keeps the sub-tabs' extended tap area (inset -6px) clear
+   of the first conversation row. */
+.dm-inbox-views.discover-sub-tabs { margin: 0; padding: 8px 20px 6px; }
+.dm-inbox-views .dm-inbox-count-dot { margin-left: 6px; }
+.dm-offer-amount {
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.opportunity-offer-brief p + p { margin-top: 6px; }
+.opportunity-offer-brief .opportunity-offer-brief-unavailable { color: var(--ink-mid); font-size: 14px; }
+.opportunity-offer-review .opportunity-detail-description { overflow-wrap: anywhere; }
+.opportunity-offer-actions form { margin: 0; }
+@media (max-width: 640px) {
+  .dm-inbox-views.discover-sub-tabs { padding: 8px 14px 6px; }
+}
+@media (max-width: 480px) {
+  .opportunity-offer-actions form { width: 100%; }
+}

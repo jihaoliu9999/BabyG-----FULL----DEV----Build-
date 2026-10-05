@@ -9,7 +9,7 @@
    data-tab values are preserved where possible and settings has its own accent
    so the per-tab accent color CSS in app.css keeps working unchanged. #}
 {% set path = request.url.path %}
-{% set _tabbar_unread_dms = (unread_dms if (unread_dms is defined and unread_dms) else unread_dm_count(request)) %}
+{% set _tabbar_unread_dms = (unread_dms if (unread_dms is defined and unread_dms) else unread_dm_count(request)) + unread_offer_count(request) %}
 <nav class="app-tabbar creator-tabbar" id="tabbar" aria-label="creator navigation">
   <a href="/creator"
      data-tab="feed"

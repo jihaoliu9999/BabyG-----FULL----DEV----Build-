@@ -1141,8 +1141,14 @@ def test_no_accept_decline_counter_edit_or_withdraw_routes_or_controls(client, w
         "/creator/jobs/{listing_id}/applicants/{application_id}/offer",
         "/creator/jobs/{listing_id}/applicants/{application_id}/offer/sent",
     ]
+    # Step 6B adds exactly the RECIPIENT's accept/decline; nothing else.
+    respond_paths = sorted(p for p in paths if re.search(r"/offers?/.*(accept|decline)", p))
+    assert respond_paths == [
+        "/creator/dm/offers/{offer_id}/accept",
+        "/creator/dm/offers/{offer_id}/decline",
+    ]
     for p in paths:
-        assert not re.search(r"/offers?/.*(accept|decline|counter|withdraw|edit|pay|checkout)", p), p
+        assert not re.search(r"/offers?/.*(counter|withdraw|edit|pay|checkout)", p), p
     s = _setup(client, world, "brand")
     client.post(_offer_url("brand", s.lst["id"], s.aid), data=_terms())
     for url in (_app_url("brand", s.lst["id"], s.aid), f"{_offer_url('brand', s.lst['id'], s.aid)}/sent"):
@@ -1158,8 +1164,13 @@ def test_service_has_no_lifecycle_payment_or_integration_code():
     tree = ast.parse(src)
     funcs = {n.name for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)}
     assert funcs == {
+        # Step 6A (poster side)
         "_clean_text", "parse_amount_cents", "earliest_due_date", "parse_due_date",
         "validate_terms", "can_offer", "get_for_application", "create",
+        # Step 6B (recipient side: inbox, viewed, accept/decline, brief)
+        "format_usd", "_short_date", "display_status", "_listings_by_id", "_visible",
+        "unread_count", "_poster_identities", "_decorate", "list_received",
+        "get_received", "mark_viewed", "respond", "compose_brief",
     }
     imported: list[str] = []
     for node in ast.walk(tree):
@@ -1179,7 +1190,14 @@ MIGRATION = Path("migrations/0049_creator_job_offers.sql")
 
 def test_migration_is_the_next_number_and_0048_is_unchanged():
     names = sorted(p.name for p in Path("migrations").glob("*.sql"))
-    assert names[-1] == MIGRATION.name and names[-2] == "0048_creator_job_applications.sql"
+    assert names[-3:] == [
+        "0048_creator_job_applications.sql",
+        MIGRATION.name,
+        "0050_creator_job_offer_responses.sql",  # Step 6B
+    ]
+    # 0049 is applied in production by hand: it must never change
+    digest49 = hashlib.sha256(MIGRATION.read_bytes()).hexdigest()
+    assert digest49 == "03811cbc0d77c01e91e67a6020290a87f8985de16c28b27ae98cf117d270b1b4"
     digest = hashlib.sha256(Path("migrations/0048_creator_job_applications.sql").read_bytes()).hexdigest()
     assert digest == "18a5baad545a84ad7a9cf18d525e4090139adbe5c86c453316769c6114b61e1d"
 

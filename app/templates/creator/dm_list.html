@@ -12,6 +12,56 @@
     </form>
   </div>
 
+  {# Step 6B: secondary switch. Reuses the Step 5C sub-tab style; each
+     badge is a real count (unread internal DMs / received offers awaiting
+     a first look). #}
+  {% set current_dm_view = dm_view|default('messages') %}
+  <nav class="discover-sub-tabs dm-inbox-views" aria-label="dms view">
+    <a href="/creator/dm" class="{{ 'active' if current_dm_view != 'offers' }}"{% if current_dm_view != 'offers' %} aria-current="page"{% endif %}>messages{% if messages_unread|default(0) %}<span class="dm-inbox-count-dot" aria-label="{{ messages_unread }} unread">{{ messages_unread }}</span>{% endif %}</a>
+    <a href="/creator/dm?view=offers" class="{{ 'active' if current_dm_view == 'offers' }}"{% if current_dm_view == 'offers' %} aria-current="page"{% endif %}>offers{% if offers_unread|default(0) %}<span class="dm-inbox-count-dot" aria-label="{{ offers_unread }} new">{{ offers_unread }}</span>{% endif %}</a>
+  </nav>
+
+  {% if current_dm_view == 'offers' %}
+  {# Received offers only. Real stored rows; nothing invented. #}
+  {% if offers_failed %}
+  <div class="dm-inbox-empty">
+    <p class="mono">couldn't load offers.</p>
+    <p>try again in a moment.</p>
+  </div>
+  {% elif offers %}
+  <ul class="dm-inbox-list" data-dm-offers>
+    {% for o in offers %}
+    {% set p = o.poster or {} %}
+    <li class="dm-inbox-row{{ ' unread' if o.display_status == 'new' }}" data-dm-offer>
+      <a href="/creator/dm/offers/{{ o.id }}" class="dm-inbox-link">
+        <span class="dm-inbox-avatar" aria-hidden="true">
+          {% if p.image_url %}
+          <img src="{{ p.image_url|safe_url }}" alt="" loading="lazy" />
+          {% else %}
+          <span>{{ p.initial or '?' }}</span>
+          {% endif %}
+        </span>
+        <span class="dm-inbox-body">
+          <span class="dm-inbox-name">{{ p.name or 'creator' }}</span>
+          <span class="dm-inbox-preview">{{ o.listing_title }}</span>
+          <span class="dm-inbox-time">due {{ o.due_display }}</span>
+        </span>
+        <span class="dm-inbox-meta">
+          <span class="dm-offer-amount">{{ o.amount_display }}</span>
+          {% if o.display_status == 'new' %}<span class="dm-inbox-count-dot">new</span>
+          {% else %}<span class="dm-inbox-time">{{ o.display_status }}</span>{% endif %}
+        </span>
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <div class="dm-inbox-empty">
+    <p class="mono">no offers yet.</p>
+    <p>offers you receive will appear here.</p>
+  </div>
+  {% endif %}
+  {% else %}
   {% set manager_pending = pending_action_count(request) %}
   <ul class="dm-inbox-list" data-dm-list>
     <li class="dm-inbox-row{{ ' unread' if manager_pending }}" data-dm-manager>
@@ -95,6 +145,7 @@
     <p>connect with creators in your network first.</p>
     <a href="/creator/network" class="btn btn-ghost btn-sm">browse network</a>
   </div>
+  {% endif %}
   {% endif %}
 </section>
 {% endblock %}
