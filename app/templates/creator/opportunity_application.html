@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+
+{% block title %}Application — {{ listing.title }} — babyg{% endblock %}
+
+{% block content %}
+{# Step 5D: ONE application to an opportunity the viewer posted. Review
+   only — no accept/reject/offer controls. The message shown is the exact
+   text stored by Step 5B; Jinja autoescapes it. The applicant identity
+   comes from the stored applicant_user_id, not from the URL. #}
+<article class="wrap opportunity-detail opportunity-applicants">
+  <a href="{{ applicants_path|safe_path }}" class="back-link">← applicants</a>
+
+  <h1 class="detail-title">Application</h1>
+  <p class="opportunity-applicants-for">{{ listing.title }}</p>
+
+  <div class="opportunity-detail-poster opportunity-application-who">
+    {% if applicant.image_url %}<img src="{{ applicant.image_url|safe_url }}" alt="" class="opportunity-detail-avatar" />
+    {% else %}<span class="opportunity-detail-avatar" aria-hidden="true">{{ applicant.initial }}</span>{% endif %}
+    <div>
+      <strong>{{ applicant.name }}</strong>
+      {% if applicant.descriptor %}<span>{{ applicant.descriptor }}</span>{% endif %}
+    </div>
+  </div>
+
+  <section class="opportunity-application-message" aria-label="application message">
+    <h2>message</h2>
+    <p>{{ application.message }}</p>
+  </section>
+  {% if application.created_at %}<p class="opportunity-application-when">submitted {{ application.created_at|short_dt }}</p>{% endif %}
+
+  {% if profile_href %}
+  <div class="opportunity-application-actions">
+    <a href="{{ profile_href|safe_path }}" class="btn btn-ghost">View profile</a>
+  </div>
+  {% endif %}
+</article>
+{% endblock %}

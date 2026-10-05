@@ -619,7 +619,10 @@ def test_unknown_count_is_omitted_never_shown_as_zero(client, world):
     r = client.get("/brand/discover?kind=opportunity&view=mine")
     assert r.status_code == 200
     assert "Count unavailable" in r.text
-    assert "applicant" not in r.text.replace("applicants.", "")
+    # no applicant COUNT label of any kind (the card's link path now
+    # legitimately contains "/applicants" -- Step 5D -- so look at labels)
+    assert re.search(r"\b\d+ applicants?\b", r.text) is None
+    assert "discover-card-status-main" not in r.text
 
 
 def test_brand_taken_down_listing_excluded_closed_listing_marked(client, world):
@@ -632,13 +635,16 @@ def test_brand_taken_down_listing_excluded_closed_listing_marked(client, world):
     assert ">closed</span>" in r.text
 
 
-def test_brand_card_links_to_existing_brand_detail_and_has_no_applicant_list(client, world):
+def test_brand_card_links_to_applicant_review_and_list_has_no_review_controls(client, world):
     me = _brand(client, world)
     listing = world.add_listing(me, title="Tap me")
     r = client.get("/brand/discover?kind=opportunity&view=mine")
-    assert f'href="/brand/discover/opportunity/{listing["id"]}"' in r.text
-    # Step 5D is not built: no applicant routes, no review controls
-    for forbidden in ("/applicants", "shortlist", "reject", "accept", "offer"):
+    # Step 5D: a POSTED opportunity opens its applicant review...
+    assert f'href="/brand/discover/opportunity/{listing["id"]}/applicants"' in r.text
+    assert f'href="/brand/discover/opportunity/{listing["id"]}"' not in r.text
+    # ...but the list itself stays a plain list: no applicant names, no
+    # review/offer controls
+    for forbidden in ("shortlist", "reject", "accept", "offer"):
         assert forbidden not in r.text.lower().replace("opportunities", "")
 
 

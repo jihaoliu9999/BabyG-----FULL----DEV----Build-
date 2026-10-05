@@ -253,7 +253,8 @@ def test_brand_my_opportunities_link_still_resolves(client, world):
     row["poster_user_id"] = me
     world["owned"] = [row]
     page = client.get("/brand/discover?kind=opportunity&view=mine")
-    assert _card_links(page.text) == [f"/brand/discover/opportunity/{LISTING_ID}"]
+    # Step 5D: a POSTED opportunity opens its applicant review
+    assert _card_links(page.text) == [f"/brand/discover/opportunity/{LISTING_ID}/applicants"]
     assert "2 applicants" in page.text  # Step 5C count intact
 
 

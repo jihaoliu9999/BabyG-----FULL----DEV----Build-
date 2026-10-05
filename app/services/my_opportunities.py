@@ -6,12 +6,14 @@ Step 5C. The Opportunities tab on Discover has two secondary views:
   * ``mine``     — the opportunities the signed-in user is personally
                    involved with:
 
-      creator → the opportunities they applied to (Step 5B
+      applied → the opportunities they applied to (Step 5B
                 ``creator_job_applications`` joined to the live
-                opportunity card);
-      brand   → the opportunities they posted
+                opportunity card). Creators only: brands do not apply;
+      posted  → the opportunities they posted
                 (``creator_job_listings.poster_user_id``), each with a
-                real applicant count.
+                real applicant count. Brands AND creators can post, so
+                both see their own here (Step 5D). A posted card opens
+                that opportunity's applicant review.
 
 This module owns NO tables and creates NO data. It composes two
 existing sources of truth and returns card-shaped dicts that the
@@ -21,8 +23,9 @@ string or form value.
 
 Privacy: application ``message`` text is never selected here (see
 ``job_applications.list_for_applicant`` / ``count_by_listing``), so it
-cannot reach a list surface. No applicant identities are exposed — brands
-only receive a number.
+cannot reach a list surface. No applicant identities are exposed — posters
+only receive a number; the applicant list itself lives behind the
+owner-checked review routes (``job_applications.authorize_poster``).
 """
 
 from __future__ import annotations
@@ -96,10 +99,15 @@ def poster_items(
     user_id: str,
     *,
     detail_prefix: str,
+    detail_suffix: str = "",
     fallback_location: str | None = None,
 ) -> list[dict[str, Any]]:
     """Opportunities this user posted, newest first, each with a real
     applicant count.
+
+    ``detail_prefix`` + listing id + ``detail_suffix`` is the card's link;
+    Step 5D passes ``"/applicants"`` so a posted opportunity opens its
+    applicant review. Both parts are server-chosen constants.
 
     Ownership is ``creator_job_listings.poster_user_id`` — the
     authoritative column. It is intentionally NOT filtered on
@@ -143,7 +151,7 @@ def poster_items(
                 "tags": [
                     str(t) for t in (row.get("target_niches") or []) if str(t).strip()
                 ],
-                "detail_path": f"{detail_prefix}{listing_id}",
+                "detail_path": f"{detail_prefix}{listing_id}{detail_suffix}",
                 "is_active": bool(row.get("is_active")),
                 "applicant_count": count,
                 "applicant_label": applicant_label(count),

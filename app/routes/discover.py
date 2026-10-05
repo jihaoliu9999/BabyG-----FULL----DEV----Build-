@@ -38,11 +38,22 @@ async def discover_page(
         else my_opportunities.VIEW_EXPLORE
     )
     if active_view == my_opportunities.VIEW_MINE:
-        # Personal list: applications by the AUTHENTICATED creator,
-        # joined to live opportunity cards. No Explore feed work and no
-        # "viewed" write — this is not a discovery impression.
+        # Personal list for the AUTHENTICATED creator: opportunities they
+        # POSTED (each opens its applicant review, Step 5D) followed by
+        # the ones they APPLIED to, joined to live opportunity cards. No
+        # Explore feed work and no "viewed" write — this is not a
+        # discovery impression.
+        fallback_location = ", ".join(
+            p for p in (profile.get("location_city"), profile.get("location_region")) if p
+        ) or None
         mine_cards = my_opportunities.apply_filters(
-            my_opportunities.creator_items(session["user_id"]),
+            my_opportunities.poster_items(
+                session["user_id"],
+                detail_prefix="/creator/jobs/",
+                detail_suffix="/applicants",
+                fallback_location=fallback_location,
+            )
+            + my_opportunities.creator_items(session["user_id"]),
             category=category,
             location=location,
             budget_min=budget_min,

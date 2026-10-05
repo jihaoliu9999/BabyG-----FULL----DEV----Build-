@@ -2719,6 +2719,85 @@ async def jobs_apply_success(
     )
 
 
+def _review_listing_or_raise(listing_id: str, user_id: str) -> dict:
+    """Step 5D gate shared by both applicant-review handlers: only the
+    poster (``poster_user_id`` == the authenticated session user) gets the
+    listing back. Missing/hidden -> 404, someone else's -> 403."""
+    access, listing = job_applications.authorize_poster(listing_id, user_id)
+    if access == job_applications.REVIEW_FORBIDDEN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+    if access != job_applications.REVIEW_OK or listing is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    return listing
+
+
+@router.get("/creator/jobs/{listing_id}/applicants", response_class=HTMLResponse)
+async def jobs_applicants(
+    listing_id: str,
+    request: Request,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    """Step 5D: applicants to an opportunity the viewer POSTED.
+
+    Review only. Access is the listing's ``poster_user_id`` matching the
+    session user, enforced server-side; the list carries no application
+    messages."""
+    listing = _review_listing_or_raise(listing_id, session["user_id"])
+    rows = job_applications.list_for_poster(listing, session["user_id"])
+    return templates.TemplateResponse(
+        request,
+        "creator/opportunity_applicants.html",
+        {
+            "listing": listing,
+            "applicants": job_applications.attach_applicants(rows) if rows else [],
+            "load_failed": rows is None,
+            "applicants_path": f"/creator/jobs/{listing['id']}/applicants",
+            "back_path": "/creator/discover?kind=opportunity&view=mine",
+        },
+        status_code=503 if rows is None else 200,
+    )
+
+
+@router.get(
+    "/creator/jobs/{listing_id}/applicants/{application_id}",
+    response_class=HTMLResponse,
+)
+async def jobs_application_detail(
+    listing_id: str,
+    application_id: str,
+    request: Request,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    """Step 5D: one application to an opportunity the viewer POSTED. The
+    application must belong to THIS listing and the listing to the session
+    user (re-proved in ``get_for_poster``); otherwise 404/403 and no
+    message is read into the response."""
+    listing = _review_listing_or_raise(listing_id, session["user_id"])
+    row = job_applications.get_for_poster(listing, application_id, session["user_id"])
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    application = job_applications.attach_applicants([row])[0]
+    applicant = application["applicant"]
+    # The EXISTING creator profile route (404s for a missing or
+    # not-yet-onboarded profile, so the link is only offered when it works).
+    profile_href = (
+        f"/creator/network/{applicant['user_id']}"
+        if applicant["found"] and applicant["onboarded"]
+        else None
+    )
+    return templates.TemplateResponse(
+        request,
+        "creator/opportunity_application.html",
+        {
+            "listing": listing,
+            "application": application,
+            "applicant": applicant,
+            "profile_href": profile_href,
+            "applicants_path": f"/creator/jobs/{listing['id']}/applicants",
+        },
+    )
+
+
 @router.get("/creator/jobs/{listing_id}/edit", response_class=HTMLResponse)
 async def jobs_edit_form(
     listing_id: str,

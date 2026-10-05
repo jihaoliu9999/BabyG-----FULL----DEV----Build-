@@ -16306,3 +16306,114 @@ html.bot-activity-open, html.bot-activity-open body { overflow: hidden; }
   font-size: 14px;
   line-height: 1.45;
 }
+
+/* Step 5D: applicant review (review only). Reuses the Step 5A/5B
+   container (.opportunity-detail), back link, avatar and the 5B summary
+   card border/background, plus the Step 5C empty state. Deliberately NOT
+   scoped to .is-creator-app / .is-brand-app: creators and brands both
+   render these pages. */
+.opportunity-applicants .detail-title { margin-bottom: 6px; }
+.opportunity-applicants-for {
+  margin: 0 0 20px;
+  color: var(--ink-mid);
+  font-size: 14px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.opportunity-applicant-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.opportunity-applicant-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  min-height: 64px;
+  padding: 10px 14px;
+  box-sizing: border-box;
+  border: 1px solid rgba(245, 241, 232, 0.09);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+  color: inherit;
+  text-decoration: none;
+  transition: border-color .15s, background .15s;
+}
+.opportunity-applicant-row:hover {
+  border-color: var(--hairline-strong);
+  background: rgba(255, 255, 255, 0.05);
+}
+.opportunity-applicant-row:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.opportunity-applicant-copy { flex: 1 1 auto; min-width: 0; display: grid; gap: 2px; }
+.opportunity-applicant-copy strong {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 14.5px;
+  font-weight: 600;
+  line-height: 1.3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.opportunity-applicant-meta {
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+  color: var(--ink-mid);
+  font-size: 12.5px;
+  line-height: 1.35;
+}
+.opportunity-applicant-handle {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.opportunity-applicant-date { flex: none; }
+.opportunity-applicant-chevron {
+  flex: none;
+  color: var(--ink-dim);
+  font-size: 21px;
+  line-height: 1;
+}
+.opportunity-application-who { margin-bottom: 18px; }
+/* 5A only lets the poster NAME wrap; applicant handles/names can be long
+   and unbroken, and grid items default to min-width:auto, so let both
+   shrink and break rather than push the page sideways. */
+.opportunity-application-who strong,
+.opportunity-application-who span { min-width: 0; overflow-wrap: anywhere; }
+.opportunity-application-message {
+  margin: 0 0 12px;
+  padding: 16px;
+  min-width: 0;
+  border: 1px solid rgba(245, 241, 232, 0.09);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+}
+.opportunity-application-message h2 {
+  margin: 0 0 8px;
+  color: var(--ink-mid);
+  font-size: 13px;
+}
+.opportunity-application-message p {
+  margin: 0;
+  color: var(--ink);
+  font-size: 15.5px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.opportunity-application-when {
+  margin: 0 0 22px;
+  color: var(--ink-mid);
+  font-size: 13px;
+}
+.opportunity-application-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+@media (max-width: 480px) {
+  .opportunity-application-actions .btn { width: 100%; justify-content: center; }
+}

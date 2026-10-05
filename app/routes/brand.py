@@ -14,6 +14,7 @@ from app.deps import require_role
 from app.services import (
     discover,
     dms,
+    job_applications,
     jobs,
     my_opportunities,
     network,
@@ -357,6 +358,7 @@ async def discover_page(
             my_opportunities.poster_items(
                 session["user_id"],
                 detail_prefix="/brand/discover/opportunity/",
+                detail_suffix="/applicants",
                 fallback_location=fallback_location,
             ),
             category=category,
@@ -574,6 +576,99 @@ async def discover_opportunity_detail(
             # is creator-only. Passing explicit False keeps the template
             # contract uniform between the two routes that reuse it.
             "already_applied": False,
+        },
+    )
+
+
+def _review_listing_or_raise(listing_id: str, user_id: str) -> dict[str, Any]:
+    """Step 5D gate shared by both applicant-review handlers: only the
+    poster (``poster_user_id`` == the authenticated session user) gets the
+    listing back. Missing/hidden -> 404, someone else's -> 403."""
+    access, listing = job_applications.authorize_poster(listing_id, user_id)
+    if access == job_applications.REVIEW_FORBIDDEN:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+    if access != job_applications.REVIEW_OK or listing is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    return listing
+
+
+@router.get(
+    "/discover/opportunity/{opportunity_id}/applicants",
+    response_class=HTMLResponse,
+)
+async def discover_opportunity_applicants(
+    opportunity_id: str,
+    request: Request,
+    session: SessionPayload = Depends(require_role("brand")),
+) -> Response:
+    """Step 5D: applicants to an opportunity the viewer POSTED.
+
+    Review only. Access is the listing's ``poster_user_id`` matching the
+    session user, enforced server-side; the list carries no application
+    messages."""
+    profile = profiles.get_brand_profile(session["user_id"]) or {}
+    if not profile.get("onboarding_completed_at"):
+        return RedirectResponse("/onboarding/brand", status_code=302)
+    listing = _review_listing_or_raise(opportunity_id, session["user_id"])
+    rows = job_applications.list_for_poster(listing, session["user_id"])
+    return templates.TemplateResponse(
+        request,
+        "creator/opportunity_applicants.html",
+        {
+            "profile": profile,
+            "listing": listing,
+            "applicants": job_applications.attach_applicants(rows) if rows else [],
+            "load_failed": rows is None,
+            "applicants_path": f"/brand/discover/opportunity/{listing['id']}/applicants",
+            "back_path": "/brand/discover?kind=opportunity&view=mine",
+        },
+        status_code=503 if rows is None else 200,
+    )
+
+
+@router.get(
+    "/discover/opportunity/{opportunity_id}/applicants/{application_id}",
+    response_class=HTMLResponse,
+)
+async def discover_opportunity_application(
+    opportunity_id: str,
+    application_id: str,
+    request: Request,
+    session: SessionPayload = Depends(require_role("brand")),
+) -> Response:
+    """Step 5D: one application to an opportunity the viewer POSTED. The
+    application must belong to THIS listing and the listing to the session
+    user (re-proved in ``get_for_poster``); otherwise 404/403 and no
+    message is read into the response."""
+    profile = profiles.get_brand_profile(session["user_id"]) or {}
+    if not profile.get("onboarding_completed_at"):
+        return RedirectResponse("/onboarding/brand", status_code=302)
+    listing = _review_listing_or_raise(opportunity_id, session["user_id"])
+    row = job_applications.get_for_poster(listing, application_id, session["user_id"])
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    application = job_applications.attach_applicants([row])[0]
+    applicant = application["applicant"]
+    # The EXISTING brand-side creator profile route. It resolves through
+    # the discovery card (404 when the creator has none), so the link is
+    # only offered when that route will actually open.
+    profile_href = None
+    if (
+        applicant["found"]
+        and applicant["onboarded"]
+        and discover.get_card(card_kind="creator", card_id=applicant["user_id"])
+    ):
+        profile_href = f"/brand/discover/creator/{applicant['user_id']}"
+    return templates.TemplateResponse(
+        request,
+        "creator/opportunity_application.html",
+        {
+            "profile": profile,
+            "listing": listing,
+            "application": application,
+            "applicant": applicant,
+            "profile_href": profile_href,
+            "applicants_path": f"/brand/discover/opportunity/{listing['id']}/applicants",
         },
     )
 

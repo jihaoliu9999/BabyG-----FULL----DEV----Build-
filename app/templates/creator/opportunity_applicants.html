@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block title %}Applicants — {{ listing.title }} — babyg{% endblock %}
+
+{% block content %}
+{# Step 5D: applicants for ONE opportunity the viewer posted. Review only —
+   no accept/reject/offer controls. Rendered for both creator and brand
+   posters (the route tree decides the paths); application messages are
+   never part of this page. #}
+<article class="wrap opportunity-detail opportunity-applicants">
+  <a href="{{ back_path|safe_path }}" class="back-link">← my opportunities</a>
+
+  <h1 class="detail-title">Applicants</h1>
+  <p class="opportunity-applicants-for">{{ listing.title }}</p>
+
+  {% if load_failed %}
+  <div class="opportunity-apply-error" role="alert">couldn't load applicants. try again in a moment.</div>
+  {% elif applicants %}
+  <ul class="opportunity-applicant-list">
+    {% for row in applicants %}
+    {% set a = row.applicant %}
+    <li>
+      <a class="opportunity-applicant-row" href="{{ (applicants_path ~ '/' ~ row.id)|safe_path }}">
+        {% if a.image_url %}<img src="{{ a.image_url|safe_url }}" alt="" class="opportunity-detail-avatar" loading="lazy" />
+        {% else %}<span class="opportunity-detail-avatar" aria-hidden="true">{{ a.initial }}</span>{% endif %}
+        <span class="opportunity-applicant-copy">
+          <strong>{{ a.name }}</strong>
+          <span class="opportunity-applicant-meta">
+            {% if a.descriptor %}<span class="opportunity-applicant-handle">{{ a.descriptor }}</span>{% endif %}
+            {% if row.created_at %}<span class="opportunity-applicant-date">{{ row.created_at|short_date }}</span>{% endif %}
+          </span>
+        </span>
+        <span class="opportunity-applicant-chevron" aria-hidden="true">›</span>
+      </a>
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <div class="discover-empty discover-empty-mine">
+    <h2>No applicants yet</h2>
+    <p>Applications to this opportunity will appear here.</p>
+  </div>
+  {% endif %}
+</article>
+{% endblock %}
