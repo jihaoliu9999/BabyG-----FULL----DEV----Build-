@@ -100,11 +100,14 @@
 {% macro opportunity_card(card, mine=false) -%}
   {%- set name = card.title or 'opportunity' -%}
   <article class="discover-card discover-opportunity-card{% if mine %} discover-card-mine{% endif %}" data-discover-card data-card-kind="opportunity">
-    {# Explore keeps its existing link untouched. "my opportunities" uses the
-       card's own role-correct detail_path (creator → /creator/jobs/<id>,
-       brand → /brand/discover/opportunity/<id>); both are server-built,
-       never user input. #}
-    <a class="discover-card-hit" href="{{ card.detail_path if mine else '/creator/jobs/' ~ card.card_id }}" aria-label="view opportunity: {{ name }}"></a>
+    {# Both Explore and "my opportunities" link to the card's own
+       role-correct detail_path (creator → /creator/jobs/<id>, brand →
+       /brand/discover/opportunity/<id>). It is server-built from a
+       validated uuid — never user input — and deliberately NOT piped
+       through safe_url, which collapses relative paths to "#". The
+       creator path is only a fallback for a card that arrives without
+       a detail_path; each role's route guard is unchanged. #}
+    <a class="discover-card-hit" href="{{ card.detail_path or ('/creator/jobs/' ~ card.card_id) }}" aria-label="view opportunity: {{ name }}"></a>
     <div class="discover-card-type">opportunity</div>
     <h2>{{ name }}</h2>
     {% if card.subtitle %}<p class="discover-opportunity-poster">posted by {{ card.subtitle }}</p>{% endif %}
