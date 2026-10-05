@@ -3,10 +3,11 @@
 {% block title %}Application — {{ listing.title }} — babyg{% endblock %}
 
 {% block content %}
-{# Step 5D: ONE application to an opportunity the viewer posted. Review
-   only — no accept/reject/offer controls. The message shown is the exact
-   text stored by Step 5B; Jinja autoescapes it. The applicant identity
-   comes from the stored applicant_user_id, not from the URL. #}
+{# Step 5D: ONE application to an opportunity the viewer posted. The
+   message shown is the exact text stored by Step 5B; Jinja autoescapes it.
+   The applicant identity comes from the stored applicant_user_id, not from
+   the URL. Step 6A adds exactly one action: Make offer, or the Offer sent
+   state once the one offer exists. No accept/reject controls. #}
 <article class="wrap opportunity-detail opportunity-applicants">
   <a href="{{ applicants_path|safe_path }}" class="back-link">← applicants</a>
 
@@ -28,9 +29,11 @@
   </section>
   {% if application.created_at %}<p class="opportunity-application-when">submitted {{ application.created_at|short_dt }}</p>{% endif %}
 
-  {% if profile_href %}
+  {% if profile_href or offer or offer_path %}
   <div class="opportunity-application-actions">
-    <a href="{{ profile_href|safe_path }}" class="btn btn-ghost">View profile</a>
+    {% if profile_href %}<a href="{{ profile_href|safe_path }}" class="btn btn-ghost">View profile</a>{% endif %}
+    {% if offer %}<span class="btn btn-ghost opportunity-apply-done" aria-disabled="true" role="status">✓ Offer sent</span>
+    {% elif offer_path %}<a href="{{ offer_path|safe_path }}" class="btn btn-lime">Make offer</a>{% endif %}
   </div>
   {% endif %}
 </article>

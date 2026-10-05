@@ -38,7 +38,13 @@ from app.services import profiles as profiles_service
 SECRET = "SECRET-APPLICATION-TEXT-9f3a"
 WHEN = "2026-03-04T10:30:00Z"
 
-_TABLES = ("creator_job_listings", "creator_job_applications", "creator_profiles", "brand_profiles")
+_TABLES = (
+    "creator_job_listings",
+    "creator_job_applications",
+    "creator_profiles",
+    "brand_profiles",
+    "creator_job_offers",  # read by the Application page since Step 6A
+)
 
 
 # --------------------------------------------------------- in-memory PostgREST
@@ -1175,6 +1181,11 @@ def test_pages_are_review_only_no_forms_buttons_or_offer_controls(client, world,
         article = html[html.index('<article class="wrap opportunity-detail opportunity-applicants">') :]
         article = article[: article.index("</article>")].lower()
         assert "<form" not in article and "<button" not in article and "<input" not in article
+        if url.endswith(aid):
+            # Step 6A adds exactly one action here: a "Make offer" LINK
+            assert article.count("make offer") == 1
+            assert re.findall(r"\boffer\b", article) == ["offer", "offer"]  # label + path
+            article = article.replace("make offer", "").replace("/offer", "")
         for word in (
             "offer", "accept", "reject", "decline", "shortlist", "hire", "deal",
             "checkout", "payment", "payout", "stripe", "message them", "dm",
@@ -1185,7 +1196,7 @@ def test_pages_are_review_only_no_forms_buttons_or_offer_controls(client, world,
 def test_no_write_routes_exist_under_the_review_paths():
     for route in app.routes:
         path = getattr(route, "path", "")
-        if "/applicants" in path:
+        if "/applicants" in path and not path.endswith("/applicants/{application_id}/offer"):
             assert set(route.methods or ()) <= {"GET", "HEAD"}, (path, route.methods)
 
 
@@ -1203,7 +1214,8 @@ def test_review_paths_reject_writes(client, world):
 
 def test_no_migration_or_schema_change_is_part_of_step_5d():
     names = sorted(p.name for p in Path("migrations").glob("*.sql"))
-    assert names[-1] == "0048_creator_job_applications.sql"
+    assert "0048_creator_job_applications.sql" in names
+    assert [n for n in names if n[:4] > "0048"] == ["0049_creator_job_offers.sql"]  # Step 6A
     sql = Path("migrations/0048_creator_job_applications.sql").read_text(encoding="utf-8")
     assert "status = 'submitted'" in sql  # still the single Step 5B status
 

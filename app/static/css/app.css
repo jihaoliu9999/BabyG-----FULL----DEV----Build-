@@ -16417,3 +16417,9 @@ html.bot-activity-open, html.bot-activity-open body { overflow: hidden; }
 @media (max-width: 480px) {
   .opportunity-application-actions .btn { width: 100%; justify-content: center; }
 }
+
+/* Step 6A: Make offer / Offer sent reuse the Step 5D header, the
+   post-opportunity form fields (.op-new-*) and the Step 5B success layout.
+   The only addition: the success sentence carries a user-entered name and
+   opportunity title, so let long unbroken text wrap inside the column. */
+.opportunity-offer-sent .opportunity-submitted-body { overflow-wrap: anywhere; }

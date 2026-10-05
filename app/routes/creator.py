@@ -60,6 +60,7 @@ from app.services import (
     home_briefing,
     instagram_dms,
     job_applications,
+    job_offers,
     jobs,
     locations,
     manager_activity,
@@ -2785,6 +2786,9 @@ async def jobs_application_detail(
         if applicant["found"] and applicant["onboarded"]
         else None
     )
+    # Step 6A: one offer per application. "Offer sent" replaces "Make offer"
+    # once it exists; never offered on a self-relationship.
+    application_path = f"/creator/jobs/{listing['id']}/applicants/{application['id']}"
     return templates.TemplateResponse(
         request,
         "creator/opportunity_application.html",
@@ -2793,6 +2797,166 @@ async def jobs_application_detail(
             "application": application,
             "applicant": applicant,
             "profile_href": profile_href,
+            "applicants_path": f"/creator/jobs/{listing['id']}/applicants",
+            "offer": job_offers.get_for_application(application["id"], session["user_id"]),
+            "offer_path": (
+                f"{application_path}/offer"
+                if job_offers.can_offer(application, session["user_id"])
+                else None
+            ),
+        },
+    )
+
+
+def _offer_target_or_raise(
+    listing_id: str, application_id: str, user_id: str
+) -> tuple[dict, dict]:
+    """Step 6A: the listing the session user POSTED plus one application to
+    it -- the same chain as the Application page -- and never a
+    self-relationship. 404 missing/mismatched, 403 not the poster / self."""
+    listing = _review_listing_or_raise(listing_id, user_id)
+    application = job_applications.get_for_poster(listing, application_id, user_id)
+    if application is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    if not job_offers.can_offer(application, user_id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+    return listing, application
+
+
+def _offer_form_response(
+    request: Request,
+    listing: dict,
+    application: dict,
+    *,
+    values: dict[str, str],
+    errors: dict[str, str],
+    form_error: str | None = None,
+    status_code: int = 200,
+) -> Response:
+    application_path = f"/creator/jobs/{listing['id']}/applicants/{application['id']}"
+    return templates.TemplateResponse(
+        request,
+        "creator/opportunity_offer.html",
+        {
+            "listing": listing,
+            "applicant": job_applications.attach_applicants([application])[0]["applicant"],
+            "application_path": application_path,
+            "offer_path": f"{application_path}/offer",
+            "values": values,
+            "errors": errors,
+            "form_error": form_error,
+            "min_due_date": job_offers.earliest_due_date().isoformat(),
+            "max_deliverables_chars": job_offers.MAX_DELIVERABLES_CHARS,
+            "max_note_chars": job_offers.MAX_NOTE_CHARS,
+        },
+        status_code=status_code,
+    )
+
+
+@router.get(
+    "/creator/jobs/{listing_id}/applicants/{application_id}/offer",
+    response_class=HTMLResponse,
+)
+async def jobs_offer_form(
+    listing_id: str,
+    application_id: str,
+    request: Request,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    """Step 6A: the Make offer form, for the poster only. If an offer
+    already exists, go back to the Application page (shows Offer sent)."""
+    listing, application = _offer_target_or_raise(
+        listing_id, application_id, session["user_id"]
+    )
+    if job_offers.get_for_application(application["id"], session["user_id"]):
+        return RedirectResponse(
+            f"/creator/jobs/{listing['id']}/applicants/{application['id']}",
+            status_code=303,
+        )
+    return _offer_form_response(request, listing, application, values={}, errors={})
+
+
+@router.post("/creator/jobs/{listing_id}/applicants/{application_id}/offer")
+async def jobs_offer_submit(
+    listing_id: str,
+    application_id: str,
+    request: Request,
+    amount: str = Form(""),
+    deliverables: str = Form(""),
+    due_date: str = Form(""),
+    note: str = Form(""),
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    """Step 6A: persist the one offer, then POST/Redirect/GET. Only the four
+    terms come from the form; who is involved comes from the listing /
+    application rows and the session."""
+    listing, application = _offer_target_or_raise(
+        listing_id, application_id, session["user_id"]
+    )
+    application_path = f"/creator/jobs/{listing['id']}/applicants/{application['id']}"
+    if job_offers.get_for_application(application["id"], session["user_id"]):
+        return RedirectResponse(application_path, status_code=303)
+    values = {
+        "amount": amount[:64],
+        "deliverables": deliverables[:4000],
+        "due_date": due_date[:32],
+        "note": note[:4000],
+    }
+    terms, errors = job_offers.validate_terms(
+        amount=amount, deliverables=deliverables, due_date=due_date, note=note
+    )
+    if terms is None:
+        return _offer_form_response(
+            request, listing, application, values=values, errors=errors, status_code=400
+        )
+    outcome, _ = job_offers.create(
+        listing=listing,
+        application=application,
+        poster_user_id=session["user_id"],
+        terms=terms,
+    )
+    if outcome == job_offers.CREATED:
+        return RedirectResponse(f"{application_path}/offer/sent", status_code=303)
+    if outcome == job_offers.DUPLICATE:
+        return RedirectResponse(application_path, status_code=303)
+    if outcome == job_offers.REFUSED:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+    return _offer_form_response(
+        request,
+        listing,
+        application,
+        values=values,
+        errors={},
+        form_error="couldn't send that offer. try again in a moment.",
+        status_code=503,
+    )
+
+
+@router.get(
+    "/creator/jobs/{listing_id}/applicants/{application_id}/offer/sent",
+    response_class=HTMLResponse,
+)
+async def jobs_offer_sent(
+    listing_id: str,
+    application_id: str,
+    request: Request,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    """Step 6A: confirmation after a successful send. Only shown when the
+    offer really exists; otherwise back to the form."""
+    listing, application = _offer_target_or_raise(
+        listing_id, application_id, session["user_id"]
+    )
+    application_path = f"/creator/jobs/{listing['id']}/applicants/{application['id']}"
+    if not job_offers.get_for_application(application["id"], session["user_id"]):
+        return RedirectResponse(f"{application_path}/offer", status_code=303)
+    return templates.TemplateResponse(
+        request,
+        "creator/opportunity_offer_sent.html",
+        {
+            "listing": listing,
+            "applicant": job_applications.attach_applicants([application])[0]["applicant"],
+            "application_path": application_path,
             "applicants_path": f"/creator/jobs/{listing['id']}/applicants",
         },
     )

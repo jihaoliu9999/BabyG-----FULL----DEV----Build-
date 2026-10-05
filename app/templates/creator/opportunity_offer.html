@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Make offer — {{ listing.title }} — babyg{% endblock %}
+
+{% block content %}
+{# Step 6A: the poster's ONE offer for one application. The form submits
+   only the four terms; who is involved is derived server-side. Reuses the
+   Step 5D context header + identity row and the post-opportunity form
+   fields (.op-new-*). No fees, no payment, no negotiation. #}
+<article class="wrap opportunity-detail opportunity-applicants opportunity-offer">
+  <a href="{{ application_path|safe_path }}" class="back-link">← application</a>
+
+  <h1 class="detail-title">Make offer</h1>
+  <p class="opportunity-applicants-for">{{ listing.title }}</p>
+
+  <div class="opportunity-detail-poster opportunity-application-who">
+    {% if applicant.image_url %}<img src="{{ applicant.image_url|safe_url }}" alt="" class="opportunity-detail-avatar" />
+    {% else %}<span class="opportunity-detail-avatar" aria-hidden="true">{{ applicant.initial }}</span>{% endif %}
+    <div>
+      <strong>{{ applicant.name }}</strong>
+      {% if applicant.descriptor %}<span>{{ applicant.descriptor }}</span>{% endif %}
+    </div>
+  </div>
+
+  {% if form_error %}<div class="op-new-banner" role="alert">{{ form_error }}</div>{% endif %}
+
+  <form method="post" action="{{ offer_path|safe_path }}" class="op-new-form">
+    {% include "_partials/csrf.html" %}
+
+    <div class="op-new-field">
+      <label class="op-new-field-label" for="offer-amount">Offer amount <span class="op-new-optional">USD</span></label>
+      <input id="offer-amount" type="text" name="amount" inputmode="decimal" autocomplete="off" maxlength="32" placeholder="1,000.00" value="{{ values.amount }}" required{% if errors.amount %} aria-invalid="true" aria-describedby="offer-amount-error"{% endif %} />
+      {% if errors.amount %}<span class="op-new-banner" id="offer-amount-error">{{ errors.amount }}</span>{% endif %}
+    </div>
+
+    <div class="op-new-field">
+      <label class="op-new-field-label" for="offer-deliverables">Deliverables</label>
+      <textarea id="offer-deliverables" name="deliverables" rows="4" maxlength="{{ max_deliverables_chars }}" placeholder="2 TikToks&#10;1 Instagram Reel" required{% if errors.deliverables %} aria-invalid="true" aria-describedby="offer-deliverables-error"{% endif %}>{{ values.deliverables }}</textarea>
+      {% if errors.deliverables %}<span class="op-new-banner" id="offer-deliverables-error">{{ errors.deliverables }}</span>{% endif %}
+    </div>
+
+    <div class="op-new-field">
+      <label class="op-new-field-label" for="offer-due-date">Due date</label>
+      <input id="offer-due-date" type="date" name="due_date" min="{{ min_due_date }}" value="{{ values.due_date }}" required{% if errors.due_date %} aria-invalid="true" aria-describedby="offer-due-date-error"{% endif %} />
+      {% if errors.due_date %}<span class="op-new-banner" id="offer-due-date-error">{{ errors.due_date }}</span>{% endif %}
+    </div>
+
+    <div class="op-new-field">
+      <label class="op-new-field-label" for="offer-note">Note <span class="op-new-optional">(optional)</span></label>
+      <textarea id="offer-note" name="note" rows="3" maxlength="{{ max_note_chars }}" placeholder="Additional context for the applicant."{% if errors.note %} aria-invalid="true" aria-describedby="offer-note-error"{% endif %}>{{ values.note }}</textarea>
+      {% if errors.note %}<span class="op-new-banner" id="offer-note-error">{{ errors.note }}</span>{% endif %}
+    </div>
+
+    <div class="opportunity-apply-actions">
+      <button type="submit" class="btn btn-lime">Send offer</button>
+    </div>
+  </form>
+</article>
+{% endblock %}
