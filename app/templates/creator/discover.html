@@ -45,7 +45,10 @@
   {%- set social_href = platform_url(card)|trim -%}
   {%- set name = card.title or 'profile' -%}
   <article class="discover-card discover-profile-card discover-card-{{ card.card_kind }}" data-discover-card data-card-kind="{{ card.card_kind }}">
-    <a class="discover-card-hit" href="{{ card.detail_path|safe_url }}" aria-label="open {{ name }}"></a>
+    {# Internal profile route (server-built in the DB view / brand route from
+       a validated uuid). safe_path keeps it only if it is a same-origin app
+       path; safe_url here turned every relative route into "#". #}
+    <a class="discover-card-hit" href="{{ card.detail_path|safe_path }}" aria-label="open {{ name }}"></a>
     <div class="discover-profile-avatar" aria-hidden="true">
       {% if card.image_url %}
       <img src="{{ card.image_url|safe_url }}" alt="" loading="lazy" />

@@ -146,6 +146,30 @@ def _safe_url(value):
     return "#"
 
 
+def _safe_path(value):
+    """Render-time guard for an INTERNAL, server-built app path.
+
+    ``safe_url`` is for external links and, by design, collapses anything
+    that is not http(s) to "#" -- which also destroys legitimate relative
+    app routes such as ``/creator/network/<id>``. This is its counterpart
+    for hrefs that must stay inside the app: it passes a value through
+    only when it is a same-origin absolute path, and otherwise returns "#".
+
+    Rejected (-> "#"): empty/None, anything not starting with a single
+    "/", scheme-relative ``//host``, any backslash (browsers treat
+    ``/\\host`` like ``//host``), whitespace or control characters, and
+    therefore also ``javascript:``/``data:``/``http(s)://`` values.
+    """
+    if not value:
+        return "#"
+    s = str(value)
+    if not s.startswith("/") or s.startswith("//") or "\\" in s:
+        return "#"
+    if any(c.isspace() or ord(c) < 0x20 or ord(c) == 0x7F for c in s):
+        return "#"
+    return s
+
+
 _BULLET_RE = re.compile(r"^\s*[-*]\s+(.*)$")
 _BOLD_RE = re.compile(r"\*\*(.+?)\*\*")
 
@@ -466,6 +490,7 @@ templates.env.filters["short_dt"] = _short_dt
 templates.env.filters["short_date"] = _short_date
 templates.env.filters["short_time"] = _short_time
 templates.env.filters["safe_url"] = _safe_url
+templates.env.filters["safe_path"] = _safe_path
 templates.env.filters["bot_markdown"] = _bot_markdown
 templates.env.filters["human_ago"] = _human_ago
 templates.env.filters["dm_time"] = _dm_time
