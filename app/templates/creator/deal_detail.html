@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}Deal — {{ deal.listing_title }} — babyg{% endblock %}
+
+{% block content %}
+{# Step 6C: Deal detail, the same page for both parties (creator and brand
+   routes render this template). The locked terms come from the deal row,
+   which the database copied from the accepted offer. babyg only states the
+   current state. No payment, completion or work controls. Reuses the
+   Step 5A detail layout and the Step 6B babyg panel. #}
+{% set p = deal.other or {} %}
+<article class="wrap opportunity-detail opportunity-deal">
+  <a href="{{ back_path|safe_path }}" class="back-link">← deals</a>
+
+  <div class="opportunity-detail-poster">
+    {% if p.image_url %}<img src="{{ p.image_url|safe_url }}" alt="" class="opportunity-detail-avatar" />
+    {% else %}<span class="opportunity-detail-avatar" aria-hidden="true">{{ p.initial or '?' }}</span>{% endif %}
+    <div>
+      <strong>{{ p.name or ('brand' if p.kind == 'brand' else 'creator') }}</strong>
+      {% if p.kind %}<span>{{ p.kind }}</span>{% endif %}
+    </div>
+  </div>
+
+  <div class="opportunity-detail-tags"><span class="badge badge-muted">{{ deal.status }}</span></div>
+
+  <h1 class="detail-title">{{ deal.amount_display }}</h1>
+
+  <section class="opportunity-detail-section">
+    <h2>deliverables</h2>
+    <p class="opportunity-detail-description">{{ deal.deliverables }}</p>
+  </section>
+
+  <section class="opportunity-detail-section">
+    <h2>due date</h2>
+    <p>{{ deal.due_display }}</p>
+  </section>
+
+  <section class="opportunity-detail-section">
+    <h2>original opportunity</h2>
+    <p>{% if opportunity_path %}<a href="{{ opportunity_path|safe_path }}" class="opportunity-deal-link">{{ deal.listing_title }}</a>{% else %}{{ deal.listing_title }}{% endif %}</p>
+  </section>
+
+  <section class="opportunity-application-message opportunity-offer-brief" aria-label="babyg">
+    <h2>babyg</h2>
+    {% for line in babyg_state %}<p>{{ line }}</p>{% endfor %}
+  </section>
+</article>
+{% endblock %}

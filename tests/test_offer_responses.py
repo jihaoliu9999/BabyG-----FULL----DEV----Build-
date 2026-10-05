@@ -57,6 +57,7 @@ _TABLES = (
     "creator_profiles",
     "brand_profiles",
     "creator_job_offers",
+    "creator_job_deals",  # read by the accepted Review Offer page since Step 6C
 )
 
 
@@ -916,10 +917,14 @@ def test_step_6a_make_offer_still_creates_one_sent_offer(client, world):
     assert _offer_links(html) == [row["id"]] and _tab_badge(html, "offers") == 1
 
 
-def test_brand_dm_page_is_untouched(client, world):
+def test_brand_dm_page_has_no_offers_tab_and_keeps_its_placeholder(client, world):
+    """Brands never receive offers. Step 6C adds only "messages | deals"."""
     _sign_in(client, world.brand(), "brand")
     html = client.get("/brand/dm").text
-    assert "dm-inbox-views" not in html and "offers" not in html.split("<main", 1)[-1].lower().split("</main>")[0]
+    tabs = re.findall(r'<a href="(/brand/dm[^"]*)"[^>]*>([a-z]+)</a>', html)
+    assert tabs == [("/brand/dm", "messages"), ("/brand/dm?view=deals", "deals")]
+    assert "?view=offers" not in html
+    assert "brand messaging is coming soon" in html
 
 
 def test_no_deal_payment_or_counter_surface_exists():

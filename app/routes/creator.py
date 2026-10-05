@@ -60,6 +60,7 @@ from app.services import (
     home_briefing,
     instagram_dms,
     job_applications,
+    job_deals,
     job_offers,
     jobs,
     locations,
@@ -1607,14 +1608,18 @@ async def dm_list(
     view: str = Query("messages"),
     session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
-    # Step 6B: secondary "messages | offers" switch. Closed vocabulary:
-    # anything but exactly "offers" is the existing Messages view.
-    dm_view = "offers" if str(view or "").strip().lower() == "offers" else "messages"
+    # Step 6B/6C: secondary "messages | offers | deals" switch. Closed
+    # vocabulary: anything else is the existing Messages view.
+    requested_view = str(view or "").strip().lower()
+    dm_view = requested_view if requested_view in ("offers", "deals") else "messages"
     # Received offers awaiting a first look (primed once per request by the
     # tabbar dependency, so this is a cache hit).
     offers_unread = unread_offer_count(request)
-    if dm_view == "offers":
-        offers = job_offers.list_received(session["user_id"])
+    if dm_view in ("offers", "deals"):
+        offers = job_offers.list_received(session["user_id"]) if dm_view == "offers" else []
+        # Step 6C: deals where the user is EITHER party. No unread count --
+        # Deals is a persistent tab, not another inbox.
+        deals = job_deals.list_for_user(session["user_id"]) if dm_view == "deals" else []
         return templates.TemplateResponse(
             request,
             "creator/dm_list.html",
@@ -1622,6 +1627,9 @@ async def dm_list(
                 "dm_view": dm_view,
                 "offers": offers or [],
                 "offers_failed": offers is None,
+                "deals": deals or [],
+                "deals_failed": deals is None,
+                "deal_base": "/creator/dm/deals/",
                 "offers_unread": offers_unread,
                 "messages_unread": int(dms.unread_count_for_user(session["user_id"]) or 0),
                 "threads": [],
@@ -1722,6 +1730,13 @@ async def offer_review(
     except Exception:  # the brief must never block reviewing or responding
         logger.exception("offer_review.brief_failed")
         brief = None
+    # Step 6C: an accepted offer links to the deal the database created
+    # when it was accepted (read only -- revisiting never creates anything).
+    deal_id = (
+        job_deals.deal_id_for_offer(str(offer["id"]), session["user_id"])
+        if offer.get("status") == job_offers.STATUS_ACCEPTED
+        else None
+    )
     return templates.TemplateResponse(
         request,
         "creator/offer_review.html",
@@ -1730,6 +1745,38 @@ async def offer_review(
             "brief": brief,
             "decided": offer.get("status") in job_offers.DECISIONS,
             "respond_failed": request.query_params.get("respond") == "failed",
+            "deal_path": f"/creator/dm/deals/{deal_id}" if deal_id else None,
+        },
+    )
+
+
+@router.get("/creator/dm/deals/{deal_id}", response_class=HTMLResponse)
+async def deal_detail(
+    deal_id: str,
+    request: Request,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    """Step 6C: one deal, for either of its two parties (relationship, not
+    role). Anyone else gets the same 404 as a missing id."""
+    deal = job_deals.get_for_user(deal_id, session["user_id"])
+    if deal is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    # The EXISTING opportunity route, only when it will actually open for
+    # this viewer (a poster always can; an applicant only while public).
+    listing = jobs.get(str(deal["listing_id"]))
+    opportunity_path = (
+        f"/creator/jobs/{deal['listing_id']}"
+        if listing is not None and jobs.can_view_detail(listing, session["user_id"])
+        else None
+    )
+    return templates.TemplateResponse(
+        request,
+        "creator/deal_detail.html",
+        {
+            "deal": deal,
+            "back_path": "/creator/dm?view=deals",
+            "opportunity_path": opportunity_path,
+            "babyg_state": job_deals.BABYG_STATE,
         },
     )
 
@@ -2894,6 +2941,13 @@ async def jobs_application_detail(
     # Step 6A: one offer per application. "Offer sent" replaces "Make offer"
     # once it exists; never offered on a self-relationship.
     application_path = f"/creator/jobs/{listing['id']}/applicants/{application['id']}"
+    offer = job_offers.get_for_application(application["id"], session["user_id"])
+    # Step 6C: once the offer is accepted, the poster's path is its deal.
+    deal_id = (
+        job_deals.deal_id_for_offer(str(offer["id"]), session["user_id"])
+        if offer and offer.get("status") == job_offers.STATUS_ACCEPTED
+        else None
+    )
     return templates.TemplateResponse(
         request,
         "creator/opportunity_application.html",
@@ -2903,7 +2957,8 @@ async def jobs_application_detail(
             "applicant": applicant,
             "profile_href": profile_href,
             "applicants_path": f"/creator/jobs/{listing['id']}/applicants",
-            "offer": job_offers.get_for_application(application["id"], session["user_id"]),
+            "offer": offer,
+            "deal_path": f"/creator/dm/deals/{deal_id}" if deal_id else None,
             "offer_path": (
                 f"{application_path}/offer"
                 if job_offers.can_offer(application, session["user_id"])

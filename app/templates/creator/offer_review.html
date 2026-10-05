@@ -58,6 +58,7 @@
   {% if decided %}
   <div class="opportunity-application-actions">
     <span class="btn btn-ghost opportunity-apply-done" aria-disabled="true" role="status">{{ '✓ Offer accepted' if offer.status == 'accepted' else 'Offer declined' }}</span>
+    {% if deal_path %}<a href="{{ deal_path|safe_path }}" class="btn btn-lime">View deal</a>{% endif %}
   </div>
   {% if offer.responded_at %}<p class="opportunity-application-when">responded {{ offer.responded_at|short_dt }}</p>{% endif %}
   {% else %}

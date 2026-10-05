@@ -16448,3 +16448,34 @@ html.bot-activity-open, html.bot-activity-open body { overflow: hidden; }
 @media (max-width: 480px) {
   .opportunity-offer-actions form { width: 100%; }
 }
+
+/* Step 6C: Deals tab + Deal detail. Reuses the DM inbox row, the Step 5C
+   sub-tabs, the Step 5A detail layout and the Step 6B babyg panel; only the
+   deal-terms line and spacing glue are added. */
+.dm-deal-terms {
+  overflow: hidden;
+  color: var(--ink-mid);
+  font-size: 12.5px;
+  line-height: 1.4;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.dm-deal-terms strong { color: var(--ink); font-weight: 700; }
+/* Deals rows stay one line per field (compact); the full name is on the
+   Deal detail page. Scoped to deal rows -- Messages/Offers rows unchanged. */
+.dm-inbox-row[data-dm-deal] .dm-inbox-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* Brand DMs: the switch sits in the page column under the "inbox" head. */
+.brand-dm-views.dm-inbox-views.discover-sub-tabs { margin: 0 0 12px; padding: 0 0 6px; }
+.opportunity-deal .opportunity-detail-tags { margin-bottom: 8px; }
+.opportunity-deal .opportunity-detail-description { overflow-wrap: anywhere; }
+/* The one inline link on Deal detail: the app's anchors inherit text style,
+   so mark it with the pink accent underline. */
+.opportunity-deal-link {
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-underline-offset: 3px;
+}

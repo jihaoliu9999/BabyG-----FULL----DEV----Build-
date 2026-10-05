@@ -15,6 +15,7 @@ from app.services import (
     discover,
     dms,
     job_applications,
+    job_deals,
     job_offers,
     jobs,
     my_opportunities,
@@ -303,6 +304,7 @@ async def saved_page(
 @router.get("/dm", response_class=HTMLResponse)
 async def dm_page(
     request: Request,
+    view: str = Query("messages"),
     session: SessionPayload = Depends(require_role("brand")),
 ) -> Response:
     """Brand messaging placeholder. The DM service supports brand users
@@ -315,11 +317,59 @@ async def dm_page(
     profile = profiles.get_brand_profile(session["user_id"]) or {}
     if not profile.get("onboarding_completed_at"):
         return RedirectResponse("/onboarding/brand", status_code=302)
+    # Step 6C: "messages | deals". Messages stays the existing placeholder;
+    # Deals lists the deals this user is a party to (same rows as creators).
+    if str(view or "").strip().lower() == "deals":
+        deals = job_deals.list_for_user(session["user_id"])
+        return templates.TemplateResponse(
+            request,
+            "brand/dm.html",
+            {
+                "profile": profile,
+                "dm_view": "deals",
+                "deals": deals or [],
+                "deals_failed": deals is None,
+                "deal_base": "/brand/dm/deals/",
+            },
+        )
     thread_count = len(dms.list_threads_for_user(session["user_id"]))
     return templates.TemplateResponse(
         request,
         "brand/dm.html",
-        {"profile": profile, "thread_count": thread_count},
+        {"profile": profile, "thread_count": thread_count, "dm_view": "messages"},
+    )
+
+
+@router.get("/dm/deals/{deal_id}", response_class=HTMLResponse)
+async def dm_deal_detail(
+    deal_id: str,
+    request: Request,
+    session: SessionPayload = Depends(require_role("brand")),
+) -> Response:
+    """Step 6C: one deal, for either of its two parties (relationship, not
+    role). Anyone else gets the same 404 as a missing id."""
+    profile = profiles.get_brand_profile(session["user_id"]) or {}
+    if not profile.get("onboarding_completed_at"):
+        return RedirectResponse("/onboarding/brand", status_code=302)
+    deal = job_deals.get_for_user(deal_id, session["user_id"])
+    if deal is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    listing = jobs.get(str(deal["listing_id"]))
+    opportunity_path = (
+        f"/brand/discover/opportunity/{deal['listing_id']}"
+        if listing is not None and jobs.can_view_detail(listing, session["user_id"])
+        else None
+    )
+    return templates.TemplateResponse(
+        request,
+        "creator/deal_detail.html",
+        {
+            "profile": profile,
+            "deal": deal,
+            "back_path": "/brand/dm?view=deals",
+            "opportunity_path": opportunity_path,
+            "babyg_state": job_deals.BABYG_STATE,
+        },
     )
 
 
@@ -665,6 +715,13 @@ async def discover_opportunity_application(
     application_path = (
         f"/brand/discover/opportunity/{listing['id']}/applicants/{application['id']}"
     )
+    offer = job_offers.get_for_application(application["id"], session["user_id"])
+    # Step 6C: once the offer is accepted, the poster's path is its deal.
+    deal_id = (
+        job_deals.deal_id_for_offer(str(offer["id"]), session["user_id"])
+        if offer and offer.get("status") == job_offers.STATUS_ACCEPTED
+        else None
+    )
     return templates.TemplateResponse(
         request,
         "creator/opportunity_application.html",
@@ -675,7 +732,8 @@ async def discover_opportunity_application(
             "applicant": applicant,
             "profile_href": profile_href,
             "applicants_path": f"/brand/discover/opportunity/{listing['id']}/applicants",
-            "offer": job_offers.get_for_application(application["id"], session["user_id"]),
+            "offer": offer,
+            "deal_path": f"/brand/dm/deals/{deal_id}" if deal_id else None,
             "offer_path": (
                 f"{application_path}/offer"
                 if job_offers.can_offer(application, session["user_id"])

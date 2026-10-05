@@ -16,12 +16,17 @@
      badge is a real count (unread internal DMs / received offers awaiting
      a first look). #}
   {% set current_dm_view = dm_view|default('messages') %}
+  {% set on_messages = current_dm_view not in ('offers', 'deals') %}
   <nav class="discover-sub-tabs dm-inbox-views" aria-label="dms view">
-    <a href="/creator/dm" class="{{ 'active' if current_dm_view != 'offers' }}"{% if current_dm_view != 'offers' %} aria-current="page"{% endif %}>messages{% if messages_unread|default(0) %}<span class="dm-inbox-count-dot" aria-label="{{ messages_unread }} unread">{{ messages_unread }}</span>{% endif %}</a>
+    <a href="/creator/dm" class="{{ 'active' if on_messages }}"{% if on_messages %} aria-current="page"{% endif %}>messages{% if messages_unread|default(0) %}<span class="dm-inbox-count-dot" aria-label="{{ messages_unread }} unread">{{ messages_unread }}</span>{% endif %}</a>
     <a href="/creator/dm?view=offers" class="{{ 'active' if current_dm_view == 'offers' }}"{% if current_dm_view == 'offers' %} aria-current="page"{% endif %}>offers{% if offers_unread|default(0) %}<span class="dm-inbox-count-dot" aria-label="{{ offers_unread }} new">{{ offers_unread }}</span>{% endif %}</a>
+    {# Step 6C: Deals is a persistent tab, not an inbox -- no unread badge. #}
+    <a href="/creator/dm?view=deals" class="{{ 'active' if current_dm_view == 'deals' }}"{% if current_dm_view == 'deals' %} aria-current="page"{% endif %}>deals</a>
   </nav>
 
-  {% if current_dm_view == 'offers' %}
+  {% if current_dm_view == 'deals' %}
+  {% include "_partials/dm_deals.html" %}
+  {% elif current_dm_view == 'offers' %}
   {# Received offers only. Real stored rows; nothing invented. #}
   {% if offers_failed %}
   <div class="dm-inbox-empty">

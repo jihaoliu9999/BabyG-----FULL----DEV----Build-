@@ -39,7 +39,8 @@
 {# Step 6B: Review Offer lives under /creator/dm/offers/ but is a normal
    scrolling page, not a chat thread (fixed-height, overflow-hidden view)
    or the inbox (own top chrome). #}
-{% if is_creator and cp.startswith('/creator/dm/offers/') %}{% set is_dm = false %}{% set is_dm_thread = false %}{% endif %}
+{# Step 6C: Deal detail (/creator/dm/deals/) is the same kind of page. #}
+{% if is_creator and (cp.startswith('/creator/dm/offers/') or cp.startswith('/creator/dm/deals/')) %}{% set is_dm = false %}{% set is_dm_thread = false %}{% endif %}
 {% set is_auth = cp.startswith('/auth') %}
 {% set is_onboarding = cp.startswith('/onboarding') %}
 {% set is_legal = cp in ['/privacy', '/terms', '/accessibility', '/data-deletion'] %}

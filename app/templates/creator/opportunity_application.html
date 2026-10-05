@@ -32,7 +32,8 @@
   {% if profile_href or offer or offer_path %}
   <div class="opportunity-application-actions">
     {% if profile_href %}<a href="{{ profile_href|safe_path }}" class="btn btn-ghost">View profile</a>{% endif %}
-    {% if offer %}<span class="btn btn-ghost opportunity-apply-done" aria-disabled="true" role="status">✓ Offer sent</span>
+    {% if deal_path %}<a href="{{ deal_path|safe_path }}" class="btn btn-lime">View deal</a>
+    {% elif offer %}<span class="btn btn-ghost opportunity-apply-done" aria-disabled="true" role="status">✓ Offer sent</span>
     {% elif offer_path %}<a href="{{ offer_path|safe_path }}" class="btn btn-lime">Make offer</a>{% endif %}
   </div>
   {% endif %}

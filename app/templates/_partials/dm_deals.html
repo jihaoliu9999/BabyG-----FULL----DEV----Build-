@@ -1,0 +1,39 @@
+{# Step 6C: the Deals list, shared by the creator and brand DMs pages so both
+   parties see the same thing. Real stored deals only, drawn with the
+   existing DM inbox row. Context: deals, deals_failed, deal_base. #}
+{% if deals_failed %}
+<div class="dm-inbox-empty">
+  <p class="mono">couldn't load deals.</p>
+  <p>try again in a moment.</p>
+</div>
+{% elif deals %}
+<ul class="dm-inbox-list" data-dm-deals>
+  {% for d in deals %}
+  {% set p = d.other or {} %}
+  <li class="dm-inbox-row" data-dm-deal>
+    <a href="{{ (deal_base ~ d.id)|safe_path }}" class="dm-inbox-link">
+      <span class="dm-inbox-avatar" aria-hidden="true">
+        {% if p.image_url %}
+        <img src="{{ p.image_url|safe_url }}" alt="" loading="lazy" />
+        {% else %}
+        <span>{{ p.initial or '?' }}</span>
+        {% endif %}
+      </span>
+      <span class="dm-inbox-body">
+        <span class="dm-inbox-name">{{ p.name or ('brand' if p.kind == 'brand' else 'creator') }}</span>
+        <span class="dm-inbox-preview">{{ d.listing_title }}</span>
+        <span class="dm-deal-terms"><strong>{{ d.amount_display }}</strong> · {{ d.status }}</span>
+      </span>
+      <span class="dm-inbox-meta">
+        <span class="dm-inbox-time">{{ d.due_display }}</span>
+      </span>
+    </a>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+<div class="dm-inbox-empty">
+  <p class="mono">no deals yet.</p>
+  <p>accepted offers become deals here.</p>
+</div>
+{% endif %}

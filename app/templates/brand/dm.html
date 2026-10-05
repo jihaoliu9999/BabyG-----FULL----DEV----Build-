@@ -12,6 +12,18 @@
     </div>
   </div>
 
+  {# Step 6C: "messages | deals". Messages is the existing placeholder below,
+     unchanged; Deals shows the same deal rows creators see. Brands never
+     receive offers, so there is no offers tab here. #}
+  {% set current_dm_view = dm_view|default('messages') %}
+  <nav class="discover-sub-tabs dm-inbox-views brand-dm-views" aria-label="dms view">
+    <a href="/brand/dm" class="{{ 'active' if current_dm_view != 'deals' }}"{% if current_dm_view != 'deals' %} aria-current="page"{% endif %}>messages</a>
+    <a href="/brand/dm?view=deals" class="{{ 'active' if current_dm_view == 'deals' }}"{% if current_dm_view == 'deals' %} aria-current="page"{% endif %}>deals</a>
+  </nav>
+
+  {% if current_dm_view == 'deals' %}
+  {% include "_partials/dm_deals.html" %}
+  {% else %}
   <div class="brand-empty">
     <span class="icon-circle" aria-hidden="true">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M22 12V6a2 2 0 00-2-2H4a2 2 0 00-2 2v12a2 2 0 002 2h10"/><path d="M2 6l10 6 10-6"/></svg>
@@ -28,6 +40,7 @@
       <a href="/brand/campaigns/new" class="btn btn-lime btn-sm">post a campaign</a>
     </div>
   </div>
+  {% endif %}
 
 </div>
 {% endblock %}
