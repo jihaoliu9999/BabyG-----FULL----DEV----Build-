@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import time
 from typing import Any
 from urllib.parse import urlsplit
@@ -23,6 +24,21 @@ TABLE = "creator_payout_accounts"
 # lands within the same short window.
 IDEMPOTENCY_WINDOW_SECONDS = 60
 
+# Accounts v1 with explicit controller properties. Stripe no longer accepts
+# `type` for this platform's new connected accounts and requires the fee
+# payer and loss liability to be stated at creation. These values are the
+# Express configuration `type=express` stood for: Stripe-hosted onboarding
+# (Account Links) and requirement collection, the Express Dashboard, and
+# babyg paying Stripe fees and carrying negative-balance liability.
+ACCOUNT_CONTROLLER: dict[str, Any] = {
+    "fees": {"payer": "application"},
+    "losses": {"payments": "application"},
+    "requirement_collection": "stripe",
+    "stripe_dashboard": {"type": "express"},
+}
+
+_EMAIL = re.compile(r"[^\s@'\"]+@[^\s@'\"]+")
+
 
 class PayoutSetupError(Exception):
     """A payout setup step could not be completed safely."""
@@ -34,10 +50,30 @@ def _log_failure(stage: str, exc: BaseException | None = None, **context: Any) -
     fields: dict[str, Any] = {"stage": stage, "key_kind": key_kind(), **context}
     if exc is not None:
         fields.update(safe_error_fields(exc))
+        # Stripe may echo the account email back in a validation message.
+        fields["message"] = _EMAIL.sub("[email]", str(fields.get("message") or ""))
     logger.warning(
         "creator_payouts.failed %s",
         " ".join(f"{name}={value!r}" for name, value in fields.items()),
     )
+
+
+def _account_email(creator_user_id: str) -> str:
+    """The creator's babyg login email (public.users.email), which Stripe
+    requires at creation for an account that only receives transfers."""
+    result = (
+        supabase_client.get_service_client()
+        .table("users")
+        .select("email")
+        .eq("id", creator_user_id)
+        .limit(1)
+        .execute()
+    )
+    rows = result.data or []
+    email = str(rows[0].get("email") or "").strip() if rows else ""
+    if "@" not in email:
+        raise PayoutSetupError("Payout setup is unavailable")
+    return email
 
 
 def _mapping(creator_user_id: str) -> str | None:
@@ -123,9 +159,15 @@ def onboarding_url(creator_user_id: str, *, create_if_missing: bool) -> str:
             if not create_if_missing:
                 stage = "refresh_without_account"
                 raise PayoutSetupError("Payout setup is unavailable")
+            stage = "account_email"
+            email = _account_email(creator_user_id)
             stage = "account_create"
             account = client.v1.accounts.create(
-                {"type": "express", "capabilities": {"transfers": {"requested": True}}},
+                {
+                    "controller": ACCOUNT_CONTROLLER,
+                    "email": email,
+                    "capabilities": {"transfers": {"requested": True}},
+                },
                 options={"idempotency_key": _idempotency_key(creator_user_id)},
             )
             created_id = account.get("id")

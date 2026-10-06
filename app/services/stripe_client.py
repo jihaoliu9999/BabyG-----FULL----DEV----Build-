@@ -10,7 +10,7 @@ from app.config import get_settings
 # Anything shaped like a Stripe credential is masked before a message is
 # logged. Stripe already masks keys in its own errors; this is a backstop.
 _CREDENTIAL = re.compile(r"\b(?:sk|rk|pk|whsec)_[A-Za-z0-9_*]+")
-_MESSAGE_MAX = 300
+_MESSAGE_MAX = 1000  # Stripe validation messages can run past 300 chars
 
 
 def get_stripe_client() -> stripe.StripeClient:
