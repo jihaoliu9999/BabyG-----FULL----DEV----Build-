@@ -24,18 +24,37 @@ TABLE = "creator_payout_accounts"
 # lands within the same short window.
 IDEMPOTENCY_WINDOW_SECONDS = 60
 
-# Accounts v1 with explicit controller properties. Stripe no longer accepts
-# `type` for this platform's new connected accounts and requires the fee
-# payer and loss liability to be stated at creation. These values are the
-# Express configuration `type=express` stood for: Stripe-hosted onboarding
-# (Account Links) and requirement collection, the Express Dashboard, and
-# babyg paying Stripe fees and carrying negative-balance liability.
-ACCOUNT_CONTROLLER: dict[str, Any] = {
-    "fees": {"payer": "application"},
-    "losses": {"payments": "application"},
-    "requirement_collection": "stripe",
-    "stripe_dashboard": {"type": "express"},
-}
+# New connected accounts are created with Accounts v2 (POST /v2/core/accounts):
+# Stripe rejects Accounts v1 creation for this platform ("Create connected
+# accounts with POST /v2/core/accounts instead"). The installed SDK
+# (stripe 12.5.1, pinned to 2025-08-27.basil for every v1 call Step 7A makes)
+# has no typed v2 Accounts service, so the v2 calls go through the SDK's own
+# raw_request with this explicit v2 API version. The request shape below is
+# the 2026-09-30.endive contract (Stripe's published OpenAPI spec and SDK).
+ACCOUNTS_V2_API_VERSION = "2026-09-30.endive"
+
+# The creator is never the merchant of record: babyg charges the payer and
+# routes funds with a destination charge, which is exactly Stripe's
+# "recipient" configuration. Stripe-hosted onboarding and the Express
+# Dashboard as before; with an Express Dashboard Stripe requires babyg to be
+# the fee and loss collector (account_controller_express_dash_without_
+# application_losses_or_fees), which is what type=express meant.
+def _new_account_request(email: str) -> dict[str, Any]:
+    return {
+        "contact_email": email,
+        "dashboard": "express",
+        "defaults": {
+            "responsibilities": {"fees_collector": "application", "losses_collector": "application"}
+        },
+        "configuration": {
+            "recipient": {"capabilities": {"stripe_balance": {"stripe_transfers": {"requested": True}}}}
+        },
+    }
+
+
+# Stripe's documented answer when a v1-created account is read through v2.
+_V1_ACCOUNT_CODES = frozenset({"v1_account_instead_of_v2_account", "account_not_yet_compatible_with_v2"})
+_ACCOUNT_ID = re.compile(r"acct_[A-Za-z0-9]+")
 
 _EMAIL = re.compile(r"[^\s@'\"]+@[^\s@'\"]+")
 
@@ -89,6 +108,43 @@ def _mapping(creator_user_id: str) -> str | None:
     return str(rows[0]["stripe_account_id"]) if rows else None
 
 
+def _v2(client: Any, method: str, path: str, params: dict[str, Any] | None = None,
+        *, idempotency_key: str | None = None) -> dict[str, Any]:
+    options: dict[str, Any] = {"stripe_version": ACCOUNTS_V2_API_VERSION}
+    if idempotency_key:
+        options["idempotency_key"] = idempotency_key
+    response = client.raw_request(method, path, **(params or {}), **options)
+    data = getattr(response, "data", None)
+    if not isinstance(data, dict):
+        raise ValueError("unexpected Stripe v2 response")
+    return data
+
+
+def _v2_status(client: Any, account_id: str) -> str | None:
+    """'ready' / 'incomplete' for an Accounts v2 account, or None when Stripe
+    says the id is a v1-created account (read those through v1)."""
+    if not _ACCOUNT_ID.fullmatch(account_id):
+        raise ValueError("unexpected stored account id")
+    try:
+        account = _v2(client, "get", f"/v2/core/accounts/{account_id}",
+                      {"include[0]": "configuration.recipient"})
+    except Exception as exc:
+        if getattr(exc, "code", None) in _V1_ACCOUNT_CODES:
+            return None
+        raise
+    recipient = (account.get("configuration") or {}).get("recipient") or {}
+    balance = (recipient.get("capabilities") or {}).get("stripe_balance") or {}
+    transfers = (balance.get("stripe_transfers") or {}).get("status")
+    payouts = balance.get("payouts")
+    # The v1 rule was "payouts enabled and transfers active". Stripe reports
+    # the recipient payouts capability on its own; when it is present it must
+    # be active too.
+    payouts_ok = payouts is None or (payouts or {}).get("status") == "active"
+    if recipient.get("applied") and transfers == "active" and payouts_ok:
+        return "ready"
+    return "incomplete"
+
+
 def readiness(creator_user_id: str) -> tuple[str, str | None]:
     """Readiness from Stripe (never from an onboarding redirect), plus the
     mapped account id."""
@@ -98,7 +154,12 @@ def readiness(creator_user_id: str) -> tuple[str, str | None]:
         if account_id is None:
             return "not_set_up", None
         stage = "status_account_retrieve"
-        account = _client().v1.accounts.retrieve(account_id)
+        client = _client()
+        status = _v2_status(client, account_id)
+        if status is not None:
+            return status, account_id
+        # An account created through Accounts v1 (before the v2 switch).
+        account = client.v1.accounts.retrieve(account_id)
         capabilities = account.get("capabilities") or {}
         if account.get("payouts_enabled") and capabilities.get("transfers") == "active":
             return "ready", account_id
@@ -143,11 +204,21 @@ def _client():
 
 def _idempotency_key(creator_user_id: str) -> str:
     window = int(time.time() // IDEMPOTENCY_WINDOW_SECONDS)
-    return f"babyg-creator-connect-{window}-{creator_user_id}"
+    return f"babyg-creator-account-v2-{window}-{creator_user_id}"
+
+
+def _stripe_hosted(url: Any) -> bool:
+    """A Stripe-hosted https page (Account Links); never an arbitrary host."""
+    if not isinstance(url, str):
+        return False
+    parsed = urlsplit(url)
+    host = parsed.hostname or ""
+    return parsed.scheme == "https" and (host == "stripe.com" or host.endswith(".stripe.com"))
 
 
 def onboarding_url(creator_user_id: str, *, create_if_missing: bool) -> str:
-    """Create/reuse the creator's Express account and a one-use hosted link."""
+    """Create/reuse the creator's connected account (Accounts v2 recipient,
+    Express Dashboard) and a one-use Stripe-hosted onboarding link."""
     stage = "config"
     try:
         client = _client()
@@ -162,16 +233,10 @@ def onboarding_url(creator_user_id: str, *, create_if_missing: bool) -> str:
             stage = "account_email"
             email = _account_email(creator_user_id)
             stage = "account_create"
-            account = client.v1.accounts.create(
-                {
-                    "controller": ACCOUNT_CONTROLLER,
-                    "email": email,
-                    "capabilities": {"transfers": {"requested": True}},
-                },
-                options={"idempotency_key": _idempotency_key(creator_user_id)},
-            )
+            account = _v2(client, "post", "/v2/core/accounts", _new_account_request(email),
+                          idempotency_key=_idempotency_key(creator_user_id))
             created_id = account.get("id")
-            if not isinstance(created_id, str) or not created_id.startswith("acct_"):
+            if not isinstance(created_id, str) or not _ACCOUNT_ID.fullmatch(created_id):
                 stage = "account_create_response"
                 raise PayoutSetupError("Payout setup is unavailable")
             stage = "mapping_insert"
@@ -186,21 +251,35 @@ def onboarding_url(creator_user_id: str, *, create_if_missing: bool) -> str:
                 account_id = _mapping(creator_user_id)
                 if account_id is None:
                     raise
+            is_v2 = True
+        else:
+            stage = "account_api"
+            is_v2 = _v2_status(client, account_id) is not None
+        return_url = f"{origin}/creator/payouts/return"
+        refresh_url = f"{origin}/creator/payouts/refresh"
         stage = "account_link"
-        link = client.v1.account_links.create(
-            {
+        if is_v2:
+            link = _v2(client, "post", "/v2/core/account_links", {
                 "account": account_id,
-                "type": "account_onboarding",
-                "return_url": f"{origin}/creator/payouts/return",
-                "refresh_url": f"{origin}/creator/payouts/refresh",
-            }
-        )
+                "use_case": {
+                    "type": "account_onboarding",
+                    "account_onboarding": {"return_url": return_url, "refresh_url": refresh_url},
+                },
+            })
+        else:  # an account created through Accounts v1 keeps v1 onboarding links
+            link = client.v1.account_links.create(
+                {
+                    "account": account_id,
+                    "type": "account_onboarding",
+                    "return_url": return_url,
+                    "refresh_url": refresh_url,
+                }
+            )
         stage = "account_link_url"
         url = link.get("url")
-        parsed = urlsplit(url) if isinstance(url, str) else None
-        if not parsed or parsed.scheme != "https" or parsed.hostname != "connect.stripe.com":
+        if not _stripe_hosted(url):
             raise PayoutSetupError("Payout setup is unavailable")
-        return url
+        return str(url)
     except Exception as exc:
         if stage != "origin":  # _public_origin logged its own detail
             _log_failure(stage, exc)

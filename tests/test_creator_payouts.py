@@ -1,18 +1,52 @@
-"""Sandbox Connect onboarding and creator-only Settings contract."""
+"""Sandbox Connect onboarding and creator-only Settings contract.
+
+New connected accounts are created with Accounts v2 (POST /v2/core/accounts,
+recipient configuration) because Stripe rejects Accounts v1 creation for this
+platform. Accounts created through v1 earlier keep working through v1 reads
+and v1 onboarding links.
+"""
 
 from __future__ import annotations
 
+import json
+import logging
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from types import SimpleNamespace
 from typing import Any
+from urllib.parse import parse_qs, urlsplit
 from uuid import uuid4
 
 import pytest
+import stripe
 from fastapi import Response
 from fastapi.testclient import TestClient
 
 from app.core.security import SESSION_COOKIE, write_session
 from app.main import app
 from app.services import agent_memory, creator_payouts, oauth_connections, profiles
+
+V2_VERSION = "2026-09-30.endive"
+EXPECTED_V2_ACCOUNT = {
+    "contact_email": "sofia@example.com",
+    "dashboard": "express",
+    "defaults": {"responsibilities": {"fees_collector": "application", "losses_collector": "application"}},
+    "configuration": {"recipient": {"capabilities": {"stripe_balance": {"stripe_transfers": {"requested": True}}}}},
+}
+
+
+def _v2_account(status: str = "active", payouts: str | None = "active", applied: bool = True) -> dict:
+    balance: dict[str, Any] = {"stripe_transfers": {"status": status, "status_details": []}}
+    if payouts is not None:
+        balance["payouts"] = {"status": payouts, "status_details": []}
+    return {"id": "acct_x", "object": "v2.core.account",
+            "configuration": {"recipient": {"applied": applied, "capabilities": {"stripe_balance": balance}}}}
+
+
+def _v1_account_error() -> stripe.InvalidRequestError:
+    return stripe.InvalidRequestError(
+        "V1 Account ID cannot be used in V2 Account APIs.", None, code="v1_account_instead_of_v2_account",
+        http_status=400)
 
 
 class FakeTable:
@@ -51,7 +85,7 @@ class FakeUsers:
     """public.users: the creator's login email (Stripe needs it at account creation)."""
 
     def __init__(self) -> None:
-        self.emails: dict[str, str] = {}
+        self.emails: dict[str, str | None] = {}
         self.reads: list[str] = []
         self.user_id = ""
 
@@ -71,38 +105,64 @@ class FakeUsers:
         return SimpleNamespace(data=[{"email": email}] if email is not None else [])
 
 
+class FakeStripe:
+    """raw_request for the v2 endpoints, v1 services for v1-created accounts."""
+
+    def __init__(self) -> None:
+        self.created: list[tuple[dict, dict]] = []      # (v2 account body, request options)
+        self.links: list[dict] = []                     # v2 account link bodies
+        self.v1_links: list[dict] = []
+        self.retrieved: list[str] = []                  # v2 account reads
+        self.v1_retrieved: list[str] = []
+        self.v1_accounts: dict[str, dict] = {}          # ids created through v1, with their v1 state
+        self.v2_state: dict[str, dict] = {}
+        self.link_url = "https://connect.stripe.com/setup/c/test"
+        self.v1 = SimpleNamespace(
+            accounts=SimpleNamespace(create=self._v1_create, retrieve=self._v1_retrieve),
+            account_links=SimpleNamespace(create=self._v1_link),
+        )
+
+    def raw_request(self, method: str, path: str, **params: Any):
+        options = {k: params.pop(k) for k in ("stripe_version", "idempotency_key") if k in params}
+        assert options.get("stripe_version") == V2_VERSION
+        if method == "post" and path == "/v2/core/accounts":
+            self.created.append((params, options))
+            return SimpleNamespace(data={"id": "acct_testcreator", "object": "v2.core.account"})
+        if method == "post" and path == "/v2/core/account_links":
+            self.links.append(params)
+            return SimpleNamespace(data={"object": "v2.core.account_link", "url": self.link_url})
+        if method == "get" and path.startswith("/v2/core/accounts/"):
+            account_id = path.rsplit("/", 1)[1]
+            assert params == {"include[0]": "configuration.recipient"}
+            self.retrieved.append(account_id)
+            if account_id in self.v1_accounts:
+                raise _v1_account_error()
+            return SimpleNamespace(data=self.v2_state.get(account_id, _v2_account()))
+        raise AssertionError(f"unexpected {method} {path}")
+
+    def _v1_create(self, *_a: Any, **_k: Any):
+        raise AssertionError("Accounts v1 creation must never be called")
+
+    def _v1_retrieve(self, account_id: str):
+        self.v1_retrieved.append(account_id)
+        return self.v1_accounts[account_id]
+
+    def _v1_link(self, params: dict):
+        self.v1_links.append(params)
+        return {"url": "https://connect.stripe.com/setup/e/v1"}
+
+
 @pytest.fixture()
 def backend(monkeypatch):
     table = FakeTable()
     table.users = FakeUsers()
-    created: list[tuple[dict, dict]] = []
-    links: list[dict] = []
-    retrieved: list[str] = []
-
-    def create(params, options):
-        created.append((params, options))
-        return {"id": "acct_testcreator"}
-
-    def link(params):
-        links.append(params)
-        return {"url": "https://connect.stripe.com/setup/c/test"}
-
-    def retrieve(account_id):
-        retrieved.append(account_id)
-        return {"payouts_enabled": True, "capabilities": {"transfers": "active"}}
-
-    stripe = SimpleNamespace(
-        v1=SimpleNamespace(
-            accounts=SimpleNamespace(create=create, retrieve=retrieve),
-            account_links=SimpleNamespace(create=link),
-        )
-    )
+    fake = FakeStripe()
     monkeypatch.setattr(
         creator_payouts.supabase_client,
         "get_service_client",
         lambda: SimpleNamespace(table=lambda name: {creator_payouts.TABLE: table, "users": table.users}.get(name)),
     )
-    monkeypatch.setattr(creator_payouts, "get_stripe_client", lambda: stripe)
+    monkeypatch.setattr(creator_payouts, "get_stripe_client", lambda: fake)
     monkeypatch.setattr(
         creator_payouts,
         "get_settings",
@@ -113,90 +173,129 @@ def backend(monkeypatch):
             is_production=True,
         ),
     )
-    return table, created, links, retrieved
+    table.fake = fake
+    return table, fake
 
 
-def test_creator_account_created_once_and_owned_by_session_id(backend):
-    table, created, links, _ = backend
+# ================================================================ v2 creation
+
+
+def test_creator_account_created_once_with_accounts_v2_and_owned_by_session_id(backend):
+    table, fake = backend
     uid = str(uuid4())
     first = creator_payouts.onboarding_url(uid, create_if_missing=True)
     second = creator_payouts.onboarding_url(uid, create_if_missing=True)
     assert first == second == "https://connect.stripe.com/setup/c/test"
     assert table.rows == {uid: "acct_testcreator"}
-    assert len(created) == 1
-    assert created[0][0] == {
-        "controller": {
-            "fees": {"payer": "application"},
-            "losses": {"payments": "application"},
-            "requirement_collection": "stripe",
-            "stripe_dashboard": {"type": "express"},
-        },
-        "email": "sofia@example.com",
-        "capabilities": {"transfers": {"requested": True}},
-    }
-    assert "type" not in created[0][0]
-    assert created[0][1]["idempotency_key"].endswith(uid)
-    assert links[0] == {
+    [(body, options)] = fake.created
+    assert body == EXPECTED_V2_ACCOUNT
+    assert options["stripe_version"] == V2_VERSION
+    assert options["idempotency_key"].startswith("babyg-creator-account-v2-")
+    assert options["idempotency_key"].endswith(uid)
+    expected_link = {
         "account": "acct_testcreator",
-        "type": "account_onboarding",
-        "return_url": "https://www.babyg.ai/creator/payouts/return",
-        "refresh_url": "https://www.babyg.ai/creator/payouts/refresh",
+        "use_case": {
+            "type": "account_onboarding",
+            "account_onboarding": {
+                "return_url": "https://www.babyg.ai/creator/payouts/return",
+                "refresh_url": "https://www.babyg.ai/creator/payouts/refresh",
+            },
+        },
     }
-    assert len(links) == 2
+    assert fake.links == [expected_link, expected_link]
+    assert fake.v1_links == [] and fake.v1_retrieved == []
 
 
 def test_refresh_reuses_mapping_and_requires_existing_account(backend):
-    table, created, links, _ = backend
+    table, fake = backend
     uid = str(uuid4())
     with pytest.raises(creator_payouts.PayoutSetupError):
         creator_payouts.onboarding_url(uid, create_if_missing=False)
     table.rows[uid] = "acct_existing"
     assert creator_payouts.onboarding_url(uid, create_if_missing=False).startswith("https://connect.stripe.com/")
-    assert not created
-    assert links[0]["account"] == "acct_existing"
+    assert fake.created == []
+    assert fake.links[0]["account"] == "acct_existing"
 
 
-def test_status_uses_stripe_not_browser_return(backend, monkeypatch):
-    table, _, _, retrieved = backend
+@pytest.mark.parametrize(
+    ("state", "expected"),
+    [
+        (_v2_account("active", "active"), "ready"),
+        (_v2_account("active", None), "ready"),          # Stripe reports no payouts capability
+        (_v2_account("pending", "active"), "incomplete"),
+        (_v2_account("active", "restricted"), "incomplete"),
+        (_v2_account("active", "active", applied=False), "incomplete"),
+        ({"id": "acct_x", "object": "v2.core.account"}, "incomplete"),
+    ],
+)
+def test_status_reads_the_v2_recipient_configuration(backend, state, expected):
+    table, fake = backend
     uid = str(uuid4())
     assert creator_payouts.payout_status(uid) == "not_set_up"
     table.rows[uid] = "acct_existing"
-    assert creator_payouts.payout_status(uid) == "ready"
-    assert retrieved == ["acct_existing"]
-    monkeypatch.setattr(
-        creator_payouts,
-        "get_stripe_client",
-        lambda: SimpleNamespace(
-            v1=SimpleNamespace(accounts=SimpleNamespace(retrieve=lambda _id: {"payouts_enabled": False}))
-        ),
-    )
-    assert creator_payouts.payout_status(uid) == "incomplete"
+    fake.v2_state["acct_existing"] = state
+    assert creator_payouts.payout_status(uid) == expected
+    assert creator_payouts.ready_account_id(uid) == ("acct_existing" if expected == "ready" else None)
+    assert set(fake.retrieved) == {"acct_existing"} and fake.v1_retrieved == []
 
 
 def test_stripe_failures_and_untrusted_link_fail_closed(backend, monkeypatch):
-    table, _, _, _ = backend
+    table, fake = backend
     uid = str(uuid4())
     table.rows[uid] = "acct_existing"
-    monkeypatch.setattr(
-        creator_payouts,
-        "get_stripe_client",
-        lambda: SimpleNamespace(
-            v1=SimpleNamespace(
-                account_links=SimpleNamespace(create=lambda _params: {"url": "https://evil.example/"})
-            )
-        ),
-    )
-    with pytest.raises(creator_payouts.PayoutSetupError, match="unavailable"):
-        creator_payouts.onboarding_url(uid, create_if_missing=True)
+    for bad in ("https://evil.example/", "http://connect.stripe.com/x", "https://stripe.com.evil.example/",
+                "javascript:alert(1)", None):
+        fake.link_url = bad
+        with pytest.raises(creator_payouts.PayoutSetupError, match="unavailable"):
+            creator_payouts.onboarding_url(uid, create_if_missing=True)
+
+    def boom(*_a: Any, **_k: Any):
+        raise stripe.APIConnectionError("down")
+
+    monkeypatch.setattr(fake, "raw_request", boom)
     assert creator_payouts.payout_status(uid) == "unavailable"
-    monkeypatch.setattr(
-        creator_payouts,
-        "get_settings",
-        lambda: SimpleNamespace(stripe_secret_key="sk_live_secret"),
-    )
+    monkeypatch.setattr(creator_payouts, "get_settings", lambda: SimpleNamespace(stripe_secret_key="sk_live_secret"))
     with pytest.raises(creator_payouts.PayoutSetupError, match="unavailable") as exc:
         creator_payouts.onboarding_url(uid, create_if_missing=True)
     assert "sk_live_secret" not in str(exc.value)
+
+
+def test_stored_account_ids_are_validated_before_use(backend):
+    table, fake = backend
+    uid = str(uuid4())
+    table.rows[uid] = "acct_x/../../v1/charges"
+    assert creator_payouts.payout_status(uid) == "unavailable"
+    with pytest.raises(creator_payouts.PayoutSetupError):
+        creator_payouts.onboarding_url(uid, create_if_missing=True)
+    assert fake.retrieved == [] and fake.links == []
+
+
+# ====================================================== existing v1 accounts
+
+
+def test_existing_v1_created_accounts_keep_v1_reads_and_v1_onboarding_links(backend):
+    """Stripe answers a v2 read of a v1-created account with
+    v1_account_instead_of_v2_account; those accounts stay on v1."""
+    table, fake = backend
+    uid = str(uuid4())
+    table.rows[uid] = "acct_legacyv1"
+    fake.v1_accounts["acct_legacyv1"] = {"payouts_enabled": True, "capabilities": {"transfers": "active"}}
+    assert creator_payouts.payout_status(uid) == "ready"
+    assert creator_payouts.ready_account_id(uid) == "acct_legacyv1"
+    fake.v1_accounts["acct_legacyv1"] = {"payouts_enabled": False, "capabilities": {"transfers": "active"}}
+    assert creator_payouts.payout_status(uid) == "incomplete"
+    url = creator_payouts.onboarding_url(uid, create_if_missing=True)
+    assert url == "https://connect.stripe.com/setup/e/v1"
+    assert fake.v1_links == [{
+        "account": "acct_legacyv1",
+        "type": "account_onboarding",
+        "return_url": "https://www.babyg.ai/creator/payouts/return",
+        "refresh_url": "https://www.babyg.ai/creator/payouts/refresh",
+    }]
+    assert fake.links == [] and fake.created == []
+
+
+# ===================================================================== routes
 
 
 def _session(client: TestClient, role: str = "creator") -> str:
@@ -218,13 +317,16 @@ def test_routes_require_creator_and_do_not_accept_identity(backend, monkeypatch)
     uid = _session(client)
     response = client.post(
         "/creator/payouts/start?creator_user_id=spoofed&stripe_account_id=acct_spoofed",
-        data={"creator_user_id": "spoofed", "stripe_account_id": "acct_spoofed"},
+        data={"creator_user_id": "spoofed", "stripe_account_id": "acct_spoofed",
+              "contact_email": "attacker@example.com"},
     )
-    table, _, links, _ = backend
+    table, fake = backend
     assert response.status_code == 303
     assert response.headers["location"].startswith("https://connect.stripe.com/")
     assert table.rows == {uid: "acct_testcreator"}
-    assert links[0]["account"] == "acct_testcreator"
+    assert fake.links[0]["account"] == "acct_testcreator"
+    assert fake.created[0][0]["contact_email"] == "sofia@example.com"   # from public.users, not the form
+    assert table.users.reads == [uid]
     assert client.get("/creator/payouts/refresh?account=acct_spoofed").status_code == 303
     returned = client.get("/creator/payouts/return?account=acct_spoofed&next=https://evil.example")
     assert returned.headers["location"] == "/creator/profile/settings#payouts"
@@ -260,23 +362,64 @@ def test_settings_shows_authoritative_payout_state(state, expected, monkeypatch)
     assert "sk_test_" not in response.text
 
 
-# --------------------------------------------------------------------------
-# Phase 1 (Step 7A): production "couldn't open payout setup" diagnosis.
-# Every failure used to be swallowed without a log line, so the cause could
-# not be read anywhere. These pin the stage-level, secret-free logging and
-# the idempotency window, and run the REAL Stripe SDK against a local HTTP
-# stub so the exact wire format of both onboarding calls is verified.
-# --------------------------------------------------------------------------
-
-import json  # noqa: E402
-import logging  # noqa: E402
-import threading  # noqa: E402
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer  # noqa: E402
-from urllib.parse import parse_qs  # noqa: E402
-
-import stripe  # noqa: E402
+# ===================================================== REAL SDK wire contract
+#
+# The REAL Stripe SDK (12.5.1) runs against a local HTTP stand-in for
+# api.stripe.com that enforces Stripe's documented rules, so the exact bytes
+# on the wire are verified: v2 JSON bodies + the v2 API version header, v1
+# form bodies + the SDK's pinned v1 version for v1-created accounts.
 
 CONTRACT_KEY = "sk_test_contract_key_must_never_be_logged"
+
+# The authoritative production response (Railway, stage='account_create').
+PRODUCTION_MESSAGE = (
+    "Stripe no longer recommends Accounts v1 for new Connect integrations. Create connected "
+    "accounts with POST /v2/core/accounts instead. If you are required to use Accounts v1, "
+    "[set once at account creation]: an account email address for the account, required "
+    "whenever a 'recipient' configuration is used, and controller[fees][payer] and "
+    "controller[losses][payments]."
+)
+V1_REJECTION = (400, {"error": {"type": "invalid_request_error", "message": PRODUCTION_MESSAGE}})
+
+
+def _v2_error(code: str, message: str) -> tuple[int, dict]:
+    return 400, {"error": {"type": "invalid_request_error", "code": code, "message": message}}
+
+
+def stripe_v2_account_rule(req: dict) -> tuple[int, dict]:
+    """POST /v2/core/accounts as documented for 2026-09-30.endive."""
+    body = req["json"]
+    if req["headers"].get("stripe-version") != V2_VERSION:
+        return _v2_error("invalid_api_version", "v2 requires an explicit v2 API version")
+    if "type" in body or "controller" in body or "email" in body or "capabilities" in body:
+        return _v2_error("parameter_unknown", "v1 account parameter sent to /v2/core/accounts")
+    if not body.get("contact_email"):
+        return _v2_error("email_invalid", "An account email address is required for a recipient configuration")
+    resp = (body.get("defaults") or {}).get("responsibilities") or {}
+    if set(resp) != {"fees_collector", "losses_collector"}:
+        return _v2_error("parameter_missing", "defaults.responsibilities needs fees_collector and losses_collector")
+    if body.get("dashboard") == "express" and (resp["fees_collector"], resp["losses_collector"]) != (
+            "application", "application"):
+        return _v2_error("account_controller_express_dash_without_application_losses_or_fees",
+                         "If `dashboard` is `express`, `fees_collector` must be `application` and "
+                         "`losses_collector` must be `application`.")
+    transfers = (((body.get("configuration") or {}).get("recipient") or {}).get("capabilities") or {}).get(
+        "stripe_balance", {}).get("stripe_transfers") or {}
+    if transfers.get("requested") is not True:
+        return _v2_error("configuration_creation_invalid", "recipient stripe_transfers not requested")
+    return 200, {"id": "acct_v2creator", "object": "v2.core.account", "dashboard": "express"}
+
+
+def stripe_v2_link_rule(req: dict) -> tuple[int, dict]:
+    body = req["json"]
+    use = body.get("use_case") or {}
+    onboarding = use.get("account_onboarding") or {}
+    if req["headers"].get("stripe-version") != V2_VERSION or not body.get("account") \
+            or use.get("type") != "account_onboarding" or not onboarding.get("refresh_url") \
+            or "configurations" in onboarding:
+        return _v2_error("parameter_invalid", "bad v2 account link")
+    return 200, {"object": "v2.core.account_link", "account": body["account"],
+                 "url": f"https://connect.stripe.com/d/setup/e/{body['account']}/x"}
 
 
 class _StubStripe:
@@ -288,12 +431,18 @@ class _StubStripe:
         stub = self
 
         class Handler(BaseHTTPRequestHandler):
-            def do_POST(self):  # noqa: N802 (http.server API)
-                body = self.rfile.read(int(self.headers.get("content-length") or 0)).decode()
-                form = parse_qs(body)
-                stub.requests.append({"path": self.path, "form": form, "headers": dict(self.headers)})
-                route = stub.routes[self.path]
-                status, payload = route(form) if callable(route) else route
+            def _serve(self, method: str) -> None:
+                raw = self.rfile.read(int(self.headers.get("content-length") or 0)).decode()
+                parts = urlsplit(self.path)
+                headers = {k.lower(): v for k, v in self.headers.items()}
+                is_json = headers.get("content-type", "").startswith("application/json")
+                req = {"method": method, "path": parts.path, "query": parts.query, "headers": headers,
+                       "raw": raw, "json": json.loads(raw) if is_json and raw else None,
+                       "form": parse_qs(raw) if raw and not is_json else {}}
+                stub.requests.append(req)
+                route = stub.routes.get(f"{method} {parts.path}")
+                status, payload = (route(req) if callable(route) else route) if route else (
+                    404, {"error": {"type": "invalid_request_error", "code": "not_found", "message": "no route"}})
                 data = json.dumps(payload).encode()
                 self.send_response(status)
                 self.send_header("content-type", "application/json")
@@ -301,6 +450,12 @@ class _StubStripe:
                 self.send_header("content-length", str(len(data)))
                 self.end_headers()
                 self.wfile.write(data)
+
+            def do_POST(self):  # noqa: N802 (http.server API)
+                self._serve("POST")
+
+            def do_GET(self):  # noqa: N802
+                self._serve("GET")
 
             def log_message(self, *_args):
                 return
@@ -321,6 +476,10 @@ class _StubStripe:
         self.server.server_close()
 
 
+V2_OK = {"POST /v2/core/accounts": stripe_v2_account_rule, "POST /v2/core/account_links": stripe_v2_link_rule,
+         "POST /v1/accounts": V1_REJECTION}
+
+
 @pytest.fixture()
 def real_sdk(backend, monkeypatch):
     stubs: list[_StubStripe] = []
@@ -336,55 +495,90 @@ def real_sdk(backend, monkeypatch):
         stub.close()
 
 
-def test_real_sdk_wire_contract_for_account_and_hosted_link(backend, real_sdk):
+def test_stub_reproduces_the_exact_production_failure_of_accounts_v1(backend, real_sdk):
+    """Both previous request shapes (11c8a22's type=express and f9d06ac's
+    controller+email) get Stripe's production 400 from the stand-in."""
+    client = real_sdk(V2_OK).client()
+    for params in ({"type": "express", "capabilities": {"transfers": {"requested": True}}},
+                   {"controller": {"fees": {"payer": "application"}, "losses": {"payments": "application"},
+                                   "requirement_collection": "stripe", "stripe_dashboard": {"type": "express"}},
+                    "email": "sofia@example.com", "capabilities": {"transfers": {"requested": True}}}):
+        with pytest.raises(stripe.InvalidRequestError) as exc:
+            client.v1.accounts.create(params)
+        assert exc.value.http_status == 400 and exc.value.code is None
+        assert exc.value.user_message == PRODUCTION_MESSAGE
+        assert getattr(exc.value.error, "type", None) == "invalid_request_error"
+
+
+def test_real_sdk_onboarding_uses_accounts_v2_and_never_v1_create(backend, real_sdk, caplog):
     table = backend[0]
-    stub = real_sdk({
-        "/v1/accounts": (200, {"id": "acct_stubcreator", "object": "account"}),
-        "/v1/account_links": (200, {"object": "account_link",
-                                    "url": "https://connect.stripe.com/setup/e/acct_stubcreator/x"}),
-    })
+    stub = real_sdk(V2_OK)
     uid = str(uuid4())
-    url = creator_payouts.onboarding_url(uid, create_if_missing=True)
-    assert url == "https://connect.stripe.com/setup/e/acct_stubcreator/x"
-    assert table.rows == {uid: "acct_stubcreator"}
+    with caplog.at_level(logging.WARNING, logger="app.services.creator_payouts"):
+        url = creator_payouts.onboarding_url(uid, create_if_missing=True)
+    assert url == "https://connect.stripe.com/d/setup/e/acct_v2creator/x"
+    assert table.rows == {uid: "acct_v2creator"}
     create, link = stub.requests
-    assert create["path"] == "/v1/accounts"
-    assert create["form"] == {
-        "controller[fees][payer]": ["application"],
-        "controller[losses][payments]": ["application"],
-        "controller[requirement_collection]": ["stripe"],
-        "controller[stripe_dashboard][type]": ["express"],
-        "email": ["sofia@example.com"],
-        "capabilities[transfers][requested]": ["true"],
-    }
-    headers = {k.lower(): v for k, v in create["headers"].items()}
-    assert headers["authorization"] == f"Bearer {CONTRACT_KEY}"
-    assert headers["stripe-version"] == stripe.api_version
-    assert headers["idempotency-key"].startswith("babyg-creator-connect-")
-    assert headers["idempotency-key"].endswith(uid)
-    assert link["path"] == "/v1/account_links"
-    assert link["form"] == {
-        "account": ["acct_stubcreator"],
-        "type": ["account_onboarding"],
-        "return_url": ["https://www.babyg.ai/creator/payouts/return"],
-        "refresh_url": ["https://www.babyg.ai/creator/payouts/refresh"],
-    }
+    assert (create["method"], create["path"], link["method"], link["path"]) == (
+        "POST", "/v2/core/accounts", "POST", "/v2/core/account_links")
+    assert create["headers"]["content-type"].startswith("application/json")
+    assert create["json"] == EXPECTED_V2_ACCOUNT
+    assert create["headers"]["stripe-version"] == V2_VERSION
+    assert create["headers"]["authorization"] == f"Bearer {CONTRACT_KEY}"
+    assert create["headers"]["idempotency-key"].startswith("babyg-creator-account-v2-")
+    assert create["headers"]["idempotency-key"].endswith(uid)
+    assert link["json"] == {"account": "acct_v2creator", "use_case": {
+        "type": "account_onboarding",
+        "account_onboarding": {"return_url": "https://www.babyg.ai/creator/payouts/return",
+                               "refresh_url": "https://www.babyg.ai/creator/payouts/refresh"}}}
+    assert link["headers"]["stripe-version"] == V2_VERSION
+    assert not [r for r in stub.requests if r["path"] == "/v1/accounts"]
+    assert not [r for r in caplog.records if r.name == "app.services.creator_payouts"]
+
+
+def test_real_sdk_readiness_reads_v2_with_include_and_v1_accounts_fall_back(backend, real_sdk):
+    table = backend[0]
+    v2_ready = {"id": "acct_v2ready", "object": "v2.core.account",
+                "configuration": {"recipient": {"applied": True, "capabilities": {"stripe_balance": {
+                    "stripe_transfers": {"status": "active", "status_details": []},
+                    "payouts": {"status": "active", "status_details": []}}}}}}
+    routes = dict(V2_OK)
+    routes["GET /v2/core/accounts/acct_v2ready"] = (200, v2_ready)
+    routes["GET /v2/core/accounts/acct_legacyv1"] = _v2_error(
+        "v1_account_instead_of_v2_account", "V1 Account ID cannot be used in V2 Account APIs.")
+    routes["GET /v1/accounts/acct_legacyv1"] = (200, {"id": "acct_legacyv1", "object": "account",
+                                                     "payouts_enabled": True,
+                                                     "capabilities": {"transfers": "active"}})
+    routes["POST /v1/account_links"] = (200, {"object": "account_link", "url": "https://connect.stripe.com/setup/e/v1"})
+    stub = real_sdk(routes)
+    v2_uid, v1_uid = str(uuid4()), str(uuid4())
+    table.rows.update({v2_uid: "acct_v2ready", v1_uid: "acct_legacyv1"})
+    assert creator_payouts.readiness(v2_uid) == ("ready", "acct_v2ready")
+    assert creator_payouts.readiness(v1_uid) == ("ready", "acct_legacyv1")
+    v2_get, v1_probe, v1_get = stub.requests
+    assert parse_qs(v2_get["query"]) == {"include[0]": ["configuration.recipient"]}   # indexed, as current SDKs send
+    assert v2_get["headers"]["stripe-version"] == V2_VERSION
+    assert (v1_get["method"], v1_get["path"]) == ("GET", "/v1/accounts/acct_legacyv1")
+    # v1 calls keep the SDK's pinned v1 version (unchanged for Step 7A)
+    assert v1_get["headers"]["stripe-version"] == stripe.api_version == "2025-08-27.basil"
+    stub.requests.clear()
+    assert creator_payouts.onboarding_url(v1_uid, create_if_missing=True) == "https://connect.stripe.com/setup/e/v1"
+    assert [(r["method"], r["path"]) for r in stub.requests] == [
+        ("GET", "/v2/core/accounts/acct_legacyv1"), ("POST", "/v1/account_links")]
+    assert stub.requests[1]["form"]["type"] == ["account_onboarding"]
 
 
 @pytest.mark.parametrize(
-    ("path", "stage"),
-    [("/v1/accounts", "account_create"), ("/v1/account_links", "account_link")],
+    ("route", "stage", "code"),
+    [("POST /v2/core/accounts", "account_create", "account_controller_express_dash_without_application_losses_or_fees"),
+     ("POST /v2/core/account_links", "account_link", "accounts_v2_access_blocked")],
 )
 def test_stripe_rejection_is_logged_with_stage_and_reason_never_the_key(
-    backend, real_sdk, caplog, path, stage
+    backend, real_sdk, caplog, route, stage, code
 ):
-    reason = "Please review the responsibilities of managing losses for connected accounts."
-    routes = {
-        "/v1/accounts": (200, {"id": "acct_stubcreator", "object": "account"}),
-        "/v1/account_links": (200, {"url": "https://connect.stripe.com/x"}),
-    }
-    routes[path] = (400, {"error": {"type": "invalid_request_error", "code": "platform_setup_required",
-                                    "message": reason}})
+    reason = "Stripe says no for a documented reason."
+    routes = dict(V2_OK)
+    routes[route] = _v2_error(code, reason)
     real_sdk(routes)
     with caplog.at_level(logging.WARNING, logger="app.services.creator_payouts"), \
             pytest.raises(creator_payouts.PayoutSetupError, match="^Payout setup is unavailable$"):
@@ -393,11 +587,45 @@ def test_stripe_rejection_is_logged_with_stage_and_reason_never_the_key(
     line = record.getMessage()
     assert f"stage='{stage}'" in line
     assert "error='InvalidRequestError'" in line and "http_status=400" in line
-    assert "stripe_type='invalid_request_error'" in line
-    assert "stripe_code='platform_setup_required'" in line
+    assert "stripe_type='invalid_request_error'" in line and f"stripe_code='{code}'" in line
     assert "request_id='req_stub_" in line and reason in line
     assert "key_kind=" in line
     assert CONTRACT_KEY not in line and "sk_test_contract" not in line
+
+
+def test_email_is_read_from_the_creator_row_and_masked_in_logs(backend, real_sdk, caplog):
+    table = backend[0]
+    uid = str(uuid4())
+    table.users.emails[uid] = "maya.lee@example.com"
+    routes = dict(V2_OK)
+    routes["POST /v2/core/accounts"] = _v2_error("email_invalid", "Incorrect email maya.lee@example.com")
+    stub = real_sdk(routes)
+    with caplog.at_level(logging.WARNING), pytest.raises(creator_payouts.PayoutSetupError):
+        creator_payouts.onboarding_url(uid, create_if_missing=True)
+    assert table.users.reads == [uid]
+    assert stub.requests[0]["json"]["contact_email"] == "maya.lee@example.com"
+    assert "maya.lee@example.com" not in caplog.text and "[email]" in caplog.text
+
+
+@pytest.mark.parametrize("email", [None, "", "not-an-email"])
+def test_missing_email_fails_closed_before_any_stripe_call(backend, email, caplog):
+    table, fake = backend
+    uid = str(uuid4())
+    table.users.emails[uid] = email
+    with caplog.at_level(logging.WARNING), pytest.raises(creator_payouts.PayoutSetupError):
+        creator_payouts.onboarding_url(uid, create_if_missing=True)
+    assert fake.created == [] and table.rows == {}
+    assert "stage='account_email'" in caplog.text
+
+
+def test_existing_accounts_and_refresh_never_read_email_or_create(backend):
+    table, fake = backend
+    uid = str(uuid4())
+    table.rows[uid] = "acct_existing"
+    creator_payouts.onboarding_url(uid, create_if_missing=True)
+    creator_payouts.onboarding_url(uid, create_if_missing=False)
+    assert fake.created == [] and table.users.reads == []
+    assert [link["account"] for link in fake.links] == ["acct_existing", "acct_existing"]
 
 
 def test_config_and_origin_failures_name_their_stage(backend, monkeypatch, caplog):
@@ -421,42 +649,24 @@ def test_config_and_origin_failures_name_their_stage(backend, monkeypatch, caplo
 
 
 def test_status_failure_is_logged_not_silent(backend, monkeypatch, caplog):
-    table = backend[0]
+    table, fake = backend
     uid = str(uuid4())
     table.rows[uid] = "acct_existing"
 
-    def boom(_account_id):
+    def boom(*_a: Any, **_k: Any):
         raise stripe.PermissionError("This application does not have access", http_status=403)
 
-    monkeypatch.setattr(
-        creator_payouts, "get_stripe_client",
-        lambda: SimpleNamespace(v1=SimpleNamespace(accounts=SimpleNamespace(retrieve=boom))),
-    )
+    monkeypatch.setattr(fake, "raw_request", boom)
     with caplog.at_level(logging.WARNING):
         assert creator_payouts.payout_status(uid) == "unavailable"
         assert creator_payouts.ready_account_id(uid) is None
     assert "stage='status_account_retrieve'" in caplog.text and "http_status=403" in caplog.text
 
 
-def test_ready_account_id_only_when_stripe_says_ready(backend, monkeypatch):
-    table, _, _, _ = backend
-    uid = str(uuid4())
-    assert creator_payouts.ready_account_id(uid) is None
-    table.rows[uid] = "acct_ready"
-    assert creator_payouts.ready_account_id(uid) == "acct_ready"
-    monkeypatch.setattr(
-        creator_payouts, "get_stripe_client",
-        lambda: SimpleNamespace(v1=SimpleNamespace(accounts=SimpleNamespace(
-            retrieve=lambda _id: {"payouts_enabled": True, "capabilities": {"transfers": "inactive"}}))),
-    )
-    assert creator_payouts.ready_account_id(uid) is None
-
-
 def test_failed_create_is_not_replayed_for_24_hours(backend, monkeypatch):
     """Stripe caches a failed create under its idempotency key for 24h, so a
     fixed per-creator key kept failing after the cause was fixed. Same window
     -> same key (double-submit safe); next window -> a fresh attempt."""
-    _, created, _, _ = backend
     uid = str(uuid4())
     clock = {"now": 1_000_000.0}
     monkeypatch.setattr(creator_payouts.time, "time", lambda: clock["now"])
@@ -480,107 +690,6 @@ def test_safe_error_fields_mask_credentials():
     assert fields["error"] == "RuntimeError"
 
 
-# --------------------------------------------------------------------------
-# Production failure after the sk_test key fix (stage='account_create',
-# HTTP 400 invalid_request_error): this platform's Stripe account no longer
-# accepts `type=express` on POST /v1/accounts and requires the fee payer and
-# loss liability (plus the account email for a transfers-only, i.e.
-# "recipient", account) to be set at creation. The stub below enforces that
-# rule with Stripe's exact message, through the REAL SDK.
-# --------------------------------------------------------------------------
-
-PRODUCTION_MESSAGE = (
-    "Stripe no longer recommends Accounts v1 for new Connect integrations. Create connected "
-    "accounts with POST /v2/core/accounts instead. If you are required to use Accounts v1, "
-    "[set once at account creation]: an account email address for the account, required "
-    "whenever a 'recipient' configuration is used, and controller[fees][payer] and "
-    "controller[losses][payments]."
-)
-
-
-def _stripe_v1_account_rule(form: dict) -> tuple[int, dict]:
-    if ("type" in form or "controller[fees][payer]" not in form
-            or "controller[losses][payments]" not in form or "email" not in form):
-        return 400, {"error": {"type": "invalid_request_error", "message": PRODUCTION_MESSAGE}}
-    return 200, {"id": "acct_ruleaccepted", "object": "account"}
-
-
-_LINK_OK = (200, {"object": "account_link", "url": "https://connect.stripe.com/setup/e/acct_ruleaccepted/x"})
-
-
-def test_stub_reproduces_the_production_rejection_of_type_express(backend, real_sdk):
-    """The rule stub rejects exactly what production rejected (the 11c8a22
-    request shape), so the next test proves the fix against that rule."""
-    stub = real_sdk({"/v1/accounts": _stripe_v1_account_rule, "/v1/account_links": _LINK_OK})
-    client = stub.client()
-    with pytest.raises(stripe.InvalidRequestError) as exc:
-        client.v1.accounts.create({"type": "express", "capabilities": {"transfers": {"requested": True}}})
-    assert exc.value.http_status == 400 and exc.value.code is None
-    assert exc.value.user_message == PRODUCTION_MESSAGE
-    assert getattr(exc.value.error, "type", None) == "invalid_request_error"
-
-
-def test_onboarding_passes_the_production_account_rule(backend, real_sdk, caplog):
-    table = backend[0]
-    stub = real_sdk({"/v1/accounts": _stripe_v1_account_rule, "/v1/account_links": _LINK_OK})
-    uid = str(uuid4())
-    with caplog.at_level(logging.WARNING, logger="app.services.creator_payouts"):
-        url = creator_payouts.onboarding_url(uid, create_if_missing=True)
-    assert url == "https://connect.stripe.com/setup/e/acct_ruleaccepted/x"
-    assert table.rows == {uid: "acct_ruleaccepted"}
-    assert [r["path"] for r in stub.requests] == ["/v1/accounts", "/v1/account_links"]
-    assert "type" not in stub.requests[0]["form"]
-    assert not [r for r in caplog.records if r.name == "app.services.creator_payouts"]
-
-
-def test_production_style_rejection_is_still_logged_and_failed_closed(backend, real_sdk, caplog):
-    real_sdk({"/v1/accounts": (400, {"error": {"type": "invalid_request_error",
-                                               "message": PRODUCTION_MESSAGE}}),
-              "/v1/account_links": _LINK_OK})
-    with caplog.at_level(logging.WARNING, logger="app.services.creator_payouts"), \
-            pytest.raises(creator_payouts.PayoutSetupError, match="^Payout setup is unavailable$"):
-        creator_payouts.onboarding_url(str(uuid4()), create_if_missing=True)
-    line = caplog.records[-1].getMessage()
-    assert "stage='account_create'" in line and "key_kind=" in line and "http_status=400" in line
-    assert "stripe_code=None" in line and "stripe_type='invalid_request_error'" in line
-    assert "controller[fees][payer]" in line and CONTRACT_KEY not in line
-    assert backend[0].rows == {}
-
-
-def test_email_is_read_from_the_creator_row_and_masked_in_logs(backend, real_sdk, caplog):
-    table = backend[0]
-    uid = str(uuid4())
-    table.users.emails[uid] = "maya.lee@example.com"
-    real_sdk({"/v1/accounts": (400, {"error": {"type": "invalid_request_error",
-                                               "message": "Invalid email address: maya.lee@example.com"}}),
-              "/v1/account_links": _LINK_OK})
-    with caplog.at_level(logging.WARNING), pytest.raises(creator_payouts.PayoutSetupError):
-        creator_payouts.onboarding_url(uid, create_if_missing=True)
-    assert table.users.reads == [uid]
-    assert "maya.lee@example.com" not in caplog.text and "[email]" in caplog.text
-
-
-@pytest.mark.parametrize("email", [None, "", "not-an-email"])
-def test_missing_email_fails_closed_before_any_stripe_call(backend, email, caplog):
-    table, created, _, _ = backend
-    uid = str(uuid4())
-    table.users.emails[uid] = email
-    with caplog.at_level(logging.WARNING), pytest.raises(creator_payouts.PayoutSetupError):
-        creator_payouts.onboarding_url(uid, create_if_missing=True)
-    assert created == [] and table.rows == {}
-    assert "stage='account_email'" in caplog.text
-
-
-def test_existing_accounts_and_refresh_never_read_email_or_create(backend):
-    table, created, links, _ = backend
-    uid = str(uuid4())
-    table.rows[uid] = "acct_existing"
-    creator_payouts.onboarding_url(uid, create_if_missing=True)
-    creator_payouts.onboarding_url(uid, create_if_missing=False)
-    assert created == [] and table.users.reads == []
-    assert [link["account"] for link in links] == ["acct_existing", "acct_existing"]
-
-
 def test_long_stripe_messages_are_logged_whole():
     """Production's ~360-char message was cut at 300 chars, hiding the
     required field names. The whole message (masked) must reach the log."""
@@ -589,3 +698,14 @@ def test_long_stripe_messages_are_logged_whole():
     fields = stripe_client.safe_error_fields(RuntimeError(PRODUCTION_MESSAGE))
     assert fields["message"] == PRODUCTION_MESSAGE
     assert stripe_client.safe_error_fields(RuntimeError("x" * 5000))["message"] == "x" * 1000
+
+
+def test_v2_request_matches_stripes_published_contract():
+    """Pins the request to the 2026-09-30.endive v2 contract: recipient
+    configuration (destination charges without on_behalf_of), Express
+    Dashboard with application fees + losses (Stripe's documented rule for
+    an Express Dashboard), and nothing from Accounts v1."""
+    body = creator_payouts._new_account_request("a@b.co")
+    assert body == {**EXPECTED_V2_ACCOUNT, "contact_email": "a@b.co"}
+    assert creator_payouts.ACCOUNTS_V2_API_VERSION == V2_VERSION
+    assert not {"type", "controller", "email", "capabilities", "business_type"} & set(body)

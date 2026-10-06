@@ -280,8 +280,9 @@ class _FakeDB:
 
 
 class _FakeStripe:
-    """checkout.sessions create/retrieve (with Stripe's idempotency) and
-    accounts.retrieve (payout readiness)."""
+    """checkout.sessions create/retrieve (with Stripe's idempotency) and payout
+    readiness: the Accounts v2 recipient read (raw_request), with v1
+    accounts.retrieve for accounts created through Accounts v1."""
 
     def __init__(self) -> None:
         self.sessions: dict[str, dict[str, Any]] = {}
@@ -289,6 +290,7 @@ class _FakeStripe:
         self.creates: list[tuple[dict[str, Any], dict[str, Any]]] = []
         self.retrieves: list[str] = []
         self.ready: set[str] = set()
+        self.v1_created: set[str] = set()
         self.fail_create: Exception | None = None
         self.v1 = SimpleNamespace(
             checkout=SimpleNamespace(sessions=SimpleNamespace(create=self._create, retrieve=self._retrieve)),
@@ -315,7 +317,23 @@ class _FakeStripe:
         self.retrieves.append(sid)
         return dict(self.sessions[sid])
 
+    def raw_request(self, method: str, path: str, **params: Any) -> SimpleNamespace:
+        assert method == "get" and path.startswith("/v2/core/accounts/"), (method, path)
+        assert params == {"include[0]": "configuration.recipient", "stripe_version": "2026-09-30.endive"}
+        acct = path.rsplit("/", 1)[1]
+        if acct in self.v1_created:
+            import stripe
+
+            raise stripe.InvalidRequestError("V1 Account ID cannot be used in V2 Account APIs.", None,
+                                             code="v1_account_instead_of_v2_account", http_status=400)
+        status = "active" if acct in self.ready else "restricted"
+        return SimpleNamespace(data={"id": acct, "object": "v2.core.account", "configuration": {"recipient": {
+            "applied": True, "capabilities": {"stripe_balance": {
+                "stripe_transfers": {"status": status, "status_details": []},
+                "payouts": {"status": status, "status_details": []}}}}}})
+
     def _account(self, acct: str) -> dict[str, Any]:
+        assert acct in self.v1_created, "v2 accounts are read through /v2/core/accounts"
         if acct in self.ready:
             return {"id": acct, "payouts_enabled": True, "capabilities": {"transfers": "active"}}
         return {"id": acct, "payouts_enabled": False, "capabilities": {"transfers": "inactive"}}
@@ -1145,3 +1163,11 @@ def test_migration_0052_is_additive_private_idempotent_and_pins_the_economics():
                    " to authenticated", " to anon", "security definer", "creator_job_offers",
                    "insert into"):
         assert banned not in code, banned
+
+
+def test_v1_created_recipient_accounts_still_fund_through_the_v1_readiness_fallback(client, world):
+    s = _deal(client, world)
+    world.stripe.v1_created.add(world.account_of(s.recipient))
+    assert _pay(client, s).headers["location"].startswith("https://checkout.stripe.com/")
+    params = world.stripe.creates[0][0]
+    assert params["payment_intent_data"]["transfer_data"]["destination"] == world.account_of(s.recipient)
