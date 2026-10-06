@@ -33,6 +33,8 @@
     {% if activity_has_new %}<span class="bot-activity-btn-dot" aria-hidden="true"></span>{% endif %}
   </button>
 
+  {% include "_partials/manager_deal_updates.html" %}
+
   {% if not messages %}
   <div class="bot-hero">
     <div class="bot-hero-head">

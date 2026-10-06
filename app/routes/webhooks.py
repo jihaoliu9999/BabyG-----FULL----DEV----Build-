@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import json
 import logging
 from typing import Any
 
@@ -179,16 +180,17 @@ def _dispatch_payload(payload: dict[str, Any]) -> None:
 # ---------------------------------------------------------------------------
 # Stripe — Connect (sandbox first)
 #
-# This is the receiving foundation only. It verifies Stripe's signature
-# on every POST using STRIPE_WEBHOOK_SECRET via stripe.Webhook.construct_event
-# (Stripe's own official verification path — same code as their docs) and
-# acknowledges the event with a 2xx. It intentionally does not run any
-# business logic yet: no DB writes, no money movement, no application
-# actions. Only the event id + event type are logged, so no card, bank,
-# customer, or personal data ever reaches our logs from this receiver.
+# It verifies Stripe's signature on every POST using STRIPE_WEBHOOK_SECRET
+# via stripe.Webhook.construct_event (Stripe's own official verification
+# path — same code as their docs) and acknowledges the event with a 2xx.
+# Only the event id + event type are logged, so no card, bank, customer,
+# or personal data ever reaches our logs from this receiver.
 #
-# Unknown event types are also acknowledged with 200 so Stripe does not
-# retry them forever while their handlers are still being implemented.
+# Step 7A: AFTER verification, babyg deal Checkout events
+# (checkout.session.*) are handed to deal_payments, the only path that can
+# mark a deal payment succeeded (and so fund the deal). Every other event
+# type is acknowledged with 200 without touching the database, so Stripe
+# does not retry them forever.
 # ---------------------------------------------------------------------------
 
 
@@ -274,9 +276,24 @@ async def stripe_event(request: Request) -> Response:
         event_type,
     )
 
-    # Business handlers slot in later. For now, every verified event
-    # is acknowledged 200 so Stripe stops retrying and marks the
-    # delivery successful in the dashboard.
+    # Step 7A: deal funding. The raw body is authentic (verified above).
+    # A transient failure answers 500 so Stripe redelivers; the handler is
+    # idempotent, so a redelivery can never fund or notify twice.
+    if event_type.startswith("checkout.session."):
+        from app.services import deal_payments
+
+        try:
+            outcome = deal_payments.handle_stripe_event(json.loads(raw_body))
+        except deal_payments.WebhookRetryError:
+            logger.warning("stripe_webhook.event.retry event_id=%s", event_id)
+            return JSONResponse({"ok": False}, status_code=500)
+        except Exception:
+            logger.exception("stripe_webhook.event.handler_raised event_id=%s", event_id)
+            return JSONResponse({"ok": False}, status_code=500)
+        logger.info(
+            "stripe_webhook.event.handled event_id=%s outcome=%s", event_id, outcome
+        )
+
     return JSONResponse(
         {"received": True, "event_id": event_id}, status_code=200
     )

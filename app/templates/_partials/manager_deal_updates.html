@@ -1,0 +1,17 @@
+{# Step 7A: babyg Manager deal payment updates (creator Manager page and the
+   brand DMs page). Grounded rows from deal_events.list_recent: one fixed
+   sentence per deal plus allowlisted actions. Never part of a human DM
+   thread. Context: deal_updates. #}
+{% if deal_updates %}
+<section class="manager-updates" aria-label="babyg updates" data-manager-updates>
+  <h2 class="manager-updates-title">updates</h2>
+  <ul class="manager-updates-list">
+    {% for u in deal_updates %}
+    <li class="manager-update" data-manager-update>
+      <p class="manager-update-text">{{ u.title }}</p>
+      {% for a in u.actions %}<a href="{{ a.path|safe_path }}" class="manager-update-action">{{ a.label }}</a>{% endfor %}
+    </li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}

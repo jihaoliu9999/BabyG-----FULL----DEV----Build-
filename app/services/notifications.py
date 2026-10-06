@@ -108,6 +108,57 @@ def create(
     return True
 
 
+def create_once(
+    *,
+    user_id: str,
+    kind: str,
+    title: str,
+    source_provider: str,
+    source_event_id: str,
+    body: str | None = None,
+    link_path: str | None = None,
+    priority: str = "normal",
+    underlying_type: str | None = None,
+    underlying_id: str | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> bool:
+    """Record one event-keyed notification exactly once.
+
+    A plain INSERT: a repeat (same user, provider and event id) is refused
+    by the unique index ``uq_notifications_source_event`` (23505) and
+    reported as "already recorded". ``create``'s upsert path names that
+    index as an ON CONFLICT target, which Postgres cannot infer for a
+    PARTIAL index, so it is not used here. Returns True only when a new row
+    was written; never raises for database errors.
+    """
+    if kind not in KINDS or not source_provider or not source_event_id:
+        logger.error("notifications.create_once rejected kind=%s", kind)
+        return False
+    payload: dict[str, Any] = {
+        "user_id": user_id,
+        "kind": kind,
+        "title": (title or "")[:_TITLE_MAX],
+        "body": body[:_BODY_MAX] if isinstance(body, str) else body,
+        "link_path": link_path,
+        "priority": priority if priority in PRIORITIES else "normal",
+        "source_provider": source_provider,
+        "source_event_id": source_event_id,
+        "underlying_type": underlying_type,
+        "underlying_id": underlying_id,
+        "metadata": metadata or {},
+    }
+    try:
+        supabase_client.get_service_client().table("notifications").insert(payload).execute()
+    except PostgrestAPIError as exc:
+        if str(getattr(exc, "code", "") or "") == "23505":
+            return False  # already recorded (webhook retry, repeat event)
+        logger.exception(
+            "notifications.create_once failed provider=%s event=%s", source_provider, source_event_id
+        )
+        return False
+    return True
+
+
 def list_for_user(
     user_id: str, *, limit: int = 50, include_archived: bool = False
 ) -> list[dict[str, Any]]:

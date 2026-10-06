@@ -12,6 +12,8 @@ from app.core.security import SessionPayload
 from app.core.templating import templates
 from app.deps import require_role
 from app.services import (
+    deal_events,
+    deal_payments,
     discover,
     dms,
     job_applications,
@@ -336,7 +338,14 @@ async def dm_page(
     return templates.TemplateResponse(
         request,
         "brand/dm.html",
-        {"profile": profile, "thread_count": thread_count, "dm_view": "messages"},
+        {
+            "profile": profile,
+            "thread_count": thread_count,
+            "dm_view": "messages",
+            # Step 7A: babyg's grounded deal payment updates (brands have no
+            # Manager chat; this compact list is their Manager surface).
+            "deal_updates": deal_events.list_recent(session["user_id"], limit=3),
+        },
     )
 
 
@@ -360,6 +369,11 @@ async def dm_deal_detail(
         if listing is not None and jobs.can_view_detail(listing, session["user_id"])
         else None
     )
+    payment = deal_payments.detail_context(
+        deal,
+        session["user_id"],
+        notice=deal_payments.notice_from_query(request.query_params.get("payment")),
+    )
     return templates.TemplateResponse(
         request,
         "creator/deal_detail.html",
@@ -368,9 +382,26 @@ async def dm_deal_detail(
             "deal": deal,
             "back_path": "/brand/dm?view=deals",
             "opportunity_path": opportunity_path,
-            "babyg_state": job_deals.BABYG_STATE,
+            "babyg_state": payment["babyg_state"],
+            "funding": payment["funding"],
+            "pay_path": f"/brand/dm/deals/{deal['id']}/pay",
         },
     )
+
+
+@router.post("/dm/deals/{deal_id}/pay")
+async def dm_deal_pay(
+    deal_id: str,
+    session: SessionPayload = Depends(require_role("brand")),
+) -> Response:
+    """Step 7A: the brand poster pays its deal (see the creator route)."""
+    profile = profiles.get_brand_profile(session["user_id"]) or {}
+    if not profile.get("onboarding_completed_at"):
+        return RedirectResponse("/onboarding/brand", status_code=302)
+    target = deal_payments.pay_redirect(deal_id, session["user_id"], brand=True)
+    if target is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    return RedirectResponse(target, status_code=303)
 
 
 @router.get("/discover", response_class=HTMLResponse)

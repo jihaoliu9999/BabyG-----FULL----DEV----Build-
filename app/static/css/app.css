@@ -16479,3 +16479,92 @@ html.bot-activity-open, html.bot-activity-open body { overflow: hidden; }
   text-decoration-color: var(--accent);
   text-underline-offset: 3px;
 }
+
+/* Step 7A: payment on Deal detail (both parties). Reuses the detail section
+   heading; adds the money breakdown, the state line and the Pay row. */
+.opportunity-deal-payment-state { margin: 0 0 10px; color: var(--ink); font-size: 15.5px; }
+.opportunity-deal-breakdown { display: grid; gap: 6px; margin: 0 0 14px; }
+.opportunity-deal-breakdown > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  min-width: 0;
+  font-size: 14.5px;
+  line-height: 1.4;
+}
+.opportunity-deal-breakdown dt { min-width: 0; color: var(--ink-mid); }
+.opportunity-deal-breakdown dd {
+  margin: 0;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.opportunity-deal-breakdown .is-total {
+  padding-top: 8px;
+  border-top: 1px solid var(--hairline-strong);
+  font-weight: 700;
+}
+.opportunity-deal-breakdown .is-total dt { color: var(--ink); }
+.opportunity-deal-payment .opportunity-deal-payment-note { margin: 0 0 12px; color: var(--ink-mid); font-size: 14px; }
+.opportunity-deal-pay { margin: 0; }
+@media (max-width: 480px) {
+  .opportunity-deal-pay .btn,
+  .opportunity-deal-setup { width: 100%; justify-content: center; }
+}
+
+/* Step 7A: babyg Manager deal updates. Compact rows at the top of the
+   creator Manager page (above the chat) and of the brand DMs page. */
+.manager-updates { flex-shrink: 0; min-width: 0; margin: 0 0 12px; }
+.bot-screen .manager-updates { margin: 0; padding: max(12px, env(safe-area-inset-top, 0px)) 18px 6px; }
+.manager-updates-title {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  margin: 0 0 6px;
+  color: var(--ink-mid);
+  font-size: 13px;
+  font-weight: 600;
+}
+.bot-screen .manager-updates-title { min-height: 44px; margin-right: 52px; } /* the activity button's row */
+/* Typing in the Manager chat: the composer and messages get the room. */
+.is-chat.chat-keyboard-open .bot-screen .manager-updates { display: none; }
+.manager-updates-list { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.manager-update {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  padding: 8px 12px;
+  border: 1px solid rgba(245, 241, 232, 0.09);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+}
+.manager-update-text {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  color: var(--ink);
+  font-size: 13.5px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.manager-update-action {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  min-height: 36px;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  text-decoration: underline;
+  text-decoration-color: var(--accent);
+  text-underline-offset: 3px;
+}
+@media (max-width: 999px) {
+  .bot-screen .manager-updates { padding-inline: 18px; }
+}
+/* Short phones: the chat keeps its room; only the newest update shows. */
+@media (max-height: 700px) {
+  .bot-screen .manager-update:nth-child(n + 2) { display: none; }
+}

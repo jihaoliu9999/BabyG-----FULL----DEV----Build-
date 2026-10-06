@@ -38,6 +38,8 @@ _REAL_CSRF_CALL = _csrf_module.CSRFMiddleware.__call__
 from app.main import app  # noqa: E402
 from app.services import (  # noqa: E402
     action_proposals,
+    creator_payouts,
+    deal_events,
     discovery,
     dm_briefs,
     dms,
@@ -268,6 +270,12 @@ def world(monkeypatch: pytest.MonkeyPatch, db: _FakeDB) -> _World:
                      ("list_cards", lambda **kw: []), ("get_opportunity_cards", lambda ids: {}),
                      ("get_card", lambda **kw: None)):
         monkeypatch.setattr(discover_service, name, fn)
+    # Step 7A reads (Deal page payout readiness) and babyg Manager hooks are
+    # covered by tests/test_deal_payments.py; here they are inert stand-ins.
+    # Every other creator_payouts / Stripe entry point stays guarded.
+    monkeypatch.setattr(creator_payouts, "readiness", lambda uid: ("ready", "acct_test"))
+    monkeypatch.setattr(deal_events, "record_awaiting_payment", lambda deal_id: 0)
+    monkeypatch.setattr(deal_events, "list_recent", lambda uid, limit: [])
     return w
 
 
@@ -573,13 +581,14 @@ def test_deal_detail_shows_locked_terms_identity_and_babyg_state(client, world):
     assert f'<p class="opportunity-detail-description">{DELIVERABLES}</p>' in art
     assert "<h2>due date</h2>\n    <p>oct 30, 2026</p>" in art
     assert "<h2>babyg</h2>" in art and "<p>Deal active.</p><p>Payment is the next step.</p>" in art
-    # hierarchy order
-    order = [art.index(x) for x in ("back-link", "Olipop", ">active<", "$1,000", "deliverables",
-                                     "due date", "original opportunity", "<h2>babyg</h2>")]
+    # hierarchy order (Step 7A puts the payment section under the amount)
+    order = [art.index(x) for x in ("back-link", "Olipop", ">active<", "$1,000", "<h2>payment</h2>",
+                                     "deliverables", "due date", "original opportunity", "<h2>babyg</h2>")]
     assert order == sorted(order)
-    # nothing beyond Step 6C
+    # Step 7A: the applicant is the recipient -- what they receive, never a Pay button
+    assert "<strong>Awaiting payment</strong>" in art and "<dt>Expected amount</dt><dd>$900</dd>" in art
     assert "<form" not in art and "<button" not in art
-    for banned in ("pay now", "confirm payment", "checkout", "payout", "fee", "mark complete",
+    for banned in ("pay now", "confirm payment", "checkout", "$1,100", "mark complete",
                    "track", "milestone", "follow up", "deal id", s.deal["id"]):
         assert banned not in art.lower(), banned
     assert "Babyg" not in art and "BabyG" not in art
@@ -713,18 +722,24 @@ def test_csrf_still_guards_accept(world, monkeypatch):
 # ============================================================ SCOPE / MIGRATION
 
 
-def test_no_payment_completion_or_deal_management_surface():
+def test_deal_surface_is_detail_plus_step_7a_pay_and_no_completion():
     # (the pre-existing babyg Manager /creator/deals pages are a separate,
-    # untouched feature; Step 6C deals live under DMs only)
-    paths = sorted({getattr(r, "path", "") for r in app.routes if "/dm/deals" in getattr(r, "path", "")})
-    assert paths == ["/brand/dm/deals/{deal_id}", "/creator/dm/deals/{deal_id}"]
-    for r in app.routes:
-        if "/dm/deals" in getattr(r, "path", ""):
-            assert set(r.methods or ()) <= {"GET", "HEAD"}
+    # untouched feature; Step 6C deals live under DMs only). Step 7A adds
+    # exactly one POST per tree: Pay. No completion / release / refunds.
+    routes = {getattr(r, "path", ""): set(r.methods or ()) for r in app.routes
+              if "/dm/deals" in getattr(r, "path", "")}
+    assert sorted(routes) == ["/brand/dm/deals/{deal_id}", "/brand/dm/deals/{deal_id}/pay",
+                              "/creator/dm/deals/{deal_id}", "/creator/dm/deals/{deal_id}/pay"]
+    for path, methods in routes.items():
+        if path.endswith("/pay"):
+            assert methods == {"POST"}, path
+        else:
+            assert methods <= {"GET", "HEAD"}, path
     assert job_deals.BABYG_STATE == ("Deal active.", "Payment is the next step.")
     tpl = re.sub(r"\{#.*?#\}", "", Path("app/templates/creator/deal_detail.html").read_text(encoding="utf-8"),
                  flags=re.S).lower()
-    for banned in ("<form", "<button", "stripe", "pay now", "payout", "checkout", "fee", "complete"):
+    for banned in ("pay now", "complete", "escrow", "held securely", "release", "refund", "dispute",
+                   "withdraw", "transaction"):
         assert banned not in tpl, banned
 
 
@@ -733,7 +748,9 @@ MIGRATION = Path("migrations/0051_creator_job_deals.sql")
 
 def test_migration_0051_is_additive_private_and_atomic():
     names = sorted(p.name for p in Path("migrations").glob("*.sql"))
-    assert names[-1] == MIGRATION.name and names[-2] == "0050_creator_job_offer_responses.sql"
+    at = names.index(MIGRATION.name)
+    assert names[at - 1] == "0050_creator_job_offer_responses.sql"
+    assert names[at + 1:] == ["0052_creator_job_deal_payments.sql"]  # Step 7A
     sql = MIGRATION.read_text(encoding="utf-8")
     code = "\n".join(line.split("--", 1)[0] for line in sql.splitlines()).lower()
     assert code.strip().startswith("begin;") and code.strip().endswith("commit;")

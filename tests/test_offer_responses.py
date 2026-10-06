@@ -38,6 +38,7 @@ _REAL_CSRF_CALL = _csrf_module.CSRFMiddleware.__call__
 from app.main import app  # noqa: E402
 from app.services import (  # noqa: E402
     action_proposals,
+    deal_events,
     discovery,
     dm_briefs,
     dms,
@@ -284,6 +285,10 @@ def world(monkeypatch: pytest.MonkeyPatch, db: _FakeDB) -> _World:
     monkeypatch.setattr(discover_service, "list_cards", lambda **kw: [])
     monkeypatch.setattr(discover_service, "get_opportunity_cards", lambda ids: {})
     monkeypatch.setattr(discover_service, "get_card", lambda **kw: None)
+    # Step 7A babyg Manager hooks (accept -> "awaiting payment"; brand DMs
+    # updates) have their own suite: tests/test_deal_payments.py.
+    monkeypatch.setattr(deal_events, "record_awaiting_payment", lambda deal_id: 0)
+    monkeypatch.setattr(deal_events, "list_recent", lambda uid, limit: [])
     return w
 
 

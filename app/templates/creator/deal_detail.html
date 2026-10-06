@@ -6,8 +6,10 @@
 {# Step 6C: Deal detail, the same page for both parties (creator and brand
    routes render this template). The locked terms come from the deal row,
    which the database copied from the accepted offer. babyg only states the
-   current state. No payment, completion or work controls. Reuses the
-   Step 5A detail layout and the Step 6B babyg panel. #}
+   current state. Reuses the Step 5A detail layout and the Step 6B babyg
+   panel. Step 7A adds the payment section: the payer sees the deal value,
+   babyg fee, total and Pay; the recipient sees what they will receive and
+   never a Pay button. Every amount is computed server-side. #}
 {% set p = deal.other or {} %}
 <article class="wrap opportunity-detail opportunity-deal">
   <a href="{{ back_path|safe_path }}" class="back-link">← deals</a>
@@ -24,6 +26,26 @@
   <div class="opportunity-detail-tags"><span class="badge badge-muted">{{ deal.status }}</span></div>
 
   <h1 class="detail-title">{{ deal.amount_display }}</h1>
+
+  {% if funding %}
+  <section class="opportunity-detail-section opportunity-deal-payment" aria-label="payment" data-deal-payment="{{ 'funded' if funding.funded else ('payer' if funding.is_payer else 'recipient') }}">
+    <h2>payment</h2>
+    <p class="opportunity-deal-payment-state"><strong>{{ funding.label }}</strong></p>
+    <dl class="opportunity-deal-breakdown">
+      {% for label, amount in funding.rows %}
+      <div{% if loop.last %} class="is-total"{% endif %}><dt>{{ label }}</dt><dd>{{ amount }}</dd></div>
+      {% endfor %}
+    </dl>
+    {% if funding.note %}<p class="opportunity-deal-payment-note">{{ funding.note }}</p>{% endif %}
+    {% if funding.setup_payouts %}<a href="/creator/profile/settings#payouts" class="btn btn-ghost btn-sm opportunity-deal-setup">set up payouts</a>{% endif %}
+    {% if funding.pay_label and pay_path %}
+    <form method="post" action="{{ pay_path|safe_path }}" class="opportunity-deal-pay">
+      {% include "_partials/csrf.html" %}
+      <button type="submit" class="btn btn-lime">{{ funding.pay_label }}</button>
+    </form>
+    {% endif %}
+  </section>
+  {% endif %}
 
   <section class="opportunity-detail-section">
     <h2>deliverables</h2>

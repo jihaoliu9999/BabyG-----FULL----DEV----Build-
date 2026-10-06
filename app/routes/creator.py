@@ -51,7 +51,9 @@ from app.services import (
     bot_prompts,
     calendar_sync,
     creator_payouts,
+    deal_events,
     deal_manager,
+    deal_payments,
     discover,
     discovery,
     dm_briefs,
@@ -683,6 +685,10 @@ async def bot_chat(
     first_name = (profile.get("full_name") or "creator").split(" ")[0].lower()
     daily_greeting = greetings.pick_daily(session["user_id"], first_name)
 
+    # Step 7A: grounded deal payment updates (latest per deal), with a
+    # "View deal" action. Kept compact: the chat stays the main surface.
+    deal_updates = deal_events.list_recent(session["user_id"], limit=2)
+
     return templates.TemplateResponse(
         request,
         "creator/bot.html",
@@ -694,6 +700,7 @@ async def bot_chat(
             "daily_greeting": daily_greeting,
             "activity_groups": activity_groups,
             "activity_has_new": activity_has_new,
+            "deal_updates": deal_updates,
         },
     )
 
@@ -1769,6 +1776,12 @@ async def deal_detail(
         if listing is not None and jobs.can_view_detail(listing, session["user_id"])
         else None
     )
+    # Step 7A: what this viewer sees about payment (payer vs recipient).
+    payment = deal_payments.detail_context(
+        deal,
+        session["user_id"],
+        notice=deal_payments.notice_from_query(request.query_params.get("payment")),
+    )
     return templates.TemplateResponse(
         request,
         "creator/deal_detail.html",
@@ -1776,9 +1789,26 @@ async def deal_detail(
             "deal": deal,
             "back_path": "/creator/dm?view=deals",
             "opportunity_path": opportunity_path,
-            "babyg_state": job_deals.BABYG_STATE,
+            "babyg_state": payment["babyg_state"],
+            "funding": payment["funding"],
+            "pay_path": f"/creator/dm/deals/{deal['id']}/pay",
         },
     )
+
+
+@router.post("/creator/dm/deals/{deal_id}/pay")
+async def deal_pay(
+    deal_id: str,
+    session: SessionPayload = Depends(require_role("creator")),
+) -> Response:
+    """Step 7A: the deal's payer (its poster) starts or resumes Stripe
+    Checkout. Amount, fee, payer, recipient and Stripe account all come from
+    the stored deal; nothing is read from the form. The recipient and anyone
+    else get 404. Paying never marks the deal funded -- only the webhook."""
+    target = deal_payments.pay_redirect(deal_id, session["user_id"], brand=False)
+    if target is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    return RedirectResponse(target, status_code=303)
 
 
 def _respond_to_offer(offer_id: str, user_id: str, decision: str) -> Response:
@@ -1788,6 +1818,15 @@ def _respond_to_offer(offer_id: str, user_id: str, decision: str) -> Response:
     path = f"/creator/dm/offers/{offer['id']}"
     if outcome == job_offers.FAILED:
         return RedirectResponse(f"{path}?respond=failed", status_code=303)
+    if outcome == job_offers.RESPONDED and decision == job_offers.STATUS_ACCEPTED:
+        # Step 7A: the 0051 trigger created the deal with this accept; tell
+        # both parties in their babyg Manager (deduped, never raises).
+        try:
+            deal_id = job_deals.deal_id_for_offer(str(offer["id"]), user_id)
+            if deal_id:
+                deal_events.record_awaiting_payment(deal_id)
+        except Exception:
+            logger.exception("deal_events.awaiting_payment hook failed")
     # RESPONDED or ALREADY_DECIDED: either way, show the stored decision.
     return RedirectResponse(path, status_code=303)
 

@@ -1219,6 +1219,7 @@ def test_no_migration_or_schema_change_is_part_of_step_5d():
         "0049_creator_job_offers.sql",  # Step 6A
         "0050_creator_job_offer_responses.sql",  # Step 6B
         "0051_creator_job_deals.sql",  # Step 6C
+        "0052_creator_job_deal_payments.sql",  # Step 7A
     ]
     sql = Path("migrations/0048_creator_job_applications.sql").read_text(encoding="utf-8")
     assert "status = 'submitted'" in sql  # still the single Step 5B status
