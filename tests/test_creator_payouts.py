@@ -29,6 +29,7 @@ from app.services import agent_memory, creator_payouts, oauth_connections, profi
 V2_VERSION = "2026-09-30.endive"
 EXPECTED_V2_ACCOUNT = {
     "contact_email": "sofia@example.com",
+    "identity": {"country": "us"},
     "dashboard": "express",
     "defaults": {"responsibilities": {"fees_collector": "application", "losses_collector": "application"}},
     "configuration": {"recipient": {"capabilities": {"stripe_balance": {"stripe_transfers": {"requested": True}}}}},
@@ -380,6 +381,9 @@ PRODUCTION_MESSAGE = (
     "controller[losses][payments]."
 )
 V1_REJECTION = (400, {"error": {"type": "invalid_request_error", "message": PRODUCTION_MESSAGE}})
+# The authoritative production response to fa10b90's v2 request (Railway,
+# stage='account_create', stripe_code='identity_country_required').
+PRODUCTION_COUNTRY_MESSAGE = "The field identity.country is required before setting configuration.recipient"
 
 
 def _v2_error(code: str, message: str) -> tuple[int, dict]:
@@ -395,6 +399,11 @@ def stripe_v2_account_rule(req: dict) -> tuple[int, dict]:
         return _v2_error("parameter_unknown", "v1 account parameter sent to /v2/core/accounts")
     if not body.get("contact_email"):
         return _v2_error("email_invalid", "An account email address is required for a recipient configuration")
+    country = (body.get("identity") or {}).get("country")
+    if "recipient" in (body.get("configuration") or {}) and not country:
+        return _v2_error("identity_country_required", PRODUCTION_COUNTRY_MESSAGE)
+    if not (isinstance(country, str) and len(country) == 2 and country.isalpha()):
+        return _v2_error("parameter_invalid", "identity.country must be an ISO 3166-1 alpha-2 code")
     resp = (body.get("defaults") or {}).get("responsibilities") or {}
     if set(resp) != {"fees_collector", "losses_collector"}:
         return _v2_error("parameter_missing", "defaults.responsibilities needs fees_collector and losses_collector")
@@ -709,3 +718,50 @@ def test_v2_request_matches_stripes_published_contract():
     assert body == {**EXPECTED_V2_ACCOUNT, "contact_email": "a@b.co"}
     assert creator_payouts.ACCOUNTS_V2_API_VERSION == V2_VERSION
     assert not {"type", "controller", "email", "capabilities", "business_type"} & set(body)
+    # US-only creator payouts (deals and payments are USD-only); only the
+    # country is set -- entity type and the rest come from hosted onboarding.
+    assert body["identity"] == {"country": "us"} and creator_payouts.PAYOUT_COUNTRY == "us"
+
+
+def test_stub_reproduces_the_production_identity_country_rejection(backend, real_sdk):
+    """fa10b90's v2 request (recipient configuration, no identity.country)
+    gets exactly the production 400 from the stand-in; the corrected request
+    passes the same rule."""
+    stub = real_sdk(V2_OK)
+    client = stub.client()
+    previous = {k: v for k, v in EXPECTED_V2_ACCOUNT.items() if k != "identity"}
+    with pytest.raises(stripe.InvalidRequestError) as exc:
+        client.raw_request("post", "/v2/core/accounts", **previous, stripe_version=V2_VERSION)
+    assert exc.value.http_status == 400
+    assert exc.value.code == "identity_country_required"
+    assert exc.value.user_message == PRODUCTION_COUNTRY_MESSAGE
+    corrected = creator_payouts._new_account_request("sofia@example.com")
+    response = client.raw_request("post", "/v2/core/accounts", **corrected, stripe_version=V2_VERSION)
+    assert response.data["id"] == "acct_v2creator"
+
+
+def test_onboarding_sends_identity_country_and_passes_the_production_rule(backend, real_sdk, caplog):
+    table = backend[0]
+    stub = real_sdk(V2_OK)
+    uid = str(uuid4())
+    with caplog.at_level(logging.WARNING, logger="app.services.creator_payouts"):
+        url = creator_payouts.onboarding_url(uid, create_if_missing=True)
+    assert url.startswith("https://connect.stripe.com/")
+    assert table.rows == {uid: "acct_v2creator"}
+    create = stub.requests[0]
+    assert create["path"] == "/v2/core/accounts"
+    assert create["json"]["identity"] == {"country": "us"}
+    assert "recipient" in create["json"]["configuration"]
+    assert not [r for r in caplog.records if r.name == "app.services.creator_payouts"]
+
+
+def test_identity_country_rejection_is_logged_with_its_stripe_code(backend, real_sdk, caplog):
+    routes = dict(V2_OK)
+    routes["POST /v2/core/accounts"] = _v2_error("identity_country_required", PRODUCTION_COUNTRY_MESSAGE)
+    real_sdk(routes)
+    with caplog.at_level(logging.WARNING, logger="app.services.creator_payouts"), \
+            pytest.raises(creator_payouts.PayoutSetupError, match="^Payout setup is unavailable$"):
+        creator_payouts.onboarding_url(str(uuid4()), create_if_missing=True)
+    line = caplog.records[-1].getMessage()
+    assert "stage='account_create'" in line and "stripe_code='identity_country_required'" in line
+    assert PRODUCTION_COUNTRY_MESSAGE in line and backend[0].rows == {}

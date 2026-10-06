@@ -33,6 +33,12 @@ IDEMPOTENCY_WINDOW_SECONDS = 60
 # the 2026-09-30.endive contract (Stripe's published OpenAPI spec and SDK).
 ACCOUNTS_V2_API_VERSION = "2026-09-30.endive"
 
+# Creator payouts are US-only: every offer, deal and payment is USD-only at
+# the schema level (0049/0051/0052). Stripe requires identity.country before a
+# recipient configuration can be set (identity_country_required); the value is
+# an ISO 3166-1 alpha-2 code, lowercase as in Stripe's v2 examples.
+PAYOUT_COUNTRY = "us"
+
 # The creator is never the merchant of record: babyg charges the payer and
 # routes funds with a destination charge, which is exactly Stripe's
 # "recipient" configuration. Stripe-hosted onboarding and the Express
@@ -42,6 +48,7 @@ ACCOUNTS_V2_API_VERSION = "2026-09-30.endive"
 def _new_account_request(email: str) -> dict[str, Any]:
     return {
         "contact_email": email,
+        "identity": {"country": PAYOUT_COUNTRY},
         "dashboard": "express",
         "defaults": {
             "responsibilities": {"fees_collector": "application", "losses_collector": "application"}
