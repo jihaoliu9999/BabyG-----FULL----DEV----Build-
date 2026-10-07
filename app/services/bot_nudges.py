@@ -27,7 +27,7 @@ import logging
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from app.services import babyg_deals, babyg_memory, bookings, discover
+from app.services import babyg_deals, babyg_memory, manager_reads
 from app.services.bot import create_message, list_messages
 
 logger = logging.getLogger(__name__)
@@ -62,22 +62,42 @@ def generate_pending(user_id: str) -> list[str]:
     was already surfaced or nothing qualified. Category order below is
     the surfacing priority when multiple sources fire at once.
     """
-    existing_keys = _recent_nudge_keys(user_id)
+    # Every source below only reads, and none depends on another, so
+    # they run concurrently; the discover feed and upcoming bookings they
+    # share with the awareness snapshot are read once (manager_reads).
+    # Candidates are still assembled in priority order and inserted one
+    # at a time, exactly as before.
+    with manager_reads.scope():
+        (
+            existing_keys,
+            match,
+            booking,
+            from_snapshot,
+            ghosted,
+            late_payment,
+            stale_draft,
+        ) = manager_reads.run_parallel(
+            lambda: _recent_nudge_keys(user_id),
+            lambda: _match_nudges(user_id),
+            lambda: _booking_nudges(user_id),
+            lambda: _snapshot_nudges(user_id),
+            # Phase 8: deal-derived surfaces. Every candidate here shares
+            # its dedupe_key format with the corresponding home-page card
+            # so the same event never surfaces twice.
+            lambda: _ghosted_deal_nudges(user_id),
+            lambda: _late_payment_nudges(user_id),
+            lambda: _stale_draft_nudges(user_id),
+        )
     inserted: list[str] = []
 
-    candidates: list[dict[str, Any]] = []
-    candidates.extend(_match_nudges(user_id))
-    candidates.extend(_booking_nudges(user_id))
-    candidates.extend(_connection_accepted_nudges(user_id))
-    candidates.extend(_event_soon_nudges(user_id))
-    candidates.extend(_pending_action_nudges(user_id))
-    candidates.extend(_hot_drop_nudges(user_id))
-    # Phase 8: deal-derived surfaces. Every candidate here shares its
-    # dedupe_key format with the corresponding home-page card so the
-    # same event never surfaces twice.
-    candidates.extend(_ghosted_deal_nudges(user_id))
-    candidates.extend(_late_payment_nudges(user_id))
-    candidates.extend(_stale_draft_nudges(user_id))
+    candidates: list[dict[str, Any]] = [
+        *match,
+        *booking,
+        *from_snapshot,
+        *ghosted,
+        *late_payment,
+        *stale_draft,
+    ]
 
     for nudge in candidates:
         if nudge["nudge_key"] in existing_keys:
@@ -99,6 +119,18 @@ def generate_pending(user_id: str) -> list[str]:
     return inserted
 
 
+def _snapshot_nudges(user_id: str) -> list[dict[str, Any]]:
+    """The four awareness-snapshot sources, in priority order. They stay
+    on one thread so the first call builds the (30s-cached) snapshot and
+    the other three reuse it, as they did when everything was serial."""
+    out: list[dict[str, Any]] = []
+    out.extend(_connection_accepted_nudges(user_id))
+    out.extend(_event_soon_nudges(user_id))
+    out.extend(_pending_action_nudges(user_id))
+    out.extend(_hot_drop_nudges(user_id))
+    return out
+
+
 def _recent_nudge_keys(user_id: str) -> set[str]:
     """All nudge_keys in the recent history — the dedupe set."""
     try:
@@ -118,12 +150,9 @@ def _recent_nudge_keys(user_id: str) -> set[str]:
 def _match_nudges(user_id: str) -> list[dict[str, Any]]:
     """Fresh discover cards worth surfacing. Top 1 per invocation."""
     try:
-        cards = discover.list_cards(
-            viewer_id=user_id,
-            viewer_role="creator",
-            kind="all",
-            limit=6,
-        )
+        # discover.list_cards(viewer_role="creator", kind="all", limit=6),
+        # shared with the awareness snapshot's fresh-match reader.
+        cards = manager_reads.discover_matches(user_id)
     except Exception:
         logger.exception("bot_nudges: discover.list_cards failed for %s", user_id)
         return []
@@ -185,7 +214,9 @@ def _match_copy(*, kind: str, title: str, subtitle: str) -> str:
 def _booking_nudges(user_id: str) -> list[dict[str, Any]]:
     """Pending bookings that start inside the horizon and need a decision."""
     try:
-        upcoming = bookings.list_for_user(user_id, horizon="upcoming", limit=20)
+        # bookings.list_for_user(horizon="upcoming", limit=20), shared with
+        # the awareness snapshot's 6- and 12-row booking readers.
+        upcoming = manager_reads.upcoming_bookings(user_id, limit=20)
     except Exception:
         logger.exception("bot_nudges: bookings.list_for_user failed for %s", user_id)
         return []

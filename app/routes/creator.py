@@ -67,6 +67,7 @@ from app.services import (
     jobs,
     locations,
     manager_activity,
+    manager_reads,
     network,
     notifications,
     oauth_connections,
@@ -623,6 +624,40 @@ async def dashboard(
     )
 
 
+def _bot_snapshot(user_id: str) -> dict[str, Any]:
+    # Compose the awareness snapshot once and reuse it for both the
+    # composer chip strip AND the assistant system prompt on the next
+    # turn (bot.list_messages doesn't need it, but the send path does).
+    # Snapshot reads are ~30s cached per user so re-renders are cheap.
+    try:
+        return babyg_awareness.snapshot(user_id)
+    except Exception:
+        logger.exception("babyg_awareness.snapshot failed")
+        return {}
+
+
+def _bot_activity_groups(user_id: str) -> list[dict[str, Any]]:
+    # Activity sheet — real completed manager actions (executed
+    # action_proposals) grouped by day. Rendered inside a hidden
+    # bottom sheet on this page; the top-right clock button opens it.
+    # Pending approvals stay in chat (they're inline in the
+    # proposed_action bubble in bot_messages.html), so we do NOT
+    # surface pending_actions in the sheet.
+    try:
+        return manager_activity.list_recent_activity(user_id)
+    except Exception:
+        logger.exception("manager_activity.list failed (bot)")
+        return []
+
+
+def _bot_activity_has_new(user_id: str) -> bool:
+    try:
+        return manager_activity.has_new_since(user_id)
+    except Exception:
+        logger.exception("manager_activity.has_new failed (bot)")
+        return False
+
+
 @router.get("/creator/bot", response_class=HTMLResponse)
 async def bot_chat(
     request: Request,
@@ -631,27 +666,40 @@ async def bot_chat(
     profile = profiles.get_creator_profile_cached(session["user_id"], request) or {}
     if not profile.get("onboarding_completed_at"):
         return RedirectResponse("/onboarding/creator", status_code=302)
+    user_id = session["user_id"]
 
-    # Proactive nudges — babyg drops a message the moment a fresh
-    # discover match or an imminent pending booking lands. Deduped by
-    # nudge_key so the same event never nudges twice. Wrapped so any
-    # source failure never blanks the chat.
-    try:
-        bot_nudges.generate_pending(session["user_id"])
-    except Exception:
-        logger.exception("bot_nudges.generate_pending failed")
+    # One read-sharing scope for this load (see manager_reads): the
+    # awareness snapshot reuses the profile read above instead of
+    # fetching it again.
+    with manager_reads.scope(seed={manager_reads.creator_profile_key(user_id): profile}):
+        # Proactive nudges — babyg drops a message the moment a fresh
+        # discover match or an imminent pending booking lands. Deduped by
+        # nudge_key so the same event never nudges twice. Wrapped so any
+        # source failure never blanks the chat. Runs first: the message
+        # list below must include any nudge it inserts.
+        try:
+            bot_nudges.generate_pending(user_id)
+        except Exception:
+            logger.exception("bot_nudges.generate_pending failed")
 
-    messages = bot.list_messages(session["user_id"])
-
-    # Compose the awareness snapshot once and reuse it for both the
-    # composer chip strip AND the assistant system prompt on the next
-    # turn (bot.list_messages doesn't need it, but the send path does).
-    # Snapshot reads are ~30s cached per user so re-renders are cheap.
-    try:
-        snap = babyg_awareness.snapshot(session["user_id"])
-    except Exception:
-        logger.exception("babyg_awareness.snapshot failed")
-        snap = {}
+        # The rest of the page's reads are independent of each other, so
+        # they run concurrently. Each keeps its own failure handling.
+        (
+            messages,
+            snap,
+            activity_groups,
+            activity_has_new,
+            deal_updates,
+        ) = manager_reads.run_parallel(
+            lambda: bot.list_messages(user_id),
+            lambda: _bot_snapshot(user_id),
+            lambda: _bot_activity_groups(user_id),
+            lambda: _bot_activity_has_new(user_id),
+            # Step 7A: grounded deal payment updates (latest per deal),
+            # with a "View deal" action. Kept compact: the chat stays the
+            # main surface.
+            lambda: deal_events.list_recent(user_id, limit=2),
+        )
 
     # Composer chip strip. Rendered on every turn now (not just empty
     # threads) because chips reflect the live state of the world and
@@ -662,32 +710,12 @@ async def bot_chat(
         snapshot=snap,
         messages=messages,
     )
-    # Activity sheet — real completed manager actions (executed
-    # action_proposals) grouped by day. Rendered inside a hidden
-    # bottom sheet on this page; the top-right clock button opens it.
-    # Pending approvals stay in chat (they're inline in the
-    # proposed_action bubble in bot_messages.html), so we do NOT
-    # surface pending_actions in the sheet.
-    try:
-        activity_groups = manager_activity.list_recent_activity(session["user_id"])
-    except Exception:
-        logger.exception("manager_activity.list failed (bot)")
-        activity_groups = []
-    try:
-        activity_has_new = manager_activity.has_new_since(session["user_id"])
-    except Exception:
-        logger.exception("manager_activity.has_new failed (bot)")
-        activity_has_new = False
 
     # Personal greeting for the empty-state hero. Same helper the
     # dashboard uses, so a creator gets the same "morning, garrett"
     # tone on both surfaces.
     first_name = (profile.get("full_name") or "creator").split(" ")[0].lower()
-    daily_greeting = greetings.pick_daily(session["user_id"], first_name)
-
-    # Step 7A: grounded deal payment updates (latest per deal), with a
-    # "View deal" action. Kept compact: the chat stays the main surface.
-    deal_updates = deal_events.list_recent(session["user_id"], limit=2)
+    daily_greeting = greetings.pick_daily(user_id, first_name)
 
     return templates.TemplateResponse(
         request,

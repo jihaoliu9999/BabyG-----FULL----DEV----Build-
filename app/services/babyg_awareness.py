@@ -34,6 +34,8 @@ import time
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from app.services import manager_reads
+
 logger = logging.getLogger(__name__)
 
 # Snapshot cache. Keyed by user_id, value is (built_at_monotonic, dict).
@@ -89,17 +91,39 @@ def _empty() -> dict[str, Any]:
 
 
 def _build(user_id: str) -> dict[str, Any]:
-    """Assemble the snapshot. Every helper is safe-to-fail."""
+    """Assemble the snapshot. Every helper is safe-to-fail, read-only and
+    independent of the others, so they run concurrently."""
+    (
+        unread_dms,
+        recent_connection_accepted,
+        recent_incoming_connection,
+        next_booking,
+        pending_booking,
+        fresh_discover_match,
+        pending_action_proposal,
+        recent_hot_drop,
+        open_deal_stage,
+    ) = manager_reads.run_parallel(
+        lambda: _unread_dms(user_id),
+        lambda: _recent_connection_accepted(user_id),
+        lambda: _recent_incoming_connection(user_id),
+        lambda: _next_booking(user_id),
+        lambda: _pending_booking(user_id),
+        lambda: _fresh_discover_match(user_id),
+        lambda: _pending_action_proposal(user_id),
+        lambda: _recent_hot_drop(user_id),
+        lambda: _open_deal_stage(user_id),
+    )
     return {
-        "unread_dms": _unread_dms(user_id),
-        "recent_connection_accepted": _recent_connection_accepted(user_id),
-        "recent_incoming_connection": _recent_incoming_connection(user_id),
-        "next_booking": _next_booking(user_id),
-        "pending_booking": _pending_booking(user_id),
-        "fresh_discover_match": _fresh_discover_match(user_id),
-        "pending_action_proposal": _pending_action_proposal(user_id),
-        "recent_hot_drop": _recent_hot_drop(user_id),
-        "open_deal_stage": _open_deal_stage(user_id),
+        "unread_dms": unread_dms,
+        "recent_connection_accepted": recent_connection_accepted,
+        "recent_incoming_connection": recent_incoming_connection,
+        "next_booking": next_booking,
+        "pending_booking": pending_booking,
+        "fresh_discover_match": fresh_discover_match,
+        "pending_action_proposal": pending_action_proposal,
+        "recent_hot_drop": recent_hot_drop,
+        "open_deal_stage": open_deal_stage,
     }
 
 
@@ -114,10 +138,22 @@ def _unread_dms(user_id: str) -> dict[str, Any]:
         from app.services import dms, profiles
     except Exception:
         return {"count": 0, "latest_peer_name": None}
+    # The count and the peer-name lookup are independent reads.
+    count, peer_name = manager_reads.run_parallel(
+        lambda: _unread_dm_count(dms, user_id),
+        lambda: _latest_dm_peer_name(dms, profiles, user_id),
+    )
+    return {"count": int(count or 0), "latest_peer_name": peer_name}
+
+
+def _unread_dm_count(dms: Any, user_id: str) -> Any:
     try:
-        count = dms.unread_count_for_user(user_id)
+        return dms.unread_count_for_user(user_id)
     except Exception:
-        count = 0
+        return 0
+
+
+def _latest_dm_peer_name(dms: Any, profiles: Any, user_id: str) -> str | None:
     peer_name: str | None = None
     try:
         threads = dms.list_threads_for_user(user_id) or []
@@ -140,7 +176,7 @@ def _unread_dms(user_id: str) -> dict[str, Any]:
                 break
     except Exception:
         peer_name = None
-    return {"count": int(count or 0), "latest_peer_name": peer_name}
+    return peer_name
 
 
 def _recent_connection_accepted(user_id: str) -> dict[str, Any] | None:
@@ -221,11 +257,9 @@ def _recent_incoming_connection(user_id: str) -> dict[str, Any] | None:
 def _next_booking(user_id: str) -> dict[str, Any] | None:
     """Next confirmed booking in the next 24 hours."""
     try:
-        from app.services import bookings
-    except Exception:
-        return None
-    try:
-        upcoming = bookings.list_for_user(user_id, horizon="upcoming", limit=6) or []
+        # bookings.list_for_user(horizon="upcoming", limit=6), shared with
+        # the other upcoming-bookings readers of the same Manager load.
+        upcoming = manager_reads.upcoming_bookings(user_id, limit=6) or []
     except Exception:
         return None
     now = datetime.now(UTC)
@@ -250,11 +284,8 @@ def _next_booking(user_id: str) -> dict[str, Any] | None:
 def _pending_booking(user_id: str) -> dict[str, Any] | None:
     """First still-pending booking in the next 48h — booking_pending nudge signal."""
     try:
-        from app.services import bookings
-    except Exception:
-        return None
-    try:
-        upcoming = bookings.list_for_user(user_id, horizon="upcoming", limit=12) or []
+        # bookings.list_for_user(horizon="upcoming", limit=12), shared.
+        upcoming = manager_reads.upcoming_bookings(user_id, limit=12) or []
     except Exception:
         return None
     now = datetime.now(UTC)
@@ -276,13 +307,9 @@ def _pending_booking(user_id: str) -> dict[str, Any] | None:
 def _fresh_discover_match(user_id: str) -> dict[str, Any] | None:
     """Most recent discover card younger than 72h — reuses bot_nudges freshness."""
     try:
-        from app.services import discover
-    except Exception:
-        return None
-    try:
-        cards = discover.list_cards(
-            viewer_id=user_id, viewer_role="creator", kind="all", limit=6
-        ) or []
+        # discover.list_cards(kind="all", limit=6) — the exact read
+        # bot_nudges makes, so one Manager load runs it once.
+        cards = manager_reads.discover_matches(user_id) or []
     except Exception:
         return None
     horizon = datetime.now(UTC) - timedelta(hours=72)
@@ -335,11 +362,13 @@ def _pending_action_proposal(user_id: str) -> dict[str, Any] | None:
 def _recent_hot_drop(user_id: str) -> dict[str, Any] | None:
     """Most recent active intel_post that matches at least one of my niches."""
     try:
-        from app.services import intel, profiles
+        from app.services import intel
     except Exception:
         return None
     try:
-        profile = profiles.get_creator_profile(user_id) or {}
+        # profiles.get_creator_profile — the /creator/bot route seeds the
+        # profile it already read, so a Manager load doesn't read it twice.
+        profile = manager_reads.creator_profile(user_id) or {}
     except Exception:
         profile = {}
     niches = list(profile.get("niches") or [])
