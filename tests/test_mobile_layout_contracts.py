@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 ROOT = Path(__file__).parents[1]
@@ -564,6 +565,12 @@ def test_babyg_guide_is_tap_friendly_and_replaces_old_dm_prompts() -> None:
 # ---------------------------------------------------------------------------
 
 
+def _js_code(source: str) -> str:
+    """Strip /* */ and // comments so contracts only match real code."""
+    source = re.sub(r"/\*.*?\*/", "", source, flags=re.S)
+    return re.sub(r"//[^\n]*", "", source)
+
+
 def test_google_fonts_link_is_non_blocking() -> None:
     """Fonts CSS must ship with media=print + data-webfont-swap so it
     downloads without blocking first paint. boost.js flips it to
@@ -571,14 +578,43 @@ def test_google_fonts_link_is_non_blocking() -> None:
     for JS-disabled users."""
     assert "data-webfont-swap" in BASE_TEMPLATE
     assert 'media="print"' in BASE_TEMPLATE
-    # Runtime promotion must exist AND must run BEFORE the creator-only
-    # early-return so brand + operator + auth all benefit.
-    assert "data-webfont-swap" in BOOST_JS
-    early_return = BOOST_JS.index("is-creator-app")
-    promotion = BOOST_JS.index("data-webfont-swap")
-    assert promotion < early_return
+    # Runtime promotion must exist AND nothing may return before it, so
+    # brand + operator + auth all benefit (no role gate).
+    boost_code = _js_code(BOOST_JS)
+    assert "data-webfont-swap" in boost_code
+    assert 'media = "all"' in boost_code
+    before_promotion = boost_code.split("data-webfont-swap", 1)[0]
+    assert "return" not in before_promotion
     # Noscript fallback so JS-disabled users still get real fonts.
     assert "<noscript>" in BASE_TEMPLATE
+
+
+def test_boost_js_never_intercepts_navigation() -> None:
+    """boost.js used to catch internal link clicks, fetch the page, then
+    fall back to location.assign — two server renders per tap and every
+    GET side effect (discover impressions, profile views) recorded twice.
+    Links, forms and back/forward must stay plain browser navigation:
+    no listeners, no fetch, no programmatic navigation, no history
+    writes."""
+    code = _js_code(BOOST_JS)
+    for forbidden in (
+        "addEventListener",
+        "onclick",
+        "onpopstate",
+        "preventDefault",
+        "fetch(",
+        "XMLHttpRequest",
+        "DOMParser",
+        "location.assign",
+        "location.replace",
+        "location.href",
+        "location.reload",
+        "pushState",
+        "replaceState",
+    ):
+        assert forbidden not in code, forbidden
+    # Still loaded on every shell page for the font promotion.
+    assert "asset_url('js/boost.js')" in BASE_TEMPLATE
 
 
 def test_role_shells_do_not_prefetch_authenticated_documents() -> None:
