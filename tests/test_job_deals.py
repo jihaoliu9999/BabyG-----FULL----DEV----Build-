@@ -692,6 +692,30 @@ def test_creator_tabs_are_messages_offers_deals(client, world):
         assert f'aria-current="page">{active}' in html
 
 
+def test_creator_dm_switch_is_the_shared_segmented_control(client, world):
+    """Visual change only: the creator DMs switch is drawn with the Discover
+    [ all | mine ] segmented-control primitive. Same links, same view state."""
+    _sign_in(client, world.creator())
+    for view, active in (("", "messages"), ("?view=offers", "offers"), ("?view=deals", "deals")):
+        html = client.get(f"/creator/dm{view}").text
+        assert '<nav class="dm-inbox-views dm-view-switch" aria-label="dms view">' in html
+        assert "discover-sub-tabs" not in html
+        assert _tabs(html, "/creator/dm") == [("/creator/dm", "messages"), ("/creator/dm?view=offers", "offers"),
+                                               ("/creator/dm?view=deals", "deals")]
+        nav = html.split('aria-label="dms view"', 1)[1].split("</nav>", 1)[0]
+        assert re.findall(r'class="active" aria-current="page">([a-z]+)', nav) == [active]
+    css = Path("app/static/css/app.css").read_text(encoding="utf-8")
+    shared = css.split("/* Discover → Opportunities: [ all | mine ] segmented control.", 1)[1]
+    for rule in (".discover-view-switch,\n.dm-view-switch {", ".discover-view-switch a,\n.dm-view-switch a {",
+                 ".discover-view-switch a.active,\n.dm-view-switch a.active {"):
+        assert rule in shared, rule
+    dm = shared.split("/* Creator DMs: [ messages | offers | deals ]", 1)[1]
+    assert "grid-template-columns: repeat(3, minmax(0, 1fr));" in dm and "max-width: 420px;" in dm
+    assert "::after" not in dm and "::before" not in dm   # no underline
+    # brand DMs keep the original sub-tab switch untouched
+    assert ".brand-dm-views.dm-inbox-views.discover-sub-tabs" in css
+
+
 def test_brand_tabs_are_messages_deals_and_the_placeholder_is_unchanged(client, world):
     _sign_in(client, world.brand(), "brand")
     html = client.get("/brand/dm").text

@@ -16571,12 +16571,14 @@ html.bot-activity-open, html.bot-activity-open body { overflow: hidden; }
 }
 
 /* Discover → Opportunities: [ all | mine ] segmented control. Replaces the
-   Step 5C underline sub-tabs on this page only (the DMs view switches keep
-   .discover-sub-tabs). Same pill language as the My Connections segments
-   (.conn-segments): surface fill, hairline border, pill segments. Visually
-   below the primary tabs: 13px labels, muted idle state, a restrained pink
-   tint for the active segment, no underline. */
-.discover-view-switch {
+   Step 5C underline sub-tabs on this page only. Same pill language as the My
+   Connections segments (.conn-segments): surface fill, hairline border, pill
+   segments. Visually below the primary tabs: 13px labels, muted idle state,
+   a restrained pink tint for the active segment, no underline.
+   Shared with the creator DMs [ messages | offers | deals ] switch
+   (.dm-view-switch), which only overrides its geometry below. */
+.discover-view-switch,
+.dm-view-switch {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 2px;
@@ -16587,7 +16589,8 @@ html.bot-activity-open, html.bot-activity-open body { overflow: hidden; }
   border-radius: 999px;
   background: var(--surface-1, #141216);
 }
-.discover-view-switch a {
+.discover-view-switch a,
+.dm-view-switch a {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -16604,12 +16607,37 @@ html.bot-activity-open, html.bot-activity-open body { overflow: hidden; }
   white-space: nowrap;
   transition: color 0.15s ease, background-color 0.15s ease;
 }
-.discover-view-switch a:hover { color: rgba(245, 241, 232, 0.75); }
-.discover-view-switch a.active {
+.discover-view-switch a:hover,
+.dm-view-switch a:hover { color: rgba(245, 241, 232, 0.75); }
+.discover-view-switch a.active,
+.dm-view-switch a.active {
   background: rgba(255, 95, 125, 0.16);
   color: #ff5f7d;
 }
-.discover-view-switch a:focus-visible {
+.discover-view-switch a:focus-visible,
+.dm-view-switch a:focus-visible {
   outline: 2px solid var(--lime);
   outline-offset: 2px;
+}
+
+/* Creator DMs: [ messages | offers | deals ] -- the same segmented control
+   (rules above), three equal segments. It keeps the old sub-tabs' left edge
+   (14px on phones, lined up with search and the avatars; 20px wider up,
+   lined up with the conversation rows) and spans the search width on phones,
+   capped so it never stretches across a desktop page. Badges stay inside
+   their segment. */
+.dm-view-switch {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  width: auto;
+  max-width: 420px;
+  margin: 8px 20px;
+}
+.dm-view-switch a { padding: 0 4px; }
+.dm-view-switch .dm-inbox-count-dot { margin-left: 4px; }
+@media (max-width: 640px) {
+  .dm-view-switch { margin-inline: 14px; }
+}
+/* 320px phones: room for a three-digit unread count inside its segment. */
+@media (max-width: 360px) {
+  .dm-view-switch a { padding: 0 2px; }
 }

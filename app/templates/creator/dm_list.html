@@ -12,12 +12,13 @@
     </form>
   </div>
 
-  {# Step 6B: secondary switch. Reuses the Step 5C sub-tab style; each
-     badge is a real count (unread internal DMs / received offers awaiting
-     a first look). #}
+  {# Step 6B: secondary switch, drawn as the shared [ messages | offers |
+     deals ] segmented control (.dm-view-switch). Same links and view state;
+     each badge is a real count (unread internal DMs / received offers
+     awaiting a first look). #}
   {% set current_dm_view = dm_view|default('messages') %}
   {% set on_messages = current_dm_view not in ('offers', 'deals') %}
-  <nav class="discover-sub-tabs dm-inbox-views" aria-label="dms view">
+  <nav class="dm-inbox-views dm-view-switch" aria-label="dms view">
     <a href="/creator/dm" class="{{ 'active' if on_messages }}"{% if on_messages %} aria-current="page"{% endif %}>messages{% if messages_unread|default(0) %}<span class="dm-inbox-count-dot" aria-label="{{ messages_unread }} unread">{{ messages_unread }}</span>{% endif %}</a>
     <a href="/creator/dm?view=offers" class="{{ 'active' if current_dm_view == 'offers' }}"{% if current_dm_view == 'offers' %} aria-current="page"{% endif %}>offers{% if offers_unread|default(0) %}<span class="dm-inbox-count-dot" aria-label="{{ offers_unread }} new">{{ offers_unread }}</span>{% endif %}</a>
     {# Step 6C: Deals is a persistent tab, not an inbox -- no unread badge. #}
