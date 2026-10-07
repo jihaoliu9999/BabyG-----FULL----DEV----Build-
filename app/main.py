@@ -87,6 +87,14 @@ def create_app() -> FastAPI:
     # because the templates use a few inline `style=` attributes; tighten later.
     app.add_middleware(_SecurityHeadersMiddleware)
 
+    # Private, no-store Cache-Control on authenticated HTML. Prevents the
+    # browser from serving a stale /creator or /brand page from back-button
+    # cache after logout and prevents any intermediary (proxy, CDN) from
+    # ever holding a copy of personalized HTML. Only sets the header when
+    # one is not already present (static assets keep their own long-cache
+    # header; routes that explicitly set Cache-Control still win).
+    app.add_middleware(_PrivateHTMLCacheMiddleware)
+
     # Sliding-session refresh. When an incoming request carries a valid
     # ``bg_session`` cookie, re-issue it with a fresh 30-day timer so
     # active users stay signed in — the previous behavior counted 30
@@ -183,7 +191,7 @@ def create_app() -> FastAPI:
         return FileResponse(
             STATIC_DIR / "assets" / "favicon.ico",
             media_type="image/x-icon",
-            headers={"Cache-Control": "public, max-age=3600"},
+            headers={"Cache-Control": "public, max-age=31536000, immutable"},
         )
 
     # ----- HTML error pages -----
@@ -358,14 +366,52 @@ class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 
+class _PrivateHTMLCacheMiddleware(BaseHTTPMiddleware):
+    """Mark authenticated HTML responses as uncacheable.
+
+    Without an explicit ``Cache-Control``, browsers heuristically cache
+    HTML — which means ``/creator`` can be served to the back button
+    AFTER logout, and any intermediary (corporate proxy, CDN added
+    later) can hold personalized bytes. We set ``private, no-store``
+    on every response whose request path lives under a role console,
+    the auth flow, or onboarding; marketing (/, /get-started, /privacy,
+    /terms, /accessibility, /data-deletion), the sitemap, robots.txt
+    and ``/static/*`` are left alone so they can still be edge-cached.
+
+    Only applied via ``setdefault`` — a route that explicitly needs a
+    different cache posture (none exist today, but the hook is here)
+    keeps its own header.
+    """
+
+    _AUTHED_PREFIXES: tuple[str, ...] = (
+        "/creator", "/brand", "/operator", "/auth", "/onboarding",
+    )
+
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        path = request.url.path or ""
+        if path.startswith("/static/"):
+            return response
+        if not any(path.startswith(p) for p in self._AUTHED_PREFIXES):
+            return response
+        response.headers.setdefault("Cache-Control", "private, no-store")
+        return response
+
+
 class _CachedStatic(StaticFiles):
-    """StaticFiles with a 1-hour public Cache-Control on every asset."""
+    """StaticFiles with a 1-year public Cache-Control on every asset.
+
+    Safe because every CSS/JS link in templates uses ``asset_url(path)``,
+    which appends a content-hash query string (``?v=<8>``); a redeploy
+    with any changed byte in the file produces a new URL and bypasses
+    the cache. Favicons/background images are stable identities; a
+    1-year TTL on them is also acceptable."""
 
     async def get_response(self, path, scope):
         response = await super().get_response(path, scope)
         if response.status_code == 200:
             response.headers.setdefault(
-                "Cache-Control", "public, max-age=3600, immutable"
+                "Cache-Control", "public, max-age=31536000, immutable"
             )
         return response
 
