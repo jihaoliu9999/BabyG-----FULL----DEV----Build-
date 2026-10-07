@@ -132,6 +132,9 @@ h1, h2, h3, h4 {
 .btn-sm { padding: 9px 16px; font-size: 12.5px; }
 .btn-lg { padding: 15px 28px; font-size: 14.5px; }
 .btn-wide { width: 100%; justify-content: center; }
+/* A tapped form button while its form is on its way (submit_feedback.js):
+   immediate confirmation the tap landed, before the next page paints. */
+form[data-submitting] [data-submit-busy] { opacity: .6; cursor: progress; }
 
 .btn-light { background: var(--bone); color: var(--obsidian); border-color: var(--bone); }
 .btn-light:hover { background: #fff; }

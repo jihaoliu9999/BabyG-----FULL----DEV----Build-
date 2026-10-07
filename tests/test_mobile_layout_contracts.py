@@ -23,6 +23,7 @@ DISCOVER_TEMPLATE = (ROOT / "app/templates/creator/discover.html").read_text(
 )
 MOTION_JS = (ROOT / "app/static/js/motion.js").read_text(encoding="utf-8")
 BOOST_JS = (ROOT / "app/static/js/boost.js").read_text(encoding="utf-8")
+SUBMIT_FEEDBACK_JS = (ROOT / "app/static/js/submit_feedback.js").read_text(encoding="utf-8")
 
 
 def test_creator_mobile_avatar_keeps_clearance_beyond_safe_area() -> None:
@@ -615,6 +616,49 @@ def test_boost_js_never_intercepts_navigation() -> None:
         assert forbidden not in code, forbidden
     # Still loaded on every shell page for the font promotion.
     assert "asset_url('js/boost.js')" in BASE_TEMPLATE
+
+
+def test_form_buttons_show_immediate_feedback_without_changing_the_submission() -> None:
+    """submit_feedback.js marks the tapped form button busy the instant
+    its form submits and ignores repeat submits while it's on its way.
+    It must never change what a form sends: a disabled button drops its
+    name/value (the DM brief follow-up buttons send `focus` that way),
+    and it must not post, fetch or navigate on its own."""
+    assert "asset_url('js/submit_feedback.js') }}\" defer" in BASE_TEMPLATE
+    code = _js_code(SUBMIT_FEEDBACK_JS)
+    for forbidden in (
+        "disabled",
+        "fetch(",
+        "XMLHttpRequest",
+        "FormData",
+        ".submit(",
+        "requestSubmit",
+        "location.",
+        "history.",
+    ):
+        assert forbidden not in code, forbidden
+    # Window-level listener: runs after every form/document submit
+    # listener, so forms a page script handles (preventDefault) are left
+    # alone.
+    assert 'window.addEventListener("submit"' in code
+    assert "event.defaultPrevented" in code
+    # Forms posting to another tab keep their behavior.
+    assert "formtarget" in code and '"_self"' in code
+    # Never stuck: released after a timeout and on back/forward restore.
+    assert "setTimeout(" in code
+    assert 'addEventListener("pageshow"' in code and "event.persisted" in code
+    # The busy look, keyed to the attributes the script sets.
+    assert "form[data-submitting] [data-submit-busy]" in APP_CSS
+
+
+def test_ai_follow_up_buttons_stay_handled_by_their_own_script() -> None:
+    """The DM brief follow-up buttons send their task as the button's
+    name/value and dm_briefs.js submits them itself — so the generic
+    submit feedback never touches them."""
+    for focus in ("safety_check", "write_counter", "extract_terms", "check_rights", "help_decline"):
+        assert f'<button type="submit" name="focus" value="{focus}">' in DM_THREAD_TEMPLATE
+    assert "data-brief-follow-up" in DM_THREAD_TEMPLATE
+    assert "preventDefault" in DM_BRIEFS_JS
 
 
 def test_role_shells_do_not_prefetch_authenticated_documents() -> None:
