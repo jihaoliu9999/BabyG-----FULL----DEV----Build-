@@ -43,9 +43,15 @@ def test_compensation_migration_only_replaces_named_check_atomically():
 
 def test_cli_compensation_migration_matches_root_and_has_new_version():
     assert CLI_MIGRATION.read_bytes() == MIGRATION.read_bytes()
-    existing_versions = [
+    cli_version = CLI_MIGRATION.name.split("_", 1)[0]
+    # 0044 must sit above every predecessor in the ledger order, i.e. it
+    # was correctly placed when it was authored. Later backfill mirror
+    # files (for migrations whose DDL was applied out of band and whose
+    # ledger versions therefore timestamp after 0044) are tolerated.
+    predecessor_versions = [
         path.name.split("_", 1)[0]
         for path in (ROOT / "supabase/migrations").glob("*.sql")
         if path != CLI_MIGRATION
+        and path.name.split("_", 1)[0] < cli_version
     ]
-    assert CLI_MIGRATION.name.split("_", 1)[0] > max(existing_versions)
+    assert cli_version > max(predecessor_versions)
