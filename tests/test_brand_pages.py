@@ -435,7 +435,21 @@ def test_brand_discover_uses_shared_text_modes_and_campaign_post(
     assert 'href="/brand/discover?kind=creator"' in r.text
     assert 'href="/brand/discover?kind=brand"' in r.text
     assert 'href="/brand/discover?kind=all"' not in r.text
-    assert ">all</a>" not in r.text
+    # no primary "all" mode tab (the [ all | mine ] opportunities segmented
+    # control below the primary tabs is a different control)
+    primary = r.text.split('class="discover-kind-tabs"', 1)[1].split("</nav>", 1)[0]
+    assert ">all</a>" not in primary
+
+
+def test_brand_discover_active_primary_tab_matches_creator_style() -> None:
+    """The active primary Discover tab is white text with the pink underline
+    on brand pages too: one shared rule with the creator app."""
+    from pathlib import Path
+
+    css = Path("app/static/css/app.css").read_text(encoding="utf-8")
+    assert (".is-creator-app .discover-kind-tabs a.active,\n"
+            ".is-brand-app .discover-kind-tabs a.active { color: var(--ink); border-color: var(--lime); }") in css
+    assert ".discover-kind-tabs a.active::after" in css  # the shared pink underline
 
 
 # ---------------------------------------------------------------------------

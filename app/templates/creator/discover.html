@@ -187,8 +187,11 @@
 
   {% set current_view = active_view|default('explore') %}
   {% if active_kind == 'opportunity' %}
-  <nav class="discover-sub-tabs" aria-label="opportunities view">
-    {% for value, label in [('explore', 'explore'), ('mine', 'my opportunities')] %}
+  {# Opportunities secondary navigation as a compact [ all | mine ] segmented
+     control. Labels only: "all" is the existing explore view (no param) and
+     "mine" is the existing view=mine list -- same values, same URLs. #}
+  <nav class="discover-view-switch" aria-label="opportunities view">
+    {% for value, label in [('explore', 'all'), ('mine', 'mine')] %}
     <a href="{{ view_query(value)|trim }}" class="{{ 'active' if current_view == value }}" {% if current_view == value %}aria-current="page"{% endif %}>{{ label }}</a>
     {% endfor %}
   </nav>

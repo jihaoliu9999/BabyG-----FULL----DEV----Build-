@@ -7372,7 +7372,8 @@ input.settings-checkbox:checked::after {
 .is-creator-app .discover { width: min(100%, 1180px); margin-inline: auto; padding-inline: clamp(16px, 4.25vw, 24px); }
 .is-creator-app .discover-head h1 { font-weight: 600; letter-spacing: 0; }
 .is-creator-app .discover-kind-tabs { scrollbar-width: none; }
-.is-creator-app .discover-kind-tabs a.active { color: var(--ink); border-color: var(--lime); }
+.is-creator-app .discover-kind-tabs a.active,
+.is-brand-app .discover-kind-tabs a.active { color: var(--ink); border-color: var(--lime); }
 .is-creator-app .discover-filter-toggle { width: 44px; height: 44px; border-radius: var(--radius-md); }
 .is-creator-app .discover-card,
 .is-creator-app .network-swipe-card { border-radius: var(--radius-2xl); box-shadow: var(--shadow-raised); }
@@ -16567,4 +16568,48 @@ html.bot-activity-open, html.bot-activity-open body { overflow: hidden; }
 /* Short phones: the chat keeps its room; only the newest update shows. */
 @media (max-height: 700px) {
   .bot-screen .manager-update:nth-child(n + 2) { display: none; }
+}
+
+/* Discover → Opportunities: [ all | mine ] segmented control. Replaces the
+   Step 5C underline sub-tabs on this page only (the DMs view switches keep
+   .discover-sub-tabs). Same pill language as the My Connections segments
+   (.conn-segments): surface fill, hairline border, pill segments. Visually
+   below the primary tabs: 13px labels, muted idle state, a restrained pink
+   tint for the active segment, no underline. */
+.discover-view-switch {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 2px;
+  width: min(100%, 216px);
+  margin: -2px 0 14px;
+  padding: 3px;
+  border: 1px solid var(--hairline, rgba(255, 255, 255, 0.06));
+  border-radius: 999px;
+  background: var(--surface-1, #141216);
+}
+.discover-view-switch a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
+  color: rgba(245, 241, 232, 0.5);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0;
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+.discover-view-switch a:hover { color: rgba(245, 241, 232, 0.75); }
+.discover-view-switch a.active {
+  background: rgba(255, 95, 125, 0.16);
+  color: #ff5f7d;
+}
+.discover-view-switch a:focus-visible {
+  outline: 2px solid var(--lime);
+  outline-offset: 2px;
 }

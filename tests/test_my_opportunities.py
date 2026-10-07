@@ -251,9 +251,9 @@ def test_opportunities_defaults_to_explore(client, world):
     assert r.status_code == 200
     assert "Feed opportunity" in r.text
     assert len(world.list_cards_calls) == 1
-    # explore is the active secondary tab
-    m = re.search(r'<a href="[^"]*" class="active" aria-current="page">explore</a>', r.text)
-    assert m, "explore should be the active secondary tab"
+    # explore ("all" in the segmented control) is the active secondary view
+    m = re.search(r'<a href="[^"]*" class="active" aria-current="page">all</a>', r.text)
+    assert m, "all (explore) should be the active secondary view"
     assert world.list_for_applicant_calls == []
 
 
@@ -298,18 +298,51 @@ def test_secondary_nav_only_appears_for_opportunities(client, world, kind):
     _sign_in(client, str(uuid4()))
     r = client.get(f"/creator/discover?kind={kind}")
     assert r.status_code == 200
-    assert "discover-sub-tabs" not in r.text
-    assert "my opportunities" not in r.text
+    assert "discover-view-switch" not in r.text and "discover-sub-tabs" not in r.text
+    assert ">mine</a>" not in r.text and "my opportunities" not in r.text
 
 
 def test_secondary_nav_renders_both_tabs_on_opportunities(client, world):
     _sign_in(client, str(uuid4()))
     r = client.get("/creator/discover?kind=opportunity")
-    assert 'class="discover-sub-tabs"' in r.text
-    assert ">explore</a>" in r.text
-    assert ">my opportunities</a>" in r.text
+    assert '<nav class="discover-view-switch" aria-label="opportunities view">' in r.text
+    assert ">all</a>" in r.text
+    assert ">mine</a>" in r.text
     # it is a second row, not a replacement for the main tabs
     assert ">creators</a>" in r.text and ">brands</a>" in r.text and ">opportunities</a>" in r.text
+
+
+def test_all_mine_segmented_control_maps_to_the_existing_views(client, world):
+    """Visual redesign only: "all" is the existing explore view (no view
+    param) and "mine" the existing view=mine list, on both trees, with the
+    exact same links as the previous explore / my opportunities sub-tabs."""
+    _sign_in(client, str(uuid4()))
+    for url, active in (("/creator/discover?kind=opportunity", "all"),
+                        ("/creator/discover?kind=opportunity&view=mine", "mine")):
+        nav = client.get(url).text.split('<nav class="discover-view-switch"', 1)[1].split("</nav>", 1)[0]
+        assert re.findall(r'<a href="([^"]*)"[^>]*>([a-z]+)</a>', nav) == [
+            ("/creator/discover?kind=opportunity", "all"),
+            ("/creator/discover?kind=opportunity&view=mine", "mine"),
+        ]
+        assert re.findall(r'class="active" aria-current="page">([a-z]+)</a>', nav) == [active]
+    _brand(client, world)
+    nav = client.get("/brand/discover?kind=opportunity&view=mine").text.split(
+        '<nav class="discover-view-switch"', 1)[1].split("</nav>", 1)[0]
+    assert re.findall(r'<a href="([^"]*)"', nav) == [
+        "/brand/discover?kind=opportunity", "/brand/discover?kind=opportunity&view=mine"]
+    # the primary tabs are unchanged and stay first
+    html = client.get("/brand/discover?kind=opportunity").text
+    assert html.index('class="discover-kind-tabs"') < html.index('class="discover-view-switch"')
+
+
+def test_segmented_control_css_is_scoped_and_has_no_underline():
+    css = Path("app/static/css/app.css").read_text(encoding="utf-8")
+    block = css.split("/* Discover → Opportunities: [ all | mine ] segmented control.", 1)[1]
+    assert ".discover-view-switch a.active" in block
+    assert "::after" not in block and "::before" not in block  # no secondary underline
+    assert "font-size: 13px" in block and "border-radius: 999px" in block
+    # the DMs view switches keep the original sub-tab rules
+    assert ".discover-sub-tabs a.active::after" in css
 
 
 def test_view_param_is_ignored_outside_opportunities(client, world):
@@ -375,7 +408,7 @@ def test_creator_can_open_my_opportunities(client, world):
     assert world.list_cards_calls == []  # not the Explore feed
     assert world.recorded_actions == []  # not a discovery impression
     assert re.search(
-        r'class="active" aria-current="page">my opportunities</a>', r.text
+        r'class="active" aria-current="page">mine</a>', r.text
     )
 
 
@@ -664,9 +697,9 @@ def test_brand_explore_unchanged_and_secondary_nav_present(client, world):
     assert r.status_code == 200
     assert "Brand feed card" in r.text
     assert len(world.list_cards_calls) == 1
-    assert ">my opportunities</a>" in r.text
+    assert ">mine</a>" in r.text
     r = client.get("/brand/discover?kind=creator")
-    assert "discover-sub-tabs" not in r.text
+    assert "discover-view-switch" not in r.text
 
 
 # ------------------------------------------------------- filters in mine
