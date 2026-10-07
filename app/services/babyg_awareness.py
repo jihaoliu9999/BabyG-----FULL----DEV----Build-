@@ -406,7 +406,7 @@ def _open_deal_stage(user_id: str) -> str | None:
         result = (
             client.table("dm_ai_briefs")
             .select("deal_stage")
-            .eq("recipient_id", user_id)
+            .eq("recipient_user_id", user_id)
             .not_.is_("deal_stage", "null")
             .limit(20)
             .execute()
