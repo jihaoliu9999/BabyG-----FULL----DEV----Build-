@@ -42,15 +42,47 @@ def test_csp_allows_same_origin_static_css(client: TestClient) -> None:
     assert "babyg - premium dark theme" in css.text
 
 
-def test_csp_form_action_allows_google_oauth_redirect(client: TestClient) -> None:
-    """The Google OAuth picker POSTs same-origin and 302s to
-    accounts.google.com. Browsers enforce form-action across the
-    entire navigation chain, so the redirect target must be
-    allow-listed or the redirect silently fails."""
+def _csp_directives(csp: str) -> dict[str, list[str]]:
+    directives: dict[str, list[str]] = {}
+    for part in csp.split(";"):
+        tokens = part.split()
+        if tokens:
+            directives[tokens[0]] = tokens[1:]
+    return directives
+
+
+def test_csp_form_action_allows_oauth_and_stripe_redirects(client: TestClient) -> None:
+    """The Google OAuth picker, "Pay" (Stripe Checkout) and "set up
+    payouts" (Stripe Connect onboarding) all POST same-origin and then
+    redirect off-site. Browsers enforce form-action across the entire
+    navigation chain, so each redirect target must be allow-listed or the
+    redirect silently fails. Exactly these origins — nothing broader."""
     response = client.get("/")
     assert response.status_code == 200
-    csp = response.headers["content-security-policy"]
-    assert "form-action 'self' https://accounts.google.com" in csp
+    csp = _csp_directives(response.headers["content-security-policy"])
+    assert csp["form-action"] == [
+        "'self'",
+        "https://accounts.google.com",
+        "https://connect.stripe.com",
+        "https://checkout.stripe.com",
+    ]
+
+
+def test_csp_other_directives_unchanged(client: TestClient) -> None:
+    response = client.get("/")
+    assert response.status_code == 200
+    csp = _csp_directives(response.headers["content-security-policy"])
+    assert csp["default-src"] == ["'self'"]
+    assert csp["img-src"][:2] == ["'self'", "data:"]
+    assert csp["script-src"] == ["'self'"]
+    assert csp["style-src"] == ["'self'", "'unsafe-inline'"]
+    assert csp["style-src-elem"] == ["'self'"]
+    assert csp["connect-src"] == ["'self'", "https://api.bigdatacloud.net"]
+    assert csp["frame-ancestors"] == ["'none'"]
+    assert set(csp) == {
+        "default-src", "img-src", "script-src", "style-src", "style-src-elem",
+        "connect-src", "form-action", "frame-ancestors",
+    }
 
 
 def test_csp_connect_src_allows_reverse_geocode(client: TestClient) -> None:

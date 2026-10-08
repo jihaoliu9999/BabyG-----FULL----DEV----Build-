@@ -339,6 +339,9 @@ class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
         # picker POSTs to a same-origin handler that 302s to Google — browsers
         # enforce form-action across the entire navigation chain, so the
         # redirect target must be allow-listed too or the redirect is blocked.
+        # Stripe works the same way: "Pay" POSTs then 303s to Stripe Checkout
+        # (checkout.stripe.com) and "set up payouts" to Connect onboarding
+        # (connect.stripe.com).
         settings = get_settings()
         img_src = "img-src 'self' data:"
         supabase_origin = _origin(settings.supabase_url)
@@ -354,7 +357,8 @@ class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
             # API key. The endpoint is read-only and cors-friendly; nothing
             # else (auth, app secret) is sent.
             "connect-src 'self' https://api.bigdatacloud.net; "
-            "form-action 'self' https://accounts.google.com; "
+            "form-action 'self' https://accounts.google.com "
+            "https://connect.stripe.com https://checkout.stripe.com; "
             "frame-ancestors 'none';"
         )
         if settings.env != "dev":
