@@ -3258,6 +3258,16 @@ async def jobs_delete(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
     if str(listing["poster_user_id"]) != session["user_id"]:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+    # Applications, offers and deals reference the listing ON DELETE
+    # CASCADE, so deleting it would silently delete them too. Refuse and
+    # explain on the edit page instead; refuse too when we can't tell.
+    dependents = jobs.has_dependents(listing_id)
+    if dependents is not False:
+        reason = "blocked" if dependents else "unavailable"
+        return RedirectResponse(
+            f"/creator/jobs/{listing_id}/edit?delete={reason}#delete-posting",
+            status_code=303,
+        )
     if not jobs.delete(listing_id, poster_id=session["user_id"]):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST)
     return RedirectResponse("/creator/jobs", status_code=303)

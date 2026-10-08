@@ -35,6 +35,9 @@ class FakeWorld:
         self.listings: dict[str, dict[str, Any]] = {}
         self.connections: dict[tuple[str, str], dict[str, Any]] = {}
         self.notifs: list[dict[str, Any]] = []
+        # listing id -> has_dependents() answer (True / None); default False.
+        self.dependents: dict[str, bool | None] = {}
+        self.delete_calls: list[str] = []
 
     def add_creator(self, *, user_id, **kw):
         self.creators[user_id] = {
@@ -136,6 +139,7 @@ def world(monkeypatch) -> FakeWorld:
         return True
 
     def _delete(lid, *, poster_id):
+        w.delete_calls.append(lid)
         listing = w.listings.get(lid)
         if not listing or listing["poster_user_id"] != poster_id:
             return False
@@ -163,6 +167,7 @@ def world(monkeypatch) -> FakeWorld:
     monkeypatch.setattr(jobs_module, "update", _update)
     monkeypatch.setattr(jobs_module, "deactivate", _deactivate)
     monkeypatch.setattr(jobs_module, "delete", _delete)
+    monkeypatch.setattr(jobs_module, "has_dependents", lambda lid: w.dependents.get(lid, False))
     monkeypatch.setattr(jobs_module, "take_down", _take_down)
 
     # ----- network: connection lookup for "can DM" gate -----
@@ -485,6 +490,158 @@ def test_creator_jobs_delete_rejects_non_owner(client, world):
     r = client.post(f"/creator/jobs/{listing['id']}/delete")
     assert r.status_code == 403
     assert listing["id"] in world.listings
+    assert world.delete_calls == []
+
+
+def test_creator_jobs_delete_refused_when_people_applied(client, world):
+    """Applications, offers and deals cascade from the listing, so a
+    posting anyone applied to is never deleted; the edit page explains."""
+    _signed_in(client, role="creator", user_id="c-1")
+    world.add_creator(user_id="c-1")
+    listing = world.add_listing(poster="c-1", title="Mine")
+    world.dependents[listing["id"]] = True
+    r = client.post(f"/creator/jobs/{listing['id']}/delete")
+    assert r.status_code == 303
+    assert r.headers["location"] == (
+        f"/creator/jobs/{listing['id']}/edit?delete=blocked#delete-posting"
+    )
+    assert listing["id"] in world.listings
+    assert world.delete_calls == []
+
+    page = client.get(r.headers["location"])
+    assert page.status_code == 200
+    assert "can&#39;t be deleted" in page.text or "can't be deleted" in page.text
+    assert 'href="/creator/jobs/mine"' in page.text
+
+
+def test_creator_jobs_delete_refused_when_dependents_unknown(client, world):
+    _signed_in(client, role="creator", user_id="c-1")
+    world.add_creator(user_id="c-1")
+    listing = world.add_listing(poster="c-1", title="Mine")
+    world.dependents[listing["id"]] = None
+    r = client.post(f"/creator/jobs/{listing['id']}/delete")
+    assert r.status_code == 303
+    assert r.headers["location"].endswith("?delete=unavailable#delete-posting")
+    assert listing["id"] in world.listings
+    assert world.delete_calls == []
+    page = client.get(r.headers["location"])
+    assert "nothing was deleted" in page.text
+
+
+def test_creator_jobs_delete_unknown_listing_404(client, world):
+    _signed_in(client, role="creator", user_id="c-1")
+    world.add_creator(user_id="c-1")
+    for bad in (str(uuid4()), "not-a-uuid"):
+        r = client.post(f"/creator/jobs/{bad}/delete")
+        assert r.status_code == 404
+    assert world.delete_calls == []
+
+
+def test_creator_jobs_edit_delete_button_confirms_without_inline_js(client, world):
+    """Inline onclick handlers are blocked by the CSP (script-src 'self'),
+    which used to let delete fire with no confirmation. The button asks via
+    data-confirm, handled by an external same-origin script."""
+    _signed_in(client, role="creator", user_id="c-1")
+    world.add_creator(user_id="c-1")
+    listing = world.add_listing(poster="c-1", title="Mine")
+    page = client.get(f"/creator/jobs/{listing['id']}/edit")
+    assert page.status_code == 200
+    form = page.text.split('id="delete-posting"', 1)[1].split("</form>", 1)[0]
+    assert "data-confirm=" in form
+    assert "onclick" not in form
+    assert "/static/js/confirm_submit.js?v=" in page.text
+    assert "script-src 'self'" in page.headers["content-security-policy"]
+
+
+def test_no_template_uses_inline_event_handlers():
+    """The CSP blocks inline handlers, so any on*="..." attribute silently
+    does nothing in the browser."""
+    import re
+    from pathlib import Path
+
+    root = Path(__file__).parents[1] / "app" / "templates"
+    offenders = [
+        f"{path.relative_to(root)}: {match.group(0)}"
+        for path in root.rglob("*.html")
+        for match in re.finditer(r"\son[a-z]+\s*=\s*[\"']", path.read_text(encoding="utf-8"))
+    ]
+    assert offenders == []
+
+
+def test_confirm_script_cancels_and_never_double_asks():
+    from pathlib import Path
+
+    js = (Path(__file__).parents[1] / "app/static/js/confirm_submit.js").read_text(encoding="utf-8")
+    assert 'document.addEventListener("submit"' in js
+    assert "window.confirm(" in js
+    assert "event.preventDefault()" in js
+    assert 'hasAttribute("data-submitting")' in js
+
+
+class _ChildTable:
+    def __init__(self, rows, calls, table, error=None):
+        self._rows, self._calls, self._table, self._error = rows, calls, table, error
+
+    def select(self, cols):
+        self._calls.append((self._table, "select", cols))
+        return self
+
+    def eq(self, col, val):
+        self._calls.append((self._table, "eq", col, val))
+        self._rows = [r for r in self._rows if r.get(col) == val]
+        return self
+
+    def limit(self, n):
+        self._calls.append((self._table, "limit", n))
+        return self
+
+    def execute(self):
+        if self._error is not None:
+            raise self._error
+        return type("R", (), {"data": self._rows[:1]})()
+
+
+class _ChildClient:
+    def __init__(self, tables, error_on=None):
+        self.tables, self.calls, self.error_on = tables, [], error_on
+
+    def table(self, name):
+        from postgrest.exceptions import APIError
+
+        err = APIError({"message": "boom"}) if name == self.error_on else None
+        return _ChildTable(list(self.tables.get(name, [])), self.calls, name, err)
+
+
+@pytest.mark.parametrize("child", [
+    "creator_job_applications", "creator_job_offers", "creator_job_deals",
+])
+def test_has_dependents_finds_any_cascading_child(monkeypatch, child):
+    from app.core import supabase_client
+
+    client = _ChildClient({child: [{"id": "x", "listing_id": "L1"}]})
+    monkeypatch.setattr(supabase_client, "get_service_client", lambda: client)
+    assert jobs_module.has_dependents("L1") is True
+    assert jobs_module.has_dependents("L2") is False
+
+
+def test_has_dependents_reads_only_ids_by_listing(monkeypatch):
+    from app.core import supabase_client
+
+    client = _ChildClient({})
+    monkeypatch.setattr(supabase_client, "get_service_client", lambda: client)
+    assert jobs_module.has_dependents("L1") is False
+    tables = [c[0] for c in client.calls if c[1] == "select"]
+    assert tables == ["creator_job_applications", "creator_job_offers", "creator_job_deals"]
+    assert all(c[2] == "id" for c in client.calls if c[1] == "select")
+    assert all(c[2:] == ("listing_id", "L1") for c in client.calls if c[1] == "eq")
+
+
+def test_has_dependents_unknown_on_read_failure(monkeypatch):
+    from app.core import supabase_client
+
+    client = _ChildClient({}, error_on="creator_job_offers")
+    monkeypatch.setattr(supabase_client, "get_service_client", lambda: client)
+    assert jobs_module.has_dependents("L1") is None
 
 
 def test_creator_jobs_404_taken_down(client, world):

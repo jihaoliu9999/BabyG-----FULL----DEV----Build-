@@ -70,10 +70,16 @@
   </form>
 
   {% if not is_new %}
-  <form class="posting-delete-form" method="post" action="/creator/jobs/{{ listing_id }}/delete">
+  {% set delete_state = request.query_params.get('delete') %}
+  {% if delete_state == 'blocked' %}
+  <div class="auth-error">this posting can't be deleted: people have applied, and deleting it would also delete their applications, offers and deals. <a href="/creator/jobs/mine">close it from your postings</a> instead to stop new applications.</div>
+  {% elif delete_state == 'unavailable' %}
+  <div class="auth-error">we couldn't check this posting's applications, so nothing was deleted. try again.</div>
+  {% endif %}
+  <form class="posting-delete-form" id="delete-posting" method="post" action="/creator/jobs/{{ listing_id }}/delete">
     {% include "_partials/csrf.html" %}
     <button type="submit" class="btn btn-danger btn-wide"
-            onclick="return confirm('delete this posting?');">
+            data-confirm="delete this posting? this can't be undone.">
       delete posting
     </button>
   </form>
@@ -81,3 +87,5 @@
 </section>
 </div>
 {% endblock %}
+
+{% block foot_scripts %}<script src="{{ asset_url('js/confirm_submit.js') }}" defer></script>{% endblock %}

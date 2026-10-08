@@ -176,6 +176,40 @@ def deactivate(listing_id: str, *, poster_id: str) -> bool:
     return bool(getattr(result, "data", None))
 
 
+# Tables that reference a listing ON DELETE CASCADE (migrations 0048, 0049,
+# 0051). Deleting a listing that any of them points at would silently
+# delete those rows too.
+_CASCADING_CHILDREN = (
+    "creator_job_applications",
+    "creator_job_offers",
+    "creator_job_deals",
+)
+
+
+def has_dependents(listing_id: str) -> bool | None:
+    """True if any application, offer or deal references the listing.
+
+    None when that can't be determined, so callers can refuse to delete
+    rather than guess. Only ids are read, one row per table at most.
+    """
+    for table in _CASCADING_CHILDREN:
+        try:
+            result = (
+                supabase_client.get_service_client()
+                .table(table)
+                .select("id")
+                .eq("listing_id", listing_id)
+                .limit(1)
+                .execute()
+            )
+        except PostgrestAPIError:
+            logger.exception("jobs dependents check failed: %s %s", table, listing_id)
+            return None
+        if getattr(result, "data", None):
+            return True
+    return False
+
+
 def delete(listing_id: str, *, poster_id: str) -> bool:
     """Poster-initiated delete, owner-filtered at the service layer."""
     try:
