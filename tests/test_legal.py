@@ -15,6 +15,7 @@ from fastapi import Response
 from fastapi.testclient import TestClient
 
 from app.core.security import SESSION_COOKIE, write_session
+from app.routes.legal import CONTACT_EMAIL
 
 LEGAL_PATHS = ["/privacy", "/terms", "/accessibility", "/data-deletion"]
 SHARED_TOKENS = [
@@ -105,6 +106,10 @@ def test_data_deletion_page_does_not_claim_automated_flow(
     r = client.get("/data-deletion")
     text = r.text.lower()
     assert "verify your identity" in text
+    assert "in-app account deletion is temporarily unavailable" in text
+    assert f"mailto:{CONTACT_EMAIL}" in r.text
+    assert "type <em>delete</em>" not in text
+    assert "this immediately:" not in text
     # Don't fake a self-serve delete button. The page must be explicit
     # that this is an email-based process today.
     assert "email us" in text or "email" in text

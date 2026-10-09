@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import pytest
 from fastapi import Response
 from fastapi.testclient import TestClient
 
@@ -900,6 +901,12 @@ def test_creator_profile_settings_page_renders(monkeypatch, client: TestClient) 
         '<details class="settings-group settings-card settings-disclosure '
         'settings-danger" id="delete-account"'
     ) in response.text
+    assert (
+        "Account deletion is temporarily unavailable. "
+        "Please contact support for assistance."
+    ) in response.text
+    assert 'action="/creator/profile/delete"' not in response.text
+    assert 'name="confirm"' not in response.text
     assert "account controls" not in response.text
     # Sign-in disclosure sits between assistant and delete-account
     # and carries the sign-out form inside its body.
@@ -907,7 +914,7 @@ def test_creator_profile_settings_page_renders(monkeypatch, client: TestClient) 
     assert 'action="/auth/logout"' in response.text
 
 
-def test_creator_profile_delete_confirm_reopens_delete_card(
+def test_creator_profile_delete_unavailable_reopens_delete_card(
     monkeypatch, client: TestClient
 ) -> None:
     _signed_in(client, role="creator")
@@ -919,37 +926,89 @@ def test_creator_profile_delete_confirm_reopens_delete_card(
     )
     monkeypatch.setattr(creator_routes.google_calendar, "is_configured", lambda: False)
 
-    response = client.get("/creator/profile/settings?delete=confirm")
+    response = client.get("/creator/profile/settings?delete=unavailable")
 
     assert response.status_code == 200
     assert (
         '<details class="settings-group settings-card settings-disclosure '
         'settings-danger" id="delete-account" open>'
     ) in response.text
-    assert "type <strong>delete</strong> in the box below to confirm." in response.text
+    assert (
+        "Account deletion is temporarily unavailable. "
+        "Please contact support for assistance."
+    ) in response.text
+    assert 'action="/creator/profile/delete"' not in response.text
 
 
-def test_creator_profile_delete_invalid_redirects_to_delete_card(
+@pytest.mark.parametrize("confirm", [None, "nope", "delete"])
+def test_creator_profile_delete_refuses_without_side_effects(
+    confirm: str | None,
     monkeypatch, client: TestClient
 ) -> None:
     _signed_in(client, role="creator")
+    session_cookie = client.cookies.get(SESSION_COOKIE)
+    calls: list[str] = []
 
-    def _fail_delete(user_id: str) -> None:
-        raise AssertionError("invalid confirmation must not delete the account")
+    def _unexpected(*args, **kwargs) -> None:
+        calls.append("side effect")
 
-    monkeypatch.setattr(creator_routes.profiles, "delete_account", _fail_delete)
+    monkeypatch.setattr(creator_routes.profiles, "delete_account", _unexpected)
+    monkeypatch.setattr(creator_routes.oauth_connections, "disconnect_instagram", _unexpected)
+    monkeypatch.setattr(creator_routes.oauth_connections, "remove_google_service", _unexpected)
 
     response = client.post(
         "/creator/profile/delete",
-        data={"confirm": "nope"},
+        data={"confirm": confirm, "user_id": "another-user"} if confirm else {},
         follow_redirects=False,
     )
 
     assert response.status_code == 303
     assert (
         response.headers["location"]
-        == "/creator/profile/settings?delete=confirm#delete-account"
+        == "/creator/profile/settings?delete=unavailable#delete-account"
     )
+    assert "deleted=1" not in response.headers["location"]
+    assert "set-cookie" not in response.headers
+    assert client.cookies.get(SESSION_COOKIE) == session_cookie
+    assert calls == []
+
+
+def test_creator_profile_delete_duplicate_requests_preserve_session(
+    monkeypatch, client: TestClient
+) -> None:
+    _signed_in(client, role="creator")
+    monkeypatch.setattr(creator_routes.profiles, "delete_account", lambda _uid: pytest.fail("deleted"))
+    monkeypatch.setattr(creator_routes.profiles, "get_creator_profile", lambda _uid: _profile())
+
+    for _ in range(2):
+        response = client.post(
+            "/creator/profile/delete",
+            data={"confirm": "delete"},
+            follow_redirects=False,
+        )
+        assert response.status_code == 303
+        assert "delete=unavailable" in response.headers["location"]
+
+    assert client.cookies.get(SESSION_COOKIE)
+    profile = client.get("/creator/profile")
+    assert profile.status_code == 200
+    assert "Mia Creator" in profile.text
+
+
+@pytest.mark.parametrize("role, expected_status", [(None, 401), ("brand", 403)])
+def test_creator_profile_delete_requires_creator_session(
+    role: str | None, expected_status: int, client: TestClient
+) -> None:
+    if role:
+        _signed_in(client, role=role)
+
+    response = client.post(
+        "/creator/profile/delete",
+        data={"confirm": "delete"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == expected_status
 
 
 def test_creator_profile_settings_google_states_are_scope_aware(

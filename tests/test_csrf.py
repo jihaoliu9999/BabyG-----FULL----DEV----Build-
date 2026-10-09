@@ -23,6 +23,7 @@ import re
 from types import SimpleNamespace
 
 import pytest
+from fastapi import Response
 from fastapi.testclient import TestClient
 
 # Capture the real dispatch at import time, before conftest's autouse
@@ -31,6 +32,7 @@ from app.core import csrf as _csrf_module
 
 _REAL_CALL = _csrf_module.CSRFMiddleware.__call__
 
+from app.core.security import SESSION_COOKIE, write_session  # noqa: E402
 from app.main import app  # noqa: E402  (import order matters: snapshot first)
 
 # Origin that matches `request.url.netloc` so _origin_ok approves the
@@ -94,6 +96,49 @@ def test_post_without_token_is_rejected(csrf_client):
         headers={"origin": SAME_ORIGIN},
     )
     assert r.status_code == 403
+
+
+def test_account_deletion_guard_keeps_csrf_protection(csrf_client, monkeypatch):
+    from app.routes import creator as creator_routes
+
+    cookie_response = Response()
+    write_session(cookie_response, {"user_id": "creator-1", "role": "creator"})
+    cookie = cookie_response.headers["set-cookie"].split(";")[0].split("=", 1)[1]
+    csrf_client.cookies.set(SESSION_COOKIE, cookie, domain="testserver.local", path="/")
+    monkeypatch.setattr(
+        creator_routes.profiles,
+        "delete_account",
+        lambda _uid: pytest.fail("deletion service invoked"),
+    )
+
+    missing = csrf_client.post(
+        "/creator/profile/delete",
+        data={"confirm": "delete"},
+        headers={"origin": SAME_ORIGIN},
+        follow_redirects=False,
+    )
+    assert missing.status_code == 403
+
+    invalid = csrf_client.post(
+        "/creator/profile/delete",
+        data={"confirm": "delete", "csrf_token": "invalid"},
+        headers={"origin": SAME_ORIGIN},
+        follow_redirects=False,
+    )
+    assert invalid.status_code == 403
+
+    token = _scrape_token(csrf_client, "/auth/login?role=creator")
+    refused = csrf_client.post(
+        "/creator/profile/delete",
+        data={"confirm": "delete", "csrf_token": token},
+        headers={"origin": SAME_ORIGIN},
+        follow_redirects=False,
+    )
+    assert refused.status_code == 303
+    assert refused.headers["location"] == (
+        "/creator/profile/settings?delete=unavailable#delete-account"
+    )
+    assert csrf_client.cookies.get(SESSION_COOKIE, domain="testserver.local", path="/") == cookie
 
 
 def test_post_with_valid_token_is_accepted(csrf_client, stub_supabase):

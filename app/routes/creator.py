@@ -33,7 +33,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Resp
 
 from app.core.rate_limit import dm_brief_manual_limiter
 from app.core.redirects import safe_same_origin
-from app.core.security import SessionPayload, clear_pending_role, clear_session
+from app.core.security import SessionPayload
 from app.core.templating import templates, unread_offer_count
 from app.core.url_guard import http_url_or_none
 from app.deps import require_role
@@ -3781,32 +3781,13 @@ async def google_gmail_disconnect(
 
 @router.post("/creator/profile/delete")
 async def profile_delete(
-    request: Request,
-    confirm: str = Form(""),
-    session: SessionPayload = Depends(require_role("creator")),
+    _session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
-    """In-app account deletion.
-
-    Google's Limited Use policy and Meta's platform policy both require
-    an in-app path to delete user data (email-only deletion is a common
-    OAuth verification blocker). The user must type "delete" into the
-    confirm field for the delete to proceed — matches how github,
-    google, etc. gate destructive account actions.
-
-    On success we revoke Google, disconnect Instagram, delete the
-    `public.users` row (cascades to every downstream table), clear the
-    session cookie, and land on a public confirmation page.
-    """
-    if (confirm or "").strip().lower() != "delete":
-        return RedirectResponse(
-            "/creator/profile/settings?delete=confirm#delete-account",
-            status_code=303,
-        )
-    profiles.delete_account(session["user_id"])
-    response = RedirectResponse("/?deleted=1", status_code=303)
-    clear_session(response)
-    clear_pending_role(response)
-    return response
+    """Refuse deletion until the database and atomic deletion flow are safe."""
+    return RedirectResponse(
+        "/creator/profile/settings?delete=unavailable#delete-account",
+        status_code=303,
+    )
 
 
 @router.get("/creator/calendar/new", response_class=HTMLResponse)
