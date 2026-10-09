@@ -414,7 +414,39 @@
         <span class="settings-disclosure-icon" aria-hidden="true"></span>
       </summary>
       <div class="settings-disclosure-body">
+        {% if account_deletion_enabled %}
+        <p class="settings-danger-copy"><strong>this cannot be undone.</strong> removes your profile, connections, DMs, and every piece of data tied to your account. revokes Gmail and Google Calendar at Google. disconnects Instagram from babyg's side (also remove babyg from <a href="https://accounts.meta.com/apps/" target="_blank" rel="noopener noreferrer">accounts.meta.com/apps</a> to complete revocation there).</p>
+
+        {% set delete_notice = request.query_params.get('delete') %}
+        {% if delete_notice == 'confirm' %}
+        <div class="settings-inline-notice" role="alert">
+          type <strong>delete</strong> in the box below to confirm.
+        </div>
+        {% elif delete_notice == 'blocked' %}
+        <div class="settings-inline-notice" role="alert">
+          your account can't be deleted here because applications, offers or deals with other people are tied to it. nothing was deleted. <a href="/data-deletion">request deletion</a> and we'll help.
+        </div>
+        {% elif delete_notice == 'failed' %}
+        <div class="settings-inline-notice" role="alert">
+          we couldn't confirm your account was deleted. you're still signed in — try again in a moment.
+        </div>
+        {% endif %}
+
+        <form class="settings-form settings-disclosure-form" method="post" action="/creator/profile/delete">
+          {% include "_partials/csrf.html" %}
+          <label class="settings-field">
+            <span>type <strong>delete</strong> to confirm</span>
+            <input type="text" name="confirm" autocomplete="off" required
+                   pattern="[Dd][Ee][Ll][Ee][Tt][Ee]"
+                   placeholder="delete" />
+          </label>
+          <div class="settings-actions">
+            <button class="btn btn-danger btn-sm" type="submit">delete my account</button>
+          </div>
+        </form>
+        {% else %}
         <p class="settings-danger-copy">Account deletion is temporarily unavailable. Please contact support for assistance.</p>
+        {% endif %}
       </div>
     </details>
   </div>

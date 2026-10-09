@@ -31,9 +31,10 @@ from fastapi import (
 )
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 
+from app.config import get_settings
 from app.core.rate_limit import dm_brief_manual_limiter
 from app.core.redirects import safe_same_origin
-from app.core.security import SessionPayload
+from app.core.security import SessionPayload, clear_pending_role, clear_session
 from app.core.templating import templates, unread_offer_count
 from app.core.url_guard import http_url_or_none
 from app.deps import require_role
@@ -1285,6 +1286,7 @@ async def profile_settings_page(
             "deal_type_choices": deal_type_choices,
             "deal_type_selected": saved_deal_types,
             "payout_status": payout_status,
+            "account_deletion_enabled": get_settings().account_deletion_enabled,
         },
     )
 
@@ -3781,11 +3783,40 @@ async def google_gmail_disconnect(
 
 @router.post("/creator/profile/delete")
 async def profile_delete(
-    _session: SessionPayload = Depends(require_role("creator")),
+    confirm: str = Form(""),
+    session: SessionPayload = Depends(require_role("creator")),
 ) -> Response:
-    """Refuse deletion until the database and atomic deletion flow are safe."""
+    """In-app account deletion.
+
+    Google's Limited Use policy and Meta's platform policy both require
+    an in-app path to delete user data. Refused with the temporary
+    notice unless BABYG_ACCOUNT_DELETION_ENABLED is on (migration 0053
+    must be applied first). The user must type "delete" to confirm.
+
+    The session cookie is cleared only after the database confirms the
+    account is gone. A refusal ("blocked": another person's application,
+    offer or deal references the account) or a failure leaves the
+    session and every connection untouched.
+    """
+    if not get_settings().account_deletion_enabled:
+        return _delete_account_notice("unavailable")
+    if (confirm or "").strip().lower() != "delete":
+        return _delete_account_notice("confirm")
+    outcome = await asyncio.to_thread(profiles.delete_account, session["user_id"])
+    if outcome.status not in ("deleted", "not_found"):
+        return _delete_account_notice(outcome.status)
+    destination = "/data-deletion?deleted=" + ("1" if outcome.status == "deleted" else "gone")
+    if outcome.google_revoked is False:
+        destination += "&google=revoke_failed"
+    response = RedirectResponse(destination + "#account-deleted", status_code=303)
+    clear_session(response)
+    clear_pending_role(response)
+    return response
+
+
+def _delete_account_notice(reason: str) -> RedirectResponse:
     return RedirectResponse(
-        "/creator/profile/settings?delete=unavailable#delete-account",
+        f"/creator/profile/settings?delete={reason}#delete-account",
         status_code=303,
     )
 

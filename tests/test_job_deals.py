@@ -774,7 +774,10 @@ def test_migration_0051_is_additive_private_and_atomic():
     names = sorted(p.name for p in Path("migrations").glob("*.sql"))
     at = names.index(MIGRATION.name)
     assert names[at - 1] == "0050_creator_job_offer_responses.sql"
-    assert names[at + 1:] == ["0052_creator_job_deal_payments.sql"]  # Step 7A
+    assert names[at + 1:] == [
+        "0052_creator_job_deal_payments.sql",  # Step 7A
+        "0053_account_deletion_protection.sql",  # account deletion safety
+    ]
     sql = MIGRATION.read_text(encoding="utf-8")
     code = "\n".join(line.split("--", 1)[0] for line in sql.splitlines()).lower()
     assert code.strip().startswith("begin;") and code.strip().endswith("commit;")

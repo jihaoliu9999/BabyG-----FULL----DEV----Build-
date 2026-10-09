@@ -34,6 +34,12 @@ class Settings(BaseSettings):
     # instead of just logging a WARN. Off by default so flipping the
     # toggle is an explicit operational decision per env.
     strict_migration_check: bool = False
+    # Permanent in-app account deletion. Off by default: the route keeps
+    # refusing with the "temporarily unavailable" notice until migration
+    # 0053 is confirmed applied in production and this is switched on.
+    account_deletion_enabled: bool = Field(
+        default=False, validation_alias="BABYG_ACCOUNT_DELETION_ENABLED"
+    )
 
     # Supabase
     supabase_url: str = ""

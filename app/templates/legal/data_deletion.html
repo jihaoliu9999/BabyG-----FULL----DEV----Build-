@@ -5,18 +5,34 @@
 {% block legal_title %}data deletion.{% endblock %}
 
 {% block legal_status_pill %}{% endblock %}
-{% block legal_callout %}{% endblock %}
+{% block legal_callout %}{% if request.query_params.get('deleted') in ('1', 'gone') %}<span id="account-deleted" role="status">{% if request.query_params.get('deleted') == '1' %}your babyg account has been deleted and you've been signed out.{% else %}this babyg account no longer exists, so you've been signed out.{% endif %}{% if request.query_params.get('google') == 'revoke_failed' %} google didn't confirm that babyg's access was revoked — remove babyg at <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer">myaccount.google.com/permissions</a>.{% endif %} if you connected instagram, also remove babyg at <a href="https://accounts.meta.com/apps/" target="_blank" rel="noopener noreferrer">accounts.meta.com/apps</a> to complete revocation on meta's side.</span>{% endif %}{% endblock %}
 
 {% block legal_body %}
 <p>you can request deletion of your babyg account or specific data tied to your account at any time.</p>
 
 <p>this page explains how to request deletion, what gets removed, what may be retained for limited reasons, how connected accounts are disconnected, and how long deletion usually takes.</p>
 
+{% if account_deletion_enabled %}
+<h2>delete your account inside babyg</h2>
+<p>the fastest way to delete your account is from inside babyg. sign in, open <a href="/creator/profile/settings#delete-account">profile settings</a>, scroll to the <strong>delete account</strong> section at the bottom, type <em>delete</em> to confirm, and submit.</p>
+<p>this immediately:</p>
+<ul>
+  <li>deletes your account record, your sign-in identity, and the rows tied to them — profile, connections, DMs, notifications, bookings, receipts, performance snapshots, discovery actions, and action proposals</li>
+  <li>then revokes your gmail and google calendar grants at google</li>
+  <li>disconnects instagram from babyg (also remove babyg from <a href="https://accounts.meta.com/apps/" target="_blank" rel="noopener noreferrer">accounts.meta.com/apps</a> to complete revocation on meta's side)</li>
+  <li>signs you out</li>
+</ul>
+<p>if applications, offers, or deals with other people are tied to your account, in-app deletion is refused and nothing is deleted, because those records also belong to the other person. request deletion by email below and we'll handle it.</p>
+
+<h2>delete by email</h2>
+<p>if you cannot sign in, email <a href="mailto:{{ contact_email }}">{{ contact_email }}</a> from the email address tied to your babyg account.</p>
+{% else %}
 <h2>delete your account</h2>
 <p>in-app account deletion is temporarily unavailable. you can request deletion by contacting support using the email instructions below.</p>
 
 <h2>delete by email</h2>
 <p>email <a href="mailto:{{ contact_email }}">{{ contact_email }}</a> from the email address tied to your babyg account.</p>
+{% endif %}
 <p>include:</p>
 <ul>
   <li>"data deletion request" in the subject line</li>

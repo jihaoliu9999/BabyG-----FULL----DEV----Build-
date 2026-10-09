@@ -10,6 +10,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
 
+from app.config import get_settings
 from app.core.templating import templates
 
 router = APIRouter(tags=["legal"])
@@ -47,7 +48,9 @@ async def accessibility(request: Request):
 @router.get("/data-deletion", response_class=HTMLResponse)
 async def data_deletion(request: Request):
     return templates.TemplateResponse(
-        request, "legal/data_deletion.html", _ctx()
+        request,
+        "legal/data_deletion.html",
+        {**_ctx(), "account_deletion_enabled": get_settings().account_deletion_enabled},
     )
 
 

@@ -1136,7 +1136,11 @@ MIGRATION = Path("migrations/0052_creator_job_deal_payments.sql")
 
 def test_migration_0052_is_additive_private_idempotent_and_pins_the_economics():
     names = sorted(p.name for p in Path("migrations").glob("*.sql"))
-    assert names[-2:] == ["0051_creator_job_deals.sql", MIGRATION.name]
+    assert names[-3:] == [
+        "0051_creator_job_deals.sql",
+        MIGRATION.name,
+        "0053_account_deletion_protection.sql",  # account deletion safety
+    ]
     sql = MIGRATION.read_text(encoding="utf-8")
     code = "\n".join(line.split("--", 1)[0] for line in sql.splitlines()).lower()
     assert code.strip().startswith("begin;") and code.strip().endswith("commit;")

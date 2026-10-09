@@ -16,12 +16,15 @@ and `network.py` apply this projection.
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
+import httpx
 from postgrest.exceptions import APIError as PostgrestAPIError
 
 from app.core import supabase_client
+from app.integrations import google_calendar
 
 logger = logging.getLogger(__name__)
 
@@ -343,46 +346,91 @@ def _update_profile(table: str, user_id: str, payload: dict[str, Any]) -> bool:
     return bool(getattr(result, "data", None))
 
 
-def delete_account(user_id: str) -> bool:
-    """Fully delete a user's account and all connected-account tokens.
+@dataclass(frozen=True)
+class AccountDeletion:
+    """Outcome of `delete_account`.
+
+    `status` is "deleted", "blocked" (another person's application, offer
+    or deal still references the account; nothing changed), "not_found"
+    (no such account) or "failed" (the database did not confirm anything;
+    treat the account as still existing). `google_revoked` is None when no
+    Google grant was connected, else whether Google accepted the revoke.
+    """
+
+    status: str
+    google_revoked: bool | None = None
+
+
+def delete_account(user_id: str) -> AccountDeletion:
+    """Permanently delete a user's account (migration 0053).
 
     Google's Limited Use policy and Meta's platform policy both require
     an in-app path to delete Google/Instagram user data — an email-only
-    delete flow is a common OAuth verification blocker. This helper:
+    delete flow is a common OAuth verification blocker. Order matters:
 
-      1. Revokes and disconnects Google (revokes grant at Google via
-         `oauth_connections.disconnect_google`).
-      2. Disconnects Instagram (drops local tokens; Meta doesn't
-         expose a self-service revoke endpoint the way Google does,
-         so users must also remove babyg from
-         https://accounts.meta.com/apps/ to complete revocation).
-      3. Deletes the `public.users` row. Every downstream table
-         references `users(id) ON DELETE CASCADE`, so profile,
-         connections, DMs, notifications, bookings, receipts,
-         performance, discovery actions, action proposals, and
-         audit_log rows for this user go with it.
-
-    Best-effort per-provider — a Google revoke failure does not block
-    Instagram disconnect or the users-row delete. Returns True iff the
-    users-row delete succeeded.
+      1. Read the Google grant while its row still exists. If that read
+         fails, stop before deleting anything.
+      2. `delete_user_account` deletes the `public.users` row (cascading
+         to everything the user owns, Instagram and Google token rows
+         included) and the `auth.users` identity in one transaction. The
+         0053 foreign keys make it refuse — "blocked", nothing changed —
+         while another person's application, offer or deal references the
+         account.
+      3. Only after the database confirms the deletion is the captured
+         Google grant revoked at Google. A revoke failure can't undo the
+         deletion; it's reported so the user can remove access themselves.
+         Meta has no self-service revoke endpoint, so users also remove
+         babyg at https://accounts.meta.com/apps/.
     """
-    from app.services import oauth_connections  # avoid a service-layer import cycle
+    client = supabase_client.get_service_client()
     try:
-        oauth_connections.disconnect_google(user_id)
-    except Exception:
-        logger.exception("delete_account: google disconnect failed for %s", user_id)
+        grants = (
+            client.table("oauth_connections")
+            .select("access_token, refresh_token")
+            .eq("user_id", user_id)
+            .eq("provider", "google")
+            .limit(1)
+            .execute()
+        )
+    except (PostgrestAPIError, httpx.HTTPError):
+        logger.exception("delete_account: google grant lookup failed for %s", user_id)
+        return AccountDeletion("failed")
+    grant = (getattr(grants, "data", None) or [{}])[0]
+    # Refresh token grants revoke the whole grant tree; prefer it.
+    google_token = str(grant.get("refresh_token") or grant.get("access_token") or "")
+
     try:
-        oauth_connections.disconnect_instagram(user_id)
-    except Exception:
-        logger.exception("delete_account: instagram disconnect failed for %s", user_id)
+        result = client.rpc("delete_user_account", {"p_user_id": user_id}).execute()
+    except (PostgrestAPIError, httpx.HTTPError):
+        # The transaction may or may not have committed; never assume it did.
+        logger.exception("delete_account: delete_user_account failed for %s", user_id)
+        return AccountDeletion("failed")
+    status = _deletion_status(getattr(result, "data", None))
+    if status is None:
+        logger.error("delete_account: unexpected delete_user_account result for %s", user_id)
+        return AccountDeletion("failed")
+    if status != "deleted":
+        return AccountDeletion(status)
+
+    if not google_token:
+        return AccountDeletion("deleted")
     try:
-        supabase_client.get_service_client().table("users").delete().eq(
-            "id", user_id
-        ).execute()
-    except PostgrestAPIError:
-        logger.exception("delete_account: users delete failed for %s", user_id)
-        return False
-    return True
+        google_calendar.revoke_token(google_token)
+    except google_calendar.GoogleCalendarError:
+        logger.warning("delete_account: google revoke failed after deleting %s", user_id)
+        return AccountDeletion("deleted", google_revoked=False)
+    return AccountDeletion("deleted", google_revoked=True)
+
+
+def _deletion_status(data: Any) -> str | None:
+    """`delete_user_account` returns one row; PostgREST may serialize it
+    as ["deleted"] or [{"result": "deleted"}]."""
+    rows = data if isinstance(data, list) else []
+    if len(rows) != 1:
+        return None
+    row = rows[0]
+    value = row.get("result") if isinstance(row, dict) else row
+    return value if value in ("deleted", "blocked", "not_found") else None
 
 
 def _now_iso() -> str:

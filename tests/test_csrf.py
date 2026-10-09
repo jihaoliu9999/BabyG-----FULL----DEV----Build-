@@ -141,6 +141,54 @@ def test_account_deletion_guard_keeps_csrf_protection(csrf_client, monkeypatch):
     assert csrf_client.cookies.get(SESSION_COOKIE, domain="testserver.local", path="/") == cookie
 
 
+def test_enabled_account_deletion_requires_csrf_and_same_origin(csrf_client, monkeypatch):
+    from app.routes import creator as creator_routes
+    from app.services import profiles
+
+    monkeypatch.setenv("BABYG_ACCOUNT_DELETION_ENABLED", "true")
+    creator_routes.get_settings.cache_clear()
+    calls: list[str] = []
+
+    def _delete(user_id: str) -> profiles.AccountDeletion:
+        calls.append(user_id)
+        return profiles.AccountDeletion("deleted")
+
+    monkeypatch.setattr(creator_routes.profiles, "delete_account", _delete)
+    cookie_response = Response()
+    write_session(cookie_response, {"user_id": "creator-1", "role": "creator"})
+    cookie = cookie_response.headers["set-cookie"].split(";")[0].split("=", 1)[1]
+    csrf_client.cookies.set(SESSION_COOKIE, cookie, domain="testserver.local", path="/")
+
+    for data in ({"confirm": "delete"}, {"confirm": "delete", "csrf_token": "invalid"}):
+        rejected = csrf_client.post(
+            "/creator/profile/delete",
+            data=data,
+            headers={"origin": SAME_ORIGIN},
+            follow_redirects=False,
+        )
+        assert rejected.status_code == 403
+
+    token = _scrape_token(csrf_client, "/auth/login?role=creator")
+    cross_site = csrf_client.post(
+        "/creator/profile/delete",
+        data={"confirm": "delete", "csrf_token": token},
+        headers={"origin": "https://evil.example"},
+        follow_redirects=False,
+    )
+    assert cross_site.status_code == 403
+    assert calls == []
+
+    accepted = csrf_client.post(
+        "/creator/profile/delete",
+        data={"confirm": "delete", "csrf_token": token},
+        headers={"origin": SAME_ORIGIN},
+        follow_redirects=False,
+    )
+    assert accepted.status_code == 303
+    assert accepted.headers["location"] == "/data-deletion?deleted=1#account-deleted"
+    assert calls == ["creator-1"]
+
+
 def test_post_with_valid_token_is_accepted(csrf_client, stub_supabase):
     token = _scrape_token(csrf_client, "/auth/login?role=creator")
     r = csrf_client.post(

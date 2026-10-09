@@ -1190,12 +1190,13 @@ MIGRATION = Path("migrations/0049_creator_job_offers.sql")
 
 def test_migration_is_the_next_number_and_0048_is_unchanged():
     names = sorted(p.name for p in Path("migrations").glob("*.sql"))
-    assert names[-5:] == [
+    assert names[-6:] == [
         "0048_creator_job_applications.sql",
         MIGRATION.name,
         "0050_creator_job_offer_responses.sql",  # Step 6B
         "0051_creator_job_deals.sql",  # Step 6C
         "0052_creator_job_deal_payments.sql",  # Step 7A
+        "0053_account_deletion_protection.sql",  # account deletion safety
     ]
     # 0049 is applied in production by hand: it must never change
     digest49 = hashlib.sha256(MIGRATION.read_bytes()).hexdigest()
